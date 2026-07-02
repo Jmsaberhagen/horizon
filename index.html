@@ -1,0 +1,1455 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Horizon · Gestión de Alquileres</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg-base:#15181C; --bg-panel:#1B1F24; --bg-panel-raised:#20252B; --bg-row-alt:#1E2228;
+    --border:#2A2F36; --border-soft:#22262C;
+    --text-primary:#E9EBEE; --text-muted:#8A9099; --text-dim:#5B6169;
+    --accent:#FF6B1A; --accent-dim:#C4501A; --accent-glow:rgba(255,107,26,.35);
+    --success:#3FB950; --success-glow:rgba(63,185,80,.3);
+    --danger:#F0554B; --warn:#E8B339;
+    --radius:8px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:radial-gradient(1200px 600px at 15% -10%, rgba(255,107,26,.06), transparent 60%), var(--bg-base);
+    color:var(--text-primary); font-family:'Inter',sans-serif; min-height:100vh;
+  }
+  ::selection{background:var(--accent-glow);}
+  h1,h2,h3{font-family:'Oswald',sans-serif;}
+  a{color:inherit;}
+  code{font-family:'JetBrains Mono';font-size:.9em;background:var(--bg-panel-raised);padding:1px 5px;border-radius:4px;}
+  ::-webkit-scrollbar{height:8px;width:8px;}
+  ::-webkit-scrollbar-thumb{background:#333941;border-radius:4px;}
+
+  /* ---------- botones / inputs genéricos ---------- */
+  .btn{
+    border:1px solid var(--border);background:var(--bg-panel-raised);color:var(--text-primary);
+    font-family:'Inter';font-size:13px;font-weight:500;padding:9px 15px;border-radius:var(--radius);
+    cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:.15s;white-space:nowrap;
+  }
+  .btn:hover{border-color:#3a4048;background:#23282f;}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+  .btn-primary{background:linear-gradient(180deg,var(--accent),var(--accent-dim));border-color:transparent;color:#1a0e04;font-weight:600;}
+  .btn-primary:hover{filter:brightness(1.07);}
+  .btn-ghost{background:transparent;}
+  .btn-danger{border-color:#4a2320;color:#F5A29A;}
+  .btn-danger:hover{background:#2a1815;border-color:var(--danger);}
+  .btn-sm{padding:6px 10px;font-size:12px;}
+
+  .field{margin-bottom:12px;}
+  .field label{display:block;font-size:11.5px;color:var(--text-muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em;}
+  .field input,.field select,.field textarea{
+    width:100%;background:var(--bg-base);border:1px solid var(--border);color:var(--text-primary);
+    padding:9px 10px;border-radius:6px;font-family:'Inter';font-size:13px;
+  }
+  .field textarea{resize:vertical;min-height:60px;}
+  .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--accent);}
+  .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .field-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+
+  .badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:4px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.03em;}
+  .badge-pendiente{background:rgba(232,179,57,.12);color:var(--warn);border:1px solid rgba(232,179,57,.3);}
+  .badge-facturado{background:rgba(63,185,80,.12);color:var(--success);border:1px solid rgba(63,185,80,.3);}
+  .badge-baja{background:rgba(240,85,75,.12);color:#F5A29A;border:1px solid rgba(240,85,75,.3);}
+
+  .toast{
+    position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--bg-panel-raised);border:1px solid var(--border);padding:10px 16px;border-radius:8px;
+    font-size:12.5px;display:flex;align-items:center;gap:8px;opacity:0;transition:.2s;pointer-events:none;z-index:80;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .toast .dot{width:7px;height:7px;border-radius:50%;background:var(--success);}
+  .toast.error .dot{background:var(--danger);box-shadow:0 0 8px var(--danger);}
+
+  .modal-overlay{position:fixed;inset:0;background:rgba(10,11,13,.65);display:none;align-items:center;justify-content:center;z-index:70;backdrop-filter:blur(2px);padding:20px;}
+  .modal-overlay.open{display:flex;}
+  .modal{width:460px;max-width:100%;max-height:88vh;overflow-y:auto;background:var(--bg-panel-raised);border:1px solid var(--border);border-radius:12px;padding:22px;}
+  .modal h3{margin:0 0 4px;font-weight:600;font-size:17px;}
+  .modal .modal-sub{font-size:12px;color:var(--text-muted);margin-bottom:16px;}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;}
+
+  /* ---------- login ---------- */
+  #loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .login-card{width:360px;background:var(--bg-panel);border:1px solid var(--border);border-radius:14px;padding:32px;text-align:center;}
+  .login-mark{width:52px;height:52px;border-radius:10px;margin:0 auto 16px;background:linear-gradient(145deg,var(--accent),var(--accent-dim));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:22px;color:#1a1000;box-shadow:0 0 24px var(--accent-glow);}
+  .login-card h1{font-size:19px;margin:0 0 4px;letter-spacing:.02em;}
+  .login-card p{font-size:12.5px;color:var(--text-muted);margin:0 0 22px;}
+  .login-card .field{text-align:left;}
+  .login-error{font-size:12px;color:var(--danger);margin-top:10px;min-height:16px;}
+
+  /* ---------- shell ---------- */
+  #appShell{display:none;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,var(--bg-panel),var(--bg-base));position:sticky;top:0;z-index:20;}
+  .brand{display:flex;align-items:center;gap:11px;}
+  .brand-mark{width:32px;height:32px;border-radius:6px;background:linear-gradient(145deg,var(--accent),var(--accent-dim));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:#1a1000;box-shadow:0 0 16px var(--accent-glow);}
+  .brand-text h1{font-weight:600;font-size:15.5px;letter-spacing:.04em;margin:0;text-transform:uppercase;}
+  .brand-text span{font-size:11px;color:var(--text-muted);}
+  .topbar-right{display:flex;align-items:center;gap:16px;}
+  .user-chip{display:flex;flex-direction:column;align-items:flex-end;font-size:11.5px;}
+  .user-chip b{font-size:12.5px;font-weight:600;}
+  .user-chip span{color:var(--text-muted);}
+
+  .tabs{display:flex;gap:4px;padding:0 24px;border-bottom:1px solid var(--border);background:var(--bg-base);overflow-x:auto;}
+  .tab-btn{background:none;border:none;color:var(--text-muted);font-family:'Inter';font-size:13px;font-weight:500;padding:12px 16px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;}
+  .tab-btn:hover{color:var(--text-primary);}
+  .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600;}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;}
+
+  .wrap{max-width:1240px;margin:0 auto;padding:26px 24px 80px;}
+  .page-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:20px;flex-wrap:wrap;}
+  .page-head h2{font-weight:600;font-size:21px;margin:0 0 4px;}
+  .page-head p{margin:0;color:var(--text-muted);font-size:13px;max-width:560px;line-height:1.5;}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;}
+
+  .banner{display:flex;align-items:center;gap:10px;background:#26201A;border:1px solid #4a3320;color:#F5B98A;font-size:12.5px;padding:10px 14px;border-radius:var(--radius);margin-bottom:18px;}
+  .banner b{color:#FFCFA0;}
+  .banner.info{background:#1A2226;border-color:#2c3a40;color:#9FD3E0;}
+  .banner.info b{color:#C8ECF5;}
+
+  .filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:flex-end;}
+  .filters .field{margin-bottom:0;min-width:160px;}
+
+  .panel-frame{border:1px solid var(--border);border-radius:12px;background:var(--bg-panel);overflow:hidden;margin-bottom:22px;}
+  .panel-frame-header{padding:13px 18px;border-bottom:1px solid var(--border-soft);display:flex;justify-content:space-between;align-items:center;background:var(--bg-panel-raised);flex-wrap:wrap;gap:8px;}
+  .panel-frame-header h3{margin:0;font-family:'JetBrains Mono';font-size:12px;letter-spacing:.08em;color:var(--text-muted);text-transform:uppercase;}
+  .table-scroll{overflow-x:auto;}
+  table.data{border-collapse:collapse;width:100%;min-width:640px;}
+  table.data thead th{position:sticky;top:0;background:var(--bg-panel-raised);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);padding:11px 14px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;}
+  table.data tbody td{padding:11px 14px;font-size:13px;border-bottom:1px solid var(--border-soft);}
+  table.data tbody tr:nth-child(even){background:var(--bg-row-alt);}
+  table.data tbody tr:hover{background:#242930;}
+  .cell-sub{font-size:11px;color:var(--text-muted);margin-top:2px;}
+  .row-actions{display:flex;gap:6px;}
+  .empty-state{padding:50px 20px;text-align:center;color:var(--text-muted);}
+  .empty-state h3{color:var(--text-primary);font-weight:600;margin-bottom:6px;}
+
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:22px;}
+  .kpi-card{background:var(--bg-panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px;}
+  .kpi-card .kpi-label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:8px;}
+  .kpi-card .kpi-value{font-family:'JetBrains Mono';font-size:22px;font-weight:600;}
+  .kpi-card.accent .kpi-value{color:var(--accent);}
+  .kpi-card.ok .kpi-value{color:var(--success);}
+  .kpi-card.warn .kpi-value{color:var(--warn);}
+
+  .switch{width:42px;height:22px;border-radius:20px;background:#2A2F36;border:1px solid #3a4048;position:relative;cursor:pointer;display:inline-block;transition:.15s;}
+  .switch::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#8A9099;transition:.18s;}
+  .switch.on{background:#3a2414;border-color:var(--accent-dim);}
+  .switch.on::after{transform:translateX(20px);background:var(--accent);box-shadow:0 0 8px var(--accent-glow);}
+  .switch.disabled{opacity:.4;cursor:not-allowed;}
+
+  .subtabs{display:flex;gap:6px;margin-bottom:16px;}
+  .subtab-btn{background:var(--bg-panel);border:1px solid var(--border);color:var(--text-muted);font-size:12.5px;font-weight:500;padding:8px 14px;border-radius:7px;cursor:pointer;}
+  .subtab-btn.active{background:var(--bg-panel-raised);color:var(--accent);border-color:var(--accent-dim);}
+
+  .module-row td{padding:8px 14px;background:#181B20;font-family:'JetBrains Mono';font-size:10.5px;letter-spacing:.1em;color:var(--accent);text-transform:uppercase;border-top:1px solid var(--border-soft);border-bottom:1px solid var(--border-soft);}
+
+  @media (max-width:720px){
+    .field-row,.field-row3{grid-template-columns:1fr;}
+    .topbar{padding:12px 16px;}
+    .wrap{padding:18px 14px 60px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================== LOGIN ============================== -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-mark">H</div>
+    <h1>Horizon</h1>
+    <p>Gestión de alquileres · Haulotte Rental</p>
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="loginEmail" placeholder="nombre@horizon.com.ar" autocomplete="username">
+    </div>
+    <div class="field">
+      <label>Contraseña</label>
+      <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;" id="btnLogin">Ingresar</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<!-- ============================== APP SHELL ============================== -->
+<div id="appShell">
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">H</div>
+      <div class="brand-text"><h1>Horizon</h1><span>Gestión de Alquileres</span></div>
+    </div>
+    <div class="topbar-right">
+      <div class="user-chip">
+        <b id="chipNombre">—</b>
+        <span id="chipRol">—</span>
+      </div>
+      <button class="btn btn-sm btn-ghost" id="btnLogout">Salir</button>
+    </div>
+  </div>
+
+  <div class="tabs" id="tabsNav">
+    <button class="tab-btn" data-tab="contratos">Contratos</button>
+    <button class="tab-btn" data-tab="facturacion">Facturación</button>
+    <button class="tab-btn" data-tab="reportes">Reportes</button>
+    <button class="tab-btn" data-tab="admin">Administración</button>
+  </div>
+
+  <div class="wrap">
+
+    <!-- ---------- TAB: CONTRATOS (Ventas / Comercial) ---------- -->
+    <section class="tab-panel" id="panel-contratos">
+      <div class="page-head">
+        <div>
+          <h2>Contratos de alquiler</h2>
+          <p>Carga y seguimiento de equipos en calle. Acá se registra cada contrato con su cliente, equipo y condiciones comerciales.</p>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" id="btnNuevoContrato">+ Nuevo contrato</button>
+        </div>
+      </div>
+      <div id="contratosBanner"></div>
+      <div class="filters">
+        <div class="field">
+          <label>Sucursal</label>
+          <select id="filtroContratoSucursal"><option value="">Todas</option></select>
+        </div>
+        <div class="field">
+          <label>Estado</label>
+          <select id="filtroContratoEstado">
+            <option value="">Todos</option>
+            <option value="pendiente_facturar">Pendiente de facturar</option>
+            <option value="facturado">Facturado</option>
+            <option value="dado_de_baja">Dado de baja</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Buscar cliente / obra</label>
+          <input type="text" id="filtroContratoTexto" placeholder="Ej: ARCOR, SIDERSA…">
+        </div>
+      </div>
+      <div class="panel-frame">
+        <div class="panel-frame-header">
+          <h3 id="contratosSubtitle">Cargando…</h3>
+        </div>
+        <div class="table-scroll">
+          <table class="data" id="tablaContratos">
+            <thead><tr>
+              <th>Cliente</th><th>Sucursal</th><th>Equipo / Serie</th><th>Obra</th>
+              <th>Vencimiento</th><th>Precio mensual</th><th>Estado</th><th></th>
+            </tr></thead>
+            <tbody id="contratosBody"><tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted);">Cargando…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- TAB: FACTURACIÓN ---------- -->
+    <section class="tab-panel" id="panel-facturacion">
+      <div class="page-head">
+        <div>
+          <h2>Pendientes de facturación</h2>
+          <p>Contratos listos para facturar este ciclo. Al confirmar, el contrato pasa a "Facturado" y se registra el comprobante.</p>
+        </div>
+      </div>
+      <div id="facturacionBanner"></div>
+      <div class="kpi-grid" id="facturacionKpis"></div>
+      <div class="filters">
+        <div class="field">
+          <label>Sucursal</label>
+          <select id="filtroFacSucursal"><option value="">Todas</option></select>
+        </div>
+        <div class="field">
+          <label>Buscar cliente</label>
+          <input type="text" id="filtroFacTexto" placeholder="Buscar…">
+        </div>
+      </div>
+      <div class="panel-frame">
+        <div class="panel-frame-header"><h3 id="facturacionSubtitle">Cargando…</h3></div>
+        <div class="table-scroll">
+          <table class="data" id="tablaFacturacion">
+            <thead><tr>
+              <th>Cliente</th><th>Sucursal</th><th>Equipo / Serie</th><th>Vencimiento</th>
+              <th>Potencial USD</th><th>OC</th><th></th>
+            </tr></thead>
+            <tbody id="facturacionBody"><tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted);">Cargando…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- TAB: REPORTES (Finance Controller) ---------- -->
+    <section class="tab-panel" id="panel-reportes">
+      <div class="page-head">
+        <div>
+          <h2>Reportes</h2>
+          <p>Vistas agregadas equivalentes a las tablas dinámicas del Excel: facturación por cliente, pendientes por sucursal y resumen general.</p>
+        </div>
+        <div class="actions">
+          <button class="btn" id="btnExportClientes">Exportar CSV · Clientes</button>
+          <button class="btn" id="btnExportSucursales">Exportar CSV · Sucursales</button>
+        </div>
+      </div>
+      <div class="filters">
+        <div class="field"><label>Facturas desde</label><input type="date" id="repDesde"></div>
+        <div class="field"><label>Facturas hasta</label><input type="date" id="repHasta"></div>
+        <button class="btn btn-sm" id="btnRepAplicar" style="height:38px;">Aplicar</button>
+      </div>
+      <div class="kpi-grid" id="reportesKpis"></div>
+
+      <div class="panel-frame">
+        <div class="panel-frame-header"><h3>Facturación por cliente</h3></div>
+        <div class="table-scroll">
+          <table class="data" id="tablaRepClientes">
+            <thead><tr><th>Cliente</th><th>Facturas</th><th>Monto ARS</th><th>USD</th></tr></thead>
+            <tbody id="repClientesBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel-frame">
+        <div class="panel-frame-header"><h3>Pendiente de facturar por sucursal</h3></div>
+        <div class="table-scroll">
+          <table class="data" id="tablaRepSucursales">
+            <thead><tr><th>Sucursal</th><th>Contratos pendientes</th><th>Potencial USD</th></tr></thead>
+            <tbody id="repSucursalesBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- TAB: ADMINISTRACIÓN ---------- -->
+    <section class="tab-panel" id="panel-admin">
+      <div class="page-head">
+        <div>
+          <h2>Administración</h2>
+          <p>Roles, permisos y usuarios del sistema. Cada acción de la app puede activarse o desactivarse por rol.</p>
+        </div>
+      </div>
+      <div class="subtabs">
+        <button class="subtab-btn active" data-subtab="roles">Roles y permisos</button>
+        <button class="subtab-btn" data-subtab="usuarios">Usuarios</button>
+      </div>
+
+      <div id="admin-sub-roles">
+        <div class="actions" style="margin-bottom:16px;">
+          <button class="btn" id="btnNuevoPermiso">+ Nuevo permiso</button>
+          <button class="btn btn-primary" id="btnNuevoRol">+ Nuevo rol</button>
+        </div>
+        <div class="panel-frame">
+          <div class="panel-frame-header">
+            <h3 id="matrixSubtitle">Cargando matriz…</h3>
+            <span style="font-family:'JetBrains Mono';font-size:11px;color:var(--text-dim);" id="matrixMeta"></span>
+          </div>
+          <div class="table-scroll">
+            <table class="data" id="matrixTable">
+              <thead><tr id="matrixHeadRow"></tr></thead>
+              <tbody id="matrixBody"><tr><td style="padding:40px;text-align:center;color:var(--text-muted);">Cargando…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="admin-sub-usuarios" style="display:none;">
+        <div class="panel-frame">
+          <div class="panel-frame-header"><h3>Usuarios del sistema</h3></div>
+          <div class="table-scroll">
+            <table class="data" id="tablaUsuarios">
+              <thead><tr><th>Nombre</th><th>Email</th><th>Sucursal</th><th>Rol</th><th>Activo</th></tr></thead>
+              <tbody id="usuariosBody"><tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text-muted);">Cargando…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="banner info"><b>Nota:</b> el alta de nuevos usuarios (email/contraseña) se hace desde Supabase Auth o por invitación; acá se administra el rol, la sucursal y el estado activo de usuarios ya existentes.</div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<!-- ============================== MODALES ============================== -->
+
+<div class="modal-overlay" id="modalContrato">
+  <div class="modal">
+    <h3 id="modalContratoTitulo">Nuevo contrato</h3>
+    <div class="modal-sub">Completá los datos del equipo entregado al cliente.</div>
+    <input type="hidden" id="cModoEdicion" value="">
+    <div class="field-row">
+      <div class="field"><label>Sucursal</label><select id="cSucursal"></select></div>
+      <div class="field"><label>Estado inicial</label>
+        <select id="cEstado">
+          <option value="pendiente_facturar">Pendiente de facturar</option>
+          <option value="pendiente_carga">Pendiente de carga (datos incompletos)</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Cliente</label>
+      <input type="text" id="cCliente" list="clientesList" placeholder="Nombre o razón social">
+      <datalist id="clientesList"></datalist>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Modelo de equipo</label><input type="text" id="cModelo" list="equiposList" placeholder="Ej: HA16RTJPRO"><datalist id="equiposList"></datalist></div>
+      <div class="field"><label>N° de serie</label><input type="text" id="cSerie" placeholder="Ej: 2025050"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Remito</label><input type="text" id="cRemito"></div>
+      <div class="field"><label>Orden de compra</label><input type="text" id="cOC"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Fecha de salida</label><input type="date" id="cFechaSalida"></div>
+      <div class="field"><label>Fecha de vencimiento</label><input type="date" id="cFechaVenc"></div>
+    </div>
+    <div class="field">
+      <label>Obra</label>
+      <input type="text" id="cObra" placeholder="Dirección / nombre de obra">
+    </div>
+    <div class="field">
+      <label>Contacto en obra</label>
+      <input type="text" id="cContacto" placeholder="Nombre y teléfono">
+    </div>
+    <div class="field-row3">
+      <div class="field"><label>Precio mensual c/desc.</label><input type="number" id="cPrecioConDesc" placeholder="ARS"></div>
+      <div class="field"><label>% Descuento</label><input type="number" step="0.01" id="cPctDesc" placeholder="-0.30"></div>
+      <div class="field"><label>Precio mensual s/desc.</label><input type="number" id="cPrecioSinDesc" placeholder="ARS"></div>
+    </div>
+    <div class="field">
+      <label>Potencial de facturación (USD)</label>
+      <input type="number" id="cPotencial" placeholder="USD">
+    </div>
+    <div class="field">
+      <label>Observación</label>
+      <textarea id="cObservacion" placeholder="Notas para facturación / finanzas"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modalContrato')">Cancelar</button>
+      <button class="btn btn-primary" id="btnGuardarContrato">Guardar contrato</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalBaja">
+  <div class="modal">
+    <h3>Dar de baja contrato</h3>
+    <div class="modal-sub">El contrato dejará de aparecer como pendiente de facturar.</div>
+    <input type="hidden" id="bContratoId">
+    <div class="field"><label>Motivo</label><textarea id="bMotivo" placeholder="Ej: equipo retirado, cliente canceló…"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modalBaja')">Cancelar</button>
+      <button class="btn btn-danger" id="btnConfirmarBaja">Dar de baja</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalFacturar">
+  <div class="modal">
+    <h3>Marcar como facturado</h3>
+    <div class="modal-sub" id="facturarSub">—</div>
+    <input type="hidden" id="fContratoId">
+    <div class="field-row">
+      <div class="field"><label>Tipo de comprobante</label>
+        <select id="fTipo"><option value="FCA">FCA</option><option value="NCA">NCA</option></select>
+      </div>
+      <div class="field"><label>N° de factura</label><input type="text" id="fInvoice" placeholder="FCA-0006-00017175"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Fecha de factura</label><input type="date" id="fFecha"></div>
+      <div class="field"><label>Días facturados</label><input type="number" id="fDias"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Valor USD facturado</label><input type="number" id="fValorUsd"></div>
+      <div class="field"><label>TC usado</label><input type="number" id="fTc"></div>
+    </div>
+    <div class="field"><label>Total ARS</label><input type="number" id="fTotalArs"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modalFacturar')">Cancelar</button>
+      <button class="btn btn-primary" id="btnConfirmarFactura">Confirmar factura</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalRol">
+  <div class="modal">
+    <h3>Nuevo rol</h3>
+    <div class="field"><label>Nombre</label><input type="text" id="rolNombre" placeholder="Ej: Supervisor de Sucursal"></div>
+    <div class="field"><label>Descripción</label><input type="text" id="rolDescripcion" placeholder="Breve descripción del rol"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modalRol')">Cancelar</button>
+      <button class="btn btn-primary" id="btnGuardarRol">Crear rol</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalPermiso">
+  <div class="modal">
+    <h3>Nuevo permiso</h3>
+    <div class="field"><label>Clave (módulo.accion)</label><input type="text" id="permClave" placeholder="Ej: contratos.exportar"></div>
+    <div class="field"><label>Módulo</label><input type="text" id="permModulo" placeholder="Ej: contratos"></div>
+    <div class="field"><label>Descripción</label><input type="text" id="permDescripcion" placeholder="Qué habilita este permiso"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modalPermiso')">Cancelar</button>
+      <button class="btn btn-primary" id="btnGuardarPermiso">Crear permiso</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><span class="dot"></span><span id="toastText"></span></div>
+
+<script>
+// =============================================================================
+// HORIZON — Gestión de Alquileres · single-file app
+// =============================================================================
+
+// -----------------------------------------------------------------------
+// 0. CONFIGURACIÓN — completá con los datos de tu proyecto Supabase
+// -----------------------------------------------------------------------
+const SUPABASE_URL = 'https://TU-PROYECTO.supabase.co';
+const SUPABASE_ANON_KEY = 'TU-ANON-KEY';
+const DEMO_MODE = SUPABASE_URL.includes('TU-PROYECTO');
+let supabase = null;
+if (!DEMO_MODE) {
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+// -----------------------------------------------------------------------
+// 1. ESTADO GLOBAL
+// -----------------------------------------------------------------------
+const APP = {
+  user: null,            // fila de `usuarios`
+  rolNombre: null,
+  perms: new Set(),
+  sucursales: [],
+  clientes: [],
+  equipos: [],
+  contratos: [],
+  facturacionRows: [],
+  roles: [],
+  permisos: [],
+  matrix: {},             // 'rolId|permId' -> boolean
+  usuarios: [],
+};
+
+const MODULE_LABELS = {
+  contratos:'Contratos', facturacion:'Facturación', clientes:'Clientes',
+  finanzas:'Finanzas', reportes:'Reportes', administracion:'Administración',
+};
+
+// -----------------------------------------------------------------------
+// 2. DATOS MOCK (modo demo, sin conexión real)
+// -----------------------------------------------------------------------
+const MOCK = {
+  sucursales: [
+    {id:'s1', nombre:'BUENOS AIRES'}, {id:'s2', nombre:'CORDOBA'}, {id:'s3', nombre:'NEUQUEN'},
+  ],
+  roles: [
+    {id:'r1', nombre:'Admin'}, {id:'r2', nombre:'Comercial'},
+    {id:'r3', nombre:'Facturacion'}, {id:'r4', nombre:'Finanzas'},
+  ],
+  permisos: [
+    {id:'p1',  clave:'contratos.crear',            modulo:'contratos',      descripcion:'Crear un nuevo contrato de alquiler'},
+    {id:'p2',  clave:'contratos.editar',            modulo:'contratos',      descripcion:'Editar datos generales del contrato'},
+    {id:'p3',  clave:'contratos.editar_precio',     modulo:'contratos',      descripcion:'Editar precios y descuentos'},
+    {id:'p4',  clave:'contratos.dar_baja',          modulo:'contratos',      descripcion:'Dar de baja un contrato'},
+    {id:'p5',  clave:'contratos.eliminar',          modulo:'contratos',      descripcion:'Eliminar un contrato'},
+    {id:'p6',  clave:'contratos.ver_credenciales',  modulo:'contratos',      descripcion:'Ver usuario/contraseña de portal de cliente'},
+    {id:'p7',  clave:'facturacion.ver',             modulo:'facturacion',    descripcion:'Ver información de facturación'},
+    {id:'p8',  clave:'facturacion.confirmar',       modulo:'facturacion',    descripcion:'Confirmar/crear una factura sobre un contrato'},
+    {id:'p9',  clave:'facturacion.editar',          modulo:'facturacion',    descripcion:'Editar una factura ya cargada'},
+    {id:'p10', clave:'clientes.crear',              modulo:'clientes',       descripcion:'Crear un nuevo cliente'},
+    {id:'p11', clave:'clientes.editar',             modulo:'clientes',       descripcion:'Editar datos de un cliente'},
+    {id:'p12', clave:'tipo_cambio.editar',          modulo:'finanzas',       descripcion:'Cargar/editar el tipo de cambio diario'},
+    {id:'p13', clave:'reportes.exportar',           modulo:'reportes',       descripcion:'Exportar reportes a Excel/PDF'},
+    {id:'p14', clave:'usuarios.gestionar',          modulo:'administracion', descripcion:'Alta/baja/edición de usuarios'},
+    {id:'p15', clave:'roles.gestionar',             modulo:'administracion', descripcion:'Alta/baja/edición de roles y su matriz de permisos'},
+    {id:'p16', clave:'auditoria.ver',               modulo:'administracion', descripcion:'Ver el log de auditoría del sistema'},
+  ],
+  clientes: [
+    {id:'cl1', razon_social:'ARCOR SAIC'}, {id:'cl2', razon_social:'COMA SA'},
+    {id:'cl3', razon_social:'DICON SRL'}, {id:'cl4', razon_social:'ALTO ELEVACIONES SRL'},
+    {id:'cl5', razon_social:'GRANJA S.R.L.'}, {id:'cl6', razon_social:'MOLFINO HERMANOS S.A.'},
+  ],
+  equipos: [
+    {id:'e1', modelo:'HA16RTJPRO'}, {id:'e2', modelo:'COMPACT8'}, {id:'e3', modelo:'HT41RTJPRO'},
+    {id:'e4', modelo:'H18SX'}, {id:'e5', modelo:'HA26RTJPRO'},
+  ],
+  unidades: [
+    {id:'u1', equipo_id:'e1', serie:'2025050'}, {id:'u2', equipo_id:'e2', serie:'2033342'},
+    {id:'u3', equipo_id:'e3', serie:'2041430'}, {id:'u4', equipo_id:'e4', serie:'2012663'},
+    {id:'u5', equipo_id:'e5', serie:'2060877'},
+  ],
+  contratos: [],
+  facturacion: [],
+};
+(function seedMockContratos(){
+  const base = [
+    {cliente:'cl4', suc:'s1', unidad:'u1', obra:'Panamericana km 35', venc:'2026-07-11', precio:394200, potencial:2500, estado:'pendiente_facturar'},
+    {cliente:'cl1', suc:'s1', unidad:'u2', obra:'Dep. Pañol Mar del Plata', venc:'2026-05-06', precio:0, potencial:600, estado:'pendiente_facturar'},
+    {cliente:'cl2', suc:'s1', unidad:'u5', obra:'296 - SIDERSA', venc:'2026-05-28', precio:0, potencial:4850, estado:'pendiente_facturar'},
+    {cliente:'cl2', suc:'s1', unidad:'u3', obra:'296.02 - SIDERSA', venc:'2026-06-23', precio:9928000, potencial:6800, estado:'facturado'},
+    {cliente:'cl5', suc:'s2', unidad:'u4', obra:'Depósito Córdoba', venc:'2026-07-04', precio:4395000, potencial:3000, estado:'facturado'},
+    {cliente:'cl3', suc:'s1', unidad:null, obra:'ANJOR Bahía Blanca', venc:'2026-05-29', precio:0, potencial:2140, estado:'dado_de_baja'},
+  ];
+  base.forEach((b,i)=>{
+    MOCK.contratos.push({
+      id:'ct'+i, cliente_id:b.cliente, sucursal_id:b.suc, unidad_id:b.unidad,
+      obra:b.obra, contacto_obra:'Contacto de obra', remito:'215'+i, orden_compra:'',
+      fecha_salida:'2026-06-0'+((i%9)+1), fecha_vencimiento:b.venc, observacion:'',
+      precio_mensual_con_descuento:b.precio, pct_descuento:null, precio_mensual_sin_descuento:b.precio,
+      potencial_facturacion:b.potencial, estado:b.estado, fecha_baja: b.estado==='dado_de_baja' ? '2026-06-20' : null,
+      motivo_baja: b.estado==='dado_de_baja' ? 'Cliente canceló la obra' : null,
+    });
+  });
+  MOCK.facturacion = [
+    {id:'f1', contrato_id:'ct3', tipo_comprobante:'FCA', invoice_number:'FCA-0006-00017181', fecha_factura:'2026-06-23', valor_usd_facturado:6800, sales_price_ars:9928000},
+    {id:'f2', contrato_id:'ct4', tipo_comprobante:'FCA', invoice_number:'FCA-0009-00010513', fecha_factura:'2026-06-09', valor_usd_facturado:3000, sales_price_ars:4395000},
+  ];
+})();
+(function buildMockMatrix(){
+  const on = {
+    Admin: 'ALL',
+    Comercial: ['contratos.crear','contratos.editar','contratos.dar_baja','clientes.crear','clientes.editar','reportes.exportar'],
+    Facturacion: ['facturacion.ver','facturacion.confirmar','facturacion.editar','contratos.editar_precio','reportes.exportar'],
+    Finanzas: ['facturacion.ver','tipo_cambio.editar','reportes.exportar','auditoria.ver'],
+  };
+  MOCK.matrix = {};
+  MOCK.roles.forEach(r => {
+    MOCK.permisos.forEach(p => {
+      const list = on[r.nombre];
+      MOCK.matrix[r.id+'|'+p.id] = list === 'ALL' ? true : list.includes(p.clave);
+    });
+  });
+})();
+
+// -----------------------------------------------------------------------
+// 3. HELPERS
+// -----------------------------------------------------------------------
+function $(id){ return document.getElementById(id); }
+function esc(s){ return (s===null||s===undefined) ? '' : String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtMoney(v){ if(v===null||v===undefined||isNaN(v)) return '—'; return Number(v).toLocaleString('es-AR',{maximumFractionDigits:0}); }
+function fmtDate(v){ if(!v) return '—'; const d=new Date(v+'T00:00:00'); if(isNaN(d)) return v; return d.toLocaleDateString('es-AR'); }
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function openModal(id){ $(id).classList.add('open'); }
+function closeModal(id){ $(id).classList.remove('open'); }
+function toast(msg, isError=false){
+  const t = $('toast');
+  $('toastText').textContent = msg;
+  t.classList.toggle('error', isError);
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=>t.classList.remove('show'), 2800);
+}
+function has(clave){ return APP.perms.has(clave); }
+function csvDownload(filename, rows){
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  link.click();
+}
+
+// -----------------------------------------------------------------------
+// 4. AUTENTICACIÓN
+// -----------------------------------------------------------------------
+async function doLogin(){
+  const email = $('loginEmail').value.trim();
+  const pass = $('loginPassword').value;
+  $('loginError').textContent = '';
+  if(!email || !pass){ $('loginError').textContent = 'Completá email y contraseña.'; return; }
+
+  $('btnLogin').disabled = true;
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+    if (error) throw error;
+    await afterLogin(data.user.id, email);
+  } catch (err) {
+    $('loginError').textContent = 'No se pudo iniciar sesión: ' + (err.message || err);
+  } finally {
+    $('btnLogin').disabled = false;
+  }
+}
+
+async function afterLogin(userId, email){
+  const { data: usuario, error } = await supabase
+    .from('usuarios')
+    .select('*, roles(nombre)')
+    .eq('id', userId)
+    .single();
+
+  if (error || !usuario) {
+    $('loginError').textContent = 'Tu cuenta no está habilitada en el sistema. Contactá al administrador.';
+    await supabase.auth.signOut();
+    return;
+  }
+  if (!usuario.activo) {
+    $('loginError').textContent = 'Tu usuario está desactivado.';
+    await supabase.auth.signOut();
+    return;
+  }
+
+  APP.user = usuario;
+  APP.rolNombre = usuario.roles ? usuario.roles.nombre : null;
+
+  const { data: rp } = await supabase
+    .from('rol_permisos')
+    .select('habilitado, permisos(clave)')
+    .eq('rol_id', usuario.rol_id)
+    .eq('habilitado', true);
+  APP.perms = new Set((rp || []).map(x => x.permisos.clave));
+
+  enterApp();
+}
+
+async function doLogout(){
+  if (!DEMO_MODE) await supabase.auth.signOut();
+  location.reload();
+}
+
+function enterApp(){
+  $('loginScreen').style.display = 'none';
+  $('appShell').style.display = 'block';
+  $('chipNombre').textContent = APP.user ? APP.user.nombre : 'Demo';
+  $('chipRol').textContent = APP.rolNombre || 'Admin (demo)';
+  buildNav();
+  loadBaseData();
+}
+
+function buildNav(){
+  const map = {
+    contratos: has('contratos.crear') || has('contratos.editar') || has('facturacion.ver'),
+    facturacion: has('facturacion.ver'),
+    reportes: has('reportes.exportar') || has('auditoria.ver'),
+    admin: has('roles.gestionar') || has('usuarios.gestionar'),
+  };
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    const tab = btn.dataset.tab;
+    btn.style.display = map[tab] ? '' : 'none';
+  });
+  const firstVisible = [...document.querySelectorAll('.tab-btn')].find(b => b.style.display !== 'none');
+  if (firstVisible) switchTab(firstVisible.dataset.tab);
+}
+
+function switchTab(tab){
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-'+tab));
+  if (tab === 'contratos') renderContratos();
+  if (tab === 'facturacion') renderFacturacion();
+  if (tab === 'reportes') renderReportes();
+  if (tab === 'admin') renderMatrix();
+}
+
+document.addEventListener('click', (e) => {
+  const tabBtn = e.target.closest('.tab-btn');
+  if (tabBtn) switchTab(tabBtn.dataset.tab);
+  const subBtn = e.target.closest('.subtab-btn');
+  if (subBtn) {
+    document.querySelectorAll('.subtab-btn').forEach(b => b.classList.toggle('active', b === subBtn));
+    const sub = subBtn.dataset.subtab;
+    $('admin-sub-roles').style.display = sub === 'roles' ? '' : 'none';
+    $('admin-sub-usuarios').style.display = sub === 'usuarios' ? '' : 'none';
+    if (sub === 'usuarios') renderUsuarios();
+  }
+});
+
+// -----------------------------------------------------------------------
+// 5. CARGA DE DATOS BASE
+// -----------------------------------------------------------------------
+async function loadBaseData(){
+  if (DEMO_MODE) {
+    APP.sucursales = MOCK.sucursales;
+    APP.clientes = MOCK.clientes;
+    APP.equipos = MOCK.equipos;
+    APP.roles = MOCK.roles;
+    APP.permisos = MOCK.permisos;
+    APP.matrix = MOCK.matrix;
+    APP.contratos = MOCK.contratos.map(hydrateMockContrato);
+    APP.facturacionRows = MOCK.facturacion;
+    APP.usuarios = [
+      {id:'us1', nombre:'Vos (modo demo)', email:'demo@horizon.com.ar', activo:true, sucursal_id:null, rol_id:'r1', roles:{nombre:'Admin'}, sucursales:null},
+    ];
+    fillSelects();
+    renderContratos(); renderFacturacion(); renderReportes(); renderMatrix(); renderUsuarios();
+    return;
+  }
+
+  const [{data:sucursales},{data:clientes},{data:equipos},{data:roles},{data:permisos},{data:rolPermisos}] = await Promise.all([
+    supabase.from('sucursales').select('*').order('nombre'),
+    supabase.from('clientes').select('*').order('razon_social'),
+    supabase.from('equipos').select('*').order('modelo'),
+    supabase.from('roles').select('*').order('nombre'),
+    supabase.from('permisos').select('*').order('modulo'),
+    supabase.from('rol_permisos').select('*'),
+  ]);
+  APP.sucursales = sucursales || [];
+  APP.clientes = clientes || [];
+  APP.equipos = equipos || [];
+  APP.roles = roles || [];
+  APP.permisos = permisos || [];
+  APP.matrix = {};
+  (rolPermisos||[]).forEach(rp => { APP.matrix[rp.rol_id+'|'+rp.permiso_id] = rp.habilitado; });
+
+  fillSelects();
+  await Promise.all([loadContratos(), loadFacturacion(), loadUsuarios()]);
+  renderContratos(); renderFacturacion(); renderReportes(); renderMatrix();
+}
+
+function hydrateMockContrato(c){
+  const cliente = MOCK.clientes.find(x=>x.id===c.cliente_id);
+  const suc = MOCK.sucursales.find(x=>x.id===c.sucursal_id);
+  const unidad = MOCK.unidades.find(x=>x.id===c.unidad_id);
+  const equipo = unidad ? MOCK.equipos.find(x=>x.id===unidad.equipo_id) : null;
+  return {...c, clientes:{razon_social: cliente?cliente.razon_social:'—'}, sucursales:{nombre: suc?suc.nombre:'—'},
+    unidades: unidad ? {serie:unidad.serie, equipos:{modelo:equipo?equipo.modelo:'—'}} : null };
+}
+
+async function loadContratos(){
+  const { data, error } = await supabase.from('contratos_alquiler')
+    .select('*, clientes(razon_social), sucursales(nombre), unidades(serie, equipos(modelo))')
+    .order('fecha_vencimiento', {ascending:true});
+  if (!error) APP.contratos = data || [];
+}
+async function loadFacturacion(){
+  const { data, error } = await supabase.from('facturacion').select('*').order('fecha_factura',{ascending:false});
+  if (!error) APP.facturacionRows = data || [];
+}
+async function loadUsuarios(){
+  const { data, error } = await supabase.from('usuarios').select('*, roles(nombre), sucursales(nombre)').order('nombre');
+  if (!error) APP.usuarios = data || [];
+}
+
+function fillSelects(){
+  const sucOptions = s => APP.sucursales.map(x=>`<option value="${x.id}">${esc(x.nombre)}</option>`).join('');
+  $('cSucursal').innerHTML = sucOptions();
+  $('filtroContratoSucursal').innerHTML = '<option value="">Todas</option>' + sucOptions();
+  $('filtroFacSucursal').innerHTML = '<option value="">Todas</option>' + sucOptions();
+  $('clientesList').innerHTML = APP.clientes.map(c=>`<option value="${esc(c.razon_social)}">`).join('');
+  $('equiposList').innerHTML = APP.equipos.map(e=>`<option value="${esc(e.modelo)}">`).join('');
+}
+
+// -----------------------------------------------------------------------
+// 6. MÓDULO CONTRATOS (Ventas / Comercial)
+// -----------------------------------------------------------------------
+function estadoBadge(estado){
+  if (estado==='facturado') return '<span class="badge badge-facturado">Facturado</span>';
+  if (estado==='dado_de_baja') return '<span class="badge badge-baja">Dado de baja</span>';
+  return '<span class="badge badge-pendiente">Pendiente</span>';
+}
+
+function filteredContratos(){
+  const suc = $('filtroContratoSucursal').value;
+  const estado = $('filtroContratoEstado').value;
+  const texto = $('filtroContratoTexto').value.trim().toLowerCase();
+  return APP.contratos.filter(c => {
+    if (suc && c.sucursal_id !== suc) return false;
+    if (estado && c.estado !== estado) return false;
+    if (texto) {
+      const hay = (c.clientes?.razon_social||'') + ' ' + (c.obra||'');
+      if (!hay.toLowerCase().includes(texto)) return false;
+    }
+    return true;
+  });
+}
+
+function renderContratos(){
+  if (!DEMO_MODE && !has('contratos.crear') && !has('contratos.editar') && !has('facturacion.ver')) return;
+  $('btnNuevoContrato').style.display = has('contratos.crear') ? '' : 'none';
+
+  const rows = filteredContratos();
+  $('contratosSubtitle').textContent = `${rows.length} contrato(s)`;
+
+  if (!rows.length) {
+    $('contratosBody').innerHTML = `<tr><td colspan="8"><div class="empty-state"><h3>Sin contratos</h3><p>No hay contratos que coincidan con el filtro.</p></div></td></tr>`;
+    return;
+  }
+
+  $('contratosBody').innerHTML = rows.map(c => {
+    const equipo = c.unidades ? `${c.unidades.equipos?.modelo||''}<div class="cell-sub">Serie ${esc(c.unidades.serie)}</div>` : '<span style="color:var(--text-dim)">—</span>';
+    const acciones = [];
+    if (has('contratos.editar')) acciones.push(`<button class="btn btn-sm" onclick="editarContrato('${c.id}')">Editar</button>`);
+    if (has('contratos.dar_baja') && c.estado !== 'dado_de_baja') acciones.push(`<button class="btn btn-sm btn-danger" onclick="abrirBaja('${c.id}')">Baja</button>`);
+    return `<tr>
+      <td>${esc(c.clientes?.razon_social || '—')}</td>
+      <td>${esc(c.sucursales?.nombre || '—')}</td>
+      <td>${equipo}</td>
+      <td>${esc(c.obra || '—')}</td>
+      <td>${fmtDate(c.fecha_vencimiento)}</td>
+      <td>${c.precio_mensual_con_descuento ? '$ '+fmtMoney(c.precio_mensual_con_descuento) : '—'}</td>
+      <td>${estadoBadge(c.estado)}</td>
+      <td><div class="row-actions">${acciones.join('')}</div></td>
+    </tr>`;
+  }).join('');
+}
+
+['filtroContratoSucursal','filtroContratoEstado','filtroContratoTexto'].forEach(id => {
+  document.addEventListener('DOMContentLoaded', () => {});
+});
+
+function bindContratoFilters(){
+  $('filtroContratoSucursal').addEventListener('change', renderContratos);
+  $('filtroContratoEstado').addEventListener('change', renderContratos);
+  $('filtroContratoTexto').addEventListener('input', renderContratos);
+}
+
+function abrirNuevoContrato(){
+  $('cModoEdicion').value = '';
+  $('modalContratoTitulo').textContent = 'Nuevo contrato';
+  ['cCliente','cModelo','cSerie','cRemito','cOC','cFechaSalida','cFechaVenc','cObra','cContacto',
+   'cPrecioConDesc','cPctDesc','cPrecioSinDesc','cPotencial','cObservacion'].forEach(id => $(id).value = '');
+  $('cEstado').value = 'pendiente_facturar';
+  openModal('modalContrato');
+}
+
+function editarContrato(id){
+  const c = APP.contratos.find(x => x.id === id);
+  if (!c) return;
+  $('cModoEdicion').value = id;
+  $('modalContratoTitulo').textContent = 'Editar contrato';
+  $('cSucursal').value = c.sucursal_id || '';
+  $('cEstado').value = (c.estado === 'facturado' || c.estado === 'dado_de_baja') ? 'pendiente_facturar' : c.estado;
+  $('cCliente').value = c.clientes?.razon_social || '';
+  $('cModelo').value = c.unidades?.equipos?.modelo || '';
+  $('cSerie').value = c.unidades?.serie || '';
+  $('cRemito').value = c.remito || '';
+  $('cOC').value = c.orden_compra || '';
+  $('cFechaSalida').value = c.fecha_salida || '';
+  $('cFechaVenc').value = c.fecha_vencimiento || '';
+  $('cObra').value = c.obra || '';
+  $('cContacto').value = c.contacto_obra || '';
+  $('cPrecioConDesc').value = c.precio_mensual_con_descuento || '';
+  $('cPctDesc').value = c.pct_descuento || '';
+  $('cPrecioSinDesc').value = c.precio_mensual_sin_descuento || '';
+  $('cPotencial').value = c.potencial_facturacion || '';
+  $('cObservacion').value = c.observacion || '';
+  openModal('modalContrato');
+}
+
+async function ensureCliente(nombre){
+  if (!nombre) return null;
+  let existente = APP.clientes.find(c => c.razon_social.toLowerCase() === nombre.toLowerCase());
+  if (existente) return existente.id;
+  if (DEMO_MODE) {
+    const id = 'cl_demo_'+Date.now();
+    APP.clientes.push({id, razon_social:nombre});
+    fillSelects();
+    return id;
+  }
+  const { data, error } = await supabase.from('clientes').insert({razon_social:nombre}).select().single();
+  if (error) { toast('Error creando cliente: '+error.message, true); return null; }
+  APP.clientes.push(data);
+  fillSelects();
+  return data.id;
+}
+
+async function ensureUnidad(modelo, serie){
+  if (!serie) return null;
+  if (DEMO_MODE) {
+    let u = MOCK.unidades.find(x=>x.serie===serie);
+    if (u) return u.id;
+    let eq = MOCK.equipos.find(x=>x.modelo===modelo);
+    if (!eq && modelo) { eq = {id:'e_demo_'+Date.now(), modelo}; MOCK.equipos.push(eq); APP.equipos.push(eq); fillSelects(); }
+    const nu = {id:'u_demo_'+Date.now(), equipo_id: eq?eq.id:null, serie};
+    MOCK.unidades.push(nu);
+    return nu.id;
+  }
+  const { data: existente } = await supabase.from('unidades').select('id').eq('serie', serie).maybeSingle();
+  if (existente) return existente.id;
+
+  let equipoId = null;
+  if (modelo) {
+    const { data: eqExist } = await supabase.from('equipos').select('id').eq('modelo', modelo).maybeSingle();
+    if (eqExist) equipoId = eqExist.id;
+    else {
+      const { data: eqNew, error: eqErr } = await supabase.from('equipos').insert({modelo}).select().single();
+      if (!eqErr) equipoId = eqNew.id;
+    }
+  }
+  const { data: nuevaUnidad, error } = await supabase.from('unidades').insert({serie, equipo_id: equipoId}).select().single();
+  if (error) { toast('Error creando unidad: '+error.message, true); return null; }
+  return nuevaUnidad.id;
+}
+
+async function guardarContrato(){
+  const modoEdicion = $('cModoEdicion').value;
+  const clienteNombre = $('cCliente').value.trim();
+  if (!clienteNombre) return toast('Ingresá un cliente', true);
+  if (!$('cSucursal').value) return toast('Elegí una sucursal', true);
+
+  $('btnGuardarContrato').disabled = true;
+  try {
+    const clienteId = await ensureCliente(clienteNombre);
+    const unidadId = await ensureUnidad($('cModelo').value.trim(), $('cSerie').value.trim());
+
+    const payload = {
+      sucursal_id: $('cSucursal').value,
+      cliente_id: clienteId,
+      unidad_id: unidadId,
+      remito: $('cRemito').value.trim() || null,
+      orden_compra: $('cOC').value.trim() || null,
+      fecha_salida: $('cFechaSalida').value || null,
+      fecha_vencimiento: $('cFechaVenc').value || null,
+      obra: $('cObra').value.trim() || null,
+      contacto_obra: $('cContacto').value.trim() || null,
+      precio_mensual_con_descuento: $('cPrecioConDesc').value ? Number($('cPrecioConDesc').value) : null,
+      pct_descuento: $('cPctDesc').value ? Number($('cPctDesc').value) : null,
+      precio_mensual_sin_descuento: $('cPrecioSinDesc').value ? Number($('cPrecioSinDesc').value) : null,
+      potencial_facturacion: $('cPotencial').value ? Number($('cPotencial').value) : null,
+      observacion: $('cObservacion').value.trim() || null,
+      estado: $('cEstado').value,
+    };
+
+    if (DEMO_MODE) {
+      if (modoEdicion) {
+        const idx = APP.contratos.findIndex(c=>c.id===modoEdicion);
+        APP.contratos[idx] = hydrateMockContrato({...MOCK.contratos.find(c=>c.id===modoEdicion), ...payload, id:modoEdicion});
+        const mIdx = MOCK.contratos.findIndex(c=>c.id===modoEdicion);
+        MOCK.contratos[mIdx] = {...MOCK.contratos[mIdx], ...payload};
+      } else {
+        const id = 'ct_demo_'+Date.now();
+        const nuevo = {...payload, id};
+        MOCK.contratos.push(nuevo);
+        APP.contratos.unshift(hydrateMockContrato(nuevo));
+      }
+      closeModal('modalContrato');
+      renderContratos(); renderFacturacion(); renderReportes();
+      toast('Guardado en modo demo (no persiste)');
+      return;
+    }
+
+    if (modoEdicion) {
+      const { error } = await supabase.from('contratos_alquiler').update({...payload, updated_by: APP.user.id}).eq('id', modoEdicion);
+      if (error) throw error;
+      toast('Contrato actualizado');
+    } else {
+      const { error } = await supabase.from('contratos_alquiler').insert({...payload, created_by: APP.user.id});
+      if (error) throw error;
+      toast('Contrato creado');
+    }
+    closeModal('modalContrato');
+    await loadContratos();
+    renderContratos(); renderFacturacion(); renderReportes();
+  } catch (err) {
+    toast('Error al guardar: ' + (err.message||err), true);
+  } finally {
+    $('btnGuardarContrato').disabled = false;
+  }
+}
+
+function abrirBaja(id){
+  $('bContratoId').value = id;
+  $('bMotivo').value = '';
+  openModal('modalBaja');
+}
+
+async function confirmarBaja(){
+  const id = $('bContratoId').value;
+  const motivo = $('bMotivo').value.trim();
+  if (!motivo) return toast('Ingresá un motivo', true);
+
+  if (DEMO_MODE) {
+    const idx = APP.contratos.findIndex(c=>c.id===id);
+    APP.contratos[idx].estado = 'dado_de_baja';
+    APP.contratos[idx].motivo_baja = motivo;
+    APP.contratos[idx].fecha_baja = todayStr();
+    const mIdx = MOCK.contratos.findIndex(c=>c.id===id);
+    MOCK.contratos[mIdx].estado='dado_de_baja';
+    closeModal('modalBaja'); renderContratos(); renderFacturacion(); renderReportes();
+    toast('Dado de baja (demo)');
+    return;
+  }
+  try {
+    const { error } = await supabase.from('contratos_alquiler')
+      .update({estado:'dado_de_baja', motivo_baja: motivo, fecha_baja: todayStr(), updated_by: APP.user.id})
+      .eq('id', id);
+    if (error) throw error;
+    closeModal('modalBaja');
+    await loadContratos();
+    renderContratos(); renderFacturacion(); renderReportes();
+    toast('Contrato dado de baja');
+  } catch (err) { toast('Error: '+(err.message||err), true); }
+}
+
+// -----------------------------------------------------------------------
+// 7. MÓDULO FACTURACIÓN
+// -----------------------------------------------------------------------
+function pendientesFacturar(){
+  const suc = $('filtroFacSucursal').value;
+  const texto = $('filtroFacTexto').value.trim().toLowerCase();
+  return APP.contratos.filter(c => {
+    if (c.estado !== 'pendiente_facturar' && c.estado !== 'pendiente_carga') return false;
+    if (suc && c.sucursal_id !== suc) return false;
+    if (texto && !(c.clientes?.razon_social||'').toLowerCase().includes(texto)) return false;
+    return true;
+  });
+}
+
+function renderFacturacion(){
+  if (!has('facturacion.ver') && !DEMO_MODE) return;
+  const rows = pendientesFacturar();
+  $('facturacionSubtitle').textContent = `${rows.length} contrato(s) pendiente(s) de facturar`;
+
+  const totalPotencial = rows.reduce((a,c) => a + (Number(c.potencial_facturacion)||0), 0);
+  $('facturacionKpis').innerHTML = `
+    <div class="kpi-card warn"><div class="kpi-label">Pendientes de facturar</div><div class="kpi-value">${rows.length}</div></div>
+    <div class="kpi-card accent"><div class="kpi-label">Potencial USD</div><div class="kpi-value">$ ${fmtMoney(totalPotencial)}</div></div>
+  `;
+
+  if (!rows.length) {
+    $('facturacionBody').innerHTML = `<tr><td colspan="7"><div class="empty-state"><h3>Todo facturado</h3><p>No hay contratos pendientes con este filtro.</p></div></td></tr>`;
+    return;
+  }
+
+  $('facturacionBody').innerHTML = rows.map(c => {
+    const equipo = c.unidades ? `${c.unidades.equipos?.modelo||''}<div class="cell-sub">Serie ${esc(c.unidades.serie)}</div>` : '—';
+    const btn = has('facturacion.confirmar') ? `<button class="btn btn-sm btn-primary" onclick="abrirFacturar('${c.id}')">Marcar facturado</button>` : '';
+    return `<tr>
+      <td>${esc(c.clientes?.razon_social||'—')}</td>
+      <td>${esc(c.sucursales?.nombre||'—')}</td>
+      <td>${equipo}</td>
+      <td>${fmtDate(c.fecha_vencimiento)}</td>
+      <td>$ ${fmtMoney(c.potencial_facturacion)}</td>
+      <td>${esc(c.orden_compra||'—')}</td>
+      <td>${btn}</td>
+    </tr>`;
+  }).join('');
+}
+
+function bindFacturacionFilters(){
+  $('filtroFacSucursal').addEventListener('change', renderFacturacion);
+  $('filtroFacTexto').addEventListener('input', renderFacturacion);
+}
+
+function abrirFacturar(contratoId){
+  const c = APP.contratos.find(x=>x.id===contratoId);
+  if (!c) return;
+  $('fContratoId').value = contratoId;
+  $('facturarSub').textContent = `${c.clientes?.razon_social||''} · ${c.unidades?.equipos?.modelo||''} ${c.unidades?.serie? '('+c.unidades.serie+')':''}`;
+  $('fTipo').value = 'FCA';
+  $('fInvoice').value = '';
+  $('fFecha').value = todayStr();
+  $('fDias').value = '';
+  $('fValorUsd').value = c.potencial_facturacion || '';
+  $('fTc').value = '';
+  $('fTotalArs').value = c.precio_mensual_con_descuento || '';
+  openModal('modalFacturar');
+}
+
+async function confirmarFactura(){
+  const contratoId = $('fContratoId').value;
+  const payload = {
+    contrato_id: contratoId,
+    tipo_comprobante: $('fTipo').value,
+    invoice_number: $('fInvoice').value.trim() || null,
+    fecha_factura: $('fFecha').value || null,
+    dias: $('fDias').value ? Number($('fDias').value) : null,
+    valor_usd_facturado: $('fValorUsd').value ? Number($('fValorUsd').value) : 0,
+    tc_usado: $('fTc').value ? Number($('fTc').value) : null,
+    sales_price_ars: $('fTotalArs').value ? Number($('fTotalArs').value) : null,
+  };
+  if (!payload.invoice_number) return toast('Ingresá el número de factura', true);
+
+  if (DEMO_MODE) {
+    MOCK.facturacion.push({...payload, id:'f_demo_'+Date.now()});
+    const idx = APP.contratos.findIndex(c=>c.id===contratoId);
+    APP.contratos[idx].estado = 'facturado';
+    const mIdx = MOCK.contratos.findIndex(c=>c.id===contratoId);
+    MOCK.contratos[mIdx].estado = 'facturado';
+    closeModal('modalFacturar');
+    renderFacturacion(); renderContratos(); renderReportes();
+    toast('Factura registrada (demo)');
+    return;
+  }
+
+  try {
+    const { error: e1 } = await supabase.from('facturacion').insert({...payload, created_by: APP.user.id});
+    if (e1) throw e1;
+    const { error: e2 } = await supabase.from('contratos_alquiler').update({estado:'facturado', updated_by: APP.user.id}).eq('id', contratoId);
+    if (e2) throw e2;
+    closeModal('modalFacturar');
+    await Promise.all([loadContratos(), loadFacturacion()]);
+    renderFacturacion(); renderContratos(); renderReportes();
+    toast('Factura registrada');
+  } catch (err) { toast('Error al facturar: '+(err.message||err), true); }
+}
+
+// -----------------------------------------------------------------------
+// 8. MÓDULO REPORTES (Finance Controller)
+// -----------------------------------------------------------------------
+function renderReportes(){
+  if (!DEMO_MODE && !has('reportes.exportar') && !has('auditoria.ver')) return;
+  const desde = $('repDesde').value;
+  const hasta = $('repHasta').value;
+
+  const facturas = APP.facturacionRows.filter(f => {
+    if (!f.fecha_factura) return true;
+    if (desde && f.fecha_factura < desde) return false;
+    if (hasta && f.fecha_factura > hasta) return false;
+    return true;
+  });
+
+  const totalFacturadoUsd = facturas.reduce((a,f)=>a+(Number(f.valor_usd_facturado)||0),0);
+  const pendientes = APP.contratos.filter(c => c.estado==='pendiente_facturar' || c.estado==='pendiente_carga');
+  const totalPendienteUsd = pendientes.reduce((a,c)=>a+(Number(c.potencial_facturacion)||0),0);
+  const activos = APP.contratos.filter(c => c.estado!=='dado_de_baja').length;
+  const bajas = APP.contratos.filter(c => c.estado==='dado_de_baja').length;
+
+  $('reportesKpis').innerHTML = `
+    <div class="kpi-card ok"><div class="kpi-label">Facturado USD (período)</div><div class="kpi-value">$ ${fmtMoney(totalFacturadoUsd)}</div></div>
+    <div class="kpi-card warn"><div class="kpi-label">Pendiente USD</div><div class="kpi-value">$ ${fmtMoney(totalPendienteUsd)}</div></div>
+    <div class="kpi-card accent"><div class="kpi-label">Contratos activos</div><div class="kpi-value">${activos}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Dados de baja</div><div class="kpi-value">${bajas}</div></div>
+  `;
+
+  // --- Por cliente (equivalente hoja "Pivot") ---
+  const porCliente = {};
+  facturas.forEach(f => {
+    const contrato = APP.contratos.find(c => c.id === f.contrato_id);
+    const nombre = contrato?.clientes?.razon_social || '(sin contrato vinculado)';
+    if (!porCliente[nombre]) porCliente[nombre] = {facturas:0, ars:0, usd:0};
+    porCliente[nombre].facturas += 1;
+    porCliente[nombre].ars += Number(f.sales_price_ars)||0;
+    porCliente[nombre].usd += Number(f.valor_usd_facturado)||0;
+  });
+  const clienteRows = Object.entries(porCliente).sort((a,b)=>b[1].usd-a[1].usd);
+  $('repClientesBody').innerHTML = clienteRows.length ? clienteRows.map(([nombre,v]) => `
+    <tr><td>${esc(nombre)}</td><td>${v.facturas}</td><td>$ ${fmtMoney(v.ars)}</td><td>$ ${fmtMoney(v.usd)}</td></tr>
+  `).join('') : `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:24px;">Sin facturación en el período</td></tr>`;
+
+  // --- Pendientes por sucursal (equivalente hoja "Equipos") ---
+  const porSucursal = {};
+  pendientes.forEach(c => {
+    const nombre = c.sucursales?.nombre || '—';
+    if (!porSucursal[nombre]) porSucursal[nombre] = {cant:0, usd:0};
+    porSucursal[nombre].cant += 1;
+    porSucursal[nombre].usd += Number(c.potencial_facturacion)||0;
+  });
+  const sucRows = Object.entries(porSucursal).sort((a,b)=>b[1].usd-a[1].usd);
+  $('repSucursalesBody').innerHTML = sucRows.length ? sucRows.map(([nombre,v]) => `
+    <tr><td>${esc(nombre)}</td><td>${v.cant}</td><td>$ ${fmtMoney(v.usd)}</td></tr>
+  `).join('') : `<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:24px;">Sin pendientes</td></tr>`;
+
+  APP._repClienteRows = clienteRows;
+  APP._repSucursalRows = sucRows;
+}
+
+function exportarClientesCsv(){
+  const rows = [['Cliente','Facturas','Monto ARS','USD']];
+  (APP._repClienteRows||[]).forEach(([nombre,v]) => rows.push([nombre, v.facturas, v.ars, v.usd]));
+  csvDownload('facturacion_por_cliente.csv', rows);
+}
+function exportarSucursalesCsv(){
+  const rows = [['Sucursal','Contratos pendientes','Potencial USD']];
+  (APP._repSucursalRows||[]).forEach(([nombre,v]) => rows.push([nombre, v.cant, v.usd]));
+  csvDownload('pendientes_por_sucursal.csv', rows);
+}
+
+// -----------------------------------------------------------------------
+// 9. MÓDULO ADMINISTRACIÓN — Roles y permisos (matriz)
+// -----------------------------------------------------------------------
+function renderMatrix(){
+  if (!DEMO_MODE && !has('roles.gestionar') && !has('usuarios.gestionar')) return;
+  const canManage = DEMO_MODE || has('roles.gestionar');
+  const head = $('matrixHeadRow');
+  const body = $('matrixBody');
+
+  $('matrixSubtitle').textContent = `${APP.permisos.length} permisos · ${APP.roles.length} roles`;
+  $('matrixMeta').textContent = canManage ? 'EDICIÓN HABILITADA' : 'SOLO LECTURA';
+  $('btnNuevoRol').style.display = canManage ? '' : 'none';
+  $('btnNuevoPermiso').style.display = canManage ? '' : 'none';
+
+  head.innerHTML = '<th style="text-align:left;padding-left:18px;">Permiso</th>' +
+    APP.roles.map(r => {
+      const count = APP.permisos.filter(p => APP.matrix[r.id+'|'+p.id]).length;
+      return `<th style="text-align:center;">${esc(r.nombre)}<div class="cell-sub">${count}/${APP.permisos.length}</div></th>`;
+    }).join('');
+
+  const byModule = {};
+  APP.permisos.forEach(p => { (byModule[p.modulo]=byModule[p.modulo]||[]).push(p); });
+
+  let rows = '';
+  Object.keys(byModule).sort().forEach(mod => {
+    rows += `<tr class="module-row"><td colspan="${APP.roles.length+1}">${MODULE_LABELS[mod]||mod}</td></tr>`;
+    byModule[mod].forEach(p => {
+      rows += `<tr><td style="padding:11px 18px;"><div>${esc(p.clave)}</div><div class="cell-sub">${esc(p.descripcion)}</div></td>` +
+        APP.roles.map(r => {
+          const on = !!APP.matrix[r.id+'|'+p.id];
+          return `<td style="text-align:center;"><span class="switch ${on?'on':''} ${canManage?'':'disabled'}" data-rol="${r.id}" data-perm="${p.id}" onclick="toggleCell(this)"></span></td>`;
+        }).join('') + `</tr>`;
+    });
+  });
+  body.innerHTML = rows;
+}
+
+async function toggleCell(el){
+  const canManage = DEMO_MODE || has('roles.gestionar');
+  if (!canManage) return;
+  const rolId = el.dataset.rol, permId = el.dataset.perm;
+  const key = rolId+'|'+permId;
+  const newVal = !APP.matrix[key];
+  APP.matrix[key] = newVal;
+  el.classList.toggle('on', newVal);
+
+  if (DEMO_MODE) { toast('Guardado en modo demo (no persiste)'); return; }
+  try {
+    const { error } = await supabase.from('rol_permisos').upsert({rol_id:rolId, permiso_id:permId, habilitado:newVal}, {onConflict:'rol_id,permiso_id'});
+    if (error) throw error;
+    toast('Permiso actualizado');
+  } catch (err) {
+    APP.matrix[key] = !newVal;
+    el.classList.toggle('on', !newVal);
+    toast('No se pudo guardar: '+(err.message||err), true);
+  }
+}
+
+async function guardarRol(){
+  const nombre = $('rolNombre').value.trim();
+  const descripcion = $('rolDescripcion').value.trim();
+  if (!nombre) return toast('Ingresá un nombre de rol', true);
+
+  if (DEMO_MODE) {
+    const id = 'r_demo_'+Date.now();
+    APP.roles.push({id, nombre});
+    APP.permisos.forEach(p => { APP.matrix[id+'|'+p.id] = false; });
+    renderMatrix(); closeModal('modalRol'); toast('Rol creado (demo)');
+    return;
+  }
+  try {
+    const { data, error } = await supabase.from('roles').insert({nombre, descripcion}).select().single();
+    if (error) throw error;
+    const rows = APP.permisos.map(p => ({rol_id:data.id, permiso_id:p.id, habilitado:false}));
+    if (rows.length) await supabase.from('rol_permisos').insert(rows);
+    closeModal('modalRol');
+    $('rolNombre').value=''; $('rolDescripcion').value='';
+    await loadBaseData();
+    toast('Rol creado');
+  } catch (err) { toast('Error: '+(err.message||err), true); }
+}
+
+async function guardarPermiso(){
+  const clave = $('permClave').value.trim();
+  const modulo = $('permModulo').value.trim();
+  const descripcion = $('permDescripcion').value.trim();
+  if (!clave || !modulo) return toast('Completá clave y módulo', true);
+
+  if (DEMO_MODE) {
+    const id = 'p_demo_'+Date.now();
+    APP.permisos.push({id, clave, modulo, descripcion});
+    APP.roles.forEach(r => { APP.matrix[r.id+'|'+id] = false; });
+    renderMatrix(); closeModal('modalPermiso'); toast('Permiso creado (demo)');
+    return;
+  }
+  try {
+    const { data, error } = await supabase.from('permisos').insert({clave, modulo, descripcion}).select().single();
+    if (error) throw error;
+    const rows = APP.roles.map(r => ({rol_id:r.id, permiso_id:data.id, habilitado:false}));
+    if (rows.length) await supabase.from('rol_permisos').insert(rows);
+    closeModal('modalPermiso');
+    $('permClave').value=''; $('permModulo').value=''; $('permDescripcion').value='';
+    await loadBaseData();
+    toast('Permiso creado');
+  } catch (err) { toast('Error: '+(err.message||err), true); }
+}
+
+// -----------------------------------------------------------------------
+// 10. MÓDULO ADMINISTRACIÓN — Usuarios
+// -----------------------------------------------------------------------
+function renderUsuarios(){
+  const canManage = DEMO_MODE || has('usuarios.gestionar');
+  const rows = APP.usuarios;
+  if (!rows.length) {
+    $('usuariosBody').innerHTML = `<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--text-muted);">Sin usuarios cargados</td></tr>`;
+    return;
+  }
+  $('usuariosBody').innerHTML = rows.map(u => {
+    const sucSel = `<select ${canManage?'':'disabled'} onchange="cambiarUsuarioCampo('${u.id}','sucursal_id',this.value)">
+      <option value="">Todas</option>
+      ${APP.sucursales.map(s=>`<option value="${s.id}" ${u.sucursal_id===s.id?'selected':''}>${esc(s.nombre)}</option>`).join('')}
+    </select>`;
+    const rolSel = `<select ${canManage?'':'disabled'} onchange="cambiarUsuarioCampo('${u.id}','rol_id',this.value)">
+      ${APP.roles.map(r=>`<option value="${r.id}" ${u.rol_id===r.id?'selected':''}>${esc(r.nombre)}</option>`).join('')}
+    </select>`;
+    return `<tr>
+      <td>${esc(u.nombre)}</td><td>${esc(u.email)}</td><td>${sucSel}</td><td>${rolSel}</td>
+      <td><span class="switch ${u.activo?'on':''} ${canManage?'':'disabled'}" onclick="${canManage?`toggleUsuarioActivo('${u.id}')`:''}"></span></td>
+    </tr>`;
+  }).join('');
+}
+
+async function cambiarUsuarioCampo(id, campo, valor){
+  if (DEMO_MODE) {
+    const u = APP.usuarios.find(x=>x.id===id); if (u) u[campo] = valor || null;
+    toast('Actualizado (demo)'); return;
+  }
+  try {
+    const { error } = await supabase.from('usuarios').update({[campo]: valor || null}).eq('id', id);
+    if (error) throw error;
+    await loadUsuarios(); renderUsuarios();
+    toast('Usuario actualizado');
+  } catch (err) { toast('Error: '+(err.message||err), true); }
+}
+
+async function toggleUsuarioActivo(id){
+  const u = APP.usuarios.find(x=>x.id===id);
+  const nuevo = !u.activo;
+  if (DEMO_MODE) { u.activo = nuevo; renderUsuarios(); toast('Actualizado (demo)'); return; }
+  try {
+    const { error } = await supabase.from('usuarios').update({activo: nuevo}).eq('id', id);
+    if (error) throw error;
+    u.activo = nuevo; renderUsuarios();
+    toast('Usuario '+(nuevo?'activado':'desactivado'));
+  } catch (err) { toast('Error: '+(err.message||err), true); }
+}
+
+// -----------------------------------------------------------------------
+// 11. INICIALIZACIÓN
+// -----------------------------------------------------------------------
+function bindStaticEvents(){
+  $('btnLogin').addEventListener('click', doLogin);
+  $('loginPassword').addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
+  $('btnLogout').addEventListener('click', doLogout);
+
+  $('btnNuevoContrato').addEventListener('click', abrirNuevoContrato);
+  $('btnGuardarContrato').addEventListener('click', guardarContrato);
+  $('btnConfirmarBaja').addEventListener('click', confirmarBaja);
+  $('btnConfirmarFactura').addEventListener('click', confirmarFactura);
+  $('btnNuevoRol').addEventListener('click', ()=>openModal('modalRol'));
+  $('btnNuevoPermiso').addEventListener('click', ()=>openModal('modalPermiso'));
+  $('btnGuardarRol').addEventListener('click', guardarRol);
+  $('btnGuardarPermiso').addEventListener('click', guardarPermiso);
+  $('btnExportClientes').addEventListener('click', exportarClientesCsv);
+  $('btnExportSucursales').addEventListener('click', exportarSucursalesCsv);
+  $('btnRepAplicar').addEventListener('click', renderReportes);
+
+  bindContratoFilters();
+  bindFacturacionFilters();
+}
+
+async function boot(){
+  bindStaticEvents();
+  if (DEMO_MODE) {
+    document.querySelector('.login-card').insertAdjacentHTML('beforeend',
+      `<div class="banner info" style="margin-top:16px;text-align:left;"><b>Modo demo:</b> completá SUPABASE_URL / SUPABASE_ANON_KEY en app.js para conectar tu proyecto real.</div>`);
+    $('loginEmail').value = 'demo@horizon.com.ar';
+    $('loginPassword').value = 'demo';
+    APP.user = null; APP.rolNombre = 'Admin (demo)';
+    APP.perms = new Set(MOCK.permisos.map(p=>p.clave)); // acceso total en demo
+    enterApp();
+    return;
+  }
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) await afterLogin(session.user.id, session.user.email);
+}
+
+document.addEventListener('DOMContentLoaded', boot);
+
+</script>
+</body>
+</html>
