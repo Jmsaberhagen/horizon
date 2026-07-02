@@ -516,8 +516,14 @@ const SUPABASE_URL = 'https://wqdfzsoatbhextikduvp.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxZGZ6c29hdGJoZXh0aWtkdXZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI5Mzc4MzcsImV4cCI6MjA5ODUxMzgzN30.9WDcYf4nZ_AlhPiG6t2ZYF_cZBEbMatZ43D52I03nMU';
 const DEMO_MODE = SUPABASE_URL.includes('TU-PROYECTO');
 let supabase = null;
+let SUPABASE_INIT_ERROR = null;
 if (!DEMO_MODE) {
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  try {
+    if (!window.supabase) throw new Error('La librería de Supabase (supabase-js) no cargó. Revisá tu conexión o si algún bloqueador de anuncios/shields está frenando cdn.jsdelivr.net, y recargá la página.');
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  } catch (err) {
+    SUPABASE_INIT_ERROR = err.message || String(err);
+  }
 }
 
 // -----------------------------------------------------------------------
@@ -661,6 +667,7 @@ function csvDownload(filename, rows){
 // 4. AUTENTICACIÓN
 // -----------------------------------------------------------------------
 async function doLogin(){
+  if (SUPABASE_INIT_ERROR) { $('loginError').textContent = SUPABASE_INIT_ERROR; return; }
   const email = $('loginEmail').value.trim();
   const pass = $('loginPassword').value;
   $('loginError').textContent = '';
@@ -1444,8 +1451,13 @@ async function boot(){
     enterApp();
     return;
   }
-  const { data: { session } } = await supabase.auth.getSession();
-  if (session) await afterLogin(session.user.id, session.user.email);
+  if (SUPABASE_INIT_ERROR) { $('loginError').textContent = SUPABASE_INIT_ERROR; return; }
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) await afterLogin(session.user.id, session.user.email);
+  } catch (err) {
+    $('loginError').textContent = 'No se pudo conectar con Supabase: ' + (err.message || err);
+  }
 }
 
 document.addEventListener('DOMContentLoaded', boot);
