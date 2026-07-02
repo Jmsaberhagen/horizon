@@ -158,6 +158,48 @@
     .topbar{padding:12px 16px;}
     .wrap{padding:18px 14px 60px;}
   }
+
+  /* ---------- consola de debug ---------- */
+  #debugToggle{
+    position:fixed;bottom:18px;right:18px;z-index:200;
+    width:44px;height:44px;border-radius:50%;
+    background:var(--bg-panel-raised);border:1px solid var(--border);
+    color:var(--text-muted);font-family:'JetBrains Mono';font-size:16px;font-weight:600;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 4px 16px rgba(0,0,0,.4);
+  }
+  #debugToggle.has-errors{border-color:var(--danger);color:var(--danger);box-shadow:0 0 14px rgba(240,85,75,.5);}
+  #debugToggle .badge-count{
+    position:absolute;top:-4px;right:-4px;background:var(--danger);color:#fff;
+    font-size:10px;font-weight:700;border-radius:10px;min-width:16px;height:16px;
+    display:flex;align-items:center;justify-content:center;padding:0 4px;font-family:'Inter';
+  }
+  #debugPanel{
+    position:fixed;bottom:70px;right:18px;left:18px;max-width:640px;margin-left:auto;
+    height:min(50vh,420px);z-index:200;display:none;flex-direction:column;
+    background:#0F1216;border:1px solid var(--border);border-radius:12px;
+    box-shadow:0 8px 30px rgba(0,0,0,.5);overflow:hidden;
+  }
+  #debugPanel.open{display:flex;}
+  .debug-head{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:9px 12px;background:var(--bg-panel-raised);border-bottom:1px solid var(--border);
+  }
+  .debug-head h4{margin:0;font-family:'JetBrains Mono';font-size:11px;letter-spacing:.06em;color:var(--text-muted);text-transform:uppercase;}
+  .debug-head .actions{display:flex;gap:6px;}
+  .debug-head button{
+    background:var(--bg-panel);border:1px solid var(--border);color:var(--text-muted);
+    font-size:11px;padding:4px 9px;border-radius:6px;cursor:pointer;font-family:'Inter';
+  }
+  .debug-head button:hover{color:var(--text-primary);border-color:#3a4048;}
+  #debugLog{flex:1;overflow-y:auto;padding:8px 10px;font-family:'JetBrains Mono';font-size:11px;line-height:1.55;}
+  .debug-line{padding:3px 6px;border-radius:4px;white-space:pre-wrap;word-break:break-word;margin-bottom:1px;}
+  .debug-line .t{color:var(--text-dim);margin-right:6px;}
+  .debug-line.log{color:var(--text-muted);}
+  .debug-line.info{color:#9FD3E0;background:rgba(63,140,185,.08);}
+  .debug-line.warn{color:var(--warn);background:rgba(232,179,57,.08);}
+  .debug-line.error{color:#F5A29A;background:rgba(240,85,75,.1);}
+  .debug-line.ok{color:var(--success);}
 </style>
 </head>
 <body>
@@ -504,10 +546,115 @@
 
 <div class="toast" id="toast"><span class="dot"></span><span id="toastText"></span></div>
 
+<!-- ============================== CONSOLA DE DEBUG ============================== -->
+<button id="debugToggle" title="Consola de debug">⚑</button>
+<div id="debugPanel">
+  <div class="debug-head">
+    <h4>Consola de debug</h4>
+    <div class="actions">
+      <button id="debugCopy">Copiar log</button>
+      <button id="debugClear">Limpiar</button>
+      <button id="debugClose">Cerrar</button>
+    </div>
+  </div>
+  <div id="debugLog"></div>
+</div>
+
 <script>
 // =============================================================================
 // HORIZON — Gestión de Alquileres · single-file app
 // =============================================================================
+
+// -----------------------------------------------------------------------
+// -1. CONSOLA DE DEBUG (temporal, mientras terminamos la app)
+//     Captura console.log/warn/error, errores no atrapados y promesas
+//     rechazadas, y los muestra en un panel visible dentro de la propia
+//     página — útil para diagnosticar en producción (GitHub Pages) sin
+//     tener que abrir las devtools del navegador.
+// -----------------------------------------------------------------------
+const DEBUG = (function(){
+  const buf = [];
+  let errorCount = 0;
+  const nativeConsole = { log: console.log, warn: console.warn, error: console.error, info: console.info };
+
+  function render(){
+    const el = document.getElementById('debugLog');
+    if (!el) return;
+    el.innerHTML = buf.map(e =>
+      `<div class="debug-line ${e.level}"><span class="t">${e.time}</span>${escapeHtml(e.msg)}</div>`
+    ).join('');
+    el.scrollTop = el.scrollHeight;
+    const toggle = document.getElementById('debugToggle');
+    if (toggle) {
+      if (errorCount > 0) {
+        toggle.classList.add('has-errors');
+        toggle.innerHTML = '⚑<span class="badge-count">'+errorCount+'</span>';
+      } else {
+        toggle.classList.remove('has-errors');
+        toggle.innerHTML = '⚑';
+      }
+    }
+  }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function push(level, args){
+    const msg = args.map(a => {
+      if (a instanceof Error) return (a.message || String(a)) + (a.stack ? '\n' + a.stack : '');
+      if (typeof a === 'object') { try { return JSON.stringify(a); } catch(e) { return String(a); } }
+      return String(a);
+    }).join(' ');
+    const time = new Date().toLocaleTimeString('es-AR', {hour12:false});
+    buf.push({level, time, msg});
+    if (level === 'error') errorCount++;
+    if (buf.length > 400) buf.shift();
+    render();
+  }
+  return {
+    log:   (...a) => { nativeConsole.log(...a);   push('log', a); },
+    info:  (...a) => { nativeConsole.info(...a);  push('info', a); },
+    warn:  (...a) => { nativeConsole.warn(...a);  push('warn', a); },
+    error: (...a) => { nativeConsole.error(...a); push('error', a); },
+    ok:    (...a) => { nativeConsole.log(...a);   push('ok', a); },
+    getText: () => buf.map(e => `[${e.time}] [${e.level.toUpperCase()}] ${e.msg}`).join('\n'),
+    clear: () => { buf.length = 0; errorCount = 0; render(); },
+  };
+})();
+
+// Override de console.* para que TODO lo que loguee la app (o la librería
+// de Supabase) también aparezca en el panel visual.
+console.log = DEBUG.log;
+console.info = DEBUG.info;
+console.warn = DEBUG.warn;
+console.error = DEBUG.error;
+
+window.addEventListener('error', (e) => {
+  DEBUG.error('Error no controlado: ' + e.message + ' (' + e.filename + ':' + e.lineno + ':' + e.colno + ')');
+});
+window.addEventListener('unhandledrejection', (e) => {
+  const reason = e.reason && e.reason.message ? e.reason.message : e.reason;
+  DEBUG.error('Promesa rechazada sin capturar: ' + reason);
+});
+
+DEBUG.log('Script de Horizon cargado. Iniciando…');
+DEBUG.log('window.supabase (librería CDN) presente: ' + (!!window.supabase));
+
+// Se conecta ya mismo (no espera a boot/DOMContentLoaded) para que la consola
+// funcione aunque algo más adelante en el script falle.
+(function wireDebugPanel(){
+  const toggle = document.getElementById('debugToggle');
+  const panel = document.getElementById('debugPanel');
+  document.getElementById('debugToggle').addEventListener('click', () => panel.classList.toggle('open'));
+  document.getElementById('debugClose').addEventListener('click', () => panel.classList.remove('open'));
+  document.getElementById('debugClear').addEventListener('click', () => DEBUG.clear());
+  document.getElementById('debugCopy').addEventListener('click', () => {
+    const text = DEBUG.getText();
+    navigator.clipboard.writeText(text).then(
+      () => { const b = document.getElementById('debugCopy'); const old = b.textContent; b.textContent = 'Copiado ✓'; setTimeout(()=>b.textContent=old, 1500); },
+      () => { alert('No se pudo copiar automáticamente. Seleccioná el texto manualmente:\n\n' + text); }
+    );
+  });
+})();
 
 // -----------------------------------------------------------------------
 // 0. CONFIGURACIÓN — completá con los datos de tu proyecto Supabase
@@ -515,14 +662,17 @@
 const SUPABASE_URL = 'https://wqdfzsoatbhextikduvp.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxZGZ6c29hdGJoZXh0aWtkdXZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI5Mzc4MzcsImV4cCI6MjA5ODUxMzgzN30.9WDcYf4nZ_AlhPiG6t2ZYF_cZBEbMatZ43D52I03nMU';
 const DEMO_MODE = SUPABASE_URL.includes('TU-PROYECTO');
+DEBUG.log('DEMO_MODE = ' + DEMO_MODE);
 let supabase = null;
 let SUPABASE_INIT_ERROR = null;
 if (!DEMO_MODE) {
   try {
     if (!window.supabase) throw new Error('La librería de Supabase (supabase-js) no cargó. Revisá tu conexión o si algún bloqueador de anuncios/shields está frenando cdn.jsdelivr.net, y recargá la página.');
     supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    DEBUG.ok('Cliente de Supabase creado correctamente contra ' + SUPABASE_URL);
   } catch (err) {
     SUPABASE_INIT_ERROR = err.message || String(err);
+    DEBUG.error('Fallo al crear el cliente de Supabase: ' + SUPABASE_INIT_ERROR);
   }
 }
 
@@ -667,18 +817,22 @@ function csvDownload(filename, rows){
 // 4. AUTENTICACIÓN
 // -----------------------------------------------------------------------
 async function doLogin(){
-  if (SUPABASE_INIT_ERROR) { $('loginError').textContent = SUPABASE_INIT_ERROR; return; }
+  DEBUG.log('Click en Ingresar');
+  if (SUPABASE_INIT_ERROR) { $('loginError').textContent = SUPABASE_INIT_ERROR; DEBUG.error('doLogin abortado: ' + SUPABASE_INIT_ERROR); return; }
   const email = $('loginEmail').value.trim();
   const pass = $('loginPassword').value;
   $('loginError').textContent = '';
-  if(!email || !pass){ $('loginError').textContent = 'Completá email y contraseña.'; return; }
+  if(!email || !pass){ $('loginError').textContent = 'Completá email y contraseña.'; DEBUG.warn('Falta email o contraseña'); return; }
 
   $('btnLogin').disabled = true;
+  DEBUG.log('Intentando signInWithPassword para ' + email + '…');
   try {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
     if (error) throw error;
+    DEBUG.ok('signInWithPassword OK. user.id = ' + data.user.id);
     await afterLogin(data.user.id, email);
   } catch (err) {
+    DEBUG.error('signInWithPassword falló: ' + (err.message || err));
     $('loginError').textContent = 'No se pudo iniciar sesión: ' + (err.message || err);
   } finally {
     $('btnLogin').disabled = false;
@@ -686,6 +840,7 @@ async function doLogin(){
 }
 
 async function afterLogin(userId, email){
+  DEBUG.log('afterLogin: buscando fila en usuarios para id=' + userId);
   const { data: usuario, error } = await supabase
     .from('usuarios')
     .select('*, roles(nombre)')
@@ -693,11 +848,14 @@ async function afterLogin(userId, email){
     .single();
 
   if (error || !usuario) {
+    DEBUG.error('afterLogin: no se encontró usuario en la tabla `usuarios` (' + (error ? error.message : 'sin datos') + ')');
     $('loginError').textContent = 'Tu cuenta no está habilitada en el sistema. Contactá al administrador.';
     await supabase.auth.signOut();
     return;
   }
+  DEBUG.ok('afterLogin: usuario encontrado — ' + usuario.nombre + ' / rol_id=' + usuario.rol_id);
   if (!usuario.activo) {
+    DEBUG.warn('afterLogin: usuario desactivado');
     $('loginError').textContent = 'Tu usuario está desactivado.';
     await supabase.auth.signOut();
     return;
@@ -712,6 +870,7 @@ async function afterLogin(userId, email){
     .eq('rol_id', usuario.rol_id)
     .eq('habilitado', true);
   APP.perms = new Set((rp || []).map(x => x.permisos.clave));
+  DEBUG.ok('Permisos cargados (' + APP.perms.size + '): ' + [...APP.perms].join(', '));
 
   enterApp();
 }
@@ -722,6 +881,7 @@ async function doLogout(){
 }
 
 function enterApp(){
+  DEBUG.ok('Entrando a la app. Usuario: ' + (APP.user ? APP.user.nombre : 'demo') + ' · Rol: ' + APP.rolNombre);
   $('loginScreen').style.display = 'none';
   $('appShell').style.display = 'block';
   $('chipNombre').textContent = APP.user ? APP.user.nombre : 'Demo';
@@ -1419,6 +1579,7 @@ async function toggleUsuarioActivo(id){
 // 11. INICIALIZACIÓN
 // -----------------------------------------------------------------------
 function bindStaticEvents(){
+  DEBUG.log('bindStaticEvents: conectando botones…');
   $('btnLogin').addEventListener('click', doLogin);
   $('loginPassword').addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
   $('btnLogout').addEventListener('click', doLogout);
@@ -1437,10 +1598,16 @@ function bindStaticEvents(){
 
   bindContratoFilters();
   bindFacturacionFilters();
+  DEBUG.ok('bindStaticEvents: listo, ' + 15 + ' botones conectados.');
 }
 
 async function boot(){
-  bindStaticEvents();
+  DEBUG.log('boot(): arrancando…');
+  try {
+    bindStaticEvents();
+  } catch (err) {
+    DEBUG.error('bindStaticEvents() falló: ' + (err.message || err) + ' — revisá que todos los IDs del HTML existan.');
+  }
   if (DEMO_MODE) {
     document.querySelector('.login-card').insertAdjacentHTML('beforeend',
       `<div class="banner info" style="margin-top:16px;text-align:left;"><b>Modo demo:</b> completá SUPABASE_URL / SUPABASE_ANON_KEY en app.js para conectar tu proyecto real.</div>`);
@@ -1460,7 +1627,22 @@ async function boot(){
   }
 }
 
-document.addEventListener('DOMContentLoaded', boot);
+let _booted = false;
+function bootOnce(){
+  if (_booted) { DEBUG.warn('boot() ya se había ejecutado, se ignora la llamada duplicada.'); return; }
+  _booted = true;
+  boot().catch(err => DEBUG.error('boot() lanzó un error no controlado: ' + (err.message || err)));
+}
+document.addEventListener('DOMContentLoaded', () => {
+  DEBUG.log('DOMContentLoaded disparado.');
+  bootOnce();
+});
+
+DEBUG.log('document.readyState = ' + document.readyState);
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+  DEBUG.warn('El DOM ya estaba listo antes de registrar el listener; forzando boot() igual.');
+  bootOnce();
+}
 
 </script>
 </body>
