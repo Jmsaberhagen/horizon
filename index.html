@@ -714,6 +714,77 @@
   </section>
 
   <section id="tab-reportes" style="display:none;">
+
+    <div class="dash-hero" style="margin-bottom:14px;">
+      <h1 style="font-size:16px;">Cuenta del cliente</h1>
+      <div class="sub">Buscá un cliente para ver su historial completo de facturación mes a mes</div>
+    </div>
+    <div class="toolbar" style="position:relative;">
+      <input type="text" id="cuenta-cliente-search" placeholder="Buscar cliente por razón social...">
+      <div class="autocomplete-list" id="cuenta-cliente-results"></div>
+    </div>
+
+    <div class="panel" id="cuenta-cliente-panel" style="display:none;padding:20px;margin-bottom:28px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px;">
+        <div>
+          <div style="font-size:18px;font-weight:700;" id="cc-nombre"></div>
+          <div class="muted" style="font-size:12px;margin-top:2px;" id="cc-subtitulo"></div>
+        </div>
+        <button class="btn secondary small" id="btn-cerrar-cuenta">✕ Cerrar</button>
+      </div>
+
+      <div class="dash-grid" style="grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); margin:18px 0;">
+        <div class="panel" style="padding:14px;">
+          <div class="muted" style="font-size:11px;text-transform:uppercase;">Facturado histórico</div>
+          <div id="cc-total-facturado" style="font-size:19px;font-weight:700;color:var(--ok);margin-top:4px;">U$D 0</div>
+        </div>
+        <div class="panel" style="padding:14px;">
+          <div class="muted" style="font-size:11px;text-transform:uppercase;">Pendiente actual</div>
+          <div id="cc-total-pendiente" style="font-size:19px;font-weight:700;color:var(--accent);margin-top:4px;">U$D 0</div>
+        </div>
+        <div class="panel" style="padding:14px;">
+          <div class="muted" style="font-size:11px;text-transform:uppercase;">Promedio mensual</div>
+          <div id="cc-promedio" style="font-size:19px;font-weight:700;margin-top:4px;">U$D 0</div>
+        </div>
+        <div class="panel" style="padding:14px;">
+          <div class="muted" style="font-size:11px;text-transform:uppercase;">Contratos activos</div>
+          <div id="cc-contratos-activos" style="font-size:19px;font-weight:700;margin-top:4px;">0</div>
+        </div>
+      </div>
+
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px;">Evolución mes a mes</div>
+      <div class="table-wrap" style="max-height:none;margin-bottom:20px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Mes</th>
+              <th>Facturado (USD)</th>
+              <th>Pendiente (USD)</th>
+              <th>Cant. facturas</th>
+              <th>Cant. pendientes</th>
+            </tr>
+          </thead>
+          <tbody id="cc-meses-tbody"></tbody>
+        </table>
+      </div>
+
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px;">Detalle completo</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Equipo</th>
+              <th>Período</th>
+              <th>Valor (USD)</th>
+              <th>Estado</th>
+              <th>N° Factura</th>
+            </tr>
+          </thead>
+          <tbody id="cc-detalle-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
     <div class="toolbar" style="flex-wrap:wrap;">
       <input type="date" id="rep-desde" title="Período desde">
       <input type="date" id="rep-hasta" title="Período hasta">
@@ -2815,6 +2886,125 @@ function irATab(tab){
   if(btn && btn.style.display !== 'none') btn.click();
 }
 
+
+// =========================================================
+// =========================================================
+// MÓDULO CUENTA DEL CLIENTE
+// =========================================================
+
+const cuentaClienteSearch = document.getElementById('cuenta-cliente-search');
+const cuentaClienteResults = document.getElementById('cuenta-cliente-results');
+
+cuentaClienteSearch.addEventListener('input', ()=>{
+  const q = cuentaClienteSearch.value.trim().toLowerCase();
+  if(q.length < 2){ cuentaClienteResults.classList.remove('open'); return; }
+  const matches = clientesCache.filter(c => (c.razon_social||'').toLowerCase().includes(q)).slice(0, 20);
+  cuentaClienteResults.innerHTML = matches.length === 0
+    ? '<div class="autocomplete-item muted">Sin resultados</div>'
+    : matches.map(c => `
+        <div class="autocomplete-item" data-id="${c.id}">
+          ${escapeHtml(c.razon_social)}
+          <span class="sub">${c.numero_cliente || 's/n'} — ${c.provincia || ''}</span>
+        </div>`).join('');
+  cuentaClienteResults.classList.add('open');
+});
+cuentaClienteResults.addEventListener('click', (e)=>{
+  const item = e.target.closest('.autocomplete-item');
+  if(!item || !item.dataset.id) return;
+  cuentaClienteResults.classList.remove('open');
+  cuentaClienteSearch.value = '';
+  mostrarCuentaCliente(Number(item.dataset.id));
+});
+document.addEventListener('click', (e)=>{
+  if(!e.target.closest('#cuenta-cliente-search') && !e.target.closest('#cuenta-cliente-results')) cuentaClienteResults.classList.remove('open');
+});
+document.getElementById('btn-cerrar-cuenta').addEventListener('click', ()=>{
+  document.getElementById('cuenta-cliente-panel').style.display = 'none';
+});
+
+const MESES_NOMBRES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+function mostrarCuentaCliente(clienteId){
+  const cliente = clientesCache.find(c => c.id === clienteId);
+  if(!cliente) return;
+
+  const pendientesDelCliente = pendientesCache.filter(p => p.contratos?.clientes?.id === clienteId);
+  const contratosDelCliente = contratosCache.filter(c => c.cliente_id === clienteId);
+
+  document.getElementById('cc-nombre').textContent = cliente.razon_social;
+  document.getElementById('cc-subtitulo').textContent =
+    `${cliente.numero_cliente ? 'N° '+cliente.numero_cliente+' — ' : ''}${cliente.cuit || 'sin CUIT'}${cliente.provincia ? ' — '+cliente.provincia : ''}`;
+
+  const facturados = pendientesDelCliente.filter(p => p.estado === 'facturado');
+  const pendientes = pendientesDelCliente.filter(p => p.estado === 'pendiente');
+  const totalFacturado = facturados.reduce((a,p)=> a + (Number(p.valor_alquiler_usd)||0), 0);
+  const totalPendiente = pendientes.reduce((a,p)=> a + (Number(p.valor_alquiler_usd)||0), 0);
+  const contratosActivos = contratosDelCliente.filter(c => c.estado === 'activo').length;
+
+  // promedio mensual: sobre los meses que tienen al menos un registro facturado
+  const mesesConFactura = new Set(facturados.map(p => (p.periodo_hasta||'').slice(0,7)));
+  const promedio = mesesConFactura.size > 0 ? totalFacturado / mesesConFactura.size : 0;
+
+  document.getElementById('cc-total-facturado').textContent = fmtMoney(totalFacturado, 'USD');
+  document.getElementById('cc-total-pendiente').textContent = fmtMoney(totalPendiente, 'USD');
+  document.getElementById('cc-promedio').textContent = fmtMoney(promedio, 'USD');
+  document.getElementById('cc-contratos-activos').textContent = contratosActivos;
+
+  // ---------- evolución mes a mes ----------
+  const porMes = {};
+  pendientesDelCliente.forEach(p=>{
+    const key = (p.periodo_hasta || p.periodo_desde || '').slice(0,7); // YYYY-MM
+    if(!key) return;
+    if(!porMes[key]) porMes[key] = { facturadoUsd:0, pendienteUsd:0, cantFacturas:0, cantPendientes:0 };
+    const valor = Number(p.valor_alquiler_usd) || 0;
+    if(p.estado === 'facturado'){
+      porMes[key].facturadoUsd += valor;
+      porMes[key].cantFacturas += 1;
+    } else {
+      porMes[key].pendienteUsd += valor;
+      porMes[key].cantPendientes += 1;
+    }
+  });
+  const mesesOrdenados = Object.keys(porMes).sort();
+  const mesesTbody = document.getElementById('cc-meses-tbody');
+  mesesTbody.innerHTML = mesesOrdenados.length === 0
+    ? '<tr><td colspan="5" class="empty-state">Sin historial para este cliente.</td></tr>'
+    : mesesOrdenados.map(key=>{
+        const [y,m] = key.split('-');
+        const label = `${MESES_NOMBRES[Number(m)-1]} ${y}`;
+        const d = porMes[key];
+        return `
+          <tr>
+            <td>${label}</td>
+            <td class="muted">${fmtMoney(d.facturadoUsd,'USD')}</td>
+            <td class="muted">${d.pendienteUsd > 0 ? fmtMoney(d.pendienteUsd,'USD') : '—'}</td>
+            <td class="muted">${d.cantFacturas || '—'}</td>
+            <td class="muted">${d.cantPendientes || '—'}</td>
+          </tr>`;
+      }).join('');
+
+  // ---------- detalle completo ----------
+  const ordenados = [...pendientesDelCliente].sort((a,b)=> (b.periodo_desde||'').localeCompare(a.periodo_desde||''));
+  const detTbody = document.getElementById('cc-detalle-tbody');
+  detTbody.innerHTML = ordenados.length === 0
+    ? '<tr><td colspan="5" class="empty-state">Sin registros.</td></tr>'
+    : ordenados.map(p=>{
+        const equipo = p.contratos?.equipos?.numero_serie || '—';
+        const estadoBadge = p.estado === 'facturado'
+          ? '<span class="badge" style="color:var(--ok);border-color:var(--ok);">Facturado</span>'
+          : '<span class="badge" style="color:var(--accent);border-color:var(--accent-dim);">Pendiente</span>';
+        return `
+          <tr>
+            <td class="muted">${escapeHtml(equipo)}</td>
+            <td class="muted">${fmtDate(p.periodo_desde)} → ${fmtDate(p.periodo_hasta)}</td>
+            <td class="muted">${fmtMoney(p.valor_alquiler_usd,'USD')}</td>
+            <td>${estadoBadge}</td>
+            <td class="muted">${escapeHtml(p.numero_factura || '—')}</td>
+          </tr>`;
+      }).join('');
+
+  document.getElementById('cuenta-cliente-panel').style.display = 'block';
+}
 
 // =========================================================
 // MÓDULO REPORTES
