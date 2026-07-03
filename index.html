@@ -1044,6 +1044,10 @@
       </div>
     </div>
 
+    <div id="p-flete-warning" style="display:none;background:rgba(56,189,248,0.1);border:1px solid var(--accent-dim);border-radius:var(--radius);padding:12px;margin-top:16px;font-size:13px;">
+      🚚 <strong>Este contrato tiene flete adicional.</strong> Agregar un segundo ítem en la factura por <span id="p-flete-monto" style="color:var(--accent);font-weight:700;"></span>.
+    </div>
+
     <div id="p-requisitos-box" style="display:none;">
       <h2 style="margin-top:22px;font-size:14px;">Checklist del cliente antes de facturar</h2>
       <div class="req-list" id="p-requisitos-list"></div>
@@ -1139,6 +1143,20 @@
       <div class="field full">
         <label>Orden de compra</label>
         <input type="text" id="c-orden_de_compra">
+      </div>
+
+      <div class="field full" style="background:var(--panel-2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;">
+        <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:13px;color:var(--text);">
+          <input type="checkbox" id="c-tiene_flete" style="width:auto;">
+          Tiene costo de flete/envío adicional
+        </label>
+        <div id="c-flete-box" style="display:none;margin-top:10px;">
+          <label>Costo de flete (USD)</label>
+          <input type="number" step="0.01" id="c-costo_flete" placeholder="0.00">
+          <div class="muted" style="font-size:11px;margin-top:4px;">
+            El facturador va a ver un aviso para agregar un segundo ítem en la factura por este concepto.
+          </div>
+        </div>
       </div>
 
       <div class="field">
@@ -1610,7 +1628,7 @@ function renderContratos(list){
     return `
       <tr>
         <td>${escapeHtml(cliente)}</td>
-        <td class="muted">${escapeHtml(equipo)}</td>
+        <td class="muted">${escapeHtml(equipo)}${c.tiene_flete ? ` <span class="badge" style="color:var(--accent);border-color:var(--accent-dim);" title="Flete adicional: ${fmtMoney(c.costo_flete,'USD')}">🚚 flete</span>` : ''}</td>
         <td>${sucursal !== '—' ? `<span class="badge">${sucursal}</span>` : '—'}</td>
         <td class="muted">${fmtDate(c.fecha_salida)} → ${fmtDate(c.fecha_vencimiento)}</td>
         <td class="muted">${fmtMoney(precio, c.moneda)}</td>
@@ -1730,15 +1748,21 @@ function populateSucursalSelectContrato(){
   sel.innerHTML = '<option value="">—</option>' + sucursales.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
 }
 
+document.getElementById('c-tiene_flete').addEventListener('change', (e)=>{
+  document.getElementById('c-flete-box').style.display = e.target.checked ? 'block' : 'none';
+});
+
 function resetContratoForm(){
   ['id','cliente_id','equipo_id','remito','fecha_salida','fecha_vencimiento',
    'porcentaje_descuento','precio_sin_descuento','precio_con_descuento',
-   'orden_de_compra','obra','contacto_obra','observacion','fecha_baja']
+   'orden_de_compra','obra','contacto_obra','observacion','fecha_baja','costo_flete']
    .forEach(f => { const el = document.getElementById('c-'+f); if(el) el.value = ''; });
   document.getElementById('c-porcentaje_descuento').value = 0;
   document.getElementById('c-moneda').value = 'USD';
   document.getElementById('c-estado').value = 'activo';
   document.getElementById('c-sucursal_id').value = '';
+  document.getElementById('c-tiene_flete').checked = false;
+  document.getElementById('c-flete-box').style.display = 'none';
   clienteSearchInput.value = '';
   equipoSearchInput.value = '';
   document.getElementById('c-cliente-selected').textContent = '';
@@ -1788,6 +1812,9 @@ function openEditContrato(id){
   document.getElementById('c-observacion').value = c.observacion || '';
   document.getElementById('c-estado').value = c.estado || 'activo';
   document.getElementById('c-fecha_baja').value = c.fecha_baja || '';
+  document.getElementById('c-tiene_flete').checked = !!c.tiene_flete;
+  document.getElementById('c-flete-box').style.display = c.tiene_flete ? 'block' : 'none';
+  document.getElementById('c-costo_flete').value = c.costo_flete ?? '';
 
   openContratoOverlay();
 }
@@ -1819,6 +1846,9 @@ document.getElementById('btn-contrato-save').addEventListener('click', async ()=
     contacto_obra: document.getElementById('c-contacto_obra').value.trim() || null,
     observacion: document.getElementById('c-observacion').value.trim() || null,
     estado: document.getElementById('c-estado').value,
+    tiene_flete: document.getElementById('c-tiene_flete').checked,
+    costo_flete: document.getElementById('c-tiene_flete').checked && document.getElementById('c-costo_flete').value
+      ? Number(document.getElementById('c-costo_flete').value) : null,
   };
 
   try{
@@ -1869,7 +1899,7 @@ async function loadPendientes(){
     const { data, error } = await supabaseClient
       .from('pendientes_facturacion')
       .select(`*, contratos(
-          id, moneda, cliente_id,
+          id, moneda, cliente_id, tiene_flete, costo_flete,
           clientes(id, razon_social, provincia),
           equipos(numero_serie, modelo),
           sucursales(id, nombre)
@@ -1926,7 +1956,7 @@ function renderPendientes(list){
     return `
       <tr>
         <td>${escapeHtml(cliente)}</td>
-        <td class="muted">${escapeHtml(equipo)}</td>
+        <td class="muted">${escapeHtml(equipo)}${p.contratos?.tiene_flete ? ` <span class="badge" style="color:var(--accent);border-color:var(--accent-dim);" title="Agregar 2° ítem por flete: ${fmtMoney(p.contratos.costo_flete,'USD')}">🚚 flete</span>` : ''}</td>
         <td>${sucursal !== '—' ? `<span class="badge">${sucursal}</span>` : '—'}</td>
         <td class="muted">${fmtDate(p.periodo_desde)} → ${fmtDate(p.periodo_hasta)}</td>
         <td class="muted">${fmtMoney(p.potencial_facturacion, 'ARS')}</td>
@@ -2080,10 +2110,21 @@ contratoResultsBox.addEventListener('click', (e)=>{
 
   const contrato = contratosCache.find(c => c.id === Number(item.dataset.id));
   renderRequisitosChecklist(contrato?.clientes?.id);
+  mostrarAvisoFlete(contrato?.tiene_flete, contrato?.costo_flete);
 });
 document.addEventListener('click', (e)=>{
   if(!e.target.closest('#p-contrato-search') && !e.target.closest('#p-contrato-results')) contratoResultsBox.classList.remove('open');
 });
+
+function mostrarAvisoFlete(tieneFlete, costoFlete){
+  const box = document.getElementById('p-flete-warning');
+  if(tieneFlete){
+    document.getElementById('p-flete-monto').textContent = fmtMoney(costoFlete, 'USD');
+    box.style.display = 'block';
+  } else {
+    box.style.display = 'none';
+  }
+}
 
 function renderRequisitosChecklist(clienteId){
   const box = document.getElementById('p-requisitos-box');
@@ -2115,6 +2156,7 @@ function resetPendienteForm(){
   document.getElementById('p-estado').value = 'pendiente';
   document.getElementById('p-requisitos-box').style.display = 'none';
   document.getElementById('p-requisitos-list').innerHTML = '';
+  document.getElementById('p-flete-warning').style.display = 'none';
 }
 
 document.getElementById('btn-nuevo-pendiente').addEventListener('click', ()=>{
@@ -2154,6 +2196,7 @@ function openEditPendiente(id){
   document.getElementById('p-numero_factura').value = p.numero_factura || '';
 
   renderRequisitosChecklist(p.contratos?.clientes?.id);
+  mostrarAvisoFlete(p.contratos?.tiene_flete, p.contratos?.costo_flete);
   document.getElementById('modal-pendiente-overlay').classList.add('open');
 }
 
