@@ -658,7 +658,6 @@
       <button class="btn secondary" id="btn-export-pendientes-csv">Exportar CSV</button>
       <button class="btn secondary" id="btn-export-pendientes-xls">Exportar XLS</button>
       <button class="btn secondary" id="btn-nuevo-pendiente">+ Pendiente manual</button>
-      <button class="btn" id="btn-generar-mes">Generar pendientes del mes</button>
     </div>
 
     <div class="panel">
@@ -979,36 +978,6 @@
       <button class="btn secondary" id="btn-equipo-cancel">Cancelar</button>
       <button class="btn danger" id="btn-equipo-delete" style="display:none;">Eliminar equipo</button>
       <button class="btn" id="btn-equipo-save">Guardar</button>
-    </div>
-  </div>
-</div>
-
-
-<!-- MODAL GENERAR PENDIENTES DEL MES -->
-<div class="overlay" id="modal-generar-overlay">
-  <div class="modal">
-    <h2>Generar pendientes del mes</h2>
-    <div class="muted" style="font-size:13px;margin-bottom:14px;">
-      Se va a crear un pendiente de facturación para cada contrato <b>activo</b> en el período elegido.
-      Los contratos que ya tengan un pendiente generado para ese mismo período se van a saltear automáticamente (no se duplican).
-    </div>
-    <div class="field-grid">
-      <div class="field">
-        <label>Período — desde</label>
-        <input type="date" id="gen-desde">
-      </div>
-      <div class="field">
-        <label>Período — hasta</label>
-        <input type="date" id="gen-hasta">
-      </div>
-      <div class="field">
-        <label>Tipo de cambio a aplicar (opcional)</label>
-        <input type="number" step="0.0001" id="gen-tc" placeholder="Ej: 1250.50">
-      </div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn secondary" id="btn-generar-cancel">Cancelar</button>
-      <button class="btn" id="btn-generar-confirmar">Generar</button>
     </div>
   </div>
 </div>
@@ -2113,37 +2082,19 @@ async function loadTodosLosRequisitos(){
   });
 }
 
-// ---------- Generar pendientes del mes ----------
-document.getElementById('btn-generar-mes').addEventListener('click', ()=>{
+// ---------- Generar pendientes del mes (automático, sin intervención) ----------
+async function autoGenerarPendientesDelMes(){
   const now = new Date();
-  const first = new Date(now.getFullYear(), now.getMonth(), 1);
-  const last = new Date(now.getFullYear(), now.getMonth()+1, 0);
-  document.getElementById('gen-desde').value = first.toISOString().slice(0,10);
-  document.getElementById('gen-hasta').value = last.toISOString().slice(0,10);
-  document.getElementById('gen-tc').value = '';
-  document.getElementById('modal-generar-overlay').classList.add('open');
-});
-document.getElementById('btn-generar-cancel').addEventListener('click', ()=>{
-  document.getElementById('modal-generar-overlay').classList.remove('open');
-});
-
-document.getElementById('btn-generar-confirmar').addEventListener('click', async ()=>{
-  const desde = document.getElementById('gen-desde').value;
-  const hasta = document.getElementById('gen-hasta').value;
-  const tc = document.getElementById('gen-tc').value ? Number(document.getElementById('gen-tc').value) : null;
-
-  if(!desde || !hasta){ showToast('Completá el período', true); return; }
+  const first = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
+  const last = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().slice(0,10);
 
   const activos = contratosCache.filter(c => c.estado === 'activo');
-  if(activos.length === 0){
-    showToast('No hay contratos activos', true);
-    return;
-  }
+  if(activos.length === 0) return;
 
   // evitar duplicados: contratos que ya tienen un pendiente con el mismo periodo_desde
   const yaGenerados = new Set(
     pendientesCache
-      .filter(p => p.periodo_desde === desde)
+      .filter(p => p.periodo_desde === first)
       .map(p => p.contrato_id)
   );
 
@@ -2152,37 +2103,29 @@ document.getElementById('btn-generar-confirmar').addEventListener('click', async
     .map(c => {
       const valorUsd = c.precio_mensual_con_descuento ?? c.precio_mensual_sin_descuento ?? 0;
       const valorEnUsd = c.moneda === 'USD' ? valorUsd : null;
-      const potencialArs = c.moneda === 'ARS'
-        ? valorUsd
-        : (tc ? valorUsd * tc : null);
+      const potencialArs = c.moneda === 'ARS' ? valorUsd : null;
       return {
         contrato_id: c.id,
-        periodo_desde: desde,
-        periodo_hasta: hasta,
+        periodo_desde: first,
+        periodo_hasta: last,
         valor_alquiler_usd: valorEnUsd,
-        tc_aplicado: tc,
+        tc_aplicado: null,
         potencial_facturacion: potencialArs,
         estado: 'pendiente',
       };
     });
 
-  if(nuevos.length === 0){
-    showToast('Todos los contratos activos ya tienen un pendiente generado para ese período');
-    document.getElementById('modal-generar-overlay').classList.remove('open');
-    return;
-  }
+  if(nuevos.length === 0) return;
 
   try{
     const { error } = await supabaseClient.from('pendientes_facturacion').insert(nuevos);
     if(error) throw error;
-    showToast(`Se generaron ${nuevos.length} pendiente(s). ${activos.length - nuevos.length > 0 ? '('+(activos.length-nuevos.length)+' ya existían)' : ''}`);
-    document.getElementById('modal-generar-overlay').classList.remove('open');
+    console.log(`[Horizon] generados automáticamente ${nuevos.length} pendiente(s) del mes`);
     await loadPendientes();
   } catch(err){
-    console.error(err);
-    showToast('Error al generar pendientes: ' + err.message, true);
+    console.error('[Horizon] error generando pendientes automáticos:', err);
   }
-});
+}
 
 // ---------- Autocompletar contrato (para pendiente manual) ----------
 const contratoSearchInput = document.getElementById('p-contrato-search');
@@ -3016,6 +2959,7 @@ async function initApp(){
       console.log('[Horizon] contratos OK, cargando requisitos y pendientes...');
       await loadTodosLosRequisitos();
       await loadPendientes();
+      await autoGenerarPendientesDelMes();
       populateReportesFiltros();
       renderReportes();
     }
