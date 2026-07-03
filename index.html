@@ -53,29 +53,35 @@
   header .status.err{color:var(--danger);}
 
   nav{
-    display:flex;
-    gap:4px;
-    padding:0 24px;
+    display:none;
+  }
+  .subbar{
+    display:none;
+    align-items:center;
+    gap:14px;
+    padding:14px 24px;
     background:var(--panel);
     border-bottom:1px solid var(--border);
   }
-  nav button{
-    background:none;
-    border:none;
-    color:var(--text-dim);
-    padding:12px 16px;
+  .subbar.visible{display:flex;}
+  .subbar .back-btn{
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:7px 14px;
+    border-radius:var(--radius);
     cursor:pointer;
     font-size:13px;
     font-weight:600;
-    border-bottom:2px solid transparent;
+    display:flex;
+    align-items:center;
+    gap:6px;
   }
-  nav button.active{
-    color:var(--accent);
-    border-bottom-color:var(--accent);
-  }
-  nav button:disabled{
-    color:#4a4a4e;
-    cursor:not-allowed;
+  .subbar .back-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .subbar .subbar-title{
+    font-size:14px;
+    font-weight:700;
+    color:var(--text-dim);
   }
 
   main{
@@ -499,6 +505,11 @@
   <button data-tab="reportes-placeholder" disabled title="Próximamente">Reportes</button>
   <button data-tab="usuarios" id="nav-usuarios" style="display:none;">Usuarios</button>
 </nav>
+
+<div class="subbar" id="subbar">
+  <button class="back-btn" id="btn-volver-inicio">← Volver al inicio</button>
+  <span class="subbar-title" id="subbar-title"></span>
+</div>
 
 <main>
 
@@ -1124,13 +1135,38 @@ function showToast(msg, isErr){
 }
 
 // ---------- Tabs ----------
+const TAB_TITLES = {
+  clientes: 'Clientes',
+  contratos: 'Contratos',
+  equipos: 'Equipos',
+  pendientes: 'Pendientes de Facturación',
+  usuarios: 'Usuarios',
+};
+
+function activarTab(tab){
+  document.querySelectorAll('nav button[data-tab]').forEach(b=>b.classList.remove('active'));
+  const btn = document.querySelector(`nav button[data-tab="${tab}"]`);
+  if(btn) btn.classList.add('active');
+  document.querySelectorAll('main > section').forEach(s=> s.style.display = 'none');
+  const section = document.getElementById('tab-' + tab);
+  if(section) section.style.display = 'block';
+
+  const subbar = document.getElementById('subbar');
+  if(tab === 'inicio'){
+    subbar.classList.remove('visible');
+  } else {
+    subbar.classList.add('visible');
+    document.getElementById('subbar-title').textContent = TAB_TITLES[tab] || '';
+  }
+}
+
 document.querySelectorAll('nav button[data-tab]').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    document.querySelectorAll('nav button[data-tab]').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    document.querySelectorAll('main > section').forEach(s=> s.style.display = 'none');
-    document.getElementById('tab-' + btn.dataset.tab).style.display = 'block';
-  });
+  btn.addEventListener('click', ()=> activarTab(btn.dataset.tab));
+});
+
+document.getElementById('btn-volver-inicio').addEventListener('click', ()=>{
+  activarTab('inicio');
+  renderDashboard(); // refresca contadores al volver
 });
 
 // ---------- Carga inicial ----------
