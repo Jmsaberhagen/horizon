@@ -323,6 +323,7 @@
 <nav>
   <button class="active" data-tab="clientes">Clientes</button>
   <button data-tab="contratos">Contratos</button>
+  <button data-tab="equipos">Equipos</button>
   <button data-tab="pendientes">Pendientes de Facturación</button>
   <button disabled title="Próximamente">Reportes</button>
 </nav>
@@ -402,6 +403,43 @@
       </div>
     </div>
     <div class="muted" id="contratos-results-count" style="margin-top:10px;font-size:12px;"></div>
+  </section>
+
+  <section id="tab-equipos" style="display:none;">
+    <div class="toolbar">
+      <input type="text" id="equipo-search-input" placeholder="Buscar por N° de serie o modelo...">
+      <select id="equipo-filter-sucursal">
+        <option value="">Todas las sucursales</option>
+      </select>
+      <select id="equipo-filter-estado">
+        <option value="">Todos los estados</option>
+        <option value="disponible">Disponible</option>
+        <option value="alquilada">Alquilada</option>
+        <option value="baja">De baja</option>
+      </select>
+      <div style="flex:1"></div>
+      <button class="btn" id="btn-new-equipo">+ Nuevo equipo</button>
+    </div>
+
+    <div class="panel">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>N° de serie</th>
+              <th>Modelo</th>
+              <th>Sucursal</th>
+              <th>Estado</th>
+              <th style="width:140px;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="equipos-tbody">
+            <tr><td colspan="5" class="empty-state">Cargando equipos...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="muted" id="equipos-results-count" style="margin-top:10px;font-size:12px;"></div>
   </section>
 
   <section id="tab-pendientes" style="display:none;">
@@ -535,6 +573,47 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- MODAL EQUIPO -->
+<div class="overlay" id="modal-equipo-overlay">
+  <div class="modal">
+    <h2 id="modal-equipo-title">Nuevo equipo</h2>
+    <input type="hidden" id="e-id">
+
+    <div class="field-grid">
+      <div class="field">
+        <label>N° de serie *</label>
+        <input type="text" id="e-numero_serie">
+      </div>
+      <div class="field">
+        <label>Modelo *</label>
+        <input type="text" id="e-modelo" placeholder="Ej: HA16RTJPRO">
+      </div>
+
+      <div class="field">
+        <label>Sucursal</label>
+        <select id="e-sucursal_id">
+          <option value="">—</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Estado</label>
+        <select id="e-estado">
+          <option value="disponible">Disponible</option>
+          <option value="alquilada">Alquilada</option>
+          <option value="baja">De baja</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn secondary" id="btn-equipo-cancel">Cancelar</button>
+      <button class="btn danger" id="btn-equipo-delete" style="display:none;">Eliminar equipo</button>
+      <button class="btn" id="btn-equipo-save">Guardar</button>
+    </div>
+  </div>
+</div>
+
 
 <!-- MODAL GENERAR PENDIENTES DEL MES -->
 <div class="overlay" id="modal-generar-overlay">
@@ -1768,6 +1847,156 @@ document.getElementById('btn-pendiente-delete').addEventListener('click', async 
   }
 });
 
+// =========================================================
+// MÓDULO EQUIPOS (catálogo de máquinas)
+// =========================================================
+
+function populateEquipoFilters(){
+  const selSuc = document.getElementById('equipo-filter-sucursal');
+  const cur = selSuc.value;
+  selSuc.innerHTML = '<option value="">Todas las sucursales</option>' + sucursales.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
+  selSuc.value = cur;
+}
+
+function renderEquipos(list){
+  const tbody = document.getElementById('equipos-tbody');
+  if(list.length === 0){
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No hay equipos con ese filtro. Cargá el primero con "+ Nuevo equipo".</td></tr>';
+    document.getElementById('equipos-results-count').textContent = '';
+    return;
+  }
+  const estadoColor = { disponible: 'var(--ok)', alquilada: 'var(--yellow)', baja: 'var(--danger)' };
+  tbody.innerHTML = list.map(e=>{
+    const suc = sucursales.find(s => s.id === e.sucursal_id);
+    const color = estadoColor[e.estado] || 'var(--text-dim)';
+    return `
+      <tr>
+        <td>${escapeHtml(e.numero_serie)}</td>
+        <td class="muted">${escapeHtml(e.modelo || '—')}</td>
+        <td>${suc ? `<span class="badge">${suc.nombre}</span>` : '<span class="muted">—</span>'}</td>
+        <td><span class="badge" style="color:${color};border-color:${color};">${e.estado}</span></td>
+        <td>
+          <div class="row-actions">
+            <button class="btn secondary small" onclick="openEditEquipo(${e.id})">Editar</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+  document.getElementById('equipos-results-count').textContent = `${list.length} equipo(s)`;
+}
+
+function applyEquipoFilters(){
+  const q = document.getElementById('equipo-search-input').value.trim().toLowerCase();
+  const sucursalId = document.getElementById('equipo-filter-sucursal').value;
+  const estado = document.getElementById('equipo-filter-estado').value;
+  let list = equiposCache;
+  if(sucursalId) list = list.filter(e => String(e.sucursal_id) === sucursalId);
+  if(estado) list = list.filter(e => e.estado === estado);
+  if(q){
+    list = list.filter(e =>
+      (e.numero_serie||'').toLowerCase().includes(q) ||
+      (e.modelo||'').toLowerCase().includes(q)
+    );
+  }
+  renderEquipos(list);
+}
+document.getElementById('equipo-search-input').addEventListener('input', applyEquipoFilters);
+document.getElementById('equipo-filter-sucursal').addEventListener('change', applyEquipoFilters);
+document.getElementById('equipo-filter-estado').addEventListener('change', applyEquipoFilters);
+
+function populateSucursalSelectEquipo(){
+  const sel = document.getElementById('e-sucursal_id');
+  sel.innerHTML = '<option value="">—</option>' + sucursales.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
+}
+
+function resetEquipoForm(){
+  document.getElementById('e-id').value = '';
+  document.getElementById('e-numero_serie').value = '';
+  document.getElementById('e-modelo').value = '';
+  document.getElementById('e-sucursal_id').value = '';
+  document.getElementById('e-estado').value = 'disponible';
+}
+
+document.getElementById('btn-new-equipo').addEventListener('click', ()=>{
+  resetEquipoForm();
+  populateSucursalSelectEquipo();
+  document.getElementById('modal-equipo-title').textContent = 'Nuevo equipo';
+  document.getElementById('btn-equipo-delete').style.display = 'none';
+  document.getElementById('modal-equipo-overlay').classList.add('open');
+});
+document.getElementById('btn-equipo-cancel').addEventListener('click', ()=>{
+  document.getElementById('modal-equipo-overlay').classList.remove('open');
+});
+document.getElementById('modal-equipo-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'modal-equipo-overlay') document.getElementById('modal-equipo-overlay').classList.remove('open');
+});
+
+function openEditEquipo(id){
+  const e = equiposCache.find(x=>x.id === id);
+  if(!e) return;
+  resetEquipoForm();
+  populateSucursalSelectEquipo();
+  document.getElementById('modal-equipo-title').textContent = 'Editar equipo';
+  document.getElementById('btn-equipo-delete').style.display = 'inline-block';
+  document.getElementById('e-id').value = e.id;
+  document.getElementById('e-numero_serie').value = e.numero_serie || '';
+  document.getElementById('e-modelo').value = e.modelo || '';
+  document.getElementById('e-sucursal_id').value = e.sucursal_id || '';
+  document.getElementById('e-estado').value = e.estado || 'disponible';
+  document.getElementById('modal-equipo-overlay').classList.add('open');
+}
+
+document.getElementById('btn-equipo-save').addEventListener('click', async ()=>{
+  const numeroSerie = document.getElementById('e-numero_serie').value.trim();
+  const modelo = document.getElementById('e-modelo').value.trim();
+  if(!numeroSerie){ showToast('El N° de serie es obligatorio', true); return; }
+  if(!modelo){ showToast('El modelo es obligatorio', true); return; }
+
+  const id = document.getElementById('e-id').value;
+  const payload = {
+    numero_serie: numeroSerie,
+    modelo: modelo,
+    sucursal_id: document.getElementById('e-sucursal_id').value || null,
+    estado: document.getElementById('e-estado').value,
+  };
+
+  try{
+    if(id){
+      const { error } = await supabaseClient.from('equipos').update(payload).eq('id', id);
+      if(error) throw error;
+    } else {
+      const { error } = await supabaseClient.from('equipos').insert(payload);
+      if(error) throw error;
+    }
+    showToast('Equipo guardado correctamente');
+    document.getElementById('modal-equipo-overlay').classList.remove('open');
+    await loadEquipos();
+    populateEquipoFilters();
+    applyEquipoFilters();
+  } catch(err){
+    console.error(err);
+    showToast('Error al guardar: ' + err.message, true);
+  }
+});
+
+document.getElementById('btn-equipo-delete').addEventListener('click', async ()=>{
+  const id = document.getElementById('e-id').value;
+  if(!id) return;
+  if(!confirm('¿Eliminar este equipo? Si tiene contratos asociados la base va a rechazar el borrado — mejor marcalo como "De baja".')) return;
+  try{
+    const { error } = await supabaseClient.from('equipos').delete().eq('id', id);
+    if(error) throw error;
+    showToast('Equipo eliminado');
+    document.getElementById('modal-equipo-overlay').classList.remove('open');
+    await loadEquipos();
+    populateEquipoFilters();
+    applyEquipoFilters();
+  } catch(err){
+    console.error(err);
+    showToast('Error al eliminar: ' + err.message + ' — probá marcarlo "De baja" en vez de eliminarlo.', true);
+  }
+});
+
 // ---------- Init ----------
 (async function init(){
   console.log('[Horizon] iniciando...');
@@ -1780,6 +2009,8 @@ document.getElementById('btn-pendiente-delete').addEventListener('click', async 
     await loadClientes();
     console.log('[Horizon] clientes OK, cargando equipos...');
     await loadEquipos();
+    populateEquipoFilters();
+    renderEquipos(equiposCache);
     console.log('[Horizon] equipos OK, cargando contratos...');
     await loadContratos();
     console.log('[Horizon] contratos OK, cargando requisitos y pendientes...');
