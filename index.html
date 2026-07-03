@@ -815,7 +815,9 @@
       <div class="field">
         <label>Rol *</label>
         <select id="u-rol">
-          <option value="user">User</option>
+          <option value="comercial">Comercial (Clientes, Contratos)</option>
+          <option value="servicios">Servicios (Equipos)</option>
+          <option value="finanzas">Finanzas (Clientes, Contratos, Pendientes)</option>
           <option value="admin">Admin</option>
           <option value="maestro">Maestro</option>
         </select>
@@ -2327,25 +2329,32 @@ function aplicarPermisosUI(){
   pill.textContent = miPerfil.rol;
   pill.style.display = 'inline-block';
 
-  const esMaestroOAdmin = miPerfil.rol === 'maestro' || miPerfil.rol === 'admin';
+  const rol = miPerfil.rol;
+  const esMaestroOAdmin = rol === 'maestro' || rol === 'admin';
 
-  // 'user' solo ve Clientes y Contratos
+  // qué pestañas ve cada rol
+  const accesoPorTab = {
+    clientes:   ['maestro','admin','comercial','finanzas'],
+    contratos:  ['maestro','admin','comercial','finanzas'],
+    equipos:    ['maestro','admin','servicios'],
+    pendientes: ['maestro','admin','finanzas'],
+  };
+
   document.querySelectorAll('nav button[data-tab]').forEach(btn=>{
     const tab = btn.dataset.tab;
-    if(tab === 'clientes' || tab === 'contratos') return; // siempre visibles
-    if(tab === 'equipos' || tab === 'pendientes'){
-      btn.style.display = esMaestroOAdmin ? '' : 'none';
-    }
+    if(tab === 'inicio' || tab === 'usuarios' || tab === 'reportes-placeholder') return;
+    const permitido = accesoPorTab[tab] ? accesoPorTab[tab].includes(rol) : false;
+    btn.style.display = permitido ? '' : 'none';
   });
 
   document.getElementById('nav-usuarios').style.display = esMaestroOAdmin ? 'inline-block' : 'none';
 
-  // si un 'user' quedó parado en una pestaña restringida (por sesión previa), lo mandamos a Clientes
-  if(!esMaestroOAdmin){
-    const activeTab = document.querySelector('nav button.active');
-    if(activeTab && ['equipos','pendientes','usuarios'].includes(activeTab.dataset.tab)){
-      document.querySelector('nav button[data-tab="clientes"]').click();
-    }
+  // si quedó parado en una pestaña a la que ya no tiene acceso, lo mandamos a Inicio
+  const activeTab = document.querySelector('nav button.active');
+  if(activeTab){
+    const tab = activeTab.dataset.tab;
+    const permitido = tab === 'inicio' || (tab === 'usuarios' && esMaestroOAdmin) || (accesoPorTab[tab] && accesoPorTab[tab].includes(rol));
+    if(!permitido) activarTab('inicio');
   }
 }
 
@@ -2434,18 +2443,26 @@ function resetUsuarioForm(){
   document.getElementById('u-nombre').value = '';
   document.getElementById('u-email').value = '';
   document.getElementById('u-password').value = '';
-  document.getElementById('u-rol').value = 'user';
+  document.getElementById('u-rol').value = 'comercial';
   document.getElementById('u-activo').value = 'true';
   document.getElementById('u-email-field').style.display = '';
   document.getElementById('u-password-field').style.display = '';
   document.getElementById('u-email').disabled = false;
 
-  // admin no puede crear/editar admins ni maestros
+  // admin no puede crear/editar admins ni maestros, solo los 3 roles operativos
   const rolSelect = document.getElementById('u-rol');
   if(miPerfil.rol === 'admin'){
-    rolSelect.innerHTML = '<option value="user">User</option>';
+    rolSelect.innerHTML = `
+      <option value="comercial">Comercial (Clientes, Contratos)</option>
+      <option value="servicios">Servicios (Equipos)</option>
+      <option value="finanzas">Finanzas (Clientes, Contratos, Pendientes)</option>`;
   } else {
-    rolSelect.innerHTML = '<option value="user">User</option><option value="admin">Admin</option><option value="maestro">Maestro</option>';
+    rolSelect.innerHTML = `
+      <option value="comercial">Comercial (Clientes, Contratos)</option>
+      <option value="servicios">Servicios (Equipos)</option>
+      <option value="finanzas">Finanzas (Clientes, Contratos, Pendientes)</option>
+      <option value="admin">Admin</option>
+      <option value="maestro">Maestro</option>`;
   }
 }
 
@@ -2485,8 +2502,8 @@ document.getElementById('btn-usuario-save').addEventListener('click', async ()=>
 
   if(!nombre){ showToast('El nombre es obligatorio', true); return; }
 
-  if(miPerfil.rol === 'admin' && rol !== 'user'){
-    showToast('Como admin, solo podés crear/editar usuarios con rol "user"', true);
+  if(miPerfil.rol === 'admin' && !['comercial','servicios','finanzas'].includes(rol)){
+    showToast('Como admin, solo podés crear/editar usuarios con rol Comercial, Servicios o Finanzas', true);
     return;
   }
 
@@ -2524,14 +2541,22 @@ document.getElementById('btn-usuario-save').addEventListener('click', async ()=>
 
 // ---------- Dashboard (Inicio) ----------
 function renderDashboard(){
-  const esMaestroOAdmin = miPerfil.rol === 'maestro' || miPerfil.rol === 'admin';
+  const rol = miPerfil.rol;
+  const esMaestroOAdmin = rol === 'maestro' || rol === 'admin';
   document.getElementById('dash-saludo').textContent = `Hola, ${miPerfil.nombre.split(' ')[0]}`;
 
+  const accesoPorTab = {
+    clientes:   ['maestro','admin','comercial','finanzas'],
+    contratos:  ['maestro','admin','comercial','finanzas'],
+    equipos:    ['maestro','admin','servicios'],
+    pendientes: ['maestro','admin','finanzas'],
+  };
+
   const tiles = [
-    { tab:'clientes',   icon:'🏢', title:'Clientes',   count:`${clientesCache.length} cargados`, visible:true },
-    { tab:'contratos',  icon:'📄', title:'Contratos',  count:`${contratosCache.length} totales`, visible:true },
-    { tab:'equipos',    icon:'🚜', title:'Equipos',    count:`${equiposCache.length} en catálogo`, visible:esMaestroOAdmin },
-    { tab:'pendientes', icon:'💰', title:'Pendientes de Facturación', count: esMaestroOAdmin ? `${pendientesCache.filter(p=>p.estado==='pendiente').length} sin facturar` : '', visible:esMaestroOAdmin },
+    { tab:'clientes',   icon:'🏢', title:'Clientes',   count:`${clientesCache.length} cargados`, visible:accesoPorTab.clientes.includes(rol) },
+    { tab:'contratos',  icon:'📄', title:'Contratos',  count:`${contratosCache.length} totales`, visible:accesoPorTab.contratos.includes(rol) },
+    { tab:'equipos',    icon:'🚜', title:'Equipos',    count:`${equiposCache.length} en catálogo`, visible:accesoPorTab.equipos.includes(rol) },
+    { tab:'pendientes', icon:'💰', title:'Pendientes de Facturación', count: accesoPorTab.pendientes.includes(rol) ? `${pendientesCache.filter(p=>p.estado==='pendiente').length} sin facturar` : '', visible:accesoPorTab.pendientes.includes(rol) },
     { tab:'usuarios',   icon:'👤', title:'Usuarios',   count:`${usuariosCache.length} cuentas`, visible:esMaestroOAdmin },
   ];
 
@@ -2564,10 +2589,12 @@ async function initApp(){
     console.log('[Horizon] equipos OK, cargando contratos...');
     await loadContratos();
 
-    if(miPerfil.rol === 'maestro' || miPerfil.rol === 'admin'){
+    if(miPerfil.rol === 'maestro' || miPerfil.rol === 'admin' || miPerfil.rol === 'finanzas'){
       console.log('[Horizon] contratos OK, cargando requisitos y pendientes...');
       await loadTodosLosRequisitos();
       await loadPendientes();
+    }
+    if(miPerfil.rol === 'maestro' || miPerfil.rol === 'admin'){
       await loadUsuarios();
     }
     console.log('[Horizon] listo.');
