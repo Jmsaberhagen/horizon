@@ -311,13 +311,98 @@
     font-size:11px;
     color:var(--text-dim);
   }
+  .login-screen{
+    position:fixed;
+    inset:0;
+    background:var(--bg);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:200;
+  }
+  .login-box{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:36px 32px;
+    width:100%;
+    max-width:360px;
+  }
+  .login-box h1{
+    font-size:20px;
+    margin:0 0 4px 0;
+    letter-spacing:0.5px;
+  }
+  .login-box .sub{
+    color:var(--text-dim);
+    font-size:12px;
+    margin-bottom:22px;
+  }
+  .login-box .field{margin-bottom:14px;}
+  .login-box input{width:100%;}
+  .login-box button{width:100%;margin-top:6px;}
+  .login-error{
+    color:var(--danger);
+    font-size:12px;
+    margin-top:10px;
+    display:none;
+  }
+  .user-badge{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .user-badge .role-pill{
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+    padding:2px 8px;
+    border-radius:20px;
+    background:rgba(255,204,0,0.12);
+    color:var(--yellow);
+    border:1px solid var(--yellow-dim);
+  }
+  .user-badge button{
+    background:none;
+    border:1px solid var(--border);
+    color:var(--text-dim);
+    padding:5px 10px;
+    border-radius:var(--radius);
+    cursor:pointer;
+    font-size:11px;
+  }
+  .user-badge button:hover{border-color:var(--danger);color:var(--danger);}
 </style>
 </head>
 <body>
 
+<!-- LOGIN -->
+<div class="login-screen" id="login-screen">
+  <div class="login-box">
+    <h1>HORIZON</h1>
+    <div class="sub">Iniciá sesión para continuar</div>
+    <div class="field">
+      <label style="font-size:11px;color:var(--text-dim);">Email</label>
+      <input type="email" id="login-email" autocomplete="username">
+    </div>
+    <div class="field">
+      <label style="font-size:11px;color:var(--text-dim);">Contraseña</label>
+      <input type="password" id="login-password" autocomplete="current-password">
+    </div>
+    <button class="btn" id="btn-login">Ingresar</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<div id="app-shell" style="display:none;">
 <header>
   <div class="brand"><span class="dot"></span> HORIZON <span class="muted" style="font-weight:400;font-size:12px;">— Gestión de Alquileres</span></div>
-  <div class="status" id="conn-status">conectando...</div>
+  <div class="user-badge">
+    <span class="status" id="conn-status">conectando...</span>
+    <span class="role-pill" id="user-role-pill" style="display:none;"></span>
+    <span class="muted" id="user-name" style="font-size:12px;"></span>
+    <button id="btn-logout">Cerrar sesión</button>
+  </div>
 </header>
 
 <nav>
@@ -325,7 +410,8 @@
   <button data-tab="contratos">Contratos</button>
   <button data-tab="equipos">Equipos</button>
   <button data-tab="pendientes">Pendientes de Facturación</button>
-  <button disabled title="Próximamente">Reportes</button>
+  <button data-tab="reportes-placeholder" disabled title="Próximamente">Reportes</button>
+  <button data-tab="usuarios" id="nav-usuarios" style="display:none;">Usuarios</button>
 </nav>
 
 <main>
@@ -485,7 +571,35 @@
     <div class="muted" id="pendientes-results-count" style="margin-top:10px;font-size:12px;"></div>
   </section>
 
+  <section id="tab-usuarios" style="display:none;">
+    <div class="toolbar">
+      <div class="muted" style="font-size:13px;">Gestión de usuarios y permisos del sistema.</div>
+      <div style="flex:1"></div>
+      <button class="btn" id="btn-new-usuario">+ Nuevo usuario</button>
+    </div>
+
+    <div class="panel">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Email</th>
+              <th>Rol</th>
+              <th>Estado</th>
+              <th style="width:120px;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="usuarios-tbody">
+            <tr><td colspan="5" class="empty-state">Cargando usuarios...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
 </main>
+</div> <!-- /app-shell -->
 
 <!-- MODAL CLIENTE -->
 <div class="overlay" id="modal-overlay">
@@ -573,6 +687,53 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- MODAL USUARIO -->
+<div class="overlay" id="modal-usuario-overlay">
+  <div class="modal">
+    <h2 id="modal-usuario-title">Nuevo usuario</h2>
+    <input type="hidden" id="u-id">
+
+    <div class="field-grid">
+      <div class="field full">
+        <label>Nombre completo *</label>
+        <input type="text" id="u-nombre">
+      </div>
+      <div class="field full" id="u-email-field">
+        <label>Email *</label>
+        <input type="email" id="u-email">
+      </div>
+      <div class="field full" id="u-password-field">
+        <label>Contraseña *</label>
+        <input type="password" id="u-password" placeholder="Mínimo 6 caracteres">
+      </div>
+      <div class="field">
+        <label>Rol *</label>
+        <select id="u-rol">
+          <option value="user">User</option>
+          <option value="admin">Admin</option>
+          <option value="maestro">Maestro</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Estado</label>
+        <select id="u-activo">
+          <option value="true">Activo</option>
+          <option value="false">Inactivo</option>
+        </select>
+      </div>
+    </div>
+    <div class="muted" style="font-size:12px;margin-top:10px;" id="u-nota-email">
+      Puede que el nuevo usuario tenga que confirmar su email antes de poder iniciar sesión, según la configuración de Supabase.
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn secondary" id="btn-usuario-cancel">Cancelar</button>
+      <button class="btn" id="btn-usuario-save">Guardar</button>
+    </div>
+  </div>
+</div>
+
 
 <!-- MODAL EQUIPO -->
 <div class="overlay" id="modal-equipo-overlay">
@@ -831,6 +992,8 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // =========================================================
 
 let supabaseClient = null;
+let authClient = null; // cliente aparte, sin persistir sesión: para crear usuarios sin pisar la sesión activa
+let miPerfil = null;   // { id, nombre, rol, email }
 let sucursales = [];
 let clientesCache = [];
 let equiposCache = [];
@@ -845,6 +1008,9 @@ function initSupabase(){
     return false;
   }
   supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  authClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
   return true;
 }
 
@@ -1997,11 +2163,237 @@ document.getElementById('btn-equipo-delete').addEventListener('click', async ()=
   }
 });
 
-// ---------- Init ----------
-(async function init(){
-  console.log('[Horizon] iniciando...');
-  if(!initSupabase()) return;
-  setStatus(true, 'conectando...');
+// =========================================================
+// MÓDULO LOGIN / ROLES / USUARIOS
+// =========================================================
+
+function showApp(){
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-shell').style.display = 'block';
+}
+function showLogin(msg){
+  document.getElementById('app-shell').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  if(msg){
+    const err = document.getElementById('login-error');
+    err.textContent = msg;
+    err.style.display = 'block';
+  }
+}
+
+async function cargarMiPerfil(userId){
+  const { data, error } = await supabaseClient.from('perfiles').select('*').eq('id', userId).single();
+  if(error){
+    console.error('No se pudo cargar el perfil:', error);
+    return null;
+  }
+  return data;
+}
+
+function aplicarPermisosUI(){
+  if(!miPerfil) return;
+  document.getElementById('user-name').textContent = miPerfil.nombre;
+  const pill = document.getElementById('user-role-pill');
+  pill.textContent = miPerfil.rol;
+  pill.style.display = 'inline-block';
+
+  const esMaestroOAdmin = miPerfil.rol === 'maestro' || miPerfil.rol === 'admin';
+
+  // 'user' solo ve Clientes y Contratos
+  document.querySelectorAll('nav button[data-tab]').forEach(btn=>{
+    const tab = btn.dataset.tab;
+    if(tab === 'clientes' || tab === 'contratos') return; // siempre visibles
+    if(tab === 'equipos' || tab === 'pendientes'){
+      btn.style.display = esMaestroOAdmin ? '' : 'none';
+    }
+  });
+
+  document.getElementById('nav-usuarios').style.display = esMaestroOAdmin ? 'inline-block' : 'none';
+
+  // si un 'user' quedó parado en una pestaña restringida (por sesión previa), lo mandamos a Clientes
+  if(!esMaestroOAdmin){
+    const activeTab = document.querySelector('nav button.active');
+    if(activeTab && ['equipos','pendientes','usuarios'].includes(activeTab.dataset.tab)){
+      document.querySelector('nav button[data-tab="clientes"]').click();
+    }
+  }
+}
+
+document.getElementById('btn-login').addEventListener('click', async ()=>{
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const err = document.getElementById('login-error');
+  err.style.display = 'none';
+
+  if(!email || !password){
+    err.textContent = 'Completá email y contraseña';
+    err.style.display = 'block';
+    return;
+  }
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  if(error){
+    err.textContent = 'Email o contraseña incorrectos';
+    err.style.display = 'block';
+    return;
+  }
+
+  const perfil = await cargarMiPerfil(data.user.id);
+  if(!perfil || !perfil.activo){
+    err.textContent = 'Tu usuario no tiene un perfil activo en el sistema. Pedile al administrador que te dé de alta.';
+    err.style.display = 'block';
+    await supabaseClient.auth.signOut();
+    return;
+  }
+
+  miPerfil = perfil;
+  showApp();
+  aplicarPermisosUI();
+  await initApp();
+});
+
+document.getElementById('login-password').addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter') document.getElementById('btn-login').click();
+});
+
+document.getElementById('btn-logout').addEventListener('click', async ()=>{
+  await supabaseClient.auth.signOut();
+  miPerfil = null;
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-password').value = '';
+  showLogin();
+});
+
+// ---------- Módulo Usuarios (solo maestro/admin) ----------
+let usuariosCache = [];
+
+async function loadUsuarios(){
+  const tbody = document.getElementById('usuarios-tbody');
+  tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Cargando usuarios...</td></tr>';
+  const { data, error } = await supabaseClient.from('perfiles').select('*').order('nombre');
+  if(error){
+    tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Error al cargar usuarios: ${escapeHtml(error.message)}</td></tr>`;
+    return;
+  }
+  usuariosCache = data;
+  renderUsuarios(data);
+}
+
+function renderUsuarios(list){
+  const tbody = document.getElementById('usuarios-tbody');
+  if(list.length === 0){
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No hay usuarios cargados todavía.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(u=>`
+    <tr>
+      <td>${escapeHtml(u.nombre)}</td>
+      <td class="muted">${escapeHtml(u.email || '—')}</td>
+      <td><span class="badge req">${u.rol}</span></td>
+      <td>${u.activo ? '<span class="badge" style="color:var(--ok);border-color:var(--ok);">Activo</span>' : '<span class="badge" style="color:var(--danger);border-color:var(--danger);">Inactivo</span>'}</td>
+      <td>
+        <div class="row-actions">
+          <button class="btn secondary small" onclick="openEditUsuario('${u.id}')">Editar</button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+function resetUsuarioForm(){
+  document.getElementById('u-id').value = '';
+  document.getElementById('u-nombre').value = '';
+  document.getElementById('u-email').value = '';
+  document.getElementById('u-password').value = '';
+  document.getElementById('u-rol').value = 'user';
+  document.getElementById('u-activo').value = 'true';
+  document.getElementById('u-email-field').style.display = '';
+  document.getElementById('u-password-field').style.display = '';
+  document.getElementById('u-email').disabled = false;
+
+  // admin no puede crear/editar admins ni maestros
+  const rolSelect = document.getElementById('u-rol');
+  if(miPerfil.rol === 'admin'){
+    rolSelect.innerHTML = '<option value="user">User</option>';
+  } else {
+    rolSelect.innerHTML = '<option value="user">User</option><option value="admin">Admin</option><option value="maestro">Maestro</option>';
+  }
+}
+
+document.getElementById('btn-new-usuario').addEventListener('click', ()=>{
+  resetUsuarioForm();
+  document.getElementById('modal-usuario-title').textContent = 'Nuevo usuario';
+  document.getElementById('modal-usuario-overlay').classList.add('open');
+});
+document.getElementById('btn-usuario-cancel').addEventListener('click', ()=>{
+  document.getElementById('modal-usuario-overlay').classList.remove('open');
+});
+document.getElementById('modal-usuario-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'modal-usuario-overlay') document.getElementById('modal-usuario-overlay').classList.remove('open');
+});
+
+function openEditUsuario(id){
+  const u = usuariosCache.find(x=>x.id === id);
+  if(!u) return;
+  resetUsuarioForm();
+  document.getElementById('modal-usuario-title').textContent = 'Editar usuario';
+  document.getElementById('u-id').value = u.id;
+  document.getElementById('u-nombre').value = u.nombre;
+  document.getElementById('u-email').value = u.email || '';
+  document.getElementById('u-email').disabled = true; // el email ya está fijado en Supabase Auth, no se edita acá
+  document.getElementById('u-rol').value = u.rol;
+  document.getElementById('u-activo').value = String(u.activo);
+  document.getElementById('u-email-field').style.display = '';
+  document.getElementById('u-password-field').style.display = 'none'; // no se cambia contraseña desde acá
+  document.getElementById('modal-usuario-overlay').classList.add('open');
+}
+
+document.getElementById('btn-usuario-save').addEventListener('click', async ()=>{
+  const id = document.getElementById('u-id').value;
+  const nombre = document.getElementById('u-nombre').value.trim();
+  const rol = document.getElementById('u-rol').value;
+  const activo = document.getElementById('u-activo').value === 'true';
+
+  if(!nombre){ showToast('El nombre es obligatorio', true); return; }
+
+  if(miPerfil.rol === 'admin' && rol !== 'user'){
+    showToast('Como admin, solo podés crear/editar usuarios con rol "user"', true);
+    return;
+  }
+
+  try{
+    if(id){
+      // editar perfil existente
+      const { error } = await supabaseClient.from('perfiles').update({ nombre, rol, activo }).eq('id', id);
+      if(error) throw error;
+      showToast('Usuario actualizado');
+    } else {
+      // crear usuario nuevo: signUp con cliente auxiliar (no pisa la sesión activa)
+      const email = document.getElementById('u-email').value.trim();
+      const password = document.getElementById('u-password').value;
+      if(!email || !password){ showToast('Completá email y contraseña', true); return; }
+      if(password.length < 6){ showToast('La contraseña debe tener al menos 6 caracteres', true); return; }
+
+      const { data, error: signUpError } = await authClient.auth.signUp({ email, password });
+      if(signUpError) throw signUpError;
+      if(!data.user){ throw new Error('No se pudo crear el usuario'); }
+
+      const { error: perfilError } = await supabaseClient.from('perfiles').insert({
+        id: data.user.id, nombre, rol, activo, email
+      });
+      if(perfilError) throw perfilError;
+
+      showToast('Usuario creado correctamente');
+    }
+    document.getElementById('modal-usuario-overlay').classList.remove('open');
+    await loadUsuarios();
+  } catch(err){
+    console.error(err);
+    showToast('Error: ' + err.message, true);
+  }
+});
+
+// ---------- Init de la app (después de login) ----------
+async function initApp(){
   try{
     console.log('[Horizon] cargando sucursales...');
     await loadSucursales();
@@ -2013,9 +2405,13 @@ document.getElementById('btn-equipo-delete').addEventListener('click', async ()=
     renderEquipos(equiposCache);
     console.log('[Horizon] equipos OK, cargando contratos...');
     await loadContratos();
-    console.log('[Horizon] contratos OK, cargando requisitos y pendientes...');
-    await loadTodosLosRequisitos();
-    await loadPendientes();
+
+    if(miPerfil.rol === 'maestro' || miPerfil.rol === 'admin'){
+      console.log('[Horizon] contratos OK, cargando requisitos y pendientes...');
+      await loadTodosLosRequisitos();
+      await loadPendientes();
+      await loadUsuarios();
+    }
     console.log('[Horizon] listo.');
   } catch(err){
     console.error('[Horizon] fallo la inicialización:', err);
@@ -2024,9 +2420,31 @@ document.getElementById('btn-equipo-delete').addEventListener('click', async ()=
       `<tr><td colspan="7" class="empty-state">
          No se pudo conectar a la base de datos.<br>
          <span class="muted" style="font-size:12px;">${escapeHtml(err.message || String(err))}</span><br><br>
-         Revisá la consola del navegador (F12) para más detalle, y verificá URL/ANON KEY y las políticas RLS en Supabase.
+         Revisá la consola del navegador (F12) para más detalle.
        </td></tr>`;
   }
+}
+
+// ---------- Init ----------
+(async function init(){
+  console.log('[Horizon] iniciando...');
+  if(!initSupabase()) return;
+  setStatus(true, 'conectando...');
+
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if(session){
+    const perfil = await cargarMiPerfil(session.user.id);
+    if(perfil && perfil.activo){
+      miPerfil = perfil;
+      showApp();
+      aplicarPermisosUI();
+      await initApp();
+      return;
+    } else {
+      await supabaseClient.auth.signOut();
+    }
+  }
+  showLogin();
 })();
 </script>
 </body>
