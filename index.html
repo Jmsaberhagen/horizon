@@ -438,7 +438,7 @@ const SUPABASE_URL = "https://beeeccdcgborcorqvtps.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJlZWVjY2RjZ2JvcmNvcnF2dHBzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMDcyNDMsImV4cCI6MjA5ODU4MzI0M30.7ZLEr2d0punnAgEGkeIcX0i1qKF_hRM2nx_0VFxGc4w";
 // =========================================================
 
-let supabase = null;
+let supabaseClient = null;
 let sucursales = [];
 let clientesCache = [];
 let reqCounter = 0;
@@ -449,7 +449,7 @@ function initSupabase(){
     setStatus(false, "sin configurar");
     return false;
   }
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   return true;
 }
 
@@ -470,7 +470,7 @@ function showToast(msg, isErr){
 
 // ---------- Carga inicial ----------
 async function loadSucursales(){
-  const { data, error } = await supabase.from('sucursales').select('*').order('nombre');
+  const { data, error } = await supabaseClient.from('sucursales').select('*').order('nombre');
   if(error){
     console.error('Error en loadSucursales:', error);
     setStatus(false, 'error: ' + error.message);
@@ -485,7 +485,7 @@ async function loadClientes(){
   const tbody = document.getElementById('clientes-tbody');
   tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Cargando clientes...</td></tr>';
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseClient
     .from('clientes')
     .select('*, sucursales(nombre), cliente_requisitos(id)')
     .order('razon_social');
@@ -612,7 +612,7 @@ function openEdit(id){
 }
 
 async function loadRequisitosIntoForm(clienteId){
-  const { data, error } = await supabase
+  const { data, error } = await supabaseClient
     .from('cliente_requisitos')
     .select('*')
     .eq('cliente_id', clienteId)
@@ -667,10 +667,10 @@ document.getElementById('btn-save').addEventListener('click', async ()=>{
   let clienteId = id;
   try{
     if(id){
-      const { error } = await supabase.from('clientes').update(payload).eq('id', id);
+      const { error } = await supabaseClient.from('clientes').update(payload).eq('id', id);
       if(error) throw error;
     } else {
-      const { data, error } = await supabase.from('clientes').insert(payload).select().single();
+      const { data, error } = await supabaseClient.from('clientes').insert(payload).select().single();
       if(error) throw error;
       clienteId = data.id;
     }
@@ -697,13 +697,13 @@ async function saveRequisitos(clienteId){
     const existingId = row.dataset.existingId;
 
     if(existingId){
-      const { error } = await supabase.from('cliente_requisitos')
+      const { error } = await supabaseClient.from('cliente_requisitos')
         .update({ campo, obligatorio, orden: idx })
         .eq('id', existingId);
       if(error) throw error;
       currentIds.push(Number(existingId));
     } else {
-      const { data, error } = await supabase.from('cliente_requisitos')
+      const { data, error } = await supabaseClient.from('cliente_requisitos')
         .insert({ cliente_id: clienteId, campo, obligatorio, orden: idx })
         .select().single();
       if(error) throw error;
@@ -712,10 +712,10 @@ async function saveRequisitos(clienteId){
   }
 
   // borrar los que existían antes y fueron quitados de la UI
-  const { data: existing } = await supabase.from('cliente_requisitos').select('id').eq('cliente_id', clienteId);
+  const { data: existing } = await supabaseClient.from('cliente_requisitos').select('id').eq('cliente_id', clienteId);
   const toDelete = (existing || []).map(r=>r.id).filter(rid => !currentIds.includes(rid));
   if(toDelete.length){
-    await supabase.from('cliente_requisitos').delete().in('id', toDelete);
+    await supabaseClient.from('cliente_requisitos').delete().in('id', toDelete);
   }
 }
 
@@ -725,7 +725,7 @@ document.getElementById('btn-delete').addEventListener('click', async ()=>{
   if(!id) return;
   if(!confirm('¿Eliminar este cliente? Esta acción no se puede deshacer.')) return;
   try{
-    const { error } = await supabase.from('clientes').delete().eq('id', id);
+    const { error } = await supabaseClient.from('clientes').delete().eq('id', id);
     if(error) throw error;
     showToast('Cliente eliminado');
     closeOverlay();
