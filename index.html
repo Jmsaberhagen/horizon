@@ -94,6 +94,7 @@
     gap:10px;
     margin-bottom:16px;
     align-items:center;
+    flex-wrap:wrap;
   }
   .toolbar input[type="text"]{
     flex:1;
@@ -532,6 +533,8 @@
         <option value="">Todas las provincias</option>
       </select>
       <div style="flex:1"></div>
+      <button class="btn secondary" id="btn-export-clientes-csv">Exportar CSV</button>
+      <button class="btn secondary" id="btn-export-clientes-xls">Exportar XLS</button>
       <button class="btn" id="btn-new-cliente">+ Nuevo cliente</button>
     </div>
 
@@ -570,6 +573,8 @@
         <option value="baja">De baja</option>
       </select>
       <div style="flex:1"></div>
+      <button class="btn secondary" id="btn-export-contratos-csv">Exportar CSV</button>
+      <button class="btn secondary" id="btn-export-contratos-xls">Exportar XLS</button>
       <button class="btn" id="btn-new-contrato">+ Nuevo contrato</button>
     </div>
 
@@ -609,6 +614,8 @@
         <option value="baja">De baja</option>
       </select>
       <div style="flex:1"></div>
+      <button class="btn secondary" id="btn-export-equipos-csv">Exportar CSV</button>
+      <button class="btn secondary" id="btn-export-equipos-xls">Exportar XLS</button>
       <button class="btn" id="btn-new-equipo">+ Nuevo equipo</button>
     </div>
 
@@ -648,6 +655,8 @@
         <option value="">Todos</option>
       </select>
       <div style="flex:1"></div>
+      <button class="btn secondary" id="btn-export-pendientes-csv">Exportar CSV</button>
+      <button class="btn secondary" id="btn-export-pendientes-xls">Exportar XLS</button>
       <button class="btn secondary" id="btn-nuevo-pendiente">+ Pendiente manual</button>
       <button class="btn" id="btn-generar-mes">Generar pendientes del mes</button>
     </div>
@@ -680,6 +689,8 @@
     <div class="toolbar">
       <div class="muted" style="font-size:13px;">Gestión de usuarios y permisos del sistema.</div>
       <div style="flex:1"></div>
+      <button class="btn secondary" id="btn-export-usuarios-csv">Exportar CSV</button>
+      <button class="btn secondary" id="btn-export-usuarios-xls">Exportar XLS</button>
       <button class="btn" id="btn-new-usuario">+ Nuevo usuario</button>
     </div>
 
@@ -722,6 +733,7 @@
       <div style="flex:1"></div>
       <button class="btn secondary" id="btn-rep-limpiar">Limpiar filtros</button>
       <button class="btn" id="btn-rep-exportar">Exportar CSV</button>
+      <button class="btn secondary" id="btn-rep-exportar-xls">Exportar XLS</button>
     </div>
 
     <div class="dash-grid" style="grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); margin-bottom:24px;">
@@ -1243,6 +1255,40 @@ function showToast(msg, isErr){
   t._timer = setTimeout(()=>{ t.style.display='none'; }, 3500);
 }
 
+// ---------- Exportación genérica (CSV / XLS) ----------
+function exportCSV(filename, headers, rows){
+  if(rows.length === 0){ showToast('No hay datos para exportar con este filtro', true); return; }
+  const csvContent = [headers, ...rows]
+    .map(row => row.map(cell => `"${String(cell ?? '').replace(/"/g,'""')}"`).join(','))
+    .join('\n');
+  const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${filename}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportXLS(filename, headers, rows){
+  if(rows.length === 0){ showToast('No hay datos para exportar con este filtro', true); return; }
+  const esc = v => String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
+  html += '<head><meta charset="UTF-8"></head><body><table border="1">';
+  html += '<tr>' + headers.map(h => `<th>${esc(h)}</th>`).join('') + '</tr>';
+  rows.forEach(row=>{
+    html += '<tr>' + row.map(cell => `<td>${esc(cell)}</td>`).join('') + '</tr>';
+  });
+  html += '</table></body></html>';
+  const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${filename}.xls`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // ---------- Tabs ----------
 const TAB_TITLES = {
   clientes: 'Clientes',
@@ -1364,7 +1410,7 @@ function escapeHtml(str){
 }
 
 // ---------- Filtro / búsqueda ----------
-function applyFilters(){
+function getFilteredClientes(){
   const q = document.getElementById('search-input').value.trim().toLowerCase();
   const prov = document.getElementById('filter-provincia').value;
   let list = clientesCache;
@@ -1378,10 +1424,26 @@ function applyFilters(){
       (c.numero_cliente||'').toLowerCase().includes(q)
     );
   }
-  renderClientes(list);
+  return list;
+}
+function applyFilters(){
+  renderClientes(getFilteredClientes());
 }
 document.getElementById('search-input').addEventListener('input', applyFilters);
 document.getElementById('filter-provincia').addEventListener('change', applyFilters);
+
+document.getElementById('btn-export-clientes-csv').addEventListener('click', ()=>{
+  const list = getFilteredClientes();
+  const headers = ['N Cliente','Razon Social','Ciudad','Provincia','CUIT','Sucursal Habitual'];
+  const rows = list.map(c => [c.numero_cliente, c.razon_social, c.ciudad, c.provincia, c.cuit, c.sucursales?.nombre || '']);
+  exportCSV('clientes_horizon', headers, rows);
+});
+document.getElementById('btn-export-clientes-xls').addEventListener('click', ()=>{
+  const list = getFilteredClientes();
+  const headers = ['N Cliente','Razon Social','Ciudad','Provincia','CUIT','Sucursal Habitual'];
+  const rows = list.map(c => [c.numero_cliente, c.razon_social, c.ciudad, c.provincia, c.cuit, c.sucursales?.nombre || '']);
+  exportXLS('clientes_horizon', headers, rows);
+});
 
 // ---------- Modal: abrir / cerrar ----------
 function openOverlay(){ document.getElementById('modal-overlay').classList.add('open'); }
@@ -1643,7 +1705,7 @@ function renderContratos(list){
   document.getElementById('contratos-results-count').textContent = `${list.length} contrato(s)`;
 }
 
-function applyContratoFilters(){
+function getFilteredContratos(){
   const q = document.getElementById('contrato-search-input').value.trim().toLowerCase();
   const sucursalId = document.getElementById('contrato-filter-sucursal').value;
   const estado = document.getElementById('contrato-filter-estado').value;
@@ -1657,11 +1719,34 @@ function applyContratoFilters(){
       (c.obra || '').toLowerCase().includes(q)
     );
   }
-  renderContratos(list);
+  return list;
+}
+function applyContratoFilters(){
+  renderContratos(getFilteredContratos());
 }
 document.getElementById('contrato-search-input').addEventListener('input', applyContratoFilters);
 document.getElementById('contrato-filter-sucursal').addEventListener('change', applyContratoFilters);
 document.getElementById('contrato-filter-estado').addEventListener('change', applyContratoFilters);
+
+function contratosToRows(list){
+  const headers = ['Cliente','Equipo N Serie','Sucursal','Fecha Salida','Fecha Vencimiento','Moneda','Precio Mensual','Tiene Flete','Costo Flete','Orden Compra','Obra','Estado'];
+  const rows = list.map(c => [
+    c.clientes?.razon_social || '', c.equipos?.numero_serie || '', c.sucursales?.nombre || '',
+    c.fecha_salida || '', c.fecha_vencimiento || '', c.moneda,
+    c.precio_mensual_con_descuento ?? c.precio_mensual_sin_descuento ?? '',
+    c.tiene_flete ? 'SI' : 'NO', c.costo_flete ?? '',
+    c.orden_de_compra || '', c.obra || '', c.estado,
+  ]);
+  return { headers, rows };
+}
+document.getElementById('btn-export-contratos-csv').addEventListener('click', ()=>{
+  const { headers, rows } = contratosToRows(getFilteredContratos());
+  exportCSV('contratos_horizon', headers, rows);
+});
+document.getElementById('btn-export-contratos-xls').addEventListener('click', ()=>{
+  const { headers, rows } = contratosToRows(getFilteredContratos());
+  exportXLS('contratos_horizon', headers, rows);
+});
 
 // ---------- Autocompletar Cliente ----------
 const clienteSearchInput = document.getElementById('c-cliente-search');
@@ -1972,7 +2057,7 @@ function renderPendientes(list){
   document.getElementById('pendientes-results-count').textContent = `${list.length} pendiente(s)`;
 }
 
-function applyPendFilters(){
+function getFilteredPendientesLista(){
   const q = document.getElementById('pend-search-input').value.trim().toLowerCase();
   const sucursalId = document.getElementById('pend-filter-sucursal').value;
   const provincia = document.getElementById('pend-filter-provincia').value;
@@ -1987,12 +2072,34 @@ function applyPendFilters(){
       (p.contratos?.equipos?.numero_serie || '').toLowerCase().includes(q)
     );
   }
-  renderPendientes(list);
+  return list;
+}
+function applyPendFilters(){
+  renderPendientes(getFilteredPendientesLista());
 }
 document.getElementById('pend-search-input').addEventListener('input', applyPendFilters);
 document.getElementById('pend-filter-sucursal').addEventListener('change', applyPendFilters);
 document.getElementById('pend-filter-provincia').addEventListener('change', applyPendFilters);
 document.getElementById('pend-filter-estado').addEventListener('change', applyPendFilters);
+
+function pendientesToRows(list){
+  const headers = ['Cliente','Equipo','Sucursal','Provincia','Periodo Desde','Periodo Hasta','Valor USD','Estado','N Factura'];
+  const rows = list.map(p => [
+    p.contratos?.clientes?.razon_social || '', p.contratos?.equipos?.numero_serie || '',
+    p.contratos?.sucursales?.nombre || '', p.contratos?.clientes?.provincia || '',
+    p.periodo_desde || '', p.periodo_hasta || '', p.valor_alquiler_usd ?? '',
+    p.estado, p.numero_factura || '',
+  ]);
+  return { headers, rows };
+}
+document.getElementById('btn-export-pendientes-csv').addEventListener('click', ()=>{
+  const { headers, rows } = pendientesToRows(getFilteredPendientesLista());
+  exportCSV('pendientes_horizon', headers, rows);
+});
+document.getElementById('btn-export-pendientes-xls').addEventListener('click', ()=>{
+  const { headers, rows } = pendientesToRows(getFilteredPendientesLista());
+  exportXLS('pendientes_horizon', headers, rows);
+});
 
 // Cache de requisitos por cliente_id, para no ir a buscar a supabase cada vez
 let clienteRequisitosCache = {};
@@ -2316,7 +2423,7 @@ function renderEquipos(list){
   document.getElementById('equipos-results-count').textContent = `${list.length} equipo(s)`;
 }
 
-function applyEquipoFilters(){
+function getFilteredEquipos(){
   const q = document.getElementById('equipo-search-input').value.trim().toLowerCase();
   const sucursalId = document.getElementById('equipo-filter-sucursal').value;
   const estado = document.getElementById('equipo-filter-estado').value;
@@ -2329,11 +2436,30 @@ function applyEquipoFilters(){
       (e.modelo||'').toLowerCase().includes(q)
     );
   }
-  renderEquipos(list);
+  return list;
+}
+function applyEquipoFilters(){
+  renderEquipos(getFilteredEquipos());
 }
 document.getElementById('equipo-search-input').addEventListener('input', applyEquipoFilters);
 document.getElementById('equipo-filter-sucursal').addEventListener('change', applyEquipoFilters);
 document.getElementById('equipo-filter-estado').addEventListener('change', applyEquipoFilters);
+
+function equiposToRows(list){
+  const headers = ['N Serie','Modelo','Sucursal','Estado'];
+  const rows = list.map(e => [
+    e.numero_serie, e.modelo, sucursales.find(s=>s.id===e.sucursal_id)?.nombre || '', e.estado,
+  ]);
+  return { headers, rows };
+}
+document.getElementById('btn-export-equipos-csv').addEventListener('click', ()=>{
+  const { headers, rows } = equiposToRows(getFilteredEquipos());
+  exportCSV('equipos_horizon', headers, rows);
+});
+document.getElementById('btn-export-equipos-xls').addEventListener('click', ()=>{
+  const { headers, rows } = equiposToRows(getFilteredEquipos());
+  exportXLS('equipos_horizon', headers, rows);
+});
 
 function populateSucursalSelectEquipo(){
   const sel = document.getElementById('e-sucursal_id');
@@ -2539,6 +2665,20 @@ document.getElementById('btn-logout').addEventListener('click', async ()=>{
 
 // ---------- Módulo Usuarios (solo maestro/admin) ----------
 let usuariosCache = [];
+
+function usuariosToRows(list){
+  const headers = ['Nombre','Email','Rol','Estado'];
+  const rows = list.map(u => [u.nombre, u.email || '', u.rol, u.activo ? 'Activo' : 'Inactivo']);
+  return { headers, rows };
+}
+document.getElementById('btn-export-usuarios-csv').addEventListener('click', ()=>{
+  const { headers, rows } = usuariosToRows(usuariosCache);
+  exportCSV('usuarios_horizon', headers, rows);
+});
+document.getElementById('btn-export-usuarios-xls').addEventListener('click', ()=>{
+  const { headers, rows } = usuariosToRows(usuariosCache);
+  exportXLS('usuarios_horizon', headers, rows);
+});
 
 async function loadUsuarios(){
   const tbody = document.getElementById('usuarios-tbody');
@@ -2834,10 +2974,8 @@ document.getElementById('btn-rep-limpiar').addEventListener('click', ()=>{
   renderReportes();
 });
 
-document.getElementById('btn-rep-exportar').addEventListener('click', ()=>{
+function reportesToRows(){
   const filtrados = getPendientesFiltrados();
-  if(filtrados.length === 0){ showToast('No hay datos para exportar con este filtro', true); return; }
-
   const headers = ['Cliente','Provincia','Sucursal','Equipo','Periodo desde','Periodo hasta','Valor USD','Estado','N Factura'];
   const rows = filtrados.map(p => [
     p.contratos?.clientes?.razon_social || '',
@@ -2850,18 +2988,15 @@ document.getElementById('btn-rep-exportar').addEventListener('click', ()=>{
     p.estado,
     p.numero_factura || '',
   ]);
-
-  const csvContent = [headers, ...rows]
-    .map(row => row.map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(','))
-    .join('\n');
-
-  const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `reporte_horizon_${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  return { headers, rows };
+}
+document.getElementById('btn-rep-exportar').addEventListener('click', ()=>{
+  const { headers, rows } = reportesToRows();
+  exportCSV(`reporte_horizon_${new Date().toISOString().slice(0,10)}`, headers, rows);
+});
+document.getElementById('btn-rep-exportar-xls').addEventListener('click', ()=>{
+  const { headers, rows } = reportesToRows();
+  exportXLS(`reporte_horizon_${new Date().toISOString().slice(0,10)}`, headers, rows);
 });
 
 async function initApp(){
