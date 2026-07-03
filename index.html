@@ -471,7 +471,11 @@ function showToast(msg, isErr){
 // ---------- Carga inicial ----------
 async function loadSucursales(){
   const { data, error } = await supabase.from('sucursales').select('*').order('nombre');
-  if(error){ console.error(error); return; }
+  if(error){
+    console.error('Error en loadSucursales:', error);
+    setStatus(false, 'error: ' + error.message);
+    throw error;
+  }
   sucursales = data;
   const sel = document.getElementById('f-sucursal_habitual_id');
   sel.innerHTML = '<option value="">—</option>' + data.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
@@ -734,10 +738,25 @@ document.getElementById('btn-delete').addEventListener('click', async ()=>{
 
 // ---------- Init ----------
 (async function init(){
+  console.log('[Horizon] iniciando...');
   if(!initSupabase()) return;
   setStatus(true, 'conectando...');
-  await loadSucursales();
-  await loadClientes();
+  try{
+    console.log('[Horizon] cargando sucursales...');
+    await loadSucursales();
+    console.log('[Horizon] sucursales OK, cargando clientes...');
+    await loadClientes();
+    console.log('[Horizon] listo.');
+  } catch(err){
+    console.error('[Horizon] fallo la inicialización:', err);
+    setStatus(false, 'error de conexión');
+    document.getElementById('clientes-tbody').innerHTML =
+      `<tr><td colspan="7" class="empty-state">
+         No se pudo conectar a la base de datos.<br>
+         <span class="muted" style="font-size:12px;">${escapeHtml(err.message || String(err))}</span><br><br>
+         Revisá la consola del navegador (F12) para más detalle, y verificá URL/ANON KEY y las políticas RLS en Supabase.
+       </td></tr>`;
+  }
 })();
 </script>
 </body>
