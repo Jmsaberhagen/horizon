@@ -502,7 +502,7 @@
   <button data-tab="contratos">Contratos</button>
   <button data-tab="equipos">Equipos</button>
   <button data-tab="pendientes">Pendientes de Facturación</button>
-  <button data-tab="reportes-placeholder" disabled title="Próximamente">Reportes</button>
+  <button data-tab="reportes">Reportes</button>
   <button data-tab="usuarios" id="nav-usuarios" style="display:none;">Usuarios</button>
 </nav>
 
@@ -701,6 +701,95 @@
         </table>
       </div>
     </div>
+  </section>
+
+  <section id="tab-reportes" style="display:none;">
+    <div class="toolbar" style="flex-wrap:wrap;">
+      <input type="date" id="rep-desde" title="Período desde">
+      <input type="date" id="rep-hasta" title="Período hasta">
+      <select id="rep-filter-sucursal">
+        <option value="">Todas las sucursales</option>
+      </select>
+      <select id="rep-filter-provincia">
+        <option value="">Todas las provincias</option>
+      </select>
+      <select id="rep-filter-estado">
+        <option value="">Todos los estados</option>
+        <option value="pendiente">Pendientes</option>
+        <option value="facturado">Facturados</option>
+      </select>
+      <input type="text" id="rep-search-cliente" placeholder="Buscar cliente...">
+      <div style="flex:1"></div>
+      <button class="btn secondary" id="btn-rep-limpiar">Limpiar filtros</button>
+      <button class="btn" id="btn-rep-exportar">Exportar CSV</button>
+    </div>
+
+    <div class="dash-grid" style="grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); margin-bottom:24px;">
+      <div class="panel" style="padding:16px;">
+        <div class="muted" style="font-size:11px;text-transform:uppercase;">Pendiente sin facturar</div>
+        <div id="rep-total-pendiente" style="font-size:22px;font-weight:700;color:var(--accent);margin-top:4px;">U$D 0</div>
+        <div class="muted" id="rep-count-pendiente" style="font-size:11px;margin-top:2px;"></div>
+      </div>
+      <div class="panel" style="padding:16px;">
+        <div class="muted" style="font-size:11px;text-transform:uppercase;">Facturado</div>
+        <div id="rep-total-facturado" style="font-size:22px;font-weight:700;color:var(--ok);margin-top:4px;">U$D 0</div>
+        <div class="muted" id="rep-count-facturado" style="font-size:11px;margin-top:2px;"></div>
+      </div>
+      <div class="panel" style="padding:16px;">
+        <div class="muted" style="font-size:11px;text-transform:uppercase;">Clientes con mora</div>
+        <div id="rep-clientes-mora" style="font-size:22px;font-weight:700;margin-top:4px;">0</div>
+        <div class="muted" style="font-size:11px;margin-top:2px;">con pendientes sin facturar</div>
+      </div>
+    </div>
+
+    <div class="dash-hero" style="margin-bottom:14px;">
+      <h1 style="font-size:16px;">Mora por cliente</h1>
+      <div class="sub">Ordenado por mayor monto pendiente — útil para gestión de cobranza</div>
+    </div>
+    <div class="panel">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Provincia</th>
+              <th>Pendientes</th>
+              <th>Total pendiente (USD)</th>
+              <th>Período más antiguo sin facturar</th>
+            </tr>
+          </thead>
+          <tbody id="rep-mora-tbody">
+            <tr><td colspan="5" class="empty-state">Sin datos</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="dash-hero" style="margin:24px 0 14px 0;">
+      <h1 style="font-size:16px;">Detalle</h1>
+    </div>
+    <div class="panel">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Equipo</th>
+              <th>Sucursal</th>
+              <th>Provincia</th>
+              <th>Período</th>
+              <th>Valor (USD)</th>
+              <th>Estado</th>
+              <th>N° Factura</th>
+            </tr>
+          </thead>
+          <tbody id="rep-detalle-tbody">
+            <tr><td colspan="8" class="empty-state">Sin datos</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="muted" id="rep-results-count" style="margin-top:10px;font-size:12px;"></div>
   </section>
 
 </main>
@@ -1143,6 +1232,7 @@ const TAB_TITLES = {
   equipos: 'Equipos',
   pendientes: 'Pendientes de Facturación',
   usuarios: 'Usuarios',
+  reportes: 'Reportes',
 };
 
 function activarTab(tab){
@@ -2338,11 +2428,12 @@ function aplicarPermisosUI(){
     contratos:  ['maestro','admin','comercial','finanzas'],
     equipos:    ['maestro','admin','servicios'],
     pendientes: ['maestro','admin','finanzas'],
+    reportes:   ['maestro','admin','finanzas'],
   };
 
   document.querySelectorAll('nav button[data-tab]').forEach(btn=>{
     const tab = btn.dataset.tab;
-    if(tab === 'inicio' || tab === 'usuarios' || tab === 'reportes-placeholder') return;
+    if(tab === 'inicio' || tab === 'usuarios') return;
     const permitido = accesoPorTab[tab] ? accesoPorTab[tab].includes(rol) : false;
     btn.style.display = permitido ? '' : 'none';
   });
@@ -2550,6 +2641,7 @@ function renderDashboard(){
     contratos:  ['maestro','admin','comercial','finanzas'],
     equipos:    ['maestro','admin','servicios'],
     pendientes: ['maestro','admin','finanzas'],
+    reportes:   ['maestro','admin','finanzas'],
   };
 
   const tiles = [
@@ -2557,6 +2649,7 @@ function renderDashboard(){
     { tab:'contratos',  icon:'📄', title:'Contratos',  count:`${contratosCache.length} totales`, visible:accesoPorTab.contratos.includes(rol) },
     { tab:'equipos',    icon:'🚜', title:'Equipos',    count:`${equiposCache.length} en catálogo`, visible:accesoPorTab.equipos.includes(rol) },
     { tab:'pendientes', icon:'💰', title:'Pendientes de Facturación', count: accesoPorTab.pendientes.includes(rol) ? `${pendientesCache.filter(p=>p.estado==='pendiente').length} sin facturar` : '', visible:accesoPorTab.pendientes.includes(rol) },
+    { tab:'reportes',   icon:'📊', title:'Reportes',   count:'Mora y facturación', visible:accesoPorTab.reportes.includes(rol) },
     { tab:'usuarios',   icon:'👤', title:'Usuarios',   count:`${usuariosCache.length} cuentas`, visible:esMaestroOAdmin },
   ];
 
@@ -2576,6 +2669,158 @@ function irATab(tab){
 }
 
 
+// =========================================================
+// MÓDULO REPORTES
+// =========================================================
+
+function populateReportesFiltros(){
+  const selSuc = document.getElementById('rep-filter-sucursal');
+  const curSuc = selSuc.value;
+  selSuc.innerHTML = '<option value="">Todas las sucursales</option>' + sucursales.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
+  selSuc.value = curSuc;
+
+  const provincias = [...new Set(pendientesCache.map(p=>p.contratos?.clientes?.provincia).filter(Boolean))].sort();
+  const selProv = document.getElementById('rep-filter-provincia');
+  const curProv = selProv.value;
+  selProv.innerHTML = '<option value="">Todas las provincias</option>' + provincias.map(p=>`<option value="${p}">${p}</option>`).join('');
+  selProv.value = curProv;
+}
+
+function getPendientesFiltrados(){
+  const desde = document.getElementById('rep-desde').value;
+  const hasta = document.getElementById('rep-hasta').value;
+  const sucursalId = document.getElementById('rep-filter-sucursal').value;
+  const provincia = document.getElementById('rep-filter-provincia').value;
+  const estado = document.getElementById('rep-filter-estado').value;
+  const q = document.getElementById('rep-search-cliente').value.trim().toLowerCase();
+
+  return pendientesCache.filter(p=>{
+    if(desde && p.periodo_desde && p.periodo_desde < desde) return false;
+    if(hasta && p.periodo_hasta && p.periodo_hasta > hasta) return false;
+    if(sucursalId && String(p.contratos?.sucursales?.id) !== sucursalId) return false;
+    if(provincia && p.contratos?.clientes?.provincia !== provincia) return false;
+    if(estado && p.estado !== estado) return false;
+    if(q && !(p.contratos?.clientes?.razon_social || '').toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+function renderReportes(){
+  const filtrados = getPendientesFiltrados();
+
+  const pendientes = filtrados.filter(p=>p.estado==='pendiente');
+  const facturados = filtrados.filter(p=>p.estado==='facturado');
+  const totalPendUsd = pendientes.reduce((acc,p)=> acc + (Number(p.valor_alquiler_usd)||0), 0);
+  const totalFactUsd = facturados.reduce((acc,p)=> acc + (Number(p.valor_alquiler_usd)||0), 0);
+
+  document.getElementById('rep-total-pendiente').textContent = fmtMoney(totalPendUsd, 'USD');
+  document.getElementById('rep-count-pendiente').textContent = `${pendientes.length} pendiente(s)`;
+  document.getElementById('rep-total-facturado').textContent = fmtMoney(totalFactUsd, 'USD');
+  document.getElementById('rep-count-facturado').textContent = `${facturados.length} facturado(s)`;
+
+  // ---------- Mora por cliente ----------
+  const moraPorCliente = {};
+  pendientes.forEach(p=>{
+    const cliente = p.contratos?.clientes;
+    if(!cliente) return;
+    const key = cliente.id;
+    if(!moraPorCliente[key]){
+      moraPorCliente[key] = { nombre: cliente.razon_social, provincia: cliente.provincia, cantidad:0, total:0, masAntiguo: p.periodo_desde };
+    }
+    moraPorCliente[key].cantidad += 1;
+    moraPorCliente[key].total += Number(p.valor_alquiler_usd) || 0;
+    if(p.periodo_desde && (!moraPorCliente[key].masAntiguo || p.periodo_desde < moraPorCliente[key].masAntiguo)){
+      moraPorCliente[key].masAntiguo = p.periodo_desde;
+    }
+  });
+  const moraList = Object.values(moraPorCliente).sort((a,b)=> b.total - a.total);
+  document.getElementById('rep-clientes-mora').textContent = moraList.length;
+
+  const moraTbody = document.getElementById('rep-mora-tbody');
+  moraTbody.innerHTML = moraList.length === 0
+    ? '<tr><td colspan="5" class="empty-state">No hay pendientes sin facturar con este filtro.</td></tr>'
+    : moraList.map(m=>`
+        <tr>
+          <td>${escapeHtml(m.nombre)}</td>
+          <td class="muted">${escapeHtml(m.provincia || '—')}</td>
+          <td class="muted">${m.cantidad}</td>
+          <td style="color:var(--accent);font-weight:600;">${fmtMoney(m.total, 'USD')}</td>
+          <td class="muted">${fmtDate(m.masAntiguo)}</td>
+        </tr>`).join('');
+
+  // ---------- Detalle ----------
+  const detTbody = document.getElementById('rep-detalle-tbody');
+  const ordenados = [...filtrados].sort((a,b)=> (a.periodo_desde||'').localeCompare(b.periodo_desde||''));
+  detTbody.innerHTML = ordenados.length === 0
+    ? '<tr><td colspan="8" class="empty-state">No hay pendientes con este filtro.</td></tr>'
+    : ordenados.map(p=>{
+        const cliente = p.contratos?.clientes?.razon_social || '—';
+        const equipo = p.contratos?.equipos?.numero_serie || '—';
+        const sucursal = p.contratos?.sucursales?.nombre || '—';
+        const provincia = p.contratos?.clientes?.provincia || '—';
+        const estadoBadge = p.estado === 'facturado'
+          ? '<span class="badge" style="color:var(--ok);border-color:var(--ok);">Facturado</span>'
+          : '<span class="badge" style="color:var(--accent);border-color:var(--accent-dim);">Pendiente</span>';
+        return `
+          <tr>
+            <td>${escapeHtml(cliente)}</td>
+            <td class="muted">${escapeHtml(equipo)}</td>
+            <td>${sucursal !== '—' ? `<span class="badge">${sucursal}</span>` : '—'}</td>
+            <td class="muted">${escapeHtml(provincia)}</td>
+            <td class="muted">${fmtDate(p.periodo_desde)} → ${fmtDate(p.periodo_hasta)}</td>
+            <td class="muted">${fmtMoney(p.valor_alquiler_usd, 'USD')}</td>
+            <td>${estadoBadge}</td>
+            <td class="muted">${escapeHtml(p.numero_factura || '—')}</td>
+          </tr>`;
+      }).join('');
+  document.getElementById('rep-results-count').textContent = `${filtrados.length} registro(s)`;
+}
+
+['rep-desde','rep-hasta','rep-filter-sucursal','rep-filter-provincia','rep-filter-estado','rep-search-cliente'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', renderReportes);
+  document.getElementById(id).addEventListener('change', renderReportes);
+});
+
+document.getElementById('btn-rep-limpiar').addEventListener('click', ()=>{
+  document.getElementById('rep-desde').value = '';
+  document.getElementById('rep-hasta').value = '';
+  document.getElementById('rep-filter-sucursal').value = '';
+  document.getElementById('rep-filter-provincia').value = '';
+  document.getElementById('rep-filter-estado').value = '';
+  document.getElementById('rep-search-cliente').value = '';
+  renderReportes();
+});
+
+document.getElementById('btn-rep-exportar').addEventListener('click', ()=>{
+  const filtrados = getPendientesFiltrados();
+  if(filtrados.length === 0){ showToast('No hay datos para exportar con este filtro', true); return; }
+
+  const headers = ['Cliente','Provincia','Sucursal','Equipo','Periodo desde','Periodo hasta','Valor USD','Estado','N Factura'];
+  const rows = filtrados.map(p => [
+    p.contratos?.clientes?.razon_social || '',
+    p.contratos?.clientes?.provincia || '',
+    p.contratos?.sucursales?.nombre || '',
+    p.contratos?.equipos?.numero_serie || '',
+    p.periodo_desde || '',
+    p.periodo_hasta || '',
+    p.valor_alquiler_usd || 0,
+    p.estado,
+    p.numero_factura || '',
+  ]);
+
+  const csvContent = [headers, ...rows]
+    .map(row => row.map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(','))
+    .join('\n');
+
+  const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `reporte_horizon_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
 async function initApp(){
   try{
     console.log('[Horizon] cargando sucursales...');
@@ -2593,6 +2838,8 @@ async function initApp(){
       console.log('[Horizon] contratos OK, cargando requisitos y pendientes...');
       await loadTodosLosRequisitos();
       await loadPendientes();
+      populateReportesFiltros();
+      renderReportes();
     }
     if(miPerfil.rol === 'maestro' || miPerfil.rol === 'admin'){
       await loadUsuarios();
