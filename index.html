@@ -669,7 +669,7 @@
               <th>Equipo</th>
               <th>Sucursal</th>
               <th>Período</th>
-              <th>Potencial facturación</th>
+              <th>Valor a facturar</th>
               <th>Requisitos</th>
               <th>Estado / N° Factura</th>
               <th style="width:110px;">Acciones</th>
@@ -2013,7 +2013,7 @@ function renderPendientes(list){
         <td class="muted">${escapeHtml(equipo)}${p.contratos?.tiene_flete ? ` <span class="badge" style="color:var(--accent);border-color:var(--accent-dim);" title="Agregar 2° ítem por flete: ${fmtMoney(p.contratos.costo_flete,'USD')}">🚚 flete</span>` : ''}</td>
         <td>${sucursal !== '—' ? `<span class="badge">${sucursal}</span>` : '—'}</td>
         <td class="muted">${fmtDate(p.periodo_desde)} → ${fmtDate(p.periodo_hasta)}</td>
-        <td class="muted">${fmtMoney(p.potencial_facturacion, 'ARS')}</td>
+        <td class="muted">${p.valor_alquiler_usd ? fmtMoney(p.valor_alquiler_usd, 'USD') : fmtMoney(p.potencial_facturacion, 'ARS')}</td>
         <td>${reqCount > 0 ? `<span class="badge req">${reqCount} req.</span>` : '<span class="muted">—</span>'}</td>
         <td>${estadoBadge}</td>
         <td>
