@@ -284,6 +284,33 @@
     margin-bottom:16px;
     font-size:13px;
   }
+  .autocomplete-list{
+    position:absolute;
+    top:100%;
+    left:0;
+    right:0;
+    background:var(--panel-2);
+    border:1px solid var(--yellow-dim);
+    border-radius:var(--radius);
+    max-height:220px;
+    overflow:auto;
+    z-index:10;
+    display:none;
+  }
+  .autocomplete-list.open{display:block;}
+  .autocomplete-item{
+    padding:8px 10px;
+    cursor:pointer;
+    font-size:13px;
+    border-bottom:1px solid var(--border);
+  }
+  .autocomplete-item:last-child{border-bottom:none;}
+  .autocomplete-item:hover{background:rgba(255,204,0,0.1);}
+  .autocomplete-item .sub{
+    display:block;
+    font-size:11px;
+    color:var(--text-dim);
+  }
 </style>
 </head>
 <body>
@@ -295,8 +322,8 @@
 
 <nav>
   <button class="active" data-tab="clientes">Clientes</button>
-  <button disabled title="Próximamente">Contratos</button>
-  <button disabled title="Próximamente">Pendientes de Facturación</button>
+  <button data-tab="contratos">Contratos</button>
+  <button data-tab="pendientes">Pendientes de Facturación</button>
   <button disabled title="Próximamente">Reportes</button>
 </nav>
 
@@ -337,6 +364,87 @@
       </div>
     </div>
     <div class="muted" id="results-count" style="margin-top:10px;font-size:12px;"></div>
+  </section>
+
+  <section id="tab-contratos" style="display:none;">
+    <div class="toolbar">
+      <input type="text" id="contrato-search-input" placeholder="Buscar por cliente, N° de serie u obra...">
+      <select id="contrato-filter-sucursal">
+        <option value="">Todas las sucursales</option>
+      </select>
+      <select id="contrato-filter-estado">
+        <option value="">Todos los estados</option>
+        <option value="activo">Activos</option>
+        <option value="baja">De baja</option>
+      </select>
+      <div style="flex:1"></div>
+      <button class="btn" id="btn-new-contrato">+ Nuevo contrato</button>
+    </div>
+
+    <div class="panel">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Equipo (N° Serie)</th>
+              <th>Sucursal</th>
+              <th>Salida / Vencimiento</th>
+              <th>Precio mensual</th>
+              <th>Estado</th>
+              <th style="width:140px;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="contratos-tbody">
+            <tr><td colspan="7" class="empty-state">Cargando contratos...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="muted" id="contratos-results-count" style="margin-top:10px;font-size:12px;"></div>
+  </section>
+
+  <section id="tab-pendientes" style="display:none;">
+    <div class="toolbar">
+      <input type="text" id="pend-search-input" placeholder="Buscar por cliente, N° de serie u obra...">
+      <select id="pend-filter-sucursal">
+        <option value="">Todas las sucursales</option>
+      </select>
+      <select id="pend-filter-provincia">
+        <option value="">Todas las provincias</option>
+      </select>
+      <select id="pend-filter-estado">
+        <option value="pendiente">Pendientes</option>
+        <option value="facturado">Facturados</option>
+        <option value="">Todos</option>
+      </select>
+      <div style="flex:1"></div>
+      <button class="btn secondary" id="btn-nuevo-pendiente">+ Pendiente manual</button>
+      <button class="btn" id="btn-generar-mes">Generar pendientes del mes</button>
+    </div>
+
+    <div class="panel">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Equipo</th>
+              <th>Sucursal</th>
+              <th>Período</th>
+              <th>Potencial facturación</th>
+              <th>Requisitos</th>
+              <th>Estado / N° Factura</th>
+              <th style="width:110px;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="pendientes-tbody">
+            <tr><td colspan="8" class="empty-state">Cargando pendientes...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="muted" id="pendientes-results-count" style="margin-top:10px;font-size:12px;"></div>
   </section>
 
 </main>
@@ -428,6 +536,211 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- MODAL GENERAR PENDIENTES DEL MES -->
+<div class="overlay" id="modal-generar-overlay">
+  <div class="modal">
+    <h2>Generar pendientes del mes</h2>
+    <div class="muted" style="font-size:13px;margin-bottom:14px;">
+      Se va a crear un pendiente de facturación para cada contrato <b>activo</b> en el período elegido.
+      Los contratos que ya tengan un pendiente generado para ese mismo período se van a saltear automáticamente (no se duplican).
+    </div>
+    <div class="field-grid">
+      <div class="field">
+        <label>Período — desde</label>
+        <input type="date" id="gen-desde">
+      </div>
+      <div class="field">
+        <label>Período — hasta</label>
+        <input type="date" id="gen-hasta">
+      </div>
+      <div class="field">
+        <label>Tipo de cambio a aplicar (opcional)</label>
+        <input type="number" step="0.0001" id="gen-tc" placeholder="Ej: 1250.50">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn secondary" id="btn-generar-cancel">Cancelar</button>
+      <button class="btn" id="btn-generar-confirmar">Generar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PENDIENTE (manual / editar / facturar) -->
+<div class="overlay" id="modal-pendiente-overlay">
+  <div class="modal">
+    <h2 id="modal-pendiente-title">Nuevo pendiente</h2>
+    <input type="hidden" id="p-id">
+
+    <div class="field-grid">
+      <div class="field full" style="position:relative;">
+        <label>Contrato — buscar por cliente o N° de serie *</label>
+        <input type="text" id="p-contrato-search" placeholder="Buscar contrato activo...">
+        <input type="hidden" id="p-contrato_id">
+        <div class="autocomplete-list" id="p-contrato-results"></div>
+        <div class="muted" id="p-contrato-selected" style="font-size:12px;margin-top:4px;"></div>
+      </div>
+
+      <div class="field">
+        <label>Período — desde</label>
+        <input type="date" id="p-periodo_desde">
+      </div>
+      <div class="field">
+        <label>Período — hasta</label>
+        <input type="date" id="p-periodo_hasta">
+      </div>
+
+      <div class="field">
+        <label>Valor alquiler (USD)</label>
+        <input type="number" step="0.01" id="p-valor_alquiler_usd">
+      </div>
+      <div class="field">
+        <label>Flete (USD)</label>
+        <input type="number" step="0.01" id="p-flete_usd">
+      </div>
+
+      <div class="field">
+        <label>Tipo de cambio aplicado</label>
+        <input type="number" step="0.0001" id="p-tc_aplicado">
+      </div>
+      <div class="field">
+        <label>Potencial facturación (ARS)</label>
+        <input type="number" step="0.01" id="p-potencial_facturacion">
+      </div>
+    </div>
+
+    <div id="p-requisitos-box" style="display:none;">
+      <h2 style="margin-top:22px;font-size:14px;">Checklist del cliente antes de facturar</h2>
+      <div class="req-list" id="p-requisitos-list"></div>
+    </div>
+
+    <div class="field-grid" style="margin-top:18px;border-top:1px solid var(--border);padding-top:16px;">
+      <div class="field">
+        <label>Estado</label>
+        <select id="p-estado">
+          <option value="pendiente">Pendiente</option>
+          <option value="facturado">Facturado</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>N° de Factura <span class="muted" style="text-transform:none;">(obligatorio para marcar como facturado)</span></label>
+        <input type="text" id="p-numero_factura">
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn secondary" id="btn-pendiente-cancel">Cancelar</button>
+      <button class="btn danger" id="btn-pendiente-delete" style="display:none;">Eliminar</button>
+      <button class="btn" id="btn-pendiente-save">Guardar</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- MODAL CONTRATO -->
+<div class="overlay" id="modal-contrato-overlay">
+  <div class="modal">
+    <h2 id="modal-contrato-title">Nuevo contrato</h2>
+    <input type="hidden" id="c-id">
+
+    <div class="field-grid">
+      <div class="field full" style="position:relative;">
+        <label>Cliente *</label>
+        <input type="text" id="c-cliente-search" placeholder="Buscar por razón social, CUIT o N° de cliente...">
+        <input type="hidden" id="c-cliente_id">
+        <div class="autocomplete-list" id="c-cliente-results"></div>
+        <div class="muted" id="c-cliente-selected" style="font-size:12px;margin-top:4px;"></div>
+      </div>
+
+      <div class="field full" style="position:relative;">
+        <label>Equipo — N° de serie *</label>
+        <input type="text" id="c-equipo-search" placeholder="Buscar por número de serie o modelo...">
+        <input type="hidden" id="c-equipo_id">
+        <div class="autocomplete-list" id="c-equipo-results"></div>
+        <div class="muted" id="c-equipo-selected" style="font-size:12px;margin-top:4px;"></div>
+      </div>
+
+      <div class="field">
+        <label>Sucursal / Punto de venta *</label>
+        <select id="c-sucursal_id">
+          <option value="">—</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Remito</label>
+        <input type="text" id="c-remito">
+      </div>
+
+      <div class="field">
+        <label>Fecha de salida</label>
+        <input type="date" id="c-fecha_salida">
+      </div>
+      <div class="field">
+        <label>Fecha de vencimiento</label>
+        <input type="date" id="c-fecha_vencimiento">
+      </div>
+
+      <div class="field">
+        <label>Moneda *</label>
+        <select id="c-moneda">
+          <option value="USD">USD</option>
+          <option value="ARS">ARS</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>% Descuento</label>
+        <input type="number" step="0.01" id="c-porcentaje_descuento" value="0">
+      </div>
+
+      <div class="field">
+        <label>Precio mensual sin descuento</label>
+        <input type="number" step="0.01" id="c-precio_sin_descuento">
+      </div>
+      <div class="field">
+        <label>Precio mensual con descuento</label>
+        <input type="number" step="0.01" id="c-precio_con_descuento">
+      </div>
+
+      <div class="field full">
+        <label>Orden de compra</label>
+        <input type="text" id="c-orden_de_compra">
+      </div>
+
+      <div class="field">
+        <label>Obra</label>
+        <input type="text" id="c-obra">
+      </div>
+      <div class="field">
+        <label>Contacto de obra</label>
+        <input type="text" id="c-contacto_obra">
+      </div>
+
+      <div class="field full">
+        <label>Observaciones</label>
+        <textarea id="c-observacion" rows="2"></textarea>
+      </div>
+
+      <div class="field">
+        <label>Estado</label>
+        <select id="c-estado">
+          <option value="activo">Activo</option>
+          <option value="baja">De baja</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Fecha de baja</label>
+        <input type="date" id="c-fecha_baja">
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn secondary" id="btn-contrato-cancel">Cancelar</button>
+      <button class="btn danger" id="btn-contrato-delete" style="display:none;">Eliminar contrato</button>
+      <button class="btn" id="btn-contrato-save">Guardar</button>
+    </div>
+  </div>
+</div>
+
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 // =========================================================
@@ -441,6 +754,9 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 let supabaseClient = null;
 let sucursales = [];
 let clientesCache = [];
+let equiposCache = [];
+let contratosCache = [];
+let pendientesCache = [];
 let reqCounter = 0;
 
 function initSupabase(){
@@ -468,6 +784,16 @@ function showToast(msg, isErr){
   t._timer = setTimeout(()=>{ t.style.display='none'; }, 3500);
 }
 
+// ---------- Tabs ----------
+document.querySelectorAll('nav button[data-tab]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('nav button[data-tab]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('main > section').forEach(s=> s.style.display = 'none');
+    document.getElementById('tab-' + btn.dataset.tab).style.display = 'block';
+  });
+});
+
 // ---------- Carga inicial ----------
 async function loadSucursales(){
   const { data, error } = await supabaseClient.from('sucursales').select('*').order('nombre');
@@ -485,21 +811,31 @@ async function loadClientes(){
   const tbody = document.getElementById('clientes-tbody');
   tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Cargando clientes...</td></tr>';
 
-  const { data, error } = await supabaseClient
-    .from('clientes')
-    .select('*, sucursales(nombre), cliente_requisitos(id)')
-    .order('razon_social');
+  const pageSize = 1000;
+  let allData = [];
+  let from = 0;
+  while(true){
+    const { data, error } = await supabaseClient
+      .from('clientes')
+      .select('*, sucursales(nombre), cliente_requisitos(id)')
+      .order('razon_social')
+      .range(from, from + pageSize - 1);
 
-  if(error){
-    console.error(error);
-    tbody.innerHTML = `<tr><td colspan="7" class="empty-state">Error al cargar: ${error.message}</td></tr>`;
-    setStatus(false, "error de conexión");
-    return;
+    if(error){
+      console.error(error);
+      tbody.innerHTML = `<tr><td colspan="7" class="empty-state">Error al cargar: ${error.message}</td></tr>`;
+      setStatus(false, "error de conexión");
+      return;
+    }
+    allData = allData.concat(data);
+    if(data.length < pageSize) break; // ya trajimos la última página
+    from += pageSize;
   }
-  setStatus(true, `conectado — ${data.length} clientes`);
-  clientesCache = data;
-  populateProvinciaFilter(data);
-  renderClientes(data);
+
+  setStatus(true, `conectado — ${allData.length} clientes`);
+  clientesCache = allData;
+  populateProvinciaFilter(allData);
+  renderClientes(allData);
 }
 
 function populateProvinciaFilter(data){
@@ -736,6 +1072,702 @@ document.getElementById('btn-delete').addEventListener('click', async ()=>{
   }
 });
 
+// =========================================================
+// MÓDULO CONTRATOS
+// =========================================================
+
+async function loadEquipos(){
+  const { data, error } = await supabaseClient.from('equipos').select('*').order('numero_serie');
+  if(error){ console.error('Error cargando equipos:', error); equiposCache = []; return; }
+  equiposCache = data;
+}
+
+async function loadContratos(){
+  const tbody = document.getElementById('contratos-tbody');
+  tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Cargando contratos...</td></tr>';
+
+  const pageSize = 1000;
+  let allData = [];
+  let from = 0;
+  while(true){
+    const { data, error } = await supabaseClient
+      .from('contratos')
+      .select('*, clientes(razon_social), equipos(numero_serie, modelo), sucursales(nombre)')
+      .order('created_at', { ascending: false })
+      .range(from, from + pageSize - 1);
+    if(error){
+      console.error(error);
+      tbody.innerHTML = `<tr><td colspan="7" class="empty-state">Error al cargar contratos: ${escapeHtml(error.message)}</td></tr>`;
+      return;
+    }
+    allData = allData.concat(data);
+    if(data.length < pageSize) break;
+    from += pageSize;
+  }
+  contratosCache = allData;
+  populateSucursalFilter();
+  renderContratos(allData);
+}
+
+function populateSucursalFilter(){
+  const sel = document.getElementById('contrato-filter-sucursal');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Todas las sucursales</option>' +
+    sucursales.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
+  sel.value = current;
+}
+
+function fmtMoney(v, moneda){
+  if(v === null || v === undefined) return '—';
+  const symbol = moneda === 'USD' ? 'U$D ' : '$ ';
+  return symbol + Number(v).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function fmtDate(d){
+  if(!d) return '—';
+  const [y,m,day] = d.split('-');
+  return `${day}/${m}/${y}`;
+}
+
+function renderContratos(list){
+  const tbody = document.getElementById('contratos-tbody');
+  if(list.length === 0){
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No se encontraron contratos con ese filtro.</td></tr>';
+    document.getElementById('contratos-results-count').textContent = '';
+    return;
+  }
+  tbody.innerHTML = list.map(c=>{
+    const cliente = c.clientes ? c.clientes.razon_social : '—';
+    const equipo = c.equipos ? `${c.equipos.numero_serie}${c.equipos.modelo ? ' — '+c.equipos.modelo : ''}` : '—';
+    const sucursal = c.sucursales ? c.sucursales.nombre : '—';
+    const precio = c.precio_mensual_con_descuento ?? c.precio_mensual_sin_descuento;
+    return `
+      <tr>
+        <td>${escapeHtml(cliente)}</td>
+        <td class="muted">${escapeHtml(equipo)}</td>
+        <td>${sucursal !== '—' ? `<span class="badge">${sucursal}</span>` : '—'}</td>
+        <td class="muted">${fmtDate(c.fecha_salida)} → ${fmtDate(c.fecha_vencimiento)}</td>
+        <td class="muted">${fmtMoney(precio, c.moneda)}</td>
+        <td>${c.estado === 'activo' ? '<span class="badge" style="color:var(--ok);border-color:var(--ok);">Activo</span>' : '<span class="badge" style="color:var(--danger);border-color:var(--danger);">De baja</span>'}</td>
+        <td>
+          <div class="row-actions">
+            <button class="btn secondary small" onclick="openEditContrato(${c.id})">Editar</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+  document.getElementById('contratos-results-count').textContent = `${list.length} contrato(s)`;
+}
+
+function applyContratoFilters(){
+  const q = document.getElementById('contrato-search-input').value.trim().toLowerCase();
+  const sucursalId = document.getElementById('contrato-filter-sucursal').value;
+  const estado = document.getElementById('contrato-filter-estado').value;
+  let list = contratosCache;
+  if(sucursalId) list = list.filter(c => String(c.sucursal_id) === sucursalId);
+  if(estado) list = list.filter(c => c.estado === estado);
+  if(q){
+    list = list.filter(c =>
+      (c.clientes?.razon_social || '').toLowerCase().includes(q) ||
+      (c.equipos?.numero_serie || '').toLowerCase().includes(q) ||
+      (c.obra || '').toLowerCase().includes(q)
+    );
+  }
+  renderContratos(list);
+}
+document.getElementById('contrato-search-input').addEventListener('input', applyContratoFilters);
+document.getElementById('contrato-filter-sucursal').addEventListener('change', applyContratoFilters);
+document.getElementById('contrato-filter-estado').addEventListener('change', applyContratoFilters);
+
+// ---------- Autocompletar Cliente ----------
+const clienteSearchInput = document.getElementById('c-cliente-search');
+const clienteResultsBox = document.getElementById('c-cliente-results');
+
+clienteSearchInput.addEventListener('input', ()=>{
+  const q = clienteSearchInput.value.trim().toLowerCase();
+  document.getElementById('c-cliente_id').value = '';
+  if(q.length < 2){ clienteResultsBox.classList.remove('open'); return; }
+  const matches = clientesCache.filter(c =>
+    (c.razon_social||'').toLowerCase().includes(q) ||
+    (c.cuit||'').toLowerCase().includes(q) ||
+    (c.numero_cliente||'').toLowerCase().includes(q)
+  ).slice(0, 30);
+  if(matches.length === 0){
+    clienteResultsBox.innerHTML = '<div class="autocomplete-item muted">Sin resultados</div>';
+  } else {
+    clienteResultsBox.innerHTML = matches.map(c=>`
+      <div class="autocomplete-item" data-id="${c.id}" data-nombre="${escapeHtml(c.razon_social)}">
+        ${escapeHtml(c.razon_social)}
+        <span class="sub">${c.numero_cliente || 's/n'} — ${c.cuit || 'sin CUIT'}${c.provincia ? ' — '+escapeHtml(c.provincia) : ''}</span>
+      </div>`).join('');
+  }
+  clienteResultsBox.classList.add('open');
+});
+
+clienteResultsBox.addEventListener('click', (e)=>{
+  const item = e.target.closest('.autocomplete-item');
+  if(!item || !item.dataset.id) return;
+  document.getElementById('c-cliente_id').value = item.dataset.id;
+  clienteSearchInput.value = item.dataset.nombre;
+  document.getElementById('c-cliente-selected').textContent = '✓ Cliente seleccionado';
+  clienteResultsBox.classList.remove('open');
+});
+
+// ---------- Autocompletar Equipo ----------
+const equipoSearchInput = document.getElementById('c-equipo-search');
+const equipoResultsBox = document.getElementById('c-equipo-results');
+
+equipoSearchInput.addEventListener('input', ()=>{
+  const q = equipoSearchInput.value.trim().toLowerCase();
+  document.getElementById('c-equipo_id').value = '';
+  if(q.length < 1){ equipoResultsBox.classList.remove('open'); return; }
+  const matches = equiposCache.filter(e =>
+    (e.numero_serie||'').toLowerCase().includes(q) ||
+    (e.modelo||'').toLowerCase().includes(q)
+  ).slice(0, 30);
+  if(matches.length === 0){
+    equipoResultsBox.innerHTML = `<div class="autocomplete-item muted">
+      Sin resultados. Todavía no está cargado el catálogo de equipos —
+      lo importamos apenas me pases el listado.
+    </div>`;
+  } else {
+    equipoResultsBox.innerHTML = matches.map(e=>`
+      <div class="autocomplete-item" data-id="${e.id}" data-serie="${escapeHtml(e.numero_serie)}">
+        ${escapeHtml(e.numero_serie)}
+        <span class="sub">${escapeHtml(e.modelo || '')} — ${e.estado}</span>
+      </div>`).join('');
+  }
+  equipoResultsBox.classList.add('open');
+});
+
+equipoResultsBox.addEventListener('click', (e)=>{
+  const item = e.target.closest('.autocomplete-item');
+  if(!item || !item.dataset.id) return;
+  document.getElementById('c-equipo_id').value = item.dataset.id;
+  equipoSearchInput.value = item.dataset.serie;
+  document.getElementById('c-equipo-selected').textContent = '✓ Equipo seleccionado';
+  equipoResultsBox.classList.remove('open');
+});
+
+// cerrar listas de autocompletar al clickear afuera
+document.addEventListener('click', (e)=>{
+  if(!e.target.closest('#c-cliente-search') && !e.target.closest('#c-cliente-results')) clienteResultsBox.classList.remove('open');
+  if(!e.target.closest('#c-equipo-search') && !e.target.closest('#c-equipo-results')) equipoResultsBox.classList.remove('open');
+});
+
+// ---------- Modal contrato: abrir / cerrar ----------
+function openContratoOverlay(){ document.getElementById('modal-contrato-overlay').classList.add('open'); }
+function closeContratoOverlay(){ document.getElementById('modal-contrato-overlay').classList.remove('open'); }
+
+function populateSucursalSelectContrato(){
+  const sel = document.getElementById('c-sucursal_id');
+  sel.innerHTML = '<option value="">—</option>' + sucursales.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
+}
+
+function resetContratoForm(){
+  ['id','cliente_id','equipo_id','remito','fecha_salida','fecha_vencimiento',
+   'porcentaje_descuento','precio_sin_descuento','precio_con_descuento',
+   'orden_de_compra','obra','contacto_obra','observacion','fecha_baja']
+   .forEach(f => { const el = document.getElementById('c-'+f); if(el) el.value = ''; });
+  document.getElementById('c-porcentaje_descuento').value = 0;
+  document.getElementById('c-moneda').value = 'USD';
+  document.getElementById('c-estado').value = 'activo';
+  document.getElementById('c-sucursal_id').value = '';
+  clienteSearchInput.value = '';
+  equipoSearchInput.value = '';
+  document.getElementById('c-cliente-selected').textContent = '';
+  document.getElementById('c-equipo-selected').textContent = '';
+}
+
+document.getElementById('btn-new-contrato').addEventListener('click', ()=>{
+  resetContratoForm();
+  populateSucursalSelectContrato();
+  document.getElementById('modal-contrato-title').textContent = 'Nuevo contrato';
+  document.getElementById('btn-contrato-delete').style.display = 'none';
+  openContratoOverlay();
+});
+document.getElementById('btn-contrato-cancel').addEventListener('click', closeContratoOverlay);
+document.getElementById('modal-contrato-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'modal-contrato-overlay') closeContratoOverlay();
+});
+
+function openEditContrato(id){
+  const c = contratosCache.find(x=>x.id === id);
+  if(!c) return;
+  resetContratoForm();
+  populateSucursalSelectContrato();
+  document.getElementById('modal-contrato-title').textContent = 'Editar contrato';
+  document.getElementById('btn-contrato-delete').style.display = 'inline-block';
+
+  document.getElementById('c-id').value = c.id;
+  document.getElementById('c-cliente_id').value = c.cliente_id;
+  clienteSearchInput.value = c.clientes ? c.clientes.razon_social : '';
+  document.getElementById('c-cliente-selected').textContent = '✓ Cliente seleccionado';
+
+  document.getElementById('c-equipo_id').value = c.equipo_id;
+  equipoSearchInput.value = c.equipos ? c.equipos.numero_serie : '';
+  document.getElementById('c-equipo-selected').textContent = '✓ Equipo seleccionado';
+
+  document.getElementById('c-sucursal_id').value = c.sucursal_id || '';
+  document.getElementById('c-remito').value = c.remito || '';
+  document.getElementById('c-fecha_salida').value = c.fecha_salida || '';
+  document.getElementById('c-fecha_vencimiento').value = c.fecha_vencimiento || '';
+  document.getElementById('c-moneda').value = c.moneda || 'USD';
+  document.getElementById('c-porcentaje_descuento').value = c.porcentaje_descuento ?? 0;
+  document.getElementById('c-precio_sin_descuento').value = c.precio_mensual_sin_descuento ?? '';
+  document.getElementById('c-precio_con_descuento').value = c.precio_mensual_con_descuento ?? '';
+  document.getElementById('c-orden_de_compra').value = c.orden_de_compra || '';
+  document.getElementById('c-obra').value = c.obra || '';
+  document.getElementById('c-contacto_obra').value = c.contacto_obra || '';
+  document.getElementById('c-observacion').value = c.observacion || '';
+  document.getElementById('c-estado').value = c.estado || 'activo';
+  document.getElementById('c-fecha_baja').value = c.fecha_baja || '';
+
+  openContratoOverlay();
+}
+
+document.getElementById('btn-contrato-save').addEventListener('click', async ()=>{
+  const clienteId = document.getElementById('c-cliente_id').value;
+  const equipoId = document.getElementById('c-equipo_id').value;
+  const sucursalId = document.getElementById('c-sucursal_id').value;
+
+  if(!clienteId){ showToast('Seleccioná un cliente de la lista', true); return; }
+  if(!equipoId){ showToast('Seleccioná un equipo de la lista', true); return; }
+  if(!sucursalId){ showToast('Seleccioná la sucursal / punto de venta', true); return; }
+
+  const id = document.getElementById('c-id').value;
+  const payload = {
+    cliente_id: Number(clienteId),
+    equipo_id: Number(equipoId),
+    sucursal_id: Number(sucursalId),
+    remito: document.getElementById('c-remito').value.trim() || null,
+    fecha_salida: document.getElementById('c-fecha_salida').value || null,
+    fecha_vencimiento: document.getElementById('c-fecha_vencimiento').value || null,
+    fecha_baja: document.getElementById('c-fecha_baja').value || null,
+    moneda: document.getElementById('c-moneda').value,
+    porcentaje_descuento: Number(document.getElementById('c-porcentaje_descuento').value) || 0,
+    precio_mensual_sin_descuento: document.getElementById('c-precio_sin_descuento').value ? Number(document.getElementById('c-precio_sin_descuento').value) : null,
+    precio_mensual_con_descuento: document.getElementById('c-precio_con_descuento').value ? Number(document.getElementById('c-precio_con_descuento').value) : null,
+    orden_de_compra: document.getElementById('c-orden_de_compra').value.trim() || null,
+    obra: document.getElementById('c-obra').value.trim() || null,
+    contacto_obra: document.getElementById('c-contacto_obra').value.trim() || null,
+    observacion: document.getElementById('c-observacion').value.trim() || null,
+    estado: document.getElementById('c-estado').value,
+  };
+
+  try{
+    if(id){
+      const { error } = await supabaseClient.from('contratos').update(payload).eq('id', id);
+      if(error) throw error;
+    } else {
+      const { error } = await supabaseClient.from('contratos').insert(payload);
+      if(error) throw error;
+    }
+    showToast('Contrato guardado correctamente');
+    closeContratoOverlay();
+    await loadContratos();
+  } catch(err){
+    console.error(err);
+    showToast('Error al guardar: ' + err.message, true);
+  }
+});
+
+document.getElementById('btn-contrato-delete').addEventListener('click', async ()=>{
+  const id = document.getElementById('c-id').value;
+  if(!id) return;
+  if(!confirm('¿Eliminar este contrato? Esta acción no se puede deshacer.')) return;
+  try{
+    const { error } = await supabaseClient.from('contratos').delete().eq('id', id);
+    if(error) throw error;
+    showToast('Contrato eliminado');
+    closeContratoOverlay();
+    await loadContratos();
+  } catch(err){
+    console.error(err);
+    showToast('Error al eliminar: ' + err.message, true);
+  }
+});
+
+// =========================================================
+// MÓDULO PENDIENTES DE FACTURACIÓN
+// =========================================================
+
+async function loadPendientes(){
+  const tbody = document.getElementById('pendientes-tbody');
+  tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Cargando pendientes...</td></tr>';
+
+  const pageSize = 1000;
+  let allData = [];
+  let from = 0;
+  while(true){
+    const { data, error } = await supabaseClient
+      .from('pendientes_facturacion')
+      .select(`*, contratos(
+          id, moneda, cliente_id,
+          clientes(id, razon_social, provincia),
+          equipos(numero_serie, modelo),
+          sucursales(id, nombre)
+        )`)
+      .order('periodo_desde', { ascending: false })
+      .range(from, from + pageSize - 1);
+    if(error){
+      console.error(error);
+      tbody.innerHTML = `<tr><td colspan="8" class="empty-state">Error al cargar pendientes: ${escapeHtml(error.message)}</td></tr>`;
+      return;
+    }
+    allData = allData.concat(data);
+    if(data.length < pageSize) break;
+    from += pageSize;
+  }
+  pendientesCache = allData;
+  populatePendFilters();
+  renderPendientes(filterPendientesDefault(allData));
+}
+
+function filterPendientesDefault(list){
+  // al cargar, arranca mostrando "pendiente" (coincide con el <select> default)
+  return list.filter(p => p.estado === 'pendiente');
+}
+
+function populatePendFilters(){
+  const selSuc = document.getElementById('pend-filter-sucursal');
+  const curSuc = selSuc.value;
+  selSuc.innerHTML = '<option value="">Todas las sucursales</option>' + sucursales.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
+  selSuc.value = curSuc;
+
+  const provincias = [...new Set(pendientesCache.map(p=>p.contratos?.clientes?.provincia).filter(Boolean))].sort();
+  const selProv = document.getElementById('pend-filter-provincia');
+  const curProv = selProv.value;
+  selProv.innerHTML = '<option value="">Todas las provincias</option>' + provincias.map(p=>`<option value="${p}">${p}</option>`).join('');
+  selProv.value = curProv;
+}
+
+function renderPendientes(list){
+  const tbody = document.getElementById('pendientes-tbody');
+  if(list.length === 0){
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No hay pendientes con ese filtro.</td></tr>';
+    document.getElementById('pendientes-results-count').textContent = '';
+    return;
+  }
+  tbody.innerHTML = list.map(p=>{
+    const cliente = p.contratos?.clientes?.razon_social || '—';
+    const equipo = p.contratos?.equipos ? p.contratos.equipos.numero_serie : '—';
+    const sucursal = p.contratos?.sucursales?.nombre || '—';
+    const reqCount = clienteRequisitosCache[p.contratos?.clientes?.id]?.length || 0;
+    const estadoBadge = p.estado === 'facturado'
+      ? `<span class="badge" style="color:var(--ok);border-color:var(--ok);">Facturado — ${escapeHtml(p.numero_factura||'')}</span>`
+      : `<span class="badge" style="color:var(--yellow);border-color:var(--yellow-dim);">Pendiente</span>`;
+    return `
+      <tr>
+        <td>${escapeHtml(cliente)}</td>
+        <td class="muted">${escapeHtml(equipo)}</td>
+        <td>${sucursal !== '—' ? `<span class="badge">${sucursal}</span>` : '—'}</td>
+        <td class="muted">${fmtDate(p.periodo_desde)} → ${fmtDate(p.periodo_hasta)}</td>
+        <td class="muted">${fmtMoney(p.potencial_facturacion, 'ARS')}</td>
+        <td>${reqCount > 0 ? `<span class="badge req">${reqCount} req.</span>` : '<span class="muted">—</span>'}</td>
+        <td>${estadoBadge}</td>
+        <td>
+          <div class="row-actions">
+            <button class="btn secondary small" onclick="openEditPendiente(${p.id})">${p.estado === 'facturado' ? 'Ver' : 'Facturar'}</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+  document.getElementById('pendientes-results-count').textContent = `${list.length} pendiente(s)`;
+}
+
+function applyPendFilters(){
+  const q = document.getElementById('pend-search-input').value.trim().toLowerCase();
+  const sucursalId = document.getElementById('pend-filter-sucursal').value;
+  const provincia = document.getElementById('pend-filter-provincia').value;
+  const estado = document.getElementById('pend-filter-estado').value;
+  let list = pendientesCache;
+  if(sucursalId) list = list.filter(p => String(p.contratos?.sucursales?.id) === sucursalId);
+  if(provincia) list = list.filter(p => p.contratos?.clientes?.provincia === provincia);
+  if(estado) list = list.filter(p => p.estado === estado);
+  if(q){
+    list = list.filter(p =>
+      (p.contratos?.clientes?.razon_social || '').toLowerCase().includes(q) ||
+      (p.contratos?.equipos?.numero_serie || '').toLowerCase().includes(q)
+    );
+  }
+  renderPendientes(list);
+}
+document.getElementById('pend-search-input').addEventListener('input', applyPendFilters);
+document.getElementById('pend-filter-sucursal').addEventListener('change', applyPendFilters);
+document.getElementById('pend-filter-provincia').addEventListener('change', applyPendFilters);
+document.getElementById('pend-filter-estado').addEventListener('change', applyPendFilters);
+
+// Cache de requisitos por cliente_id, para no ir a buscar a supabase cada vez
+let clienteRequisitosCache = {};
+async function loadTodosLosRequisitos(){
+  const { data, error } = await supabaseClient.from('cliente_requisitos').select('*').order('orden');
+  if(error){ console.error(error); return; }
+  clienteRequisitosCache = {};
+  data.forEach(r=>{
+    if(!clienteRequisitosCache[r.cliente_id]) clienteRequisitosCache[r.cliente_id] = [];
+    clienteRequisitosCache[r.cliente_id].push(r);
+  });
+}
+
+// ---------- Generar pendientes del mes ----------
+document.getElementById('btn-generar-mes').addEventListener('click', ()=>{
+  const now = new Date();
+  const first = new Date(now.getFullYear(), now.getMonth(), 1);
+  const last = new Date(now.getFullYear(), now.getMonth()+1, 0);
+  document.getElementById('gen-desde').value = first.toISOString().slice(0,10);
+  document.getElementById('gen-hasta').value = last.toISOString().slice(0,10);
+  document.getElementById('gen-tc').value = '';
+  document.getElementById('modal-generar-overlay').classList.add('open');
+});
+document.getElementById('btn-generar-cancel').addEventListener('click', ()=>{
+  document.getElementById('modal-generar-overlay').classList.remove('open');
+});
+
+document.getElementById('btn-generar-confirmar').addEventListener('click', async ()=>{
+  const desde = document.getElementById('gen-desde').value;
+  const hasta = document.getElementById('gen-hasta').value;
+  const tc = document.getElementById('gen-tc').value ? Number(document.getElementById('gen-tc').value) : null;
+
+  if(!desde || !hasta){ showToast('Completá el período', true); return; }
+
+  const activos = contratosCache.filter(c => c.estado === 'activo');
+  if(activos.length === 0){
+    showToast('No hay contratos activos', true);
+    return;
+  }
+
+  // evitar duplicados: contratos que ya tienen un pendiente con el mismo periodo_desde
+  const yaGenerados = new Set(
+    pendientesCache
+      .filter(p => p.periodo_desde === desde)
+      .map(p => p.contrato_id)
+  );
+
+  const nuevos = activos
+    .filter(c => !yaGenerados.has(c.id))
+    .map(c => {
+      const valorUsd = c.precio_mensual_con_descuento ?? c.precio_mensual_sin_descuento ?? 0;
+      const valorEnUsd = c.moneda === 'USD' ? valorUsd : null;
+      const potencialArs = c.moneda === 'ARS'
+        ? valorUsd
+        : (tc ? valorUsd * tc : null);
+      return {
+        contrato_id: c.id,
+        periodo_desde: desde,
+        periodo_hasta: hasta,
+        valor_alquiler_usd: valorEnUsd,
+        tc_aplicado: tc,
+        potencial_facturacion: potencialArs,
+        estado: 'pendiente',
+      };
+    });
+
+  if(nuevos.length === 0){
+    showToast('Todos los contratos activos ya tienen un pendiente generado para ese período');
+    document.getElementById('modal-generar-overlay').classList.remove('open');
+    return;
+  }
+
+  try{
+    const { error } = await supabaseClient.from('pendientes_facturacion').insert(nuevos);
+    if(error) throw error;
+    showToast(`Se generaron ${nuevos.length} pendiente(s). ${activos.length - nuevos.length > 0 ? '('+(activos.length-nuevos.length)+' ya existían)' : ''}`);
+    document.getElementById('modal-generar-overlay').classList.remove('open');
+    await loadPendientes();
+  } catch(err){
+    console.error(err);
+    showToast('Error al generar pendientes: ' + err.message, true);
+  }
+});
+
+// ---------- Autocompletar contrato (para pendiente manual) ----------
+const contratoSearchInput = document.getElementById('p-contrato-search');
+const contratoResultsBox = document.getElementById('p-contrato-results');
+
+contratoSearchInput.addEventListener('input', ()=>{
+  const q = contratoSearchInput.value.trim().toLowerCase();
+  document.getElementById('p-contrato_id').value = '';
+  if(q.length < 2){ contratoResultsBox.classList.remove('open'); return; }
+  const matches = contratosCache.filter(c =>
+    c.estado === 'activo' && (
+      (c.clientes?.razon_social || '').toLowerCase().includes(q) ||
+      (c.equipos?.numero_serie || '').toLowerCase().includes(q)
+    )
+  ).slice(0, 30);
+  contratoResultsBox.innerHTML = matches.length === 0
+    ? '<div class="autocomplete-item muted">Sin resultados entre los contratos activos</div>'
+    : matches.map(c=>`
+        <div class="autocomplete-item" data-id="${c.id}" data-label="${escapeHtml(c.clientes?.razon_social||'')} — ${escapeHtml(c.equipos?.numero_serie||'')}">
+          ${escapeHtml(c.clientes?.razon_social || '—')}
+          <span class="sub">${escapeHtml(c.equipos?.numero_serie || '')} — ${escapeHtml(c.sucursales?.nombre || '')}</span>
+        </div>`).join('');
+  contratoResultsBox.classList.add('open');
+});
+contratoResultsBox.addEventListener('click', (e)=>{
+  const item = e.target.closest('.autocomplete-item');
+  if(!item || !item.dataset.id) return;
+  document.getElementById('p-contrato_id').value = item.dataset.id;
+  contratoSearchInput.value = item.dataset.label;
+  document.getElementById('p-contrato-selected').textContent = '✓ Contrato seleccionado';
+  contratoResultsBox.classList.remove('open');
+
+  const contrato = contratosCache.find(c => c.id === Number(item.dataset.id));
+  renderRequisitosChecklist(contrato?.clientes?.id);
+});
+document.addEventListener('click', (e)=>{
+  if(!e.target.closest('#p-contrato-search') && !e.target.closest('#p-contrato-results')) contratoResultsBox.classList.remove('open');
+});
+
+function renderRequisitosChecklist(clienteId){
+  const box = document.getElementById('p-requisitos-box');
+  const list = document.getElementById('p-requisitos-list');
+  const reqs = clienteRequisitosCache[clienteId] || [];
+  if(reqs.length === 0){
+    box.style.display = 'none';
+    list.innerHTML = '';
+    return;
+  }
+  box.style.display = 'block';
+  list.innerHTML = reqs.map(r=>`
+    <div class="req-item">
+      <label style="flex:1;justify-content:flex-start;">
+        <input type="checkbox" class="p-req-check">
+        ${escapeHtml(r.campo)} ${r.obligatorio ? '<span style="color:var(--danger);">*</span>' : ''}
+      </label>
+    </div>`).join('');
+}
+
+// ---------- Modal pendiente: abrir / cerrar ----------
+function resetPendienteForm(){
+  document.getElementById('p-id').value = '';
+  document.getElementById('p-contrato_id').value = '';
+  contratoSearchInput.value = '';
+  document.getElementById('p-contrato-selected').textContent = '';
+  ['periodo_desde','periodo_hasta','valor_alquiler_usd','flete_usd','tc_aplicado','potencial_facturacion','numero_factura']
+    .forEach(f => document.getElementById('p-'+f).value = '');
+  document.getElementById('p-estado').value = 'pendiente';
+  document.getElementById('p-requisitos-box').style.display = 'none';
+  document.getElementById('p-requisitos-list').innerHTML = '';
+}
+
+document.getElementById('btn-nuevo-pendiente').addEventListener('click', ()=>{
+  resetPendienteForm();
+  document.getElementById('modal-pendiente-title').textContent = 'Nuevo pendiente';
+  document.getElementById('btn-pendiente-delete').style.display = 'none';
+  document.getElementById('p-contrato-search').disabled = false;
+  document.getElementById('modal-pendiente-overlay').classList.add('open');
+});
+document.getElementById('btn-pendiente-cancel').addEventListener('click', ()=>{
+  document.getElementById('modal-pendiente-overlay').classList.remove('open');
+});
+document.getElementById('modal-pendiente-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'modal-pendiente-overlay') document.getElementById('modal-pendiente-overlay').classList.remove('open');
+});
+
+function openEditPendiente(id){
+  const p = pendientesCache.find(x=>x.id === id);
+  if(!p) return;
+  resetPendienteForm();
+  document.getElementById('modal-pendiente-title').textContent = p.estado === 'facturado' ? 'Pendiente facturado' : 'Facturar pendiente';
+  document.getElementById('btn-pendiente-delete').style.display = 'inline-block';
+
+  document.getElementById('p-id').value = p.id;
+  document.getElementById('p-contrato_id').value = p.contrato_id;
+  contratoSearchInput.value = `${p.contratos?.clientes?.razon_social || ''} — ${p.contratos?.equipos?.numero_serie || ''}`;
+  contratoSearchInput.disabled = true;
+  document.getElementById('p-contrato-selected').textContent = '✓ Contrato del pendiente';
+
+  document.getElementById('p-periodo_desde').value = p.periodo_desde || '';
+  document.getElementById('p-periodo_hasta').value = p.periodo_hasta || '';
+  document.getElementById('p-valor_alquiler_usd').value = p.valor_alquiler_usd ?? '';
+  document.getElementById('p-flete_usd').value = p.flete_usd ?? '';
+  document.getElementById('p-tc_aplicado').value = p.tc_aplicado ?? '';
+  document.getElementById('p-potencial_facturacion').value = p.potencial_facturacion ?? '';
+  document.getElementById('p-estado').value = p.estado;
+  document.getElementById('p-numero_factura').value = p.numero_factura || '';
+
+  renderRequisitosChecklist(p.contratos?.clientes?.id);
+  document.getElementById('modal-pendiente-overlay').classList.add('open');
+}
+
+document.getElementById('btn-pendiente-save').addEventListener('click', async ()=>{
+  const contratoId = document.getElementById('p-contrato_id').value;
+  if(!contratoId){ showToast('Seleccioná un contrato', true); return; }
+
+  const estado = document.getElementById('p-estado').value;
+  const numeroFactura = document.getElementById('p-numero_factura').value.trim();
+
+  if(estado === 'facturado' && !numeroFactura){
+    showToast('El N° de Factura es obligatorio para marcar como facturado', true);
+    return;
+  }
+
+  // validar checklist de requisitos obligatorios si se está facturando
+  if(estado === 'facturado'){
+    const checks = document.querySelectorAll('#p-requisitos-list .p-req-check');
+    const reqs = clienteRequisitosCache[
+      pendientesCache.find(x=>x.id===Number(document.getElementById('p-id').value))?.contratos?.clientes?.id
+      || contratosCache.find(c=>c.id===Number(contratoId))?.clientes?.id
+    ] || [];
+    let faltante = false;
+    checks.forEach((chk, idx)=>{
+      if(reqs[idx]?.obligatorio && !chk.checked) faltante = true;
+    });
+    if(faltante){
+      showToast('Faltan tildar requisitos obligatorios del cliente antes de facturar', true);
+      return;
+    }
+  }
+
+  const id = document.getElementById('p-id').value;
+  const payload = {
+    contrato_id: Number(contratoId),
+    periodo_desde: document.getElementById('p-periodo_desde').value || null,
+    periodo_hasta: document.getElementById('p-periodo_hasta').value || null,
+    valor_alquiler_usd: document.getElementById('p-valor_alquiler_usd').value ? Number(document.getElementById('p-valor_alquiler_usd').value) : null,
+    flete_usd: document.getElementById('p-flete_usd').value ? Number(document.getElementById('p-flete_usd').value) : null,
+    tc_aplicado: document.getElementById('p-tc_aplicado').value ? Number(document.getElementById('p-tc_aplicado').value) : null,
+    potencial_facturacion: document.getElementById('p-potencial_facturacion').value ? Number(document.getElementById('p-potencial_facturacion').value) : null,
+    estado: estado,
+    numero_factura: numeroFactura || null,
+    fecha_facturacion: estado === 'facturado' ? new Date().toISOString().slice(0,10) : null,
+  };
+
+  try{
+    if(id){
+      const { error } = await supabaseClient.from('pendientes_facturacion').update(payload).eq('id', id);
+      if(error) throw error;
+    } else {
+      const { error } = await supabaseClient.from('pendientes_facturacion').insert(payload);
+      if(error) throw error;
+    }
+    showToast('Pendiente guardado correctamente');
+    document.getElementById('modal-pendiente-overlay').classList.remove('open');
+    contratoSearchInput.disabled = false;
+    await loadPendientes();
+  } catch(err){
+    console.error(err);
+    showToast('Error al guardar: ' + err.message, true);
+  }
+});
+
+document.getElementById('btn-pendiente-delete').addEventListener('click', async ()=>{
+  const id = document.getElementById('p-id').value;
+  if(!id) return;
+  if(!confirm('¿Eliminar este pendiente? Esta acción no se puede deshacer.')) return;
+  try{
+    const { error } = await supabaseClient.from('pendientes_facturacion').delete().eq('id', id);
+    if(error) throw error;
+    showToast('Pendiente eliminado');
+    document.getElementById('modal-pendiente-overlay').classList.remove('open');
+    contratoSearchInput.disabled = false;
+    await loadPendientes();
+  } catch(err){
+    console.error(err);
+    showToast('Error al eliminar: ' + err.message, true);
+  }
+});
+
 // ---------- Init ----------
 (async function init(){
   console.log('[Horizon] iniciando...');
@@ -746,6 +1778,13 @@ document.getElementById('btn-delete').addEventListener('click', async ()=>{
     await loadSucursales();
     console.log('[Horizon] sucursales OK, cargando clientes...');
     await loadClientes();
+    console.log('[Horizon] clientes OK, cargando equipos...');
+    await loadEquipos();
+    console.log('[Horizon] equipos OK, cargando contratos...');
+    await loadContratos();
+    console.log('[Horizon] contratos OK, cargando requisitos y pendientes...');
+    await loadTodosLosRequisitos();
+    await loadPendientes();
     console.log('[Horizon] listo.');
   } catch(err){
     console.error('[Horizon] fallo la inicialización:', err);
