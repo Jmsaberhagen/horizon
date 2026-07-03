@@ -1916,6 +1916,7 @@ document.getElementById('btn-contrato-save').addEventListener('click', async ()=
     showToast('Contrato guardado correctamente');
     closeContratoOverlay();
     await loadContratos();
+    await refrescarPendientesSiCorresponde();
   } catch(err){
     console.error(err);
     showToast('Error al guardar: ' + err.message, true);
@@ -1925,18 +1926,29 @@ document.getElementById('btn-contrato-save').addEventListener('click', async ()=
 document.getElementById('btn-contrato-delete').addEventListener('click', async ()=>{
   const id = document.getElementById('c-id').value;
   if(!id) return;
-  if(!confirm('¿Eliminar este contrato? Esta acción no se puede deshacer.')) return;
+  if(!confirm('¿Eliminar este contrato? Esta acción no se puede deshacer. Si tiene pendientes ya facturados, no se va a poder eliminar.')) return;
   try{
     const { error } = await supabaseClient.from('contratos').delete().eq('id', id);
     if(error) throw error;
     showToast('Contrato eliminado');
     closeContratoOverlay();
     await loadContratos();
+    await refrescarPendientesSiCorresponde();
   } catch(err){
     console.error(err);
-    showToast('Error al eliminar: ' + err.message, true);
+    showToast('No se pudo eliminar: probablemente tiene pendientes ya facturados. Detalle: ' + err.message, true);
   }
 });
+
+// Mantiene Pendientes/Reportes/Dashboard sincronizados cada vez que cambia un contrato
+async function refrescarPendientesSiCorresponde(){
+  if(!miPerfil) return;
+  if(!['maestro','admin','finanzas'].includes(miPerfil.rol)) return;
+  await loadPendientes();
+  populateReportesFiltros();
+  renderReportes();
+  renderDashboard();
+}
 
 // =========================================================
 // MÓDULO PENDIENTES DE FACTURACIÓN
@@ -2122,6 +2134,9 @@ async function autoGenerarPendientesDelMes(){
     if(error) throw error;
     console.log(`[Horizon] generados automáticamente ${nuevos.length} pendiente(s) del mes`);
     await loadPendientes();
+    populateReportesFiltros();
+    renderReportes();
+    renderDashboard();
   } catch(err){
     console.error('[Horizon] error generando pendientes automáticos:', err);
   }
@@ -2305,6 +2320,9 @@ document.getElementById('btn-pendiente-save').addEventListener('click', async ()
     document.getElementById('modal-pendiente-overlay').classList.remove('open');
     contratoSearchInput.disabled = false;
     await loadPendientes();
+    populateReportesFiltros();
+    renderReportes();
+    renderDashboard();
   } catch(err){
     console.error(err);
     showToast('Error al guardar: ' + err.message, true);
@@ -2322,6 +2340,9 @@ document.getElementById('btn-pendiente-delete').addEventListener('click', async 
     document.getElementById('modal-pendiente-overlay').classList.remove('open');
     contratoSearchInput.disabled = false;
     await loadPendientes();
+    populateReportesFiltros();
+    renderReportes();
+    renderDashboard();
   } catch(err){
     console.error(err);
     showToast('Error al eliminar: ' + err.message, true);
