@@ -510,6 +510,7 @@
   <button data-tab="equipos">Equipos</button>
   <button data-tab="pendientes">Pendientes de Facturación</button>
   <button data-tab="reportes">Reportes</button>
+  <button data-tab="planning">Planning</button>
   <button data-tab="usuarios" id="nav-usuarios" style="display:none;">Usuarios</button>
 </nav>
 
@@ -885,6 +886,60 @@
     <div class="muted" id="rep-results-count" style="margin-top:10px;font-size:12px;"></div>
   </section>
 
+  <section id="tab-planning" style="display:none;">
+    <div class="toolbar" style="flex-wrap:wrap;">
+      <input type="date" id="plan-desde">
+      <input type="date" id="plan-hasta">
+      <select id="plan-filter-sucursal">
+        <option value="">Todas las sucursales</option>
+      </select>
+      <select id="plan-filter-familia">
+        <option value="">Todas las familias</option>
+      </select>
+      <input type="text" id="plan-search-equipo" placeholder="Buscar por N° de serie o modelo...">
+      <div style="flex:1"></div>
+      <button class="btn secondary" id="btn-nueva-parada">+ Registrar parada</button>
+    </div>
+
+    <div class="dash-hero" style="margin-bottom:14px;">
+      <h1 style="font-size:16px;">Utilización de flota por familia</h1>
+      <div class="sub">% de días alquilados sobre el total de días disponibles en el período elegido</div>
+    </div>
+    <div class="table-wrap" style="max-height:none;margin-bottom:28px;">
+      <table>
+        <thead>
+          <tr>
+            <th>Familia</th>
+            <th>Equipos</th>
+            <th>Días alquilados</th>
+            <th>Días parada</th>
+            <th>Días disponibles totales</th>
+            <th>Utilización</th>
+          </tr>
+        </thead>
+        <tbody id="plan-utilizacion-tbody">
+          <tr><td colspan="6" class="empty-state">Cargando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="dash-hero" style="margin-bottom:14px;">
+      <h1 style="font-size:16px;">Calendario de ocupación</h1>
+      <div class="sub">🟩 Alquilada &nbsp; 🟧 Parada/mantenimiento &nbsp; ⬜ Disponible</div>
+    </div>
+    <div class="panel">
+      <div class="table-wrap" id="plan-gantt-wrap" style="max-height:70vh;">
+        <table style="font-size:11px;">
+          <thead id="plan-gantt-thead"></thead>
+          <tbody id="plan-gantt-tbody">
+            <tr><td class="empty-state">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="muted" id="plan-results-count" style="margin-top:10px;font-size:12px;"></div>
+  </section>
+
 </main>
 </div> <!-- /app-shell -->
 
@@ -992,6 +1047,61 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- MODAL PARADA DE EQUIPO -->
+<div class="overlay" id="modal-parada-overlay">
+  <div class="modal">
+    <h2 id="modal-parada-title">Registrar parada</h2>
+    <input type="hidden" id="pa-id">
+
+    <div class="field-grid">
+      <div class="field full" style="position:relative;">
+        <label>Equipo — N° de serie *</label>
+        <input type="text" id="pa-equipo-search" placeholder="Buscar por número de serie o modelo...">
+        <input type="hidden" id="pa-equipo_id">
+        <div class="autocomplete-list" id="pa-equipo-results"></div>
+        <div class="muted" id="pa-equipo-selected" style="font-size:12px;margin-top:4px;"></div>
+      </div>
+
+      <div class="field">
+        <label>Fecha desde *</label>
+        <input type="date" id="pa-fecha_desde">
+      </div>
+      <div class="field">
+        <label>Fecha hasta *</label>
+        <input type="date" id="pa-fecha_hasta">
+      </div>
+
+      <div class="field">
+        <label>Motivo</label>
+        <select id="pa-motivo">
+          <option value="PDI">PDI (inspección previa a entrega)</option>
+          <option value="Service">Service</option>
+          <option value="Reparación">Reparación</option>
+          <option value="Otro">Otro</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Sucursal</label>
+        <select id="pa-sucursal_id">
+          <option value="">—</option>
+        </select>
+      </div>
+
+      <div class="field full">
+        <label>Descripción</label>
+        <textarea id="pa-descripcion" rows="2"></textarea>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn secondary" id="btn-parada-cancel">Cancelar</button>
+      <button class="btn danger" id="btn-parada-delete" style="display:none;">Eliminar</button>
+      <button class="btn" id="btn-parada-save">Guardar</button>
+    </div>
+  </div>
+</div>
+
 
 <!-- MODAL USUARIO -->
 <div class="overlay" id="modal-usuario-overlay">
@@ -1402,6 +1512,7 @@ const TAB_TITLES = {
   pendientes: 'Pendientes de Facturación',
   usuarios: 'Usuarios',
   reportes: 'Reportes',
+  planning: 'Planning',
 };
 
 function activarTab(tab){
@@ -2888,6 +2999,7 @@ function aplicarPermisosUI(){
     equipos:    ['maestro','admin','servicios'],
     pendientes: ['maestro','admin','finanzas'],
     reportes:   ['maestro','admin','finanzas'],
+    planning:   ['maestro','admin','comercial','servicios','finanzas'],
   };
 
   document.querySelectorAll('nav button[data-tab]').forEach(btn=>{
@@ -3115,6 +3227,7 @@ function renderDashboard(){
     equipos:    ['maestro','admin','servicios'],
     pendientes: ['maestro','admin','finanzas'],
     reportes:   ['maestro','admin','finanzas'],
+    planning:   ['maestro','admin','comercial','servicios','finanzas'],
   };
 
   const tiles = [
@@ -3123,6 +3236,7 @@ function renderDashboard(){
     { tab:'equipos',    icon:'🚜', title:'Equipos',    count:`${equiposCache.length} en catálogo`, visible:accesoPorTab.equipos.includes(rol) },
     { tab:'pendientes', icon:'💰', title:'Pendientes de Facturación', count: accesoPorTab.pendientes.includes(rol) ? `${pendientesCache.filter(p=>p.estado==='pendiente').length} sin facturar` : '', visible:accesoPorTab.pendientes.includes(rol) },
     { tab:'reportes',   icon:'📊', title:'Reportes',   count:'Mora y facturación', visible:accesoPorTab.reportes.includes(rol) },
+    { tab:'planning',   icon:'📅', title:'Planning',   count:'Ocupación de flota', visible:accesoPorTab.planning.includes(rol) },
     { tab:'usuarios',   icon:'👤', title:'Usuarios',   count:`${usuariosCache.length} cuentas`, visible:esMaestroOAdmin },
   ];
 
@@ -3408,6 +3522,307 @@ document.getElementById('btn-rep-exportar-xls').addEventListener('click', ()=>{
   exportXLS(`reporte_horizon_${new Date().toISOString().slice(0,10)}`, headers, rows);
 });
 
+// =========================================================
+// MÓDULO PLANNING / UTILIZACIÓN DE FLOTA
+// =========================================================
+
+let catalogoModelosCache = {}; // modelo -> familia
+let equipoParadasCache = [];
+
+async function loadCatalogoModelos(){
+  const { data, error } = await supabaseClient.from('catalogo_modelos').select('*');
+  if(error){ console.error('Error cargando catalogo_modelos:', error); return; }
+  catalogoModelosCache = {};
+  data.forEach(r => catalogoModelosCache[r.modelo] = r.familia);
+}
+
+async function loadEquipoParadas(){
+  const { data, error } = await supabaseClient.from('equipo_paradas').select('*, equipos(numero_serie, modelo)');
+  if(error){ console.error('Error cargando equipo_paradas:', error); return; }
+  equipoParadasCache = data;
+}
+
+function familiaDeEquipo(equipo){
+  return catalogoModelosCache[equipo.modelo] || 'Sin familia';
+}
+
+// ---------- helpers de fechas ----------
+function diasEnRango(desde, hasta){
+  const d1 = new Date(desde + 'T00:00:00');
+  const d2 = new Date(hasta + 'T00:00:00');
+  return Math.round((d2 - d1) / 86400000) + 1;
+}
+function solaparDias(aDesde, aHasta, bDesde, bHasta){
+  if(!aDesde || !aHasta || !bDesde || !bHasta) return 0;
+  const ini = aDesde > bDesde ? aDesde : bDesde;
+  const fin = aHasta < bHasta ? aHasta : bHasta;
+  if(ini > fin) return 0;
+  return diasEnRango(ini, fin);
+}
+function fechaISO(d){ return d.toISOString().slice(0,10); }
+function listaDeDias(desde, hasta){
+  const dias = [];
+  let cur = new Date(desde + 'T00:00:00');
+  const fin = new Date(hasta + 'T00:00:00');
+  while(cur <= fin){
+    dias.push(fechaISO(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return dias;
+}
+
+function populatePlanningFiltros(){
+  const selSuc = document.getElementById('plan-filter-sucursal');
+  const curSuc = selSuc.value;
+  selSuc.innerHTML = '<option value="">Todas las sucursales</option>' + sucursales.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
+  selSuc.value = curSuc;
+
+  const familias = [...new Set(equiposCache.map(e => familiaDeEquipo(e)))].sort();
+  const selFam = document.getElementById('plan-filter-familia');
+  const curFam = selFam.value;
+  selFam.innerHTML = '<option value="">Todas las familias</option>' + familias.map(f=>`<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join('');
+  selFam.value = curFam;
+}
+
+function getPlanningEquiposFiltrados(){
+  const sucursalId = document.getElementById('plan-filter-sucursal').value;
+  const familia = document.getElementById('plan-filter-familia').value;
+  const q = document.getElementById('plan-search-equipo').value.trim().toLowerCase();
+  let list = equiposCache;
+  if(sucursalId) list = list.filter(e => String(e.sucursal_id) === sucursalId);
+  if(familia) list = list.filter(e => familiaDeEquipo(e) === familia);
+  if(q) list = list.filter(e => (e.numero_serie||'').toLowerCase().includes(q) || (e.modelo||'').toLowerCase().includes(q));
+  return list;
+}
+
+function estadoEquipoEnDia(equipo, dia){
+  // ¿alquilada ese día? (algún contrato de ese equipo cuyo rango incluya el día)
+  const alquilada = contratosCache.some(c =>
+    c.equipo_id === equipo.id &&
+    c.fecha_salida && c.fecha_salida <= dia &&
+    (c.fecha_vencimiento ? c.fecha_vencimiento >= dia : true) &&
+    (c.estado === 'activo' || (c.fecha_baja ? c.fecha_baja >= dia : true))
+  );
+  if(alquilada) return 'alquilada';
+
+  const parada = equipoParadasCache.some(p =>
+    p.equipo_id === equipo.id && p.fecha_desde <= dia && p.fecha_hasta >= dia
+  );
+  if(parada) return 'parada';
+
+  return 'disponible';
+}
+
+function renderUtilizacionPorFamilia(desde, hasta, equiposFiltrados){
+  const totalDiasPeriodo = diasEnRango(desde, hasta);
+  const porFamilia = {};
+
+  equiposFiltrados.forEach(equipo=>{
+    const fam = familiaDeEquipo(equipo);
+    if(!porFamilia[fam]) porFamilia[fam] = { equipos: 0, diasAlquilados: 0, diasParada: 0 };
+    porFamilia[fam].equipos += 1;
+
+    const contratosDelEquipo = contratosCache.filter(c => c.equipo_id === equipo.id);
+    contratosDelEquipo.forEach(c=>{
+      const cHasta = c.fecha_vencimiento || hasta;
+      porFamilia[fam].diasAlquilados += solaparDias(desde, hasta, c.fecha_salida, cHasta);
+    });
+
+    const paradasDelEquipo = equipoParadasCache.filter(p => p.equipo_id === equipo.id);
+    paradasDelEquipo.forEach(p=>{
+      porFamilia[fam].diasParada += solaparDias(desde, hasta, p.fecha_desde, p.fecha_hasta);
+    });
+  });
+
+  const tbody = document.getElementById('plan-utilizacion-tbody');
+  const familiasOrdenadas = Object.keys(porFamilia).sort();
+  if(familiasOrdenadas.length === 0){
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No hay equipos con este filtro.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = familiasOrdenadas.map(fam=>{
+    const d = porFamilia[fam];
+    // tope: los días alquilados no pueden superar el total disponible (contratos que exceden el periodo por bordes)
+    const diasAlquilados = Math.min(d.diasAlquilados, d.equipos * totalDiasPeriodo);
+    const diasDisponiblesTotales = d.equipos * totalDiasPeriodo;
+    const util = diasDisponiblesTotales > 0 ? (diasAlquilados / diasDisponiblesTotales * 100) : 0;
+    const color = util >= 70 ? 'var(--ok)' : (util >= 40 ? 'var(--accent)' : 'var(--danger)');
+    return `
+      <tr>
+        <td>${escapeHtml(fam)}</td>
+        <td class="muted">${d.equipos}</td>
+        <td class="muted">${diasAlquilados}</td>
+        <td class="muted">${d.diasParada}</td>
+        <td class="muted">${diasDisponiblesTotales}</td>
+        <td><span class="badge" style="color:${color};border-color:${color};">${util.toFixed(1)}%</span></td>
+      </tr>`;
+  }).join('');
+}
+
+function renderGantt(desde, hasta, equiposFiltrados){
+  const dias = listaDeDias(desde, hasta);
+  const thead = document.getElementById('plan-gantt-thead');
+  const tbody = document.getElementById('plan-gantt-tbody');
+
+  const diaCorto = d => {
+    const [y,m,day] = d.split('-');
+    return `${day}/${m}`;
+  };
+
+  thead.innerHTML = `<tr>
+    <th style="position:sticky;left:0;background:var(--panel-2);z-index:2;min-width:140px;">Equipo</th>
+    ${dias.map(d=>`<th style="min-width:26px;text-align:center;padding:6px 2px;">${diaCorto(d)}</th>`).join('')}
+  </tr>`;
+
+  if(equiposFiltrados.length === 0){
+    tbody.innerHTML = `<tr><td class="empty-state">No hay equipos con este filtro.</td></tr>`;
+    document.getElementById('plan-results-count').textContent = '';
+    return;
+  }
+
+  const coloresPorEstado = {
+    alquilada: 'var(--ok)',
+    parada: '#ff9f43',
+    disponible: 'var(--panel-2)',
+  };
+  const emojiPorEstado = { alquilada:'🟩', parada:'🟧', disponible:'' };
+
+  tbody.innerHTML = equiposFiltrados.map(equipo=>{
+    const celdas = dias.map(dia=>{
+      const estado = estadoEquipoEnDia(equipo, dia);
+      const color = coloresPorEstado[estado];
+      return `<td style="background:${color};text-align:center;padding:6px 2px;" title="${dia} — ${estado}"></td>`;
+    }).join('');
+    return `
+      <tr>
+        <td style="position:sticky;left:0;background:var(--panel);z-index:1;white-space:nowrap;">
+          ${escapeHtml(equipo.numero_serie)} <span class="muted">${escapeHtml(equipo.modelo||'')}</span>
+        </td>
+        ${celdas}
+      </tr>`;
+  }).join('');
+
+  document.getElementById('plan-results-count').textContent = `${equiposFiltrados.length} equipo(s) — ${dias.length} día(s)`;
+}
+
+function renderPlanning(){
+  let desde = document.getElementById('plan-desde').value;
+  let hasta = document.getElementById('plan-hasta').value;
+  if(!desde || !hasta) return;
+
+  // tope de 31 días para no reventar la tabla
+  if(diasEnRango(desde, hasta) > 31){
+    hasta = fechaISO(new Date(new Date(desde+'T00:00:00').getTime() + 30*86400000));
+    document.getElementById('plan-hasta').value = hasta;
+    showToast('El rango máximo del calendario es de 31 días — se ajustó automáticamente', true);
+  }
+
+  const equiposFiltrados = getPlanningEquiposFiltrados();
+  renderUtilizacionPorFamilia(desde, hasta, equiposFiltrados);
+  renderGantt(desde, hasta, equiposFiltrados);
+}
+
+['plan-desde','plan-hasta','plan-filter-sucursal','plan-filter-familia','plan-search-equipo'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', renderPlanning);
+  document.getElementById(id).addEventListener('change', renderPlanning);
+});
+
+function inicializarFechasPlanning(){
+  const now = new Date();
+  const first = new Date(now.getFullYear(), now.getMonth(), 1);
+  const last = new Date(now.getFullYear(), now.getMonth()+1, 0);
+  document.getElementById('plan-desde').value = fechaISO(first);
+  document.getElementById('plan-hasta').value = fechaISO(last);
+}
+
+// ---------- Modal Parada de equipo ----------
+const paradaEquipoSearch = document.getElementById('pa-equipo-search');
+const paradaEquipoResults = document.getElementById('pa-equipo-results');
+
+paradaEquipoSearch.addEventListener('input', ()=>{
+  const q = paradaEquipoSearch.value.trim().toLowerCase();
+  document.getElementById('pa-equipo_id').value = '';
+  if(q.length < 1){ paradaEquipoResults.classList.remove('open'); return; }
+  const matches = equiposCache.filter(e =>
+    (e.numero_serie||'').toLowerCase().includes(q) || (e.modelo||'').toLowerCase().includes(q)
+  ).slice(0, 30);
+  paradaEquipoResults.innerHTML = matches.length === 0
+    ? '<div class="autocomplete-item muted">Sin resultados</div>'
+    : matches.map(e=>`
+        <div class="autocomplete-item" data-id="${e.id}" data-serie="${escapeHtml(e.numero_serie)}">
+          ${escapeHtml(e.numero_serie)}
+          <span class="sub">${escapeHtml(e.modelo || '')}</span>
+        </div>`).join('');
+  paradaEquipoResults.classList.add('open');
+});
+paradaEquipoResults.addEventListener('click', (e)=>{
+  const item = e.target.closest('.autocomplete-item');
+  if(!item || !item.dataset.id) return;
+  document.getElementById('pa-equipo_id').value = item.dataset.id;
+  paradaEquipoSearch.value = item.dataset.serie;
+  document.getElementById('pa-equipo-selected').textContent = '✓ Equipo seleccionado';
+  paradaEquipoResults.classList.remove('open');
+});
+document.addEventListener('click', (e)=>{
+  if(!e.target.closest('#pa-equipo-search') && !e.target.closest('#pa-equipo-results')) paradaEquipoResults.classList.remove('open');
+});
+
+function resetParadaForm(){
+  document.getElementById('pa-id').value = '';
+  document.getElementById('pa-equipo_id').value = '';
+  paradaEquipoSearch.value = '';
+  document.getElementById('pa-equipo-selected').textContent = '';
+  document.getElementById('pa-fecha_desde').value = '';
+  document.getElementById('pa-fecha_hasta').value = '';
+  document.getElementById('pa-motivo').value = 'Service';
+  document.getElementById('pa-sucursal_id').value = '';
+  document.getElementById('pa-descripcion').value = '';
+}
+
+document.getElementById('btn-nueva-parada').addEventListener('click', ()=>{
+  resetParadaForm();
+  const selSuc = document.getElementById('pa-sucursal_id');
+  selSuc.innerHTML = '<option value="">—</option>' + sucursales.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
+  document.getElementById('modal-parada-title').textContent = 'Registrar parada';
+  document.getElementById('btn-parada-delete').style.display = 'none';
+  document.getElementById('modal-parada-overlay').classList.add('open');
+});
+document.getElementById('btn-parada-cancel').addEventListener('click', ()=>{
+  document.getElementById('modal-parada-overlay').classList.remove('open');
+});
+document.getElementById('modal-parada-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'modal-parada-overlay') document.getElementById('modal-parada-overlay').classList.remove('open');
+});
+
+document.getElementById('btn-parada-save').addEventListener('click', async ()=>{
+  const equipoId = document.getElementById('pa-equipo_id').value;
+  const fdesde = document.getElementById('pa-fecha_desde').value;
+  const fhasta = document.getElementById('pa-fecha_hasta').value;
+  if(!equipoId){ showToast('Seleccioná un equipo', true); return; }
+  if(!fdesde || !fhasta){ showToast('Completá el rango de fechas', true); return; }
+
+  const payload = {
+    equipo_id: Number(equipoId),
+    sucursal_id: document.getElementById('pa-sucursal_id').value || null,
+    fecha_desde: fdesde,
+    fecha_hasta: fhasta,
+    motivo: document.getElementById('pa-motivo').value,
+    descripcion: document.getElementById('pa-descripcion').value.trim() || null,
+  };
+
+  try{
+    const { error } = await supabaseClient.from('equipo_paradas').insert(payload);
+    if(error) throw error;
+    showToast('Parada registrada');
+    document.getElementById('modal-parada-overlay').classList.remove('open');
+    await loadEquipoParadas();
+    renderPlanning();
+  } catch(err){
+    console.error(err);
+    showToast('Error al guardar: ' + err.message, true);
+  }
+});
+
 async function initApp(){
   try{
     console.log('[Horizon] cargando sucursales...');
@@ -3433,6 +3848,16 @@ async function initApp(){
     if(miPerfil.rol === 'maestro' || miPerfil.rol === 'admin'){
       await loadUsuarios();
     }
+
+    if(['maestro','admin','comercial','servicios','finanzas'].includes(miPerfil.rol)){
+      console.log('[Horizon] cargando planning...');
+      await loadCatalogoModelos();
+      await loadEquipoParadas();
+      populatePlanningFiltros();
+      inicializarFechasPlanning();
+      renderPlanning();
+    }
+
     console.log('[Horizon] listo.');
     renderDashboard();
   } catch(err){
