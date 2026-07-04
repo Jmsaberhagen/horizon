@@ -625,6 +625,11 @@
         <option value="alquilada">Alquilada</option>
         <option value="baja">De baja</option>
       </select>
+      <select id="equipo-filter-tipo">
+        <option value="">Propios y de terceros</option>
+        <option value="propio">Solo propios</option>
+        <option value="tercero">Solo de terceros</option>
+      </select>
       <div style="flex:1"></div>
       <button class="btn secondary" id="btn-export-equipos-csv">Exportar CSV</button>
       <button class="btn secondary" id="btn-export-equipos-xls">Exportar XLS</button>
@@ -640,11 +645,12 @@
               <th>Modelo</th>
               <th>Sucursal</th>
               <th>Estado</th>
+              <th>Tipo</th>
               <th style="width:140px;">Acciones</th>
             </tr>
           </thead>
           <tbody id="equipos-tbody">
-            <tr><td colspan="5" class="empty-state">Cargando equipos...</td></tr>
+            <tr><td colspan="6" class="empty-state">Cargando equipos...</td></tr>
           </tbody>
         </table>
       </div>
@@ -895,6 +901,11 @@
       </select>
       <select id="plan-filter-familia">
         <option value="">Todas las familias</option>
+      </select>
+      <select id="plan-filter-tipo">
+        <option value="propio">Solo flota propia</option>
+        <option value="">Propios y de terceros</option>
+        <option value="tercero">Solo de terceros</option>
       </select>
       <input type="text" id="plan-search-equipo" placeholder="Buscar por N° de serie o modelo...">
       <div style="flex:1"></div>
@@ -1181,6 +1192,18 @@
           <option value="alquilada">Alquilada</option>
           <option value="baja">De baja</option>
         </select>
+      </div>
+
+      <div class="field">
+        <label>Tipo</label>
+        <select id="e-tipo">
+          <option value="propio">Propio (flota Horizon)</option>
+          <option value="tercero">De terceros (subalquilado)</option>
+        </select>
+      </div>
+      <div class="field" id="e-proveedor-field" style="display:none;">
+        <label>Proveedor</label>
+        <input type="text" id="e-proveedor_tercero" placeholder="A quién se lo subalquilamos">
       </div>
     </div>
 
@@ -2800,7 +2823,7 @@ function populateEquipoFilters(){
 function renderEquipos(list){
   const tbody = document.getElementById('equipos-tbody');
   if(list.length === 0){
-    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No hay equipos con ese filtro. Cargá el primero con "+ Nuevo equipo".</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No hay equipos con ese filtro. Cargá el primero con "+ Nuevo equipo".</td></tr>';
     document.getElementById('equipos-results-count').textContent = '';
     return;
   }
@@ -2814,6 +2837,7 @@ function renderEquipos(list){
         <td class="muted">${escapeHtml(e.modelo || '—')}</td>
         <td>${suc ? `<span class="badge">${suc.nombre}</span>` : '<span class="muted">—</span>'}</td>
         <td><span class="badge" style="color:${color};border-color:${color};">${e.estado}</span></td>
+        <td>${e.tipo === 'tercero' ? `<span class="badge" style="color:#ff9f43;border-color:#ff9f43;" title="${e.proveedor_tercero ? 'Proveedor: '+escapeHtml(e.proveedor_tercero) : ''}">De terceros</span>` : '<span class="muted" style="font-size:11px;">Propio</span>'}</td>
         <td>
           <div class="row-actions">
             <button class="btn secondary small" onclick="openEditEquipo(${e.id})">Editar</button>
@@ -2828,9 +2852,11 @@ function getFilteredEquipos(){
   const q = document.getElementById('equipo-search-input').value.trim().toLowerCase();
   const sucursalId = document.getElementById('equipo-filter-sucursal').value;
   const estado = document.getElementById('equipo-filter-estado').value;
+  const tipo = document.getElementById('equipo-filter-tipo').value;
   let list = equiposCache;
   if(sucursalId) list = list.filter(e => String(e.sucursal_id) === sucursalId);
   if(estado) list = list.filter(e => e.estado === estado);
+  if(tipo) list = list.filter(e => e.tipo === tipo);
   if(q){
     list = list.filter(e =>
       (e.numero_serie||'').toLowerCase().includes(q) ||
@@ -2845,11 +2871,13 @@ function applyEquipoFilters(){
 document.getElementById('equipo-search-input').addEventListener('input', applyEquipoFilters);
 document.getElementById('equipo-filter-sucursal').addEventListener('change', applyEquipoFilters);
 document.getElementById('equipo-filter-estado').addEventListener('change', applyEquipoFilters);
+document.getElementById('equipo-filter-tipo').addEventListener('change', applyEquipoFilters);
 
 function equiposToRows(list){
-  const headers = ['N Serie','Modelo','Sucursal','Estado'];
+  const headers = ['N Serie','Modelo','Sucursal','Estado','Tipo','Proveedor Tercero'];
   const rows = list.map(e => [
     e.numero_serie, e.modelo, sucursales.find(s=>s.id===e.sucursal_id)?.nombre || '', e.estado,
+    e.tipo === 'tercero' ? 'De terceros' : 'Propio', e.proveedor_tercero || '',
   ]);
   return { headers, rows };
 }
@@ -2860,6 +2888,10 @@ document.getElementById('btn-export-equipos-csv').addEventListener('click', ()=>
 document.getElementById('btn-export-equipos-xls').addEventListener('click', ()=>{
   const { headers, rows } = equiposToRows(getFilteredEquipos());
   exportXLS('equipos_horizon', headers, rows);
+});
+
+document.getElementById('e-tipo').addEventListener('change', (e)=>{
+  document.getElementById('e-proveedor-field').style.display = e.target.value === 'tercero' ? 'block' : 'none';
 });
 
 function populateSucursalSelectEquipo(){
@@ -2873,6 +2905,9 @@ function resetEquipoForm(){
   document.getElementById('e-modelo').value = '';
   document.getElementById('e-sucursal_id').value = '';
   document.getElementById('e-estado').value = 'disponible';
+  document.getElementById('e-tipo').value = 'propio';
+  document.getElementById('e-proveedor_tercero').value = '';
+  document.getElementById('e-proveedor-field').style.display = 'none';
 }
 
 document.getElementById('btn-new-equipo').addEventListener('click', ()=>{
@@ -2901,6 +2936,9 @@ function openEditEquipo(id){
   document.getElementById('e-modelo').value = e.modelo || '';
   document.getElementById('e-sucursal_id').value = e.sucursal_id || '';
   document.getElementById('e-estado').value = e.estado || 'disponible';
+  document.getElementById('e-tipo').value = e.tipo || 'propio';
+  document.getElementById('e-proveedor_tercero').value = e.proveedor_tercero || '';
+  document.getElementById('e-proveedor-field').style.display = (e.tipo === 'tercero') ? 'block' : 'none';
   document.getElementById('modal-equipo-overlay').classList.add('open');
 }
 
@@ -2911,11 +2949,14 @@ document.getElementById('btn-equipo-save').addEventListener('click', async ()=>{
   if(!modelo){ showToast('El modelo es obligatorio', true); return; }
 
   const id = document.getElementById('e-id').value;
+  const tipo = document.getElementById('e-tipo').value;
   const payload = {
     numero_serie: numeroSerie,
     modelo: modelo,
     sucursal_id: document.getElementById('e-sucursal_id').value || null,
     estado: document.getElementById('e-estado').value,
+    tipo: tipo,
+    proveedor_tercero: tipo === 'tercero' ? (document.getElementById('e-proveedor_tercero').value.trim() || null) : null,
   };
 
   try{
@@ -3587,10 +3628,12 @@ function populatePlanningFiltros(){
 function getPlanningEquiposFiltrados(){
   const sucursalId = document.getElementById('plan-filter-sucursal').value;
   const familia = document.getElementById('plan-filter-familia').value;
+  const tipo = document.getElementById('plan-filter-tipo').value;
   const q = document.getElementById('plan-search-equipo').value.trim().toLowerCase();
   let list = equiposCache;
   if(sucursalId) list = list.filter(e => String(e.sucursal_id) === sucursalId);
   if(familia) list = list.filter(e => familiaDeEquipo(e) === familia);
+  if(tipo) list = list.filter(e => e.tipo === tipo);
   if(q) list = list.filter(e => (e.numero_serie||'').toLowerCase().includes(q) || (e.modelo||'').toLowerCase().includes(q));
   return list;
 }
@@ -3722,7 +3765,7 @@ function renderPlanning(){
   renderGantt(desde, hasta, equiposFiltrados);
 }
 
-['plan-desde','plan-hasta','plan-filter-sucursal','plan-filter-familia','plan-search-equipo'].forEach(id=>{
+['plan-desde','plan-hasta','plan-filter-sucursal','plan-filter-familia','plan-filter-tipo','plan-search-equipo'].forEach(id=>{
   document.getElementById(id).addEventListener('input', renderPlanning);
   document.getElementById(id).addEventListener('change', renderPlanning);
 });
