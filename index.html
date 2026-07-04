@@ -928,7 +928,7 @@
       <div class="sub">🟩 Alquilada &nbsp; 🟧 Parada/mantenimiento &nbsp; ⬜ Disponible</div>
     </div>
     <div class="panel">
-      <div class="table-wrap" id="plan-gantt-wrap" style="max-height:70vh;">
+      <div class="table-wrap" id="plan-gantt-wrap" style="max-height:520px;border:1px solid var(--border);border-radius:var(--radius);">
         <table style="font-size:11px;">
           <thead id="plan-gantt-thead"></thead>
           <tbody id="plan-gantt-tbody">
@@ -3670,8 +3670,8 @@ function renderGantt(desde, hasta, equiposFiltrados){
   };
 
   thead.innerHTML = `<tr>
-    <th style="position:sticky;left:0;background:var(--panel-2);z-index:2;min-width:140px;">Equipo</th>
-    ${dias.map(d=>`<th style="min-width:26px;text-align:center;padding:6px 2px;">${diaCorto(d)}</th>`).join('')}
+    <th style="position:sticky;left:0;top:0;background:var(--panel-2);z-index:3;min-width:140px;">Equipo</th>
+    ${dias.map(d=>`<th style="position:sticky;top:0;background:var(--panel-2);z-index:2;min-width:26px;text-align:center;padding:6px 2px;">${diaCorto(d)}</th>`).join('')}
   </tr>`;
 
   if(equiposFiltrados.length === 0){
