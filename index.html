@@ -207,6 +207,9 @@
     max-width:640px;
     padding:24px;
   }
+  .modal.wide{
+    max-width:980px;
+  }
   .modal h2{
     margin:0 0 18px 0;
     font-size:17px;
@@ -216,6 +219,9 @@
     display:grid;
     grid-template-columns:1fr 1fr;
     gap:12px;
+  }
+  .field-grid.cols-3{
+    grid-template-columns:1fr 1fr 1fr;
   }
   .field{
     display:flex;
@@ -954,6 +960,24 @@
     <div class="req-list" id="req-list"></div>
     <button class="btn secondary small" id="btn-add-req" type="button">+ Agregar requisito</button>
 
+    <h2 style="margin-top:22px;font-size:14px;">Certificados de exención (No Retención / No Percepción)</h2>
+    <div class="muted" style="font-size:12px;margin-bottom:6px;">
+      Si el cliente tiene un certificado vigente, la app va a avisarle al facturador al momento de facturar que no debe cobrar ese impuesto.
+    </div>
+    <div id="cert-list"></div>
+    <div class="req-item" style="margin-top:8px;flex-wrap:wrap;">
+      <select id="cert-tipo" style="min-width:110px;">
+        <option value="IVA">IVA</option>
+        <option value="Ganancias">Ganancias</option>
+        <option value="IIBB">IIBB</option>
+        <option value="Otro">Otro</option>
+      </select>
+      <input type="date" id="cert-vencimiento" title="Fecha de vencimiento" style="min-width:140px;">
+      <input type="file" id="cert-archivo" accept="application/pdf" style="flex:1;min-width:160px;">
+      <button class="btn secondary small" id="btn-subir-cert" type="button">Subir PDF</button>
+    </div>
+    <div class="muted" id="cert-upload-status" style="font-size:11px;margin-top:4px;"></div>
+
     <div class="modal-actions">
       <button class="btn secondary" id="btn-cancel">Cancelar</button>
       <button class="btn danger" id="btn-delete" style="display:none;">Eliminar cliente</button>
@@ -1100,6 +1124,11 @@
       🚚 <strong>Este contrato tiene flete adicional.</strong> Agregar un segundo ítem en la factura por <span id="p-flete-monto" style="color:var(--accent);font-weight:700;"></span>.
     </div>
 
+    <div id="p-cert-warning" style="display:none;background:rgba(255,92,92,0.1);border:1px solid var(--danger);border-radius:var(--radius);padding:12px;margin-top:16px;font-size:13px;">
+      ⚠️ <strong>Este cliente tiene certificado(s) de exención vigente(s).</strong>
+      <div id="p-cert-lista" style="margin-top:6px;"></div>
+    </div>
+
     <div id="p-requisitos-box" style="display:none;">
       <h2 style="margin-top:22px;font-size:14px;">Checklist del cliente antes de facturar</h2>
       <div class="req-list" id="p-requisitos-list"></div>
@@ -1130,11 +1159,11 @@
 
 <!-- MODAL CONTRATO -->
 <div class="overlay" id="modal-contrato-overlay">
-  <div class="modal">
+  <div class="modal wide">
     <h2 id="modal-contrato-title">Nuevo contrato</h2>
     <input type="hidden" id="c-id">
 
-    <div class="field-grid">
+    <div class="field-grid cols-3">
       <div class="field full" style="position:relative;">
         <label>Cliente *</label>
         <input type="text" id="c-cliente-search" placeholder="Buscar por razón social, CUIT o N° de cliente...">
@@ -1161,6 +1190,10 @@
         <label>Remito</label>
         <input type="text" id="c-remito">
       </div>
+      <div class="field">
+        <label>Orden de compra</label>
+        <input type="text" id="c-orden_de_compra">
+      </div>
 
       <div class="field">
         <label>Fecha de salida</label>
@@ -1169,6 +1202,10 @@
       <div class="field">
         <label>Fecha de vencimiento</label>
         <input type="date" id="c-fecha_vencimiento">
+      </div>
+      <div class="field">
+        <label>Fecha de baja</label>
+        <input type="date" id="c-fecha_baja">
       </div>
 
       <div class="field">
@@ -1182,6 +1219,13 @@
         <label>% Descuento</label>
         <input type="number" step="0.01" id="c-porcentaje_descuento" value="0">
       </div>
+      <div class="field">
+        <label>Estado</label>
+        <select id="c-estado">
+          <option value="activo">Activo</option>
+          <option value="baja">De baja</option>
+        </select>
+      </div>
 
       <div class="field">
         <label>Precio mensual sin descuento</label>
@@ -1191,10 +1235,9 @@
         <label>Precio mensual con descuento</label>
         <input type="number" step="0.01" id="c-precio_con_descuento">
       </div>
-
-      <div class="field full">
-        <label>Orden de compra</label>
-        <input type="text" id="c-orden_de_compra">
+      <div class="field">
+        <label>Contacto de obra</label>
+        <input type="text" id="c-contacto_obra">
       </div>
 
       <div class="field full" style="background:var(--panel-2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;">
@@ -1215,26 +1258,9 @@
         <label>Obra</label>
         <input type="text" id="c-obra">
       </div>
-      <div class="field">
-        <label>Contacto de obra</label>
-        <input type="text" id="c-contacto_obra">
-      </div>
-
-      <div class="field full">
+      <div class="field full" style="grid-column:span 2;">
         <label>Observaciones</label>
         <textarea id="c-observacion" rows="2"></textarea>
-      </div>
-
-      <div class="field">
-        <label>Estado</label>
-        <select id="c-estado">
-          <option value="activo">Activo</option>
-          <option value="baja">De baja</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Fecha de baja</label>
-        <input type="date" id="c-fecha_baja">
       </div>
     </div>
 
@@ -1507,6 +1533,9 @@ function resetForm(){
   document.getElementById('f-sucursal_habitual_id').value = '';
   document.getElementById('req-list').innerHTML = '';
   reqCounter = 0;
+  document.getElementById('cert-list').innerHTML = '<div class="muted" style="font-size:12px;">Guardá el cliente para poder subir certificados.</div>';
+  document.getElementById('cert-archivo').value = '';
+  document.getElementById('cert-vencimiento').value = '';
 }
 
 function openEdit(id){
@@ -1531,6 +1560,7 @@ function openEdit(id){
   document.getElementById('f-sucursal_habitual_id').value = c.sucursal_habitual_id || '';
 
   loadRequisitosIntoForm(c.id);
+  loadCertificadosIntoForm(c.id);
   openOverlay();
 }
 
@@ -1544,6 +1574,138 @@ async function loadRequisitosIntoForm(clienteId){
   const list = document.getElementById('req-list');
   list.innerHTML = '';
   data.forEach(r => addReqRow(r.campo, r.obligatorio, r.id));
+}
+
+// =========================================================
+// MÓDULO CERTIFICADOS DE EXENCIÓN
+// =========================================================
+
+// cache global por cliente_id, usado para el aviso en Facturar
+let clienteCertificadosCache = {};
+
+async function loadTodosLosCertificados(){
+  const { data, error } = await supabaseClient.from('cliente_certificados').select('*');
+  if(error){ console.error(error); return; }
+  clienteCertificadosCache = {};
+  data.forEach(cert=>{
+    if(!clienteCertificadosCache[cert.cliente_id]) clienteCertificadosCache[cert.cliente_id] = [];
+    clienteCertificadosCache[cert.cliente_id].push(cert);
+  });
+}
+
+function certificadoVigente(cert){
+  if(!cert.fecha_vencimiento) return true; // sin vencimiento cargado = se asume vigente
+  return cert.fecha_vencimiento >= new Date().toISOString().slice(0,10);
+}
+
+async function loadCertificadosIntoForm(clienteId){
+  const { data, error } = await supabaseClient
+    .from('cliente_certificados')
+    .select('*')
+    .eq('cliente_id', clienteId)
+    .order('created_at', { ascending: false });
+  if(error){ console.error(error); return; }
+  renderCertList(data);
+}
+
+function renderCertList(list){
+  const box = document.getElementById('cert-list');
+  if(!list || list.length === 0){
+    box.innerHTML = '<div class="muted" style="font-size:12px;">Sin certificados cargados.</div>';
+    return;
+  }
+  box.innerHTML = list.map(cert=>{
+    const vigente = certificadoVigente(cert);
+    return `
+      <div class="req-item" style="justify-content:space-between;">
+        <div>
+          <span class="badge" style="color:${vigente ? 'var(--ok)' : 'var(--danger)'};border-color:${vigente ? 'var(--ok)' : 'var(--danger)'};">${cert.tipo}</span>
+          <span class="muted" style="font-size:12px;margin-left:6px;">
+            ${cert.fecha_vencimiento ? 'Vence ' + fmtDate(cert.fecha_vencimiento) : 'Sin vencimiento'}
+            ${vigente ? '' : ' — VENCIDO'}
+          </span>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <a href="${cert.archivo_url}" target="_blank" class="btn secondary small" style="text-decoration:none;">Ver PDF</a>
+          <button class="btn danger small" type="button" onclick="eliminarCertificado(${cert.id}, ${cert.cliente_id})">Eliminar</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+document.getElementById('btn-subir-cert').addEventListener('click', async ()=>{
+  const clienteId = document.getElementById('f-id').value;
+  if(!clienteId){
+    showToast('Guardá el cliente primero, después subí el certificado', true);
+    return;
+  }
+  const fileInput = document.getElementById('cert-archivo');
+  const file = fileInput.files[0];
+  if(!file){ showToast('Seleccioná un archivo PDF', true); return; }
+  if(file.type !== 'application/pdf'){ showToast('El archivo debe ser un PDF', true); return; }
+
+  const tipo = document.getElementById('cert-tipo').value;
+  const vencimiento = document.getElementById('cert-vencimiento').value || null;
+  const statusEl = document.getElementById('cert-upload-status');
+  statusEl.textContent = 'Subiendo...';
+
+  try{
+    const path = `cliente_${clienteId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_')}`;
+    const { error: uploadError } = await supabaseClient.storage.from('certificados').upload(path, file);
+    if(uploadError) throw uploadError;
+
+    const { data: urlData } = supabaseClient.storage.from('certificados').getPublicUrl(path);
+
+    const { error: insertError } = await supabaseClient.from('cliente_certificados').insert({
+      cliente_id: Number(clienteId),
+      tipo,
+      fecha_vencimiento: vencimiento,
+      archivo_nombre: file.name,
+      archivo_url: urlData.publicUrl,
+    });
+    if(insertError) throw insertError;
+
+    statusEl.textContent = '';
+    fileInput.value = '';
+    document.getElementById('cert-vencimiento').value = '';
+    showToast('Certificado subido correctamente');
+    await loadCertificadosIntoForm(clienteId);
+    await loadTodosLosCertificados();
+  } catch(err){
+    console.error(err);
+    statusEl.textContent = '';
+    showToast('Error al subir: ' + err.message, true);
+  }
+});
+
+async function eliminarCertificado(certId, clienteId){
+  if(!confirm('¿Eliminar este certificado?')) return;
+  try{
+    const { error } = await supabaseClient.from('cliente_certificados').delete().eq('id', certId);
+    if(error) throw error;
+    showToast('Certificado eliminado');
+    await loadCertificadosIntoForm(clienteId);
+    await loadTodosLosCertificados();
+  } catch(err){
+    console.error(err);
+    showToast('Error al eliminar: ' + err.message, true);
+  }
+}
+
+function mostrarAvisoCertificados(clienteId){
+  const box = document.getElementById('p-cert-warning');
+  const lista = document.getElementById('p-cert-lista');
+  const certs = (clienteCertificadosCache[clienteId] || []).filter(certificadoVigente);
+  if(certs.length === 0){
+    box.style.display = 'none';
+    return;
+  }
+  lista.innerHTML = certs.map(c=>
+    `<span class="badge" style="color:var(--danger);border-color:var(--danger);margin-right:6px;">
+      ${c.tipo}${c.fecha_vencimiento ? ' — vence '+fmtDate(c.fecha_vencimiento) : ''}
+    </span>`
+  ).join('');
+  box.style.display = 'block';
 }
 
 function addReqRow(campo, obligatorio, existingId){
@@ -2247,6 +2409,7 @@ contratoResultsBox.addEventListener('click', (e)=>{
   const contrato = contratosCache.find(c => c.id === Number(item.dataset.id));
   renderRequisitosChecklist(contrato?.clientes?.id);
   mostrarAvisoFlete(contrato?.tiene_flete, contrato?.costo_flete);
+  mostrarAvisoCertificados(contrato?.cliente_id);
 });
 document.addEventListener('click', (e)=>{
   if(!e.target.closest('#p-contrato-search') && !e.target.closest('#p-contrato-results')) contratoResultsBox.classList.remove('open');
@@ -2293,6 +2456,7 @@ function resetPendienteForm(){
   document.getElementById('p-requisitos-box').style.display = 'none';
   document.getElementById('p-requisitos-list').innerHTML = '';
   document.getElementById('p-flete-warning').style.display = 'none';
+  document.getElementById('p-cert-warning').style.display = 'none';
 }
 
 document.getElementById('btn-nuevo-pendiente').addEventListener('click', ()=>{
@@ -2333,6 +2497,7 @@ function openEditPendiente(id){
 
   renderRequisitosChecklist(p.contratos?.clientes?.id);
   mostrarAvisoFlete(p.contratos?.tiene_flete, p.contratos?.costo_flete);
+  mostrarAvisoCertificados(p.contratos?.clientes?.id);
   document.getElementById('modal-pendiente-overlay').classList.add('open');
 }
 
@@ -3169,6 +3334,7 @@ async function initApp(){
     if(miPerfil.rol === 'maestro' || miPerfil.rol === 'admin' || miPerfil.rol === 'finanzas'){
       console.log('[Horizon] contratos OK, cargando requisitos y pendientes...');
       await loadTodosLosRequisitos();
+      await loadTodosLosCertificados();
       await loadPendientes();
       await autoGenerarPendientesDelMes();
       populateReportesFiltros();
