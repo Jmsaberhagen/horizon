@@ -578,6 +578,11 @@
         <option value="activo">Activos</option>
         <option value="baja">De baja</option>
       </select>
+      <select id="contrato-filter-confirmado">
+        <option value="">Confirmados y a confirmar</option>
+        <option value="no">⚠ Solo a confirmar</option>
+        <option value="si">Solo confirmados</option>
+      </select>
       <div style="flex:1"></div>
       <button class="btn secondary" id="btn-export-contratos-csv">Exportar CSV</button>
       <button class="btn secondary" id="btn-export-contratos-xls">Exportar XLS</button>
@@ -1161,8 +1166,14 @@
 <div class="overlay" id="modal-contrato-overlay">
   <div class="modal wide">
     <h2 id="modal-contrato-title">Nuevo contrato</h2>
+    <div class="muted" style="font-size:12px;margin-top:-10px;margin-bottom:16px;">
+      Paso 1: cargá lo que tengas seguro. El resto lo podés confirmar después — el contrato queda marcado como "a confirmar" hasta que completes el último período facturado.
+    </div>
     <input type="hidden" id="c-id">
 
+    <div style="font-size:12px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:10px;">
+      Paso 1 — Lo esencial
+    </div>
     <div class="field-grid cols-3">
       <div class="field full" style="position:relative;">
         <label>Cliente *</label>
@@ -1191,21 +1202,8 @@
         <input type="text" id="c-remito">
       </div>
       <div class="field">
-        <label>Orden de compra</label>
-        <input type="text" id="c-orden_de_compra">
-      </div>
-
-      <div class="field">
         <label>Fecha de salida</label>
         <input type="date" id="c-fecha_salida">
-      </div>
-      <div class="field">
-        <label>Fecha de vencimiento</label>
-        <input type="date" id="c-fecha_vencimiento">
-      </div>
-      <div class="field">
-        <label>Fecha de baja</label>
-        <input type="date" id="c-fecha_baja">
       </div>
 
       <div class="field">
@@ -1216,8 +1214,8 @@
         </select>
       </div>
       <div class="field">
-        <label>% Descuento</label>
-        <input type="number" step="0.01" id="c-porcentaje_descuento" value="0">
+        <label>Valor mensual (sin descuento)</label>
+        <input type="number" step="0.01" id="c-precio_sin_descuento" placeholder="Lo que hoy sabés que vale el alquiler">
       </div>
       <div class="field">
         <label>Estado</label>
@@ -1226,41 +1224,82 @@
           <option value="baja">De baja</option>
         </select>
       </div>
+    </div>
 
-      <div class="field">
-        <label>Precio mensual sin descuento</label>
-        <input type="number" step="0.01" id="c-precio_sin_descuento">
-      </div>
-      <div class="field">
-        <label>Precio mensual con descuento</label>
-        <input type="number" step="0.01" id="c-precio_con_descuento">
-      </div>
-      <div class="field">
-        <label>Contacto de obra</label>
-        <input type="text" id="c-contacto_obra">
-      </div>
+    <button type="button" id="btn-toggle-paso2" class="btn secondary small" style="margin:18px 0 4px 0;">
+      ▾ Mostrar detalles para confirmar (periodicidad, TC, último período facturado...)
+    </button>
 
-      <div class="field full" style="background:var(--panel-2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;">
-        <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:13px;color:var(--text);">
-          <input type="checkbox" id="c-tiene_flete" style="width:auto;">
-          Tiene costo de flete/envío adicional
-        </label>
-        <div id="c-flete-box" style="display:none;margin-top:10px;">
-          <label>Costo de flete (USD)</label>
-          <input type="number" step="0.01" id="c-costo_flete" placeholder="0.00">
+    <div id="contrato-paso2" style="display:none;margin-top:10px;padding-top:14px;border-top:1px solid var(--border);">
+      <div style="font-size:12px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:10px;">
+        Paso 2 — Detalles a confirmar
+      </div>
+      <div class="field-grid cols-3">
+        <div class="field">
+          <label>Periodicidad del contrato</label>
+          <select id="c-periodicidad">
+            <option value="mensual">Mensual</option>
+            <option value="semanal">Semanal</option>
+            <option value="diario">Diario</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Fecha de vencimiento</label>
+          <input type="date" id="c-fecha_vencimiento">
+        </div>
+        <div class="field">
+          <label>Fecha de baja</label>
+          <input type="date" id="c-fecha_baja">
+        </div>
+
+        <div class="field full">
+          <label>Último período facturado — hasta</label>
+          <input type="date" id="c-ultimo_periodo_facturado_hasta">
           <div class="muted" style="font-size:11px;margin-top:4px;">
-            El facturador va a ver un aviso para agregar un segundo ítem en la factura por este concepto.
+            Clave: a partir de esta fecha la app genera sola el próximo pendiente. Si no la sabés con certeza, dejala vacía y el contrato queda marcado "a confirmar".
           </div>
         </div>
-      </div>
 
-      <div class="field">
-        <label>Obra</label>
-        <input type="text" id="c-obra">
-      </div>
-      <div class="field full" style="grid-column:span 2;">
-        <label>Observaciones</label>
-        <textarea id="c-observacion" rows="2"></textarea>
+        <div class="field">
+          <label>Orden de compra</label>
+          <input type="text" id="c-orden_de_compra">
+        </div>
+        <div class="field">
+          <label>% Descuento</label>
+          <input type="number" step="0.01" id="c-porcentaje_descuento" value="0">
+        </div>
+        <div class="field">
+          <label>Precio mensual con descuento</label>
+          <input type="number" step="0.01" id="c-precio_con_descuento">
+        </div>
+
+        <div class="field">
+          <label>Obra</label>
+          <input type="text" id="c-obra">
+        </div>
+        <div class="field full" style="grid-column:span 2;">
+          <label>Contacto de obra</label>
+          <input type="text" id="c-contacto_obra">
+        </div>
+
+        <div class="field full" style="background:var(--panel-2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;">
+          <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:13px;color:var(--text);">
+            <input type="checkbox" id="c-tiene_flete" style="width:auto;">
+            Tiene costo de flete/envío adicional
+          </label>
+          <div id="c-flete-box" style="display:none;margin-top:10px;">
+            <label>Costo de flete (USD)</label>
+            <input type="number" step="0.01" id="c-costo_flete" placeholder="0.00">
+            <div class="muted" style="font-size:11px;margin-top:4px;">
+              El facturador va a ver un aviso para agregar un segundo ítem en la factura por este concepto.
+            </div>
+          </div>
+        </div>
+
+        <div class="field full">
+          <label>Observaciones</label>
+          <textarea id="c-observacion" rows="2"></textarea>
+        </div>
       </div>
     </div>
 
@@ -1891,7 +1930,7 @@ function renderContratos(list){
     const precio = c.precio_mensual_con_descuento ?? c.precio_mensual_sin_descuento;
     return `
       <tr>
-        <td>${escapeHtml(cliente)}</td>
+        <td>${escapeHtml(cliente)}${c.datos_confirmados ? '' : ' <span class="badge" style="color:#ff9f43;border-color:#ff9f43;" title="Falta confirmar periodicidad / último período facturado">⚠ a confirmar</span>'}</td>
         <td class="muted">${escapeHtml(equipo)}${c.tiene_flete ? ` <span class="badge" style="color:var(--accent);border-color:var(--accent-dim);" title="Flete adicional: ${fmtMoney(c.costo_flete,'USD')}">🚚 flete</span>` : ''}</td>
         <td>${sucursal !== '—' ? `<span class="badge">${sucursal}</span>` : '—'}</td>
         <td class="muted">${fmtDate(c.fecha_salida)} → ${fmtDate(c.fecha_vencimiento)}</td>
@@ -1911,9 +1950,12 @@ function getFilteredContratos(){
   const q = document.getElementById('contrato-search-input').value.trim().toLowerCase();
   const sucursalId = document.getElementById('contrato-filter-sucursal').value;
   const estado = document.getElementById('contrato-filter-estado').value;
+  const confirmado = document.getElementById('contrato-filter-confirmado').value;
   let list = contratosCache;
   if(sucursalId) list = list.filter(c => String(c.sucursal_id) === sucursalId);
   if(estado) list = list.filter(c => c.estado === estado);
+  if(confirmado === 'no') list = list.filter(c => !c.datos_confirmados);
+  if(confirmado === 'si') list = list.filter(c => c.datos_confirmados);
   if(q){
     list = list.filter(c =>
       (c.clientes?.razon_social || '').toLowerCase().includes(q) ||
@@ -1929,12 +1971,14 @@ function applyContratoFilters(){
 document.getElementById('contrato-search-input').addEventListener('input', applyContratoFilters);
 document.getElementById('contrato-filter-sucursal').addEventListener('change', applyContratoFilters);
 document.getElementById('contrato-filter-estado').addEventListener('change', applyContratoFilters);
+document.getElementById('contrato-filter-confirmado').addEventListener('change', applyContratoFilters);
 
 function contratosToRows(list){
-  const headers = ['Cliente','Equipo N Serie','Sucursal','Fecha Salida','Fecha Vencimiento','Moneda','Precio Mensual','Tiene Flete','Costo Flete','Orden Compra','Obra','Estado'];
+  const headers = ['Cliente','Equipo N Serie','Sucursal','Periodicidad','Fecha Salida','Fecha Vencimiento','Ultimo Periodo Facturado','Confirmado','Moneda','Precio Mensual','Tiene Flete','Costo Flete','Orden Compra','Obra','Estado'];
   const rows = list.map(c => [
     c.clientes?.razon_social || '', c.equipos?.numero_serie || '', c.sucursales?.nombre || '',
-    c.fecha_salida || '', c.fecha_vencimiento || '', c.moneda,
+    c.periodicidad || '', c.fecha_salida || '', c.fecha_vencimiento || '',
+    c.ultimo_periodo_facturado_hasta || '', c.datos_confirmados ? 'SI' : 'NO', c.moneda,
     c.precio_mensual_con_descuento ?? c.precio_mensual_sin_descuento ?? '',
     c.tiene_flete ? 'SI' : 'NO', c.costo_flete ?? '',
     c.orden_de_compra || '', c.obra || '', c.estado,
@@ -2042,19 +2086,33 @@ document.getElementById('c-tiene_flete').addEventListener('change', (e)=>{
 function resetContratoForm(){
   ['id','cliente_id','equipo_id','remito','fecha_salida','fecha_vencimiento',
    'porcentaje_descuento','precio_sin_descuento','precio_con_descuento',
-   'orden_de_compra','obra','contacto_obra','observacion','fecha_baja','costo_flete']
+   'orden_de_compra','obra','contacto_obra','observacion','fecha_baja','costo_flete',
+   'ultimo_periodo_facturado_hasta']
    .forEach(f => { const el = document.getElementById('c-'+f); if(el) el.value = ''; });
   document.getElementById('c-porcentaje_descuento').value = 0;
   document.getElementById('c-moneda').value = 'USD';
   document.getElementById('c-estado').value = 'activo';
+  document.getElementById('c-periodicidad').value = 'mensual';
   document.getElementById('c-sucursal_id').value = '';
   document.getElementById('c-tiene_flete').checked = false;
   document.getElementById('c-flete-box').style.display = 'none';
+  document.getElementById('contrato-paso2').style.display = 'none';
+  document.getElementById('btn-toggle-paso2').textContent = '▾ Mostrar detalles para confirmar (periodicidad, TC, último período facturado...)';
   clienteSearchInput.value = '';
   equipoSearchInput.value = '';
   document.getElementById('c-cliente-selected').textContent = '';
   document.getElementById('c-equipo-selected').textContent = '';
 }
+
+document.getElementById('btn-toggle-paso2').addEventListener('click', ()=>{
+  const box = document.getElementById('contrato-paso2');
+  const btn = document.getElementById('btn-toggle-paso2');
+  const abierto = box.style.display !== 'none';
+  box.style.display = abierto ? 'none' : 'block';
+  btn.textContent = abierto
+    ? '▾ Mostrar detalles para confirmar (periodicidad, TC, último período facturado...)'
+    : '▴ Ocultar detalles para confirmar';
+});
 
 document.getElementById('btn-new-contrato').addEventListener('click', ()=>{
   resetContratoForm();
@@ -2074,6 +2132,9 @@ function openEditContrato(id){
   resetContratoForm();
   populateSucursalSelectContrato();
   document.getElementById('modal-contrato-title').textContent = 'Editar contrato';
+  // al editar, siempre mostramos el paso 2 para que se vea todo lo ya cargado
+  document.getElementById('contrato-paso2').style.display = 'block';
+  document.getElementById('btn-toggle-paso2').textContent = '▴ Ocultar detalles para confirmar';
   document.getElementById('btn-contrato-delete').style.display = 'inline-block';
 
   document.getElementById('c-id').value = c.id;
@@ -2102,6 +2163,8 @@ function openEditContrato(id){
   document.getElementById('c-tiene_flete').checked = !!c.tiene_flete;
   document.getElementById('c-flete-box').style.display = c.tiene_flete ? 'block' : 'none';
   document.getElementById('c-costo_flete').value = c.costo_flete ?? '';
+  document.getElementById('c-periodicidad').value = c.periodicidad || 'mensual';
+  document.getElementById('c-ultimo_periodo_facturado_hasta').value = c.ultimo_periodo_facturado_hasta || '';
 
   openContratoOverlay();
 }
@@ -2136,6 +2199,9 @@ document.getElementById('btn-contrato-save').addEventListener('click', async ()=
     tiene_flete: document.getElementById('c-tiene_flete').checked,
     costo_flete: document.getElementById('c-tiene_flete').checked && document.getElementById('c-costo_flete').value
       ? Number(document.getElementById('c-costo_flete').value) : null,
+    periodicidad: document.getElementById('c-periodicidad').value,
+    ultimo_periodo_facturado_hasta: document.getElementById('c-ultimo_periodo_facturado_hasta').value || null,
+    datos_confirmados: !!document.getElementById('c-ultimo_periodo_facturado_hasta').value,
   };
 
   try{
@@ -2328,44 +2394,68 @@ async function loadTodosLosRequisitos(){
 }
 
 // ---------- Generar pendientes del mes (automático, sin intervención) ----------
-async function autoGenerarPendientesDelMes(){
-  const now = new Date();
-  const first = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
-  const last = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().slice(0,10);
+// ---------- Helpers de fechas para periodicidad ----------
+function addDays(dateStr, days){
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0,10);
+}
+function calcularPeriodoHasta(periodoDesde, periodicidad){
+  if(periodicidad === 'diario') return periodoDesde;
+  if(periodicidad === 'semanal') return addDays(periodoDesde, 6);
+  // mensual (default): un mes calendario completo desde periodoDesde
+  const d = new Date(periodoDesde + 'T00:00:00');
+  d.setMonth(d.getMonth() + 1);
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0,10);
+}
 
-  const activos = contratosCache.filter(c => c.estado === 'activo');
+// ---------- Generación automática, respetando periodicidad de cada contrato ----------
+// Solo genera para contratos con "último período facturado" confirmado —
+// los que todavía están "a confirmar" quedan afuera hasta que se carguen a mano.
+async function autoGenerarPendientesDelMes(){
+  const hoy = new Date().toISOString().slice(0,10);
+  const activos = contratosCache.filter(c =>
+    c.estado === 'activo' && c.datos_confirmados && c.ultimo_periodo_facturado_hasta
+  );
   if(activos.length === 0) return;
 
-  // evitar duplicados: contratos que ya tienen un pendiente con el mismo periodo_desde
-  const yaGenerados = new Set(
-    pendientesCache
-      .filter(p => p.periodo_desde === first)
-      .map(p => p.contrato_id)
-  );
+  const periodosExistentes = {};
+  pendientesCache.forEach(p=>{
+    if(!periodosExistentes[p.contrato_id]) periodosExistentes[p.contrato_id] = new Set();
+    periodosExistentes[p.contrato_id].add(p.periodo_desde);
+  });
 
-  const nuevos = activos
-    .filter(c => !yaGenerados.has(c.id))
-    .map(c => {
-      const valorUsd = c.precio_mensual_con_descuento ?? c.precio_mensual_sin_descuento ?? 0;
-      const valorEnUsd = c.moneda === 'USD' ? valorUsd : null;
-      const potencialArs = c.moneda === 'ARS' ? valorUsd : null;
-      return {
-        contrato_id: c.id,
-        periodo_desde: first,
-        periodo_hasta: last,
-        valor_alquiler_usd: valorEnUsd,
-        tc_aplicado: null,
-        potencial_facturacion: potencialArs,
-        estado: 'pendiente',
-      };
-    });
+  const nuevos = [];
+  for(const c of activos){
+    let cursor = addDays(c.ultimo_periodo_facturado_hasta, 1);
+    let guard = 0; // tope de seguridad para no generar infinitos períodos atrasados de una sola vez
+    while(cursor <= hoy && guard < 36){
+      const hasta = calcularPeriodoHasta(cursor, c.periodicidad || 'mensual');
+      const yaExiste = periodosExistentes[c.id] && periodosExistentes[c.id].has(cursor);
+      if(!yaExiste){
+        const valorUsd = c.precio_mensual_con_descuento ?? c.precio_mensual_sin_descuento ?? 0;
+        nuevos.push({
+          contrato_id: c.id,
+          periodo_desde: cursor,
+          periodo_hasta: hasta,
+          valor_alquiler_usd: c.moneda === 'USD' ? valorUsd : null,
+          tc_aplicado: null,
+          potencial_facturacion: c.moneda === 'ARS' ? valorUsd : null,
+          estado: 'pendiente',
+        });
+      }
+      cursor = addDays(hasta, 1);
+      guard++;
+    }
+  }
 
   if(nuevos.length === 0) return;
 
   try{
     const { error } = await supabaseClient.from('pendientes_facturacion').insert(nuevos);
     if(error) throw error;
-    console.log(`[Horizon] generados automáticamente ${nuevos.length} pendiente(s) del mes`);
+    console.log(`[Horizon] generados automáticamente ${nuevos.length} pendiente(s), respetando periodicidad de cada contrato`);
     await loadPendientes();
     populateReportesFiltros();
     renderReportes();
@@ -3029,7 +3119,7 @@ function renderDashboard(){
 
   const tiles = [
     { tab:'clientes',   icon:'🏢', title:'Clientes',   count:`${clientesCache.length} cargados`, visible:accesoPorTab.clientes.includes(rol) },
-    { tab:'contratos',  icon:'📄', title:'Contratos',  count:`${contratosCache.length} totales`, visible:accesoPorTab.contratos.includes(rol) },
+    { tab:'contratos',  icon:'📄', title:'Contratos',  count:`${contratosCache.length} totales${(() => { const n = contratosCache.filter(c=>!c.datos_confirmados).length; return n>0 ? ` — ⚠ ${n} a confirmar` : ''; })()}`, visible:accesoPorTab.contratos.includes(rol) },
     { tab:'equipos',    icon:'🚜', title:'Equipos',    count:`${equiposCache.length} en catálogo`, visible:accesoPorTab.equipos.includes(rol) },
     { tab:'pendientes', icon:'💰', title:'Pendientes de Facturación', count: accesoPorTab.pendientes.includes(rol) ? `${pendientesCache.filter(p=>p.estado==='pendiente').length} sin facturar` : '', visible:accesoPorTab.pendientes.includes(rol) },
     { tab:'reportes',   icon:'📊', title:'Reportes',   count:'Mora y facturación', visible:accesoPorTab.reportes.includes(rol) },
