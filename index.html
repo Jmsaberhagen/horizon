@@ -510,6 +510,7 @@
   <button data-tab="equipos">Equipos</button>
   <button data-tab="pendientes">Pendientes de Facturación</button>
   <button data-tab="reportes">Reportes</button>
+  <button data-tab="cuentacliente">Cuenta Cliente</button>
   <button data-tab="planning">Planning</button>
   <button data-tab="usuarios" id="nav-usuarios" style="display:none;">Usuarios</button>
 </nav>
@@ -733,76 +734,6 @@
 
   <section id="tab-reportes" style="display:none;">
 
-    <div class="dash-hero" style="margin-bottom:14px;">
-      <h1 style="font-size:16px;">Cuenta del cliente</h1>
-      <div class="sub">Buscá un cliente para ver su historial completo de facturación mes a mes</div>
-    </div>
-    <div class="toolbar" style="position:relative;">
-      <input type="text" id="cuenta-cliente-search" placeholder="Buscar cliente por razón social...">
-      <div class="autocomplete-list" id="cuenta-cliente-results"></div>
-    </div>
-
-    <div class="panel" id="cuenta-cliente-panel" style="display:none;padding:20px;margin-bottom:28px;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px;">
-        <div>
-          <div style="font-size:18px;font-weight:700;" id="cc-nombre"></div>
-          <div class="muted" style="font-size:12px;margin-top:2px;" id="cc-subtitulo"></div>
-        </div>
-        <button class="btn secondary small" id="btn-cerrar-cuenta">✕ Cerrar</button>
-      </div>
-
-      <div class="dash-grid" style="grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); margin:18px 0;">
-        <div class="panel" style="padding:14px;">
-          <div class="muted" style="font-size:11px;text-transform:uppercase;">Facturado histórico</div>
-          <div id="cc-total-facturado" style="font-size:19px;font-weight:700;color:var(--ok);margin-top:4px;">U$D 0</div>
-        </div>
-        <div class="panel" style="padding:14px;">
-          <div class="muted" style="font-size:11px;text-transform:uppercase;">Pendiente actual</div>
-          <div id="cc-total-pendiente" style="font-size:19px;font-weight:700;color:var(--accent);margin-top:4px;">U$D 0</div>
-        </div>
-        <div class="panel" style="padding:14px;">
-          <div class="muted" style="font-size:11px;text-transform:uppercase;">Promedio mensual</div>
-          <div id="cc-promedio" style="font-size:19px;font-weight:700;margin-top:4px;">U$D 0</div>
-        </div>
-        <div class="panel" style="padding:14px;">
-          <div class="muted" style="font-size:11px;text-transform:uppercase;">Contratos activos</div>
-          <div id="cc-contratos-activos" style="font-size:19px;font-weight:700;margin-top:4px;">0</div>
-        </div>
-      </div>
-
-      <div style="font-size:13px;font-weight:700;margin-bottom:8px;">Evolución mes a mes</div>
-      <div class="table-wrap" style="max-height:none;margin-bottom:20px;">
-        <table>
-          <thead>
-            <tr>
-              <th>Mes</th>
-              <th>Facturado (USD)</th>
-              <th>Pendiente (USD)</th>
-              <th>Cant. facturas</th>
-              <th>Cant. pendientes</th>
-            </tr>
-          </thead>
-          <tbody id="cc-meses-tbody"></tbody>
-        </table>
-      </div>
-
-      <div style="font-size:13px;font-weight:700;margin-bottom:8px;">Detalle completo</div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Equipo</th>
-              <th>Período</th>
-              <th>Valor (USD)</th>
-              <th>Estado</th>
-              <th>N° Factura</th>
-            </tr>
-          </thead>
-          <tbody id="cc-detalle-tbody"></tbody>
-        </table>
-      </div>
-    </div>
-
     <div class="toolbar" style="flex-wrap:wrap;">
       <input type="date" id="rep-desde" title="Período desde">
       <input type="date" id="rep-hasta" title="Período hasta">
@@ -890,6 +821,80 @@
       </div>
     </div>
     <div class="muted" id="rep-results-count" style="margin-top:10px;font-size:12px;"></div>
+  </section>
+
+  <section id="tab-cuentacliente" style="display:none;">
+
+    <div class="dash-hero" style="margin-bottom:14px;">
+      <h1 style="font-size:16px;">Cuenta del cliente</h1>
+      <div class="sub">Buscá un cliente para consultar y administrar su historial completo de facturación</div>
+    </div>
+    <div class="toolbar" style="position:relative;">
+      <input type="text" id="cuenta-cliente-search" placeholder="Buscar cliente por razón social...">
+      <div class="autocomplete-list" id="cuenta-cliente-results"></div>
+    </div>
+
+    <div id="cuenta-cliente-vacio" class="panel" style="padding:40px;text-align:center;color:var(--text-dim);">
+      Buscá un cliente arriba para ver su cuenta.
+    </div>
+
+    <div id="cuenta-cliente-panel" style="display:none;">
+      <div class="panel" style="padding:20px;margin-bottom:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px;">
+          <div>
+            <div style="font-size:18px;font-weight:700;" id="cc-nombre"></div>
+            <div class="muted" style="font-size:12px;margin-top:2px;" id="cc-subtitulo"></div>
+          </div>
+          <button class="btn secondary small" id="btn-cerrar-cuenta">✕ Cerrar</button>
+        </div>
+
+        <div class="dash-grid" style="grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); margin-top:18px;">
+          <div class="panel" style="padding:14px;">
+            <div class="muted" style="font-size:11px;text-transform:uppercase;">Facturado histórico</div>
+            <div id="cc-total-facturado" style="font-size:19px;font-weight:700;color:var(--ok);margin-top:4px;">U$D 0</div>
+          </div>
+          <div class="panel" style="padding:14px;">
+            <div class="muted" style="font-size:11px;text-transform:uppercase;">Pendiente actual</div>
+            <div id="cc-total-pendiente" style="font-size:19px;font-weight:700;color:var(--accent);margin-top:4px;">U$D 0</div>
+          </div>
+          <div class="panel" style="padding:14px;">
+            <div class="muted" style="font-size:11px;text-transform:uppercase;">Promedio mensual</div>
+            <div id="cc-promedio" style="font-size:19px;font-weight:700;margin-top:4px;">U$D 0</div>
+          </div>
+          <div class="panel" style="padding:14px;">
+            <div class="muted" style="font-size:11px;text-transform:uppercase;">Contratos activos</div>
+            <div id="cc-contratos-activos" style="font-size:19px;font-weight:700;margin-top:4px;">0</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px;">Evolución mes a mes</div>
+      <div class="table-wrap" style="max-height:none;margin-bottom:24px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Mes</th>
+              <th>Facturado (USD)</th>
+              <th>Pendiente (USD)</th>
+              <th>Cant. facturas</th>
+              <th>Cant. pendientes</th>
+            </tr>
+          </thead>
+          <tbody id="cc-meses-tbody"></tbody>
+        </table>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap;">
+        <div style="font-size:13px;font-weight:700;">Historial de facturas y pendientes</div>
+        <div style="flex:1"></div>
+        <select id="cc-filter-estado" style="max-width:180px;">
+          <option value="">Todos</option>
+          <option value="facturado">Solo facturados</option>
+          <option value="pendiente">Solo pendientes</option>
+        </select>
+      </div>
+      <div class="dash-grid" id="cc-cards-grid" style="grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));"></div>
+    </div>
   </section>
 
   <section id="tab-planning" style="display:none;">
@@ -1535,6 +1540,7 @@ const TAB_TITLES = {
   pendientes: 'Pendientes de Facturación',
   usuarios: 'Usuarios',
   reportes: 'Reportes',
+  cuentacliente: 'Cuenta Cliente',
   planning: 'Planning',
 };
 
@@ -3057,6 +3063,7 @@ function aplicarPermisosUI(){
     equipos:    ['maestro','admin','servicios'],
     pendientes: ['maestro','admin','finanzas'],
     reportes:   ['maestro','admin','finanzas'],
+    cuentacliente: ['maestro','admin','finanzas'],
     planning:   ['maestro','admin','comercial','servicios','finanzas'],
   };
 
@@ -3285,6 +3292,7 @@ function renderDashboard(){
     equipos:    ['maestro','admin','servicios'],
     pendientes: ['maestro','admin','finanzas'],
     reportes:   ['maestro','admin','finanzas'],
+    cuentacliente: ['maestro','admin','finanzas'],
     planning:   ['maestro','admin','comercial','servicios','finanzas'],
   };
 
@@ -3294,6 +3302,7 @@ function renderDashboard(){
     { tab:'equipos',    icon:'🚜', title:'Equipos',    count:`${equiposCache.length} en catálogo`, visible:accesoPorTab.equipos.includes(rol) },
     { tab:'pendientes', icon:'💰', title:'Pendientes de Facturación', count: accesoPorTab.pendientes.includes(rol) ? `${pendientesCache.filter(p=>p.estado==='pendiente').length} sin facturar` : '', visible:accesoPorTab.pendientes.includes(rol) },
     { tab:'reportes',   icon:'📊', title:'Reportes',   count:'Mora y facturación', visible:accesoPorTab.reportes.includes(rol) },
+    { tab:'cuentacliente', icon:'🧾', title:'Cuenta Cliente', count:'Historial por cliente', visible:accesoPorTab.cuentacliente.includes(rol) },
     { tab:'planning',   icon:'📅', title:'Planning',   count:'Ocupación de flota', visible:accesoPorTab.planning.includes(rol) },
     { tab:'usuarios',   icon:'👤', title:'Usuarios',   count:`${usuariosCache.length} cuentas`, visible:esMaestroOAdmin },
   ];
@@ -3347,6 +3356,8 @@ document.addEventListener('click', (e)=>{
 });
 document.getElementById('btn-cerrar-cuenta').addEventListener('click', ()=>{
   document.getElementById('cuenta-cliente-panel').style.display = 'none';
+  document.getElementById('cuenta-cliente-vacio').style.display = 'block';
+  cuentaClienteActivaId = null;
 });
 
 const MESES_NOMBRES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
@@ -3410,28 +3421,48 @@ function mostrarCuentaCliente(clienteId){
           </tr>`;
       }).join('');
 
-  // ---------- detalle completo ----------
-  const ordenados = [...pendientesDelCliente].sort((a,b)=> (b.periodo_desde||'').localeCompare(a.periodo_desde||''));
-  const detTbody = document.getElementById('cc-detalle-tbody');
-  detTbody.innerHTML = ordenados.length === 0
-    ? '<tr><td colspan="5" class="empty-state">Sin registros.</td></tr>'
-    : ordenados.map(p=>{
-        const equipo = p.contratos?.equipos?.numero_serie || '—';
-        const estadoBadge = p.estado === 'facturado'
-          ? '<span class="badge" style="color:var(--ok);border-color:var(--ok);">Facturado</span>'
-          : '<span class="badge" style="color:var(--accent);border-color:var(--accent-dim);">Pendiente</span>';
-        return `
-          <tr>
-            <td class="muted">${escapeHtml(equipo)}</td>
-            <td class="muted">${fmtDate(p.periodo_desde)} → ${fmtDate(p.periodo_hasta)}</td>
-            <td class="muted">${fmtMoney(p.valor_alquiler_usd,'USD')}</td>
-            <td>${estadoBadge}</td>
-            <td class="muted">${escapeHtml(p.numero_factura || '—')}</td>
-          </tr>`;
-      }).join('');
-
+  document.getElementById('cuenta-cliente-vacio').style.display = 'none';
   document.getElementById('cuenta-cliente-panel').style.display = 'block';
+
+  // guardamos el cliente activo para que el filtro de estado pueda re-renderizar sin buscar de nuevo
+  cuentaClienteActivaId = clienteId;
+  renderCuentaClienteCards();
 }
+
+let cuentaClienteActivaId = null;
+
+function renderCuentaClienteCards(){
+  if(!cuentaClienteActivaId) return;
+  const estadoFiltro = document.getElementById('cc-filter-estado').value;
+  const pendientesDelCliente = pendientesCache.filter(p => p.contratos?.clientes?.id === cuentaClienteActivaId);
+  const filtrados = estadoFiltro ? pendientesDelCliente.filter(p => p.estado === estadoFiltro) : pendientesDelCliente;
+  const ordenados = [...filtrados].sort((a,b)=> (b.periodo_desde||'').localeCompare(a.periodo_desde||''));
+
+  const grid = document.getElementById('cc-cards-grid');
+  if(ordenados.length === 0){
+    grid.innerHTML = '<div class="muted" style="grid-column:1/-1;padding:20px;text-align:center;">Sin registros con este filtro.</div>';
+    return;
+  }
+
+  grid.innerHTML = ordenados.map(p=>{
+    const equipo = p.contratos?.equipos?.numero_serie || '—';
+    const esFacturado = p.estado === 'facturado';
+    const color = esFacturado ? 'var(--ok)' : 'var(--accent)';
+    const estadoTexto = esFacturado ? 'Facturado' : 'Pendiente';
+    return `
+      <div class="panel" style="padding:14px;border-left:3px solid ${color};">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span class="badge" style="color:${color};border-color:${color};">${estadoTexto}</span>
+          <span class="muted" style="font-size:11px;">🚜 ${escapeHtml(equipo)}</span>
+        </div>
+        <div style="font-size:20px;font-weight:700;color:${color};">${fmtMoney(p.valor_alquiler_usd,'USD')}</div>
+        <div class="muted" style="font-size:12px;margin-top:6px;">${fmtDate(p.periodo_desde)} → ${fmtDate(p.periodo_hasta)}</div>
+        ${esFacturado ? `<div class="muted" style="font-size:12px;margin-top:4px;">N° Factura: <span style="color:var(--text);">${escapeHtml(p.numero_factura || '—')}</span></div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+document.getElementById('cc-filter-estado').addEventListener('change', renderCuentaClienteCards);
 
 // =========================================================
 // MÓDULO REPORTES
