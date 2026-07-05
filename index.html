@@ -3527,9 +3527,14 @@ function calcularConciliacion(clienteId, serie){
     const conciliacion = calcularConciliacion(cuentaClienteActivaId, serie);
     let conciliacionHtml = '';
     if(conciliacion){
-      const diferencia = conciliacion.debioFacturar - g.totalFacturado;
-      const alDia = diferencia <= 0.01;
-      const colorDif = alDia ? 'var(--ok)' : 'var(--danger)';
+      const diferencia = conciliacion.debioFacturar - g.totalFacturado; // positivo = falta facturar, negativo = se facturó de más
+      const alDia = Math.abs(diferencia) <= 0.01;
+      const sobreFacturado = diferencia < -0.01;
+      const colorDif = alDia ? 'var(--ok)' : (sobreFacturado ? '#c084fc' : 'var(--danger)');
+      let estadoTexto;
+      if(alDia) estadoTexto = '✓ Al día';
+      else if(sobreFacturado) estadoTexto = `⚠ Facturado de más: ${fmtMoney(Math.abs(diferencia),'USD')}`;
+      else estadoTexto = `Faltan ${fmtMoney(diferencia,'USD')}`;
       conciliacionHtml = `
         <div class="panel" style="padding:12px;border-left:3px solid ${colorDif};background:rgba(255,255,255,0.02);">
           <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:${colorDif};margin-bottom:6px;">⚖️ Conciliación</div>
@@ -3537,7 +3542,7 @@ function calcularConciliacion(clienteId, serie){
           <div style="font-size:15px;font-weight:700;margin-top:2px;">${fmtMoney(conciliacion.debioFacturar,'USD')}</div>
           <div class="muted" style="font-size:11px;margin-top:8px;">Facturado real: ${fmtMoney(g.totalFacturado,'USD')}</div>
           <div style="font-size:15px;font-weight:800;color:${colorDif};margin-top:2px;">
-            ${alDia ? '✓ Al día' : `Faltan ${fmtMoney(diferencia,'USD')}`}
+            ${estadoTexto}
           </div>
         </div>`;
     }
