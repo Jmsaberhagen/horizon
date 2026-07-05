@@ -2313,6 +2313,19 @@ document.getElementById('btn-contrato-save').addEventListener('click', async ()=
   if(!sucursalId){ showToast('Seleccioná la sucursal / punto de venta', true); return; }
 
   const id = document.getElementById('c-id').value;
+  const estadoNuevo = document.getElementById('c-estado').value;
+
+  if(estadoNuevo === 'activo'){
+    const otroContratoActivo = contratosCache.find(c =>
+      c.equipo_id === Number(equipoId) &&
+      c.estado === 'activo' &&
+      String(c.id) !== String(id)
+    );
+    if(otroContratoActivo){
+      showToast(`Este equipo ya tiene otro contrato activo (con ${otroContratoActivo.clientes?.razon_social || 'otro cliente'}). Dalo de baja antes de crear uno nuevo.`, true);
+      return;
+    }
+  }
   const payload = {
     cliente_id: Number(clienteId),
     equipo_id: Number(equipoId),
@@ -2352,7 +2365,11 @@ document.getElementById('btn-contrato-save').addEventListener('click', async ()=
     await refrescarPendientesSiCorresponde();
   } catch(err){
     console.error(err);
-    showToast('Error al guardar: ' + err.message, true);
+    if(err.code === '23505' && err.message.includes('idx_un_contrato_activo_por_equipo')){
+      showToast('Este equipo ya tiene otro contrato activo. Dalo de baja antes de crear uno nuevo.', true);
+    } else {
+      showToast('Error al guardar: ' + err.message, true);
+    }
   }
 });
 
