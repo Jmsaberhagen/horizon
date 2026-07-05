@@ -3491,6 +3491,7 @@ function renderCuentaClienteCards(){
           <div style="font-size:17px;font-weight:700;color:${estadoColor};">${fmtMoney(p.valor_alquiler_usd,'USD')}</div>
           <div class="muted" style="font-size:11px;margin-top:5px;">${fmtDate(p.periodo_desde)} → ${fmtDate(p.periodo_hasta)}</div>
           ${esFacturado ? `<div class="muted" style="font-size:11px;margin-top:3px;">N° Factura: <span style="color:var(--text);">${escapeHtml(p.numero_factura || '—')}</span></div>` : ''}
+          ${esFacturado ? `<div class="muted" style="font-size:11px;margin-top:3px;">Emitida: <span style="color:var(--text);">${p.fecha_facturacion ? fmtDate(p.fecha_facturacion) : 'sin registrar'}</span></div>` : ''}
         </div>`;
     }).join('');
 
