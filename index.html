@@ -3431,35 +3431,104 @@ function mostrarCuentaCliente(clienteId){
 
 let cuentaClienteActivaId = null;
 
+const PALETA_EQUIPOS = ['#38BDF8','#A78BFA','#FB923C','#4ADE80','#F472B6','#FBBF24','#60A5FA','#34D399'];
+function colorParaEquipo(numeroSerie){
+  let hash = 0;
+  for(let i=0;i<numeroSerie.length;i++) hash = (hash * 31 + numeroSerie.charCodeAt(i)) >>> 0;
+  return PALETA_EQUIPOS[hash % PALETA_EQUIPOS.length];
+}
+
 function renderCuentaClienteCards(){
   if(!cuentaClienteActivaId) return;
   const estadoFiltro = document.getElementById('cc-filter-estado').value;
   const pendientesDelCliente = pendientesCache.filter(p => p.contratos?.clientes?.id === cuentaClienteActivaId);
   const filtrados = estadoFiltro ? pendientesDelCliente.filter(p => p.estado === estadoFiltro) : pendientesDelCliente;
-  const ordenados = [...filtrados].sort((a,b)=> (b.periodo_desde||'').localeCompare(a.periodo_desde||''));
 
   const grid = document.getElementById('cc-cards-grid');
-  if(ordenados.length === 0){
-    grid.innerHTML = '<div class="muted" style="grid-column:1/-1;padding:20px;text-align:center;">Sin registros con este filtro.</div>';
+  grid.style.display = 'flex';
+  grid.style.flexDirection = 'column';
+  grid.style.gap = '14px';
+
+  if(filtrados.length === 0){
+    grid.innerHTML = '<div class="muted" style="padding:20px;text-align:center;">Sin registros con este filtro.</div>';
     return;
   }
 
-  grid.innerHTML = ordenados.map(p=>{
-    const equipo = p.contratos?.equipos?.numero_serie || '—';
-    const esFacturado = p.estado === 'facturado';
-    const color = esFacturado ? 'var(--ok)' : 'var(--accent)';
-    const estadoTexto = esFacturado ? 'Facturado' : 'Pendiente';
+  // ---------- agrupar por equipo (N° de serie) ----------
+  const grupos = {};
+  filtrados.forEach(p=>{
+    const serie = p.contratos?.equipos?.numero_serie || 'Sin equipo';
+    const modelo = p.contratos?.equipos?.modelo || '';
+    if(!grupos[serie]) grupos[serie] = { modelo, items: [], totalFacturado: 0, totalPendiente: 0 };
+    grupos[serie].items.push(p);
+    const valor = Number(p.valor_alquiler_usd) || 0;
+    if(p.estado === 'facturado') grupos[serie].totalFacturado += valor;
+    else grupos[serie].totalPendiente += valor;
+  });
+
+  // ordenar grupos por período más reciente de cada uno
+  const seriesOrdenadas = Object.keys(grupos).sort((a,b)=>{
+    const maxA = grupos[a].items.reduce((m,p)=> p.periodo_desde > m ? p.periodo_desde : m, '');
+    const maxB = grupos[b].items.reduce((m,p)=> p.periodo_desde > m ? p.periodo_desde : m, '');
+    return maxB.localeCompare(maxA);
+  });
+
+  grid.innerHTML = seriesOrdenadas.map((serie, idx)=>{
+    const g = grupos[serie];
+    const color = colorParaEquipo(serie);
+    const items = [...g.items].sort((a,b)=> (b.periodo_desde||'').localeCompare(a.periodo_desde||''));
+    const groupId = `cc-grupo-${idx}`;
+
+    const cardsHtml = items.map(p=>{
+      const esFacturado = p.estado === 'facturado';
+      const estadoColor = esFacturado ? 'var(--ok)' : 'var(--accent)';
+      const estadoTexto = esFacturado ? 'Facturado' : 'Pendiente';
+      return `
+        <div class="panel" style="padding:12px;border-left:3px solid ${estadoColor};background:var(--panel-2);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span class="badge" style="color:${estadoColor};border-color:${estadoColor};font-size:10px;">${estadoTexto}</span>
+          </div>
+          <div style="font-size:17px;font-weight:700;color:${estadoColor};">${fmtMoney(p.valor_alquiler_usd,'USD')}</div>
+          <div class="muted" style="font-size:11px;margin-top:5px;">${fmtDate(p.periodo_desde)} → ${fmtDate(p.periodo_hasta)}</div>
+          ${esFacturado ? `<div class="muted" style="font-size:11px;margin-top:3px;">N° Factura: <span style="color:var(--text);">${escapeHtml(p.numero_factura || '—')}</span></div>` : ''}
+        </div>`;
+    }).join('');
+
     return `
-      <div class="panel" style="padding:14px;border-left:3px solid ${color};">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-          <span class="badge" style="color:${color};border-color:${color};">${estadoTexto}</span>
-          <span class="muted" style="font-size:11px;">🚜 ${escapeHtml(equipo)}</span>
+      <div class="panel" style="border-left:5px solid ${color};overflow:hidden;">
+        <div style="padding:14px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;" onclick="toggleGrupoEquipo('${groupId}')">
+          <div>
+            <div style="font-size:16px;font-weight:800;color:${color};">🚜 ${escapeHtml(serie)}</div>
+            <div class="muted" style="font-size:12px;margin-top:2px;">${escapeHtml(g.modelo || 'Modelo sin dato')} — ${g.items.length} registro(s)</div>
+          </div>
+          <div style="display:flex;gap:16px;align-items:center;">
+            <div style="text-align:right;">
+              <div class="muted" style="font-size:10px;text-transform:uppercase;">Facturado</div>
+              <div style="font-size:13px;font-weight:700;color:var(--ok);">${fmtMoney(g.totalFacturado,'USD')}</div>
+            </div>
+            ${g.totalPendiente > 0 ? `
+            <div style="text-align:right;">
+              <div class="muted" style="font-size:10px;text-transform:uppercase;">Pendiente</div>
+              <div style="font-size:13px;font-weight:700;color:var(--accent);">${fmtMoney(g.totalPendiente,'USD')}</div>
+            </div>` : ''}
+            <span id="${groupId}-arrow" class="muted" style="font-size:14px;">▾</span>
+          </div>
         </div>
-        <div style="font-size:20px;font-weight:700;color:${color};">${fmtMoney(p.valor_alquiler_usd,'USD')}</div>
-        <div class="muted" style="font-size:12px;margin-top:6px;">${fmtDate(p.periodo_desde)} → ${fmtDate(p.periodo_hasta)}</div>
-        ${esFacturado ? `<div class="muted" style="font-size:12px;margin-top:4px;">N° Factura: <span style="color:var(--text);">${escapeHtml(p.numero_factura || '—')}</span></div>` : ''}
+        <div id="${groupId}" style="display:none;padding:0 16px 16px 16px;border-top:1px solid var(--border);">
+          <div class="dash-grid" style="grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));margin-top:14px;">
+            ${cardsHtml}
+          </div>
+        </div>
       </div>`;
   }).join('');
+}
+
+function toggleGrupoEquipo(groupId){
+  const box = document.getElementById(groupId);
+  const arrow = document.getElementById(groupId + '-arrow');
+  const abierto = box.style.display !== 'none';
+  box.style.display = abierto ? 'none' : 'block';
+  arrow.textContent = abierto ? '▾' : '▴';
 }
 
 document.getElementById('cc-filter-estado').addEventListener('change', renderCuentaClienteCards);
