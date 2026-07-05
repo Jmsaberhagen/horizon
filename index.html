@@ -1532,6 +1532,19 @@ function exportXLS(filename, headers, rows){
   URL.revokeObjectURL(url);
 }
 
+// ---------- Signo del comprobante (FC/ND suman, NC resta) ----------
+function esNotaDeCredito(numeroFactura){
+  if(!numeroFactura) return false;
+  return /^\s*NC/i.test(numeroFactura.trim());
+}
+function signoFactura(numeroFactura){
+  return esNotaDeCredito(numeroFactura) ? -1 : 1;
+}
+function valorConSigno(p){
+  const valor = Number(p.valor_alquiler_usd) || 0;
+  return p.estado === 'facturado' ? valor * signoFactura(p.numero_factura) : valor;
+}
+
 // ---------- Tabs ----------
 const TAB_TITLES = {
   clientes: 'Clientes',
@@ -3376,7 +3389,7 @@ function mostrarCuentaCliente(clienteId){
 
   const facturados = pendientesDelCliente.filter(p => p.estado === 'facturado');
   const pendientes = pendientesDelCliente.filter(p => p.estado === 'pendiente');
-  const totalFacturado = facturados.reduce((a,p)=> a + (Number(p.valor_alquiler_usd)||0), 0);
+  const totalFacturado = facturados.reduce((a,p)=> a + valorConSigno(p), 0);
   const totalPendiente = pendientes.reduce((a,p)=> a + (Number(p.valor_alquiler_usd)||0), 0);
   const contratosActivos = contratosDelCliente.filter(c => c.estado === 'activo').length;
 
@@ -3395,12 +3408,11 @@ function mostrarCuentaCliente(clienteId){
     const key = (p.periodo_hasta || p.periodo_desde || '').slice(0,7); // YYYY-MM
     if(!key) return;
     if(!porMes[key]) porMes[key] = { facturadoUsd:0, pendienteUsd:0, cantFacturas:0, cantPendientes:0 };
-    const valor = Number(p.valor_alquiler_usd) || 0;
     if(p.estado === 'facturado'){
-      porMes[key].facturadoUsd += valor;
+      porMes[key].facturadoUsd += valorConSigno(p);
       porMes[key].cantFacturas += 1;
     } else {
-      porMes[key].pendienteUsd += valor;
+      porMes[key].pendienteUsd += (Number(p.valor_alquiler_usd) || 0);
       porMes[key].cantPendientes += 1;
     }
   });
@@ -3462,9 +3474,8 @@ function renderCuentaClienteCards(){
     const modelo = p.contratos?.equipos?.modelo || '';
     if(!grupos[serie]) grupos[serie] = { modelo, items: [], totalFacturado: 0, totalPendiente: 0 };
     grupos[serie].items.push(p);
-    const valor = Number(p.valor_alquiler_usd) || 0;
-    if(p.estado === 'facturado') grupos[serie].totalFacturado += valor;
-    else grupos[serie].totalPendiente += valor;
+    if(p.estado === 'facturado') grupos[serie].totalFacturado += valorConSigno(p);
+    else grupos[serie].totalPendiente += (Number(p.valor_alquiler_usd) || 0);
   });
 
   // ordenar grupos por período más reciente de cada uno
@@ -3511,16 +3522,18 @@ function calcularConciliacion(clienteId, serie){
 
     const cardsHtml = items.map(p=>{
       const esFacturado = p.estado === 'facturado';
-      const estadoColor = esFacturado ? 'var(--ok)' : 'var(--accent)';
-      const estadoTexto = esFacturado ? 'Facturado' : 'Pendiente';
+      const esNC = esFacturado && esNotaDeCredito(p.numero_factura);
+      const estadoColor = esNC ? '#c084fc' : (esFacturado ? 'var(--ok)' : 'var(--accent)');
+      const estadoTexto = esNC ? 'Nota de Crédito' : (esFacturado ? 'Facturado' : 'Pendiente');
+      const montoTexto = esNC ? `− ${fmtMoney(p.valor_alquiler_usd,'USD')}` : fmtMoney(p.valor_alquiler_usd,'USD');
       return `
         <div class="panel" style="padding:12px;border-left:3px solid ${estadoColor};background:var(--panel-2);">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
             <span class="badge" style="color:${estadoColor};border-color:${estadoColor};font-size:10px;">${estadoTexto}</span>
           </div>
-          <div style="font-size:17px;font-weight:700;color:${estadoColor};">${fmtMoney(p.valor_alquiler_usd,'USD')}</div>
+          <div style="font-size:17px;font-weight:700;color:${estadoColor};">${montoTexto}</div>
           <div class="muted" style="font-size:11px;margin-top:5px;">${fmtDate(p.periodo_desde)} → ${fmtDate(p.periodo_hasta)}</div>
-          ${esFacturado ? `<div class="muted" style="font-size:11px;margin-top:3px;">N° Factura: <span style="color:var(--text);">${escapeHtml(p.numero_factura || '—')}</span></div>` : ''}
+          ${esFacturado ? `<div class="muted" style="font-size:11px;margin-top:3px;">N° ${esNC ? 'Nota de Crédito' : 'Factura'}: <span style="color:var(--text);">${escapeHtml(p.numero_factura || '—')}</span></div>` : ''}
           ${esFacturado ? `<div class="muted" style="font-size:11px;margin-top:3px;">Emitida: <span style="color:var(--text);">${p.fecha_facturacion ? fmtDate(p.fecha_facturacion) : 'sin registrar'}</span></div>` : ''}
           ${p.contratos?.fecha_salida ? `<div class="muted" style="font-size:11px;margin-top:3px;">Remito (salida): <span style="color:var(--text);">${fmtDate(p.contratos.fecha_salida)}</span></div>` : ''}
         </div>`;
@@ -3631,7 +3644,7 @@ function renderReportes(){
   const pendientes = filtrados.filter(p=>p.estado==='pendiente');
   const facturados = filtrados.filter(p=>p.estado==='facturado');
   const totalPendUsd = pendientes.reduce((acc,p)=> acc + (Number(p.valor_alquiler_usd)||0), 0);
-  const totalFactUsd = facturados.reduce((acc,p)=> acc + (Number(p.valor_alquiler_usd)||0), 0);
+  const totalFactUsd = facturados.reduce((acc,p)=> acc + valorConSigno(p), 0);
 
   document.getElementById('rep-total-pendiente').textContent = fmtMoney(totalPendUsd, 'USD');
   document.getElementById('rep-count-pendiente').textContent = `${pendientes.length} pendiente(s)`;
@@ -3678,9 +3691,12 @@ function renderReportes(){
         const equipo = p.contratos?.equipos?.numero_serie || '—';
         const sucursal = p.contratos?.sucursales?.nombre || '—';
         const provincia = p.contratos?.clientes?.provincia || '—';
-        const estadoBadge = p.estado === 'facturado'
-          ? '<span class="badge" style="color:var(--ok);border-color:var(--ok);">Facturado</span>'
-          : '<span class="badge" style="color:var(--accent);border-color:var(--accent-dim);">Pendiente</span>';
+        const esNC = p.estado === 'facturado' && esNotaDeCredito(p.numero_factura);
+        const estadoBadge = esNC
+          ? '<span class="badge" style="color:#c084fc;border-color:#c084fc;">Nota de Crédito</span>'
+          : (p.estado === 'facturado'
+            ? '<span class="badge" style="color:var(--ok);border-color:var(--ok);">Facturado</span>'
+            : '<span class="badge" style="color:var(--accent);border-color:var(--accent-dim);">Pendiente</span>');
         return `
           <tr>
             <td>${escapeHtml(cliente)}</td>
@@ -3688,7 +3704,7 @@ function renderReportes(){
             <td>${sucursal !== '—' ? `<span class="badge">${sucursal}</span>` : '—'}</td>
             <td class="muted">${escapeHtml(provincia)}</td>
             <td class="muted">${fmtDate(p.periodo_desde)} → ${fmtDate(p.periodo_hasta)}</td>
-            <td class="muted">${fmtMoney(p.valor_alquiler_usd, 'USD')}</td>
+            <td class="muted">${esNC ? '− ' : ''}${fmtMoney(p.valor_alquiler_usd, 'USD')}</td>
             <td>${estadoBadge}</td>
             <td class="muted">${escapeHtml(p.numero_factura || '—')}</td>
           </tr>`;
