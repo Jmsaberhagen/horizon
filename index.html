@@ -2421,7 +2421,7 @@ async function loadPendientes(){
     const { data, error } = await supabaseClient
       .from('pendientes_facturacion')
       .select(`*, contratos(
-          id, moneda, cliente_id, tiene_flete, costo_flete,
+          id, moneda, cliente_id, tiene_flete, costo_flete, fecha_salida,
           clientes(id, razon_social, provincia),
           equipos(numero_serie, modelo),
           sucursales(id, nombre)
@@ -3521,6 +3521,7 @@ function calcularConciliacion(clienteId, serie){
           <div class="muted" style="font-size:11px;margin-top:5px;">${fmtDate(p.periodo_desde)} → ${fmtDate(p.periodo_hasta)}</div>
           ${esFacturado ? `<div class="muted" style="font-size:11px;margin-top:3px;">N° Factura: <span style="color:var(--text);">${escapeHtml(p.numero_factura || '—')}</span></div>` : ''}
           ${esFacturado ? `<div class="muted" style="font-size:11px;margin-top:3px;">Emitida: <span style="color:var(--text);">${p.fecha_facturacion ? fmtDate(p.fecha_facturacion) : 'sin registrar'}</span></div>` : ''}
+          ${p.contratos?.fecha_salida ? `<div class="muted" style="font-size:11px;margin-top:3px;">Remito (salida): <span style="color:var(--text);">${fmtDate(p.contratos.fecha_salida)}</span></div>` : ''}
         </div>`;
     }).join('');
 
