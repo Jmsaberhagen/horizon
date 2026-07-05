@@ -3473,6 +3473,35 @@ function renderCuentaClienteCards(){
     return maxB.localeCompare(maxA);
   });
 
+function calcularConciliacion(clienteId, serie){
+  // contrato(s) de este cliente+equipo — tomamos el más antiguo fecha_salida y el más reciente para precio/estado
+  const contratosDelEquipo = contratosCache.filter(c =>
+    c.cliente_id === clienteId && c.equipos?.numero_serie === serie
+  );
+  if(contratosDelEquipo.length === 0) return null;
+
+  const fechaSalida = contratosDelEquipo
+    .map(c => c.fecha_salida)
+    .filter(Boolean)
+    .sort()[0];
+  if(!fechaSalida) return null;
+
+  const masReciente = [...contratosDelEquipo].sort((a,b)=> (b.fecha_salida||'').localeCompare(a.fecha_salida||''))[0];
+  const precioMensual = masReciente.precio_mensual_con_descuento ?? masReciente.precio_mensual_sin_descuento ?? 0;
+  if(!precioMensual) return null;
+
+  // fecha de referencia: si el contrato está de baja, hasta su fecha de baja; si no, hasta hoy
+  const hoy = new Date().toISOString().slice(0,10);
+  const fechaHasta = (masReciente.estado === 'baja' && masReciente.fecha_baja) ? masReciente.fecha_baja : hoy;
+
+  const dias = Math.round((new Date(fechaHasta+'T00:00:00') - new Date(fechaSalida+'T00:00:00')) / 86400000);
+  if(dias < 0) return null;
+  const mesesTranscurridos = Math.floor(dias / 30) + 1;
+  const debioFacturar = mesesTranscurridos * precioMensual;
+
+  return { fechaSalida, mesesTranscurridos, debioFacturar, precioMensual };
+}
+
   grid.innerHTML = seriesOrdenadas.map((serie, idx)=>{
     const g = grupos[serie];
     const color = colorParaEquipo(serie);
@@ -3494,6 +3523,24 @@ function renderCuentaClienteCards(){
           ${esFacturado ? `<div class="muted" style="font-size:11px;margin-top:3px;">Emitida: <span style="color:var(--text);">${p.fecha_facturacion ? fmtDate(p.fecha_facturacion) : 'sin registrar'}</span></div>` : ''}
         </div>`;
     }).join('');
+
+    const conciliacion = calcularConciliacion(cuentaClienteActivaId, serie);
+    let conciliacionHtml = '';
+    if(conciliacion){
+      const diferencia = conciliacion.debioFacturar - g.totalFacturado;
+      const alDia = diferencia <= 0.01;
+      const colorDif = alDia ? 'var(--ok)' : 'var(--danger)';
+      conciliacionHtml = `
+        <div class="panel" style="padding:12px;border-left:3px solid ${colorDif};background:rgba(255,255,255,0.02);">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:${colorDif};margin-bottom:6px;">⚖️ Conciliación</div>
+          <div class="muted" style="font-size:11px;">Debió facturarse (desde ${fmtDate(conciliacion.fechaSalida)}, ${conciliacion.mesesTranscurridos} mes(es) a ${fmtMoney(conciliacion.precioMensual,'USD')}):</div>
+          <div style="font-size:15px;font-weight:700;margin-top:2px;">${fmtMoney(conciliacion.debioFacturar,'USD')}</div>
+          <div class="muted" style="font-size:11px;margin-top:8px;">Facturado real: ${fmtMoney(g.totalFacturado,'USD')}</div>
+          <div style="font-size:15px;font-weight:800;color:${colorDif};margin-top:2px;">
+            ${alDia ? '✓ Al día' : `Faltan ${fmtMoney(diferencia,'USD')}`}
+          </div>
+        </div>`;
+    }
 
     return `
       <div class="panel" style="border-left:5px solid ${color};overflow:hidden;">
@@ -3518,6 +3565,7 @@ function renderCuentaClienteCards(){
         <div id="${groupId}" style="display:none;padding:0 16px 16px 16px;border-top:1px solid var(--border);">
           <div class="dash-grid" style="grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));margin-top:14px;">
             ${cardsHtml}
+            ${conciliacionHtml}
           </div>
         </div>
       </div>`;
