@@ -845,6 +845,7 @@
             <div style="font-size:18px;font-weight:700;" id="cc-nombre"></div>
             <div class="muted" style="font-size:12px;margin-top:2px;" id="cc-subtitulo"></div>
           </div>
+          <button class="btn secondary small" id="btn-cargar-recibo">+ Cargar recibo</button>
           <button class="btn secondary small" id="btn-cerrar-cuenta">✕ Cerrar</button>
         </div>
 
@@ -852,6 +853,15 @@
           <div class="panel" style="padding:14px;">
             <div class="muted" style="font-size:11px;text-transform:uppercase;">Facturado histórico</div>
             <div id="cc-total-facturado" style="font-size:19px;font-weight:700;color:var(--ok);margin-top:4px;">U$D 0</div>
+          </div>
+          <div class="panel" style="padding:14px;">
+            <div class="muted" style="font-size:11px;text-transform:uppercase;">Cobrado</div>
+            <div id="cc-total-cobrado" style="font-size:19px;font-weight:700;color:var(--accent);margin-top:4px;">U$D 0</div>
+            <div class="muted" id="cc-cobrado-nota" style="font-size:10px;margin-top:3px;"></div>
+          </div>
+          <div class="panel" style="padding:14px;">
+            <div class="muted" style="font-size:11px;text-transform:uppercase;">Saldo (Facturado − Cobrado)</div>
+            <div id="cc-saldo" style="font-size:19px;font-weight:700;margin-top:4px;">U$D 0</div>
           </div>
           <div class="panel" style="padding:14px;">
             <div class="muted" style="font-size:11px;text-transform:uppercase;">Pendiente actual</div>
@@ -1063,6 +1073,37 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- MODAL RECIBO DE COBRO -->
+<div class="overlay" id="modal-recibo-overlay">
+  <div class="modal">
+    <h2>Cargar recibo de cobro</h2>
+    <input type="hidden" id="rc-cliente_id">
+    <div class="field-grid">
+      <div class="field">
+        <label>Fecha *</label>
+        <input type="date" id="rc-fecha">
+      </div>
+      <div class="field">
+        <label>Monto (USD) *</label>
+        <input type="number" step="0.01" id="rc-monto_usd">
+      </div>
+      <div class="field full">
+        <label>N° de recibo</label>
+        <input type="text" id="rc-numero_recibo">
+      </div>
+      <div class="field full">
+        <label>Observación</label>
+        <textarea id="rc-observacion" rows="2"></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn secondary" id="btn-recibo-cancel">Cancelar</button>
+      <button class="btn" id="btn-recibo-save">Guardar</button>
+    </div>
+  </div>
+</div>
+
 
 <!-- MODAL PARADA DE EQUIPO -->
 <div class="overlay" id="modal-parada-overlay">
@@ -3374,9 +3415,49 @@ document.getElementById('btn-cerrar-cuenta').addEventListener('click', ()=>{
   cuentaClienteActivaId = null;
 });
 
+document.getElementById('btn-cargar-recibo').addEventListener('click', ()=>{
+  if(!cuentaClienteActivaId){ showToast('Buscá un cliente primero', true); return; }
+  document.getElementById('rc-cliente_id').value = cuentaClienteActivaId;
+  document.getElementById('rc-fecha').value = new Date().toISOString().slice(0,10);
+  document.getElementById('rc-monto_usd').value = '';
+  document.getElementById('rc-numero_recibo').value = '';
+  document.getElementById('rc-observacion').value = '';
+  document.getElementById('modal-recibo-overlay').classList.add('open');
+});
+document.getElementById('btn-recibo-cancel').addEventListener('click', ()=>{
+  document.getElementById('modal-recibo-overlay').classList.remove('open');
+});
+document.getElementById('modal-recibo-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'modal-recibo-overlay') document.getElementById('modal-recibo-overlay').classList.remove('open');
+});
+document.getElementById('btn-recibo-save').addEventListener('click', async ()=>{
+  const clienteId = document.getElementById('rc-cliente_id').value;
+  const fecha = document.getElementById('rc-fecha').value;
+  const monto = document.getElementById('rc-monto_usd').value;
+  if(!fecha || !monto){ showToast('Completá fecha y monto', true); return; }
+  try{
+    const { error } = await supabaseClient.from('cliente_recibos').insert({
+      cliente_id: Number(clienteId),
+      fecha,
+      monto_usd: Number(monto),
+      numero_recibo: document.getElementById('rc-numero_recibo').value.trim() || null,
+      observacion: document.getElementById('rc-observacion').value.trim() || null,
+    });
+    if(error) throw error;
+    showToast('Recibo cargado correctamente');
+    document.getElementById('modal-recibo-overlay').classList.remove('open');
+    await mostrarCuentaCliente(Number(clienteId));
+  } catch(err){
+    console.error(err);
+    showToast('Error al guardar: ' + err.message, true);
+  }
+});
+
 const MESES_NOMBRES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
-function mostrarCuentaCliente(clienteId){
+let recibosClienteCache = [];
+
+async function mostrarCuentaCliente(clienteId){
   const cliente = clientesCache.find(c => c.id === clienteId);
   if(!cliente) return;
 
@@ -3392,6 +3473,21 @@ function mostrarCuentaCliente(clienteId){
   const totalFacturado = facturados.reduce((a,p)=> a + valorConSigno(p), 0);
   const totalPendiente = pendientes.reduce((a,p)=> a + (Number(p.valor_alquiler_usd)||0), 0);
   const contratosActivos = contratosDelCliente.filter(c => c.estado === 'activo').length;
+
+  // ---------- recibos de cobro (Facturado vs Cobrado -> Saldo) ----------
+  const { data: recibos, error: errRecibos } = await supabaseClient
+    .from('cliente_recibos').select('*').eq('cliente_id', clienteId);
+  if(errRecibos) console.error('Error cargando recibos:', errRecibos);
+  recibosClienteCache = recibos || [];
+  const totalCobrado = recibosClienteCache.reduce((a,r)=> a + (Number(r.monto_usd)||0), 0);
+  const saldo = totalFacturado - totalCobrado;
+
+  document.getElementById('cc-total-cobrado').textContent = fmtMoney(totalCobrado, 'USD');
+  document.getElementById('cc-cobrado-nota').textContent = recibosClienteCache.length === 0
+    ? 'Sin recibos cargados todavía' : `${recibosClienteCache.length} recibo(s) cargado(s)`;
+  const saldoEl = document.getElementById('cc-saldo');
+  saldoEl.textContent = fmtMoney(saldo, 'USD');
+  saldoEl.style.color = saldo > 0.01 ? 'var(--danger)' : 'var(--ok)';
 
   // promedio mensual: sobre los meses que tienen al menos un registro facturado
   const mesesConFactura = new Set(facturados.map(p => (p.periodo_hasta||'').slice(0,7)));
@@ -3527,7 +3623,7 @@ function calcularConciliacion(clienteId, serie){
       const estadoTexto = esNC ? 'Nota de Crédito' : (esFacturado ? 'Facturado' : 'Pendiente');
       const montoTexto = esNC ? `− ${fmtMoney(p.valor_alquiler_usd,'USD')}` : fmtMoney(p.valor_alquiler_usd,'USD');
       return `
-        <div class="panel" style="padding:12px;border-left:3px solid ${estadoColor};background:var(--panel-2);">
+        <div class="panel" style="padding:12px;border-left:3px solid ${estadoColor};background:var(--panel-2);cursor:pointer;" onclick="openEditPendiente(${p.id})" title="Clic para editar/ver este comprobante">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
             <span class="badge" style="color:${estadoColor};border-color:${estadoColor};font-size:10px;">${estadoTexto}</span>
           </div>
