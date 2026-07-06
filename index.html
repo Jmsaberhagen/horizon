@@ -2405,7 +2405,7 @@ function openEditContrato(id){
   document.getElementById('c-obra').value = c.obra || '';
   document.getElementById('c-contacto_obra').value = c.contacto_obra || '';
   document.getElementById('c-observacion').value = c.observacion || '';
-  document.getElementById('c-estado').value = c.estado || 'activo';
+  document.getElementById('c-estado').value = (c.fecha_baja && c.estado === 'activo') ? 'baja' : (c.estado || 'activo');
   document.getElementById('c-fecha_baja').value = c.fecha_baja || '';
   document.getElementById('c-tiene_flete_entrega').checked = !!c.tiene_flete_entrega;
   document.getElementById('c-flete-entrega-box').style.display = c.tiene_flete_entrega ? 'block' : 'none';
