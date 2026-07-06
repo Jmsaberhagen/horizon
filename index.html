@@ -2314,6 +2314,10 @@ function populateSucursalSelectContrato(){
   sel.innerHTML = '<option value="">—</option>' + sucursales.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
 }
 
+document.getElementById('c-fecha_baja').addEventListener('change', (e)=>{
+  if(e.target.value) document.getElementById('c-estado').value = 'baja';
+});
+
 document.getElementById('c-tiene_flete_entrega').addEventListener('change', (e)=>{
   document.getElementById('c-flete-entrega-box').style.display = e.target.checked ? 'block' : 'none';
 });
@@ -3699,13 +3703,14 @@ function renderCuentaClienteCards(){
   const estadoFiltro = document.getElementById('cc-filter-estado').value;
   const pendientesDelCliente = pendientesCache.filter(p => p.contratos?.clientes?.id === cuentaClienteActivaId);
   const filtrados = estadoFiltro ? pendientesDelCliente.filter(p => p.estado === estadoFiltro) : pendientesDelCliente;
+  const contratosDelCliente = contratosCache.filter(c => c.cliente_id === cuentaClienteActivaId && c.equipos?.numero_serie);
 
   const grid = document.getElementById('cc-cards-grid');
   grid.style.display = 'flex';
   grid.style.flexDirection = 'column';
   grid.style.gap = '14px';
 
-  if(filtrados.length === 0){
+  if(filtrados.length === 0 && contratosDelCliente.length === 0){
     grid.innerHTML = '<div class="muted" style="padding:20px;text-align:center;">Sin registros con este filtro.</div>';
     return;
   }
@@ -3719,6 +3724,13 @@ function renderCuentaClienteCards(){
     grupos[serie].items.push(p);
     if(p.estado === 'facturado') grupos[serie].totalFacturado += valorConSigno(p);
     else grupos[serie].totalPendiente += (Number(p.valor_alquiler_usd) || 0);
+  });
+
+  // asegurarnos de que TODOS los contratos del cliente tengan su grupo,
+  // aunque todavía no tengan ningún pendiente/factura cargado
+  contratosDelCliente.forEach(c=>{
+    const serie = c.equipos.numero_serie;
+    if(!grupos[serie]) grupos[serie] = { modelo: c.equipos.modelo || '', items: [], totalFacturado: 0, totalPendiente: 0 };
   });
 
   // ordenar grupos por período más reciente de cada uno
@@ -3780,7 +3792,7 @@ function calcularConciliacion(clienteId, serie){
           ${esFacturado ? `<div class="muted" style="font-size:11px;margin-top:3px;">Emitida: <span style="color:var(--text);">${p.fecha_facturacion ? fmtDate(p.fecha_facturacion) : 'sin registrar'}</span></div>` : ''}
           ${p.contratos?.fecha_salida ? `<div class="muted" style="font-size:11px;margin-top:3px;">Remito (salida): <span style="color:var(--text);">${fmtDate(p.contratos.fecha_salida)}</span></div>` : ''}
         </div>`;
-    }).join('');
+    }).join('') || '<div class="muted" style="padding:10px;font-size:12px;">Sin movimientos facturados todavía.</div>';
 
     const conciliacion = calcularConciliacion(cuentaClienteActivaId, serie);
     let conciliacionHtml = '';
