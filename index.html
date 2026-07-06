@@ -2424,16 +2424,32 @@ document.getElementById('btn-contrato-save').addEventListener('click', async ()=
   };
 
   try{
+    let contratoId = id;
     if(id){
       const { error } = await supabaseClient.from('contratos').update(payload).eq('id', id);
       if(error) throw error;
     } else {
-      const { error } = await supabaseClient.from('contratos').insert(payload);
+      const { data, error } = await supabaseClient.from('contratos').insert(payload).select().single();
       if(error) throw error;
+      contratoId = data.id;
     }
+
+    // si se confirmó "último período facturado", limpiamos pendientes sin facturar
+    // viejos de este contrato (pueden haber quedado mal generados antes de confirmar)
+    // y regeneramos el correcto al instante, sin esperar al próximo login.
+    if(payload.datos_confirmados && contratoId){
+      const { error: errLimpiar } = await supabaseClient
+        .from('pendientes_facturacion')
+        .delete()
+        .eq('contrato_id', contratoId)
+        .eq('estado', 'pendiente');
+      if(errLimpiar) console.error('No se pudieron limpiar pendientes viejos:', errLimpiar);
+    }
+
     showToast('Contrato guardado correctamente');
     closeContratoOverlay();
     await loadContratos();
+    if(payload.datos_confirmados) await autoGenerarPendientesDelMes();
     await refrescarPendientesSiCorresponde();
   } catch(err){
     console.error(err);
