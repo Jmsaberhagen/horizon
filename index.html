@@ -730,6 +730,18 @@
         </table>
       </div>
     </div>
+
+    <div id="panel-herramientas-maestro" style="display:none;margin-top:40px;padding-top:16px;border-top:1px dashed var(--border);">
+      <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">
+        Herramientas avanzadas (solo visible para vos)
+      </div>
+      <button class="btn danger small" id="btn-limpiar-facturas">🧹 Limpiar todas las FC/NC cargadas</button>
+      <div class="muted" style="font-size:11px;margin-top:6px;max-width:520px;">
+        Borra todos los pendientes en estado "facturado" (facturas y notas de crédito) y resetea
+        "último período facturado" en los contratos, para volver a cargar todo desde cero.
+        No toca clientes, equipos, contratos (fechas/precios) ni recibos de cobro.
+      </div>
+    </div>
   </section>
 
   <section id="tab-reportes" style="display:none;">
@@ -3110,6 +3122,7 @@ function aplicarPermisosUI(){
 
   const rol = miPerfil.rol;
   const esMaestroOAdmin = rol === 'maestro' || rol === 'admin';
+  document.getElementById('panel-herramientas-maestro').style.display = (rol === 'maestro') ? 'block' : 'none';
 
   // qué pestañas ve cada rol
   const accesoPorTab = {
@@ -3200,6 +3213,49 @@ document.getElementById('btn-export-usuarios-csv').addEventListener('click', ()=
 document.getElementById('btn-export-usuarios-xls').addEventListener('click', ()=>{
   const { headers, rows } = usuariosToRows(usuariosCache);
   exportXLS('usuarios_horizon', headers, rows);
+});
+
+document.getElementById('btn-limpiar-facturas').addEventListener('click', async ()=>{
+  if(miPerfil?.rol !== 'maestro'){ showToast('Solo el usuario maestro puede usar esta herramienta', true); return; }
+
+  const primeraConfirmacion = confirm(
+    '⚠️ Esto va a BORRAR todas las facturas y notas de crédito cargadas (todos los pendientes en estado "facturado").\n\n' +
+    'Los contratos, clientes, equipos y recibos de cobro NO se tocan.\n\n' +
+    '¿Estás seguro de que querés continuar?'
+  );
+  if(!primeraConfirmacion) return;
+
+  const segundaConfirmacion = prompt('Para confirmar, escribí BORRAR en mayúsculas:');
+  if(segundaConfirmacion !== 'BORRAR'){
+    showToast('Operación cancelada', true);
+    return;
+  }
+
+  try{
+    showToast('Limpiando facturas y notas de crédito...');
+    const { error: errDelete } = await supabaseClient
+      .from('pendientes_facturacion')
+      .delete()
+      .eq('estado', 'facturado');
+    if(errDelete) throw errDelete;
+
+    const { error: errUpdate } = await supabaseClient
+      .from('contratos')
+      .update({ ultimo_periodo_facturado_hasta: null, datos_confirmados: false })
+      .not('id', 'is', null); // update masivo de todas las filas
+    if(errUpdate) throw errUpdate;
+
+    showToast('Listo — facturas/NC borradas y contratos reseteados a "a confirmar"');
+    await loadContratos();
+    await loadPendientes();
+    populateReportesFiltros();
+    renderReportes();
+    renderDashboard();
+    if(cuentaClienteActivaId) renderCuentaClienteCards();
+  } catch(err){
+    console.error(err);
+    showToast('Error al limpiar: ' + err.message, true);
+  }
 });
 
 async function loadUsuarios(){
