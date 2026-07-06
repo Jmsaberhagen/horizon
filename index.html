@@ -1316,8 +1316,20 @@
       </div>
     </div>
 
-    <div id="p-flete-warning" style="display:none;background:rgba(56,189,248,0.1);border:1px solid var(--accent-dim);border-radius:var(--radius);padding:12px;margin-top:16px;font-size:13px;">
-      🚚 <strong>Este contrato tiene flete adicional.</strong> Agregar un segundo ítem en la factura por <span id="p-flete-monto" style="color:var(--accent);font-weight:700;"></span>.
+    <div id="p-flete-entrega-warning" style="display:none;background:rgba(56,189,248,0.1);border:1px solid var(--accent-dim);border-radius:var(--radius);padding:12px;margin-top:16px;font-size:13px;">
+      🚚 <strong>Flete de entrega sin facturar todavía.</strong> Agregar un segundo ítem en esta factura por <span id="p-flete-entrega-monto" style="color:var(--accent);font-weight:700;"></span>.
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;text-transform:none;">
+        <input type="checkbox" id="p-flete_entrega_incluido" style="width:auto;">
+        Ya lo incluí en esta factura (no volver a avisar)
+      </label>
+    </div>
+
+    <div id="p-flete-retiro-warning" style="display:none;background:rgba(255,159,67,0.1);border:1px solid #ff9f43;border-radius:var(--radius);padding:12px;margin-top:16px;font-size:13px;">
+      🚚 <strong>Flete de retiro sin facturar todavía.</strong> Si esta es la última factura del contrato, agregar un ítem por <span id="p-flete-retiro-monto" style="color:#ff9f43;font-weight:700;"></span>.
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;text-transform:none;">
+        <input type="checkbox" id="p-flete_retiro_incluido" style="width:auto;">
+        Ya lo incluí en esta factura (no volver a avisar)
+      </label>
     </div>
 
     <div id="p-cert-warning" style="display:none;background:rgba(255,92,92,0.1);border:1px solid var(--danger);border-radius:var(--radius);padding:12px;margin-top:16px;font-size:13px;">
@@ -1475,15 +1487,31 @@
 
         <div class="field full" style="background:var(--panel-2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;">
           <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:13px;color:var(--text);">
-            <input type="checkbox" id="c-tiene_flete" style="width:auto;">
-            Tiene costo de flete/envío adicional
+            <input type="checkbox" id="c-tiene_flete_entrega" style="width:auto;">
+            Flete de entrega (se cobra una sola vez, en la primera factura)
           </label>
-          <div id="c-flete-box" style="display:none;margin-top:10px;">
-            <label>Costo de flete (USD)</label>
-            <input type="number" step="0.01" id="c-costo_flete" placeholder="0.00">
-            <div class="muted" style="font-size:11px;margin-top:4px;">
-              El facturador va a ver un aviso para agregar un segundo ítem en la factura por este concepto.
-            </div>
+          <div id="c-flete-entrega-box" style="display:none;margin-top:10px;">
+            <label>Costo de flete de entrega (USD)</label>
+            <input type="number" step="0.01" id="c-costo_flete_entrega" placeholder="0.00">
+            <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:12px;color:var(--text-dim);margin-top:8px;">
+              <input type="checkbox" id="c-flete_entrega_facturado" style="width:auto;">
+              Ya se facturó (no volver a avisar)
+            </label>
+          </div>
+        </div>
+
+        <div class="field full" style="background:var(--panel-2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;">
+          <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:13px;color:var(--text);">
+            <input type="checkbox" id="c-tiene_flete_retiro" style="width:auto;">
+            Flete de retiro (se cobra una sola vez, al recuperar la máquina)
+          </label>
+          <div id="c-flete-retiro-box" style="display:none;margin-top:10px;">
+            <label>Costo de flete de retiro (USD)</label>
+            <input type="number" step="0.01" id="c-costo_flete_retiro" placeholder="0.00">
+            <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:12px;color:var(--text-dim);margin-top:8px;">
+              <input type="checkbox" id="c-flete_retiro_facturado" style="width:auto;">
+              Ya se facturó (no volver a avisar)
+            </label>
           </div>
         </div>
 
@@ -2137,7 +2165,7 @@ function renderContratos(list){
     return `
       <tr>
         <td>${escapeHtml(cliente)}${c.datos_confirmados ? '' : ' <span class="badge" style="color:#ff9f43;border-color:#ff9f43;" title="Falta confirmar periodicidad / último período facturado">⚠ a confirmar</span>'}</td>
-        <td class="muted">${escapeHtml(equipo)}${c.tiene_flete ? ` <span class="badge" style="color:var(--accent);border-color:var(--accent-dim);" title="Flete adicional: ${fmtMoney(c.costo_flete,'USD')}">🚚 flete</span>` : ''}</td>
+        <td class="muted">${escapeHtml(equipo)}${c.tiene_flete_entrega && !c.flete_entrega_facturado ? ` <span class="badge" style="color:var(--accent);border-color:var(--accent-dim);" title="Flete de entrega sin facturar: ${fmtMoney(c.costo_flete_entrega,'USD')}">🚚 entrega</span>` : ''}${c.tiene_flete_retiro && !c.flete_retiro_facturado ? ` <span class="badge" style="color:#ff9f43;border-color:#ff9f43;" title="Flete de retiro sin facturar: ${fmtMoney(c.costo_flete_retiro,'USD')}">🚚 retiro</span>` : ''}</td>
         <td>${sucursal !== '—' ? `<span class="badge">${sucursal}</span>` : '—'}</td>
         <td class="muted">${fmtDate(c.fecha_salida)} → ${fmtDate(c.fecha_vencimiento)}</td>
         <td class="muted">${fmtMoney(precio, c.moneda)}</td>
@@ -2180,13 +2208,14 @@ document.getElementById('contrato-filter-estado').addEventListener('change', app
 document.getElementById('contrato-filter-confirmado').addEventListener('change', applyContratoFilters);
 
 function contratosToRows(list){
-  const headers = ['Cliente','Equipo N Serie','Sucursal','Periodicidad','Fecha Salida','Fecha Vencimiento','Ultimo Periodo Facturado','Confirmado','Moneda','Precio Mensual','Tiene Flete','Costo Flete','Orden Compra','Obra','Estado'];
+  const headers = ['Cliente','Equipo N Serie','Sucursal','Periodicidad','Fecha Salida','Fecha Vencimiento','Ultimo Periodo Facturado','Confirmado','Moneda','Precio Mensual','Flete Entrega','Costo Flete Entrega','Flete Entrega Facturado','Flete Retiro','Costo Flete Retiro','Flete Retiro Facturado','Orden Compra','Obra','Estado'];
   const rows = list.map(c => [
     c.clientes?.razon_social || '', c.equipos?.numero_serie || '', c.sucursales?.nombre || '',
     c.periodicidad || '', c.fecha_salida || '', c.fecha_vencimiento || '',
     c.ultimo_periodo_facturado_hasta || '', c.datos_confirmados ? 'SI' : 'NO', c.moneda,
     c.precio_mensual_con_descuento ?? c.precio_mensual_sin_descuento ?? '',
-    c.tiene_flete ? 'SI' : 'NO', c.costo_flete ?? '',
+    c.tiene_flete_entrega ? 'SI' : 'NO', c.costo_flete_entrega ?? '', c.flete_entrega_facturado ? 'SI' : 'NO',
+    c.tiene_flete_retiro ? 'SI' : 'NO', c.costo_flete_retiro ?? '', c.flete_retiro_facturado ? 'SI' : 'NO',
     c.orden_de_compra || '', c.obra || '', c.estado,
   ]);
   return { headers, rows };
@@ -2285,14 +2314,18 @@ function populateSucursalSelectContrato(){
   sel.innerHTML = '<option value="">—</option>' + sucursales.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
 }
 
-document.getElementById('c-tiene_flete').addEventListener('change', (e)=>{
-  document.getElementById('c-flete-box').style.display = e.target.checked ? 'block' : 'none';
+document.getElementById('c-tiene_flete_entrega').addEventListener('change', (e)=>{
+  document.getElementById('c-flete-entrega-box').style.display = e.target.checked ? 'block' : 'none';
+});
+document.getElementById('c-tiene_flete_retiro').addEventListener('change', (e)=>{
+  document.getElementById('c-flete-retiro-box').style.display = e.target.checked ? 'block' : 'none';
 });
 
 function resetContratoForm(){
   ['id','cliente_id','equipo_id','remito','fecha_salida','fecha_vencimiento',
    'porcentaje_descuento','precio_sin_descuento','precio_con_descuento',
-   'orden_de_compra','obra','contacto_obra','observacion','fecha_baja','costo_flete',
+   'orden_de_compra','obra','contacto_obra','observacion','fecha_baja',
+   'costo_flete_entrega','costo_flete_retiro',
    'ultimo_periodo_facturado_hasta']
    .forEach(f => { const el = document.getElementById('c-'+f); if(el) el.value = ''; });
   document.getElementById('c-porcentaje_descuento').value = 0;
@@ -2300,8 +2333,12 @@ function resetContratoForm(){
   document.getElementById('c-estado').value = 'activo';
   document.getElementById('c-periodicidad').value = 'mensual';
   document.getElementById('c-sucursal_id').value = '';
-  document.getElementById('c-tiene_flete').checked = false;
-  document.getElementById('c-flete-box').style.display = 'none';
+  document.getElementById('c-tiene_flete_entrega').checked = false;
+  document.getElementById('c-flete-entrega-box').style.display = 'none';
+  document.getElementById('c-flete_entrega_facturado').checked = false;
+  document.getElementById('c-tiene_flete_retiro').checked = false;
+  document.getElementById('c-flete-retiro-box').style.display = 'none';
+  document.getElementById('c-flete_retiro_facturado').checked = false;
   document.getElementById('contrato-paso2').style.display = 'none';
   document.getElementById('btn-toggle-paso2').textContent = '▾ Mostrar detalles para confirmar (periodicidad, TC, último período facturado...)';
   clienteSearchInput.value = '';
@@ -2366,9 +2403,14 @@ function openEditContrato(id){
   document.getElementById('c-observacion').value = c.observacion || '';
   document.getElementById('c-estado').value = c.estado || 'activo';
   document.getElementById('c-fecha_baja').value = c.fecha_baja || '';
-  document.getElementById('c-tiene_flete').checked = !!c.tiene_flete;
-  document.getElementById('c-flete-box').style.display = c.tiene_flete ? 'block' : 'none';
-  document.getElementById('c-costo_flete').value = c.costo_flete ?? '';
+  document.getElementById('c-tiene_flete_entrega').checked = !!c.tiene_flete_entrega;
+  document.getElementById('c-flete-entrega-box').style.display = c.tiene_flete_entrega ? 'block' : 'none';
+  document.getElementById('c-costo_flete_entrega').value = c.costo_flete_entrega ?? '';
+  document.getElementById('c-flete_entrega_facturado').checked = !!c.flete_entrega_facturado;
+  document.getElementById('c-tiene_flete_retiro').checked = !!c.tiene_flete_retiro;
+  document.getElementById('c-flete-retiro-box').style.display = c.tiene_flete_retiro ? 'block' : 'none';
+  document.getElementById('c-costo_flete_retiro').value = c.costo_flete_retiro ?? '';
+  document.getElementById('c-flete_retiro_facturado').checked = !!c.flete_retiro_facturado;
   document.getElementById('c-periodicidad').value = c.periodicidad || 'mensual';
   document.getElementById('c-ultimo_periodo_facturado_hasta').value = c.ultimo_periodo_facturado_hasta || '';
 
@@ -2415,9 +2457,14 @@ document.getElementById('btn-contrato-save').addEventListener('click', async ()=
     contacto_obra: document.getElementById('c-contacto_obra').value.trim() || null,
     observacion: document.getElementById('c-observacion').value.trim() || null,
     estado: document.getElementById('c-estado').value,
-    tiene_flete: document.getElementById('c-tiene_flete').checked,
-    costo_flete: document.getElementById('c-tiene_flete').checked && document.getElementById('c-costo_flete').value
-      ? Number(document.getElementById('c-costo_flete').value) : null,
+    tiene_flete_entrega: document.getElementById('c-tiene_flete_entrega').checked,
+    costo_flete_entrega: document.getElementById('c-tiene_flete_entrega').checked && document.getElementById('c-costo_flete_entrega').value
+      ? Number(document.getElementById('c-costo_flete_entrega').value) : null,
+    flete_entrega_facturado: document.getElementById('c-flete_entrega_facturado').checked,
+    tiene_flete_retiro: document.getElementById('c-tiene_flete_retiro').checked,
+    costo_flete_retiro: document.getElementById('c-tiene_flete_retiro').checked && document.getElementById('c-costo_flete_retiro').value
+      ? Number(document.getElementById('c-costo_flete_retiro').value) : null,
+    flete_retiro_facturado: document.getElementById('c-flete_retiro_facturado').checked,
     periodicidad: document.getElementById('c-periodicidad').value,
     ultimo_periodo_facturado_hasta: document.getElementById('c-ultimo_periodo_facturado_hasta').value || null,
     datos_confirmados: !!document.getElementById('c-ultimo_periodo_facturado_hasta').value,
@@ -2504,7 +2551,9 @@ async function loadPendientes(){
     const { data, error } = await supabaseClient
       .from('pendientes_facturacion')
       .select(`*, contratos(
-          id, moneda, cliente_id, tiene_flete, costo_flete, fecha_salida,
+          id, moneda, cliente_id, fecha_salida,
+          tiene_flete_entrega, costo_flete_entrega, flete_entrega_facturado,
+          tiene_flete_retiro, costo_flete_retiro, flete_retiro_facturado,
           clientes(id, razon_social, provincia),
           equipos(numero_serie, modelo),
           sucursales(id, nombre)
@@ -2561,7 +2610,7 @@ function renderPendientes(list){
     return `
       <tr>
         <td>${escapeHtml(cliente)}</td>
-        <td class="muted">${escapeHtml(equipo)}${p.contratos?.tiene_flete ? ` <span class="badge" style="color:var(--accent);border-color:var(--accent-dim);" title="Agregar 2° ítem por flete: ${fmtMoney(p.contratos.costo_flete,'USD')}">🚚 flete</span>` : ''}</td>
+        <td class="muted">${escapeHtml(equipo)}${p.contratos?.tiene_flete_entrega && !p.contratos?.flete_entrega_facturado ? ` <span class="badge" style="color:var(--accent);border-color:var(--accent-dim);" title="Flete de entrega sin facturar: ${fmtMoney(p.contratos.costo_flete_entrega,'USD')}">🚚 entrega</span>` : ''}${p.contratos?.tiene_flete_retiro && !p.contratos?.flete_retiro_facturado ? ` <span class="badge" style="color:#ff9f43;border-color:#ff9f43;" title="Flete de retiro sin facturar: ${fmtMoney(p.contratos.costo_flete_retiro,'USD')}">🚚 retiro</span>` : ''}</td>
         <td>${sucursal !== '—' ? `<span class="badge">${sucursal}</span>` : '—'}</td>
         <td class="muted">${fmtDate(p.periodo_desde)} → ${fmtDate(p.periodo_hasta)}</td>
         <td class="muted">${p.valor_alquiler_usd ? fmtMoney(p.valor_alquiler_usd, 'USD') : fmtMoney(p.potencial_facturacion, 'ARS')}</td>
@@ -2738,20 +2787,32 @@ contratoResultsBox.addEventListener('click', (e)=>{
 
   const contrato = contratosCache.find(c => c.id === Number(item.dataset.id));
   renderRequisitosChecklist(contrato?.clientes?.id);
-  mostrarAvisoFlete(contrato?.tiene_flete, contrato?.costo_flete);
+  mostrarAvisoFlete(contrato);
   mostrarAvisoCertificados(contrato?.cliente_id);
 });
 document.addEventListener('click', (e)=>{
   if(!e.target.closest('#p-contrato-search') && !e.target.closest('#p-contrato-results')) contratoResultsBox.classList.remove('open');
 });
 
-function mostrarAvisoFlete(tieneFlete, costoFlete){
-  const box = document.getElementById('p-flete-warning');
-  if(tieneFlete){
-    document.getElementById('p-flete-monto').textContent = fmtMoney(costoFlete, 'USD');
-    box.style.display = 'block';
+function mostrarAvisoFlete(contrato){
+  const boxEntrega = document.getElementById('p-flete-entrega-warning');
+  const chkEntrega = document.getElementById('p-flete_entrega_incluido');
+  if(contrato?.tiene_flete_entrega && !contrato?.flete_entrega_facturado){
+    document.getElementById('p-flete-entrega-monto').textContent = fmtMoney(contrato.costo_flete_entrega, 'USD');
+    boxEntrega.style.display = 'block';
+    chkEntrega.checked = false;
   } else {
-    box.style.display = 'none';
+    boxEntrega.style.display = 'none';
+  }
+
+  const boxRetiro = document.getElementById('p-flete-retiro-warning');
+  const chkRetiro = document.getElementById('p-flete_retiro_incluido');
+  if(contrato?.tiene_flete_retiro && !contrato?.flete_retiro_facturado){
+    document.getElementById('p-flete-retiro-monto').textContent = fmtMoney(contrato.costo_flete_retiro, 'USD');
+    boxRetiro.style.display = 'block';
+    chkRetiro.checked = false;
+  } else {
+    boxRetiro.style.display = 'none';
   }
 }
 
@@ -2785,7 +2846,8 @@ function resetPendienteForm(){
   document.getElementById('p-estado').value = 'pendiente';
   document.getElementById('p-requisitos-box').style.display = 'none';
   document.getElementById('p-requisitos-list').innerHTML = '';
-  document.getElementById('p-flete-warning').style.display = 'none';
+  document.getElementById('p-flete-entrega-warning').style.display = 'none';
+  document.getElementById('p-flete-retiro-warning').style.display = 'none';
   document.getElementById('p-cert-warning').style.display = 'none';
 }
 
@@ -2826,7 +2888,7 @@ function openEditPendiente(id){
   document.getElementById('p-numero_factura').value = p.numero_factura || '';
 
   renderRequisitosChecklist(p.contratos?.clientes?.id);
-  mostrarAvisoFlete(p.contratos?.tiene_flete, p.contratos?.costo_flete);
+  mostrarAvisoFlete(p.contratos);
   mostrarAvisoCertificados(p.contratos?.clientes?.id);
   document.getElementById('modal-pendiente-overlay').classList.add('open');
 }
@@ -2882,9 +2944,22 @@ document.getElementById('btn-pendiente-save').addEventListener('click', async ()
       const { error } = await supabaseClient.from('pendientes_facturacion').insert(payload);
       if(error) throw error;
     }
+
+    // si se tildaron los checkboxes de flete, marcamos el contrato para no volver a avisar
+    if(estado === 'facturado'){
+      const fleteUpdates = {};
+      if(document.getElementById('p-flete_entrega_incluido').checked) fleteUpdates.flete_entrega_facturado = true;
+      if(document.getElementById('p-flete_retiro_incluido').checked) fleteUpdates.flete_retiro_facturado = true;
+      if(Object.keys(fleteUpdates).length > 0){
+        const { error: errFlete } = await supabaseClient.from('contratos').update(fleteUpdates).eq('id', Number(contratoId));
+        if(errFlete) console.error('No se pudo actualizar el estado de flete del contrato:', errFlete);
+      }
+    }
+
     showToast('Pendiente guardado correctamente');
     document.getElementById('modal-pendiente-overlay').classList.remove('open');
     contratoSearchInput.disabled = false;
+    await loadContratos();
     await loadPendientes();
     populateReportesFiltros();
     renderReportes();
