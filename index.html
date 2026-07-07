@@ -916,6 +916,16 @@
         </select>
       </div>
       <div class="dash-grid" id="cc-cards-grid" style="grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));"></div>
+
+      <div style="display:flex;align-items:center;gap:12px;margin:28px 0 10px 0;flex-wrap:wrap;">
+        <div style="font-size:13px;font-weight:700;">📄 Facturas (PDF) — con texto extraído por OCR</div>
+        <div style="flex:1"></div>
+        <input type="text" id="cc-pdf-search" placeholder="Buscar por N° factura o texto..." style="max-width:220px;">
+        <input type="file" id="cc-pdf-file" accept="application/pdf" style="max-width:220px;">
+        <button class="btn secondary small" id="btn-subir-factura-pdf">Subir PDF</button>
+      </div>
+      <div class="muted" id="cc-pdf-status" style="font-size:12px;margin-bottom:10px;"></div>
+      <div class="dash-grid" id="cc-pdf-grid" style="grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));"></div>
     </div>
   </section>
 
@@ -1085,6 +1095,46 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- MODAL FACTURA PDF (revisión de datos OCR) -->
+<div class="overlay" id="modal-factura-pdf-overlay">
+  <div class="modal">
+    <h2>Factura (PDF)</h2>
+    <input type="hidden" id="fp-id">
+    <div class="muted" id="fp-archivo-nombre" style="font-size:12px;margin-bottom:14px;"></div>
+    <a id="fp-ver-pdf" href="#" target="_blank" class="btn secondary small" style="text-decoration:none;display:inline-block;margin-bottom:14px;">Ver / descargar PDF</a>
+
+    <div class="field-grid">
+      <div class="field">
+        <label>N° de factura (detectado por OCR)</label>
+        <input type="text" id="fp-numero_factura">
+      </div>
+      <div class="field">
+        <label>Fecha de emisión (detectada por OCR)</label>
+        <input type="date" id="fp-fecha_emision">
+      </div>
+      <div class="field full">
+        <label>Monto (detectado por OCR)</label>
+        <input type="number" step="0.01" id="fp-monto">
+      </div>
+      <div class="field full">
+        <label>Texto completo extraído (para búsqueda futura)</label>
+        <textarea id="fp-texto_extraido" rows="6" style="font-family:monospace;font-size:11px;"></textarea>
+      </div>
+      <div class="field full">
+        <label>Observación</label>
+        <input type="text" id="fp-observacion">
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn secondary" id="btn-factura-pdf-cancel">Cerrar</button>
+      <button class="btn danger" id="btn-factura-pdf-delete">Eliminar</button>
+      <button class="btn" id="btn-factura-pdf-save">Guardar</button>
+    </div>
+  </div>
+</div>
+
 
 <!-- MODAL RECIBO DE COBRO -->
 <div class="overlay" id="modal-recibo-overlay">
@@ -1532,6 +1582,8 @@
 
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
 // =========================================================
 // CONFIGURACIÓN — completar con los datos de tu proyecto Supabase
@@ -3649,6 +3701,10 @@ async function mostrarCuentaCliente(clienteId){
   document.getElementById('cc-promedio').textContent = fmtMoney(promedio, 'USD');
   document.getElementById('cc-contratos-activos').textContent = contratosActivos;
 
+  document.getElementById('cc-pdf-search').value = '';
+  await loadFacturasPdfCliente(clienteId);
+  renderFacturasPdfGrid();
+
   // ---------- evolución mes a mes ----------
   const porMes = {};
   pendientesDelCliente.forEach(p=>{
@@ -4307,6 +4363,183 @@ document.getElementById('btn-parada-save').addEventListener('click', async ()=>{
   } catch(err){
     console.error(err);
     showToast('Error al guardar: ' + err.message, true);
+  }
+});
+
+// =========================================================
+// MÓDULO FACTURAS PDF (con OCR)
+// =========================================================
+
+let facturasPdfCache = [];
+let pdfWorkerConfigurado = false;
+
+function asegurarPdfWorker(){
+  if(pdfWorkerConfigurado) return;
+  if(window.pdfjsLib){
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    pdfWorkerConfigurado = true;
+  }
+}
+
+async function loadFacturasPdfCliente(clienteId){
+  const { data, error } = await supabaseClient
+    .from('facturas_pdf')
+    .select('*')
+    .eq('cliente_id', clienteId)
+    .order('created_at', { ascending: false });
+  if(error){ console.error('Error cargando facturas_pdf:', error); facturasPdfCache = []; return; }
+  facturasPdfCache = data;
+}
+
+function renderFacturasPdfGrid(){
+  const q = document.getElementById('cc-pdf-search').value.trim().toLowerCase();
+  const grid = document.getElementById('cc-pdf-grid');
+  let lista = facturasPdfCache;
+  if(q){
+    lista = lista.filter(f =>
+      (f.numero_factura||'').toLowerCase().includes(q) ||
+      (f.texto_extraido||'').toLowerCase().includes(q)
+    );
+  }
+  if(lista.length === 0){
+    grid.innerHTML = '<div class="muted" style="grid-column:1/-1;padding:14px;font-size:12px;">Todavía no hay facturas en PDF cargadas para este cliente.</div>';
+    return;
+  }
+  grid.innerHTML = lista.map(f => `
+    <div class="panel" style="padding:12px;cursor:pointer;" onclick="abrirFacturaPdf(${f.id})">
+      <div style="font-size:15px;font-weight:700;color:var(--accent);">${escapeHtml(f.numero_factura || 'N° sin detectar')}</div>
+      <div class="muted" style="font-size:11px;margin-top:4px;">${f.fecha_emision ? fmtDate(f.fecha_emision) : 'Fecha sin detectar'}</div>
+      <div class="muted" style="font-size:12px;margin-top:4px;">${f.monto ? fmtMoney(f.monto,'USD') : ''}</div>
+      <div class="muted" style="font-size:10px;margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(f.archivo_nombre)}</div>
+    </div>`).join('');
+}
+
+document.getElementById('cc-pdf-search').addEventListener('input', renderFacturasPdfGrid);
+
+document.getElementById('btn-subir-factura-pdf').addEventListener('click', async ()=>{
+  if(!cuentaClienteActivaId){ showToast('Buscá un cliente primero', true); return; }
+  const fileInput = document.getElementById('cc-pdf-file');
+  const file = fileInput.files[0];
+  if(!file){ showToast('Seleccioná un archivo PDF', true); return; }
+  if(file.type !== 'application/pdf'){ showToast('El archivo debe ser un PDF', true); return; }
+
+  const statusEl = document.getElementById('cc-pdf-status');
+  try{
+    // ---------- 1. Subir el PDF a Storage ----------
+    statusEl.textContent = 'Subiendo PDF...';
+    const path = `cliente_${cuentaClienteActivaId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_')}`;
+    const { error: uploadError } = await supabaseClient.storage.from('facturas-pdf').upload(path, file);
+    if(uploadError) throw uploadError;
+    const { data: urlData } = supabaseClient.storage.from('facturas-pdf').getPublicUrl(path);
+
+    // ---------- 2. Renderizar la 1ra página del PDF como imagen ----------
+    statusEl.textContent = 'Leyendo PDF...';
+    asegurarPdfWorker();
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 2.2 });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+
+    // ---------- 3. Correr OCR sobre la imagen ----------
+    statusEl.textContent = 'Extrayendo texto (OCR)... esto puede tardar unos segundos';
+    const { data: { text } } = await window.Tesseract.recognize(canvas, 'spa');
+
+    // ---------- 4. Intentar detectar N° factura / fecha / monto ----------
+    const matchNumero = text.match(/\b([FN][CD]A?-?\d{4}-?\d{6,8})\b/i);
+    const matchFecha = text.match(/\b(\d{2})[\/\-](\d{2})[\/\-](\d{4})\b/);
+    const matchMonto = text.match(/(?:U\$S|USD|\$)\s?([\d.,]{4,})/i);
+
+    let fechaISOdetectada = null;
+    if(matchFecha){
+      const [, dd, mm, yyyy] = matchFecha;
+      fechaISOdetectada = `${yyyy}-${mm}-${dd}`;
+    }
+    let montoDetectado = null;
+    if(matchMonto){
+      montoDetectado = parseFloat(matchMonto[1].replace(/\./g,'').replace(',','.'));
+    }
+
+    // ---------- 5. Guardar todo en la base ----------
+    statusEl.textContent = 'Guardando...';
+    const { error: insertError } = await supabaseClient.from('facturas_pdf').insert({
+      cliente_id: cuentaClienteActivaId,
+      archivo_nombre: file.name,
+      archivo_url: urlData.publicUrl,
+      numero_factura: matchNumero ? matchNumero[1].toUpperCase() : null,
+      fecha_emision: fechaISOdetectada,
+      monto: montoDetectado,
+      texto_extraido: text,
+    });
+    if(insertError) throw insertError;
+
+    statusEl.textContent = '';
+    fileInput.value = '';
+    showToast('PDF subido y procesado con OCR correctamente');
+    await loadFacturasPdfCliente(cuentaClienteActivaId);
+    renderFacturasPdfGrid();
+  } catch(err){
+    console.error(err);
+    statusEl.textContent = '';
+    showToast('Error al procesar el PDF: ' + err.message, true);
+  }
+});
+
+function abrirFacturaPdf(id){
+  const f = facturasPdfCache.find(x => x.id === id);
+  if(!f) return;
+  document.getElementById('fp-id').value = f.id;
+  document.getElementById('fp-archivo-nombre').textContent = f.archivo_nombre;
+  document.getElementById('fp-ver-pdf').href = f.archivo_url;
+  document.getElementById('fp-numero_factura').value = f.numero_factura || '';
+  document.getElementById('fp-fecha_emision').value = f.fecha_emision || '';
+  document.getElementById('fp-monto').value = f.monto ?? '';
+  document.getElementById('fp-texto_extraido').value = f.texto_extraido || '';
+  document.getElementById('fp-observacion').value = f.observacion || '';
+  document.getElementById('modal-factura-pdf-overlay').classList.add('open');
+}
+document.getElementById('btn-factura-pdf-cancel').addEventListener('click', ()=>{
+  document.getElementById('modal-factura-pdf-overlay').classList.remove('open');
+});
+document.getElementById('modal-factura-pdf-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'modal-factura-pdf-overlay') document.getElementById('modal-factura-pdf-overlay').classList.remove('open');
+});
+document.getElementById('btn-factura-pdf-save').addEventListener('click', async ()=>{
+  const id = document.getElementById('fp-id').value;
+  try{
+    const { error } = await supabaseClient.from('facturas_pdf').update({
+      numero_factura: document.getElementById('fp-numero_factura').value.trim() || null,
+      fecha_emision: document.getElementById('fp-fecha_emision').value || null,
+      monto: document.getElementById('fp-monto').value ? Number(document.getElementById('fp-monto').value) : null,
+      texto_extraido: document.getElementById('fp-texto_extraido').value || null,
+      observacion: document.getElementById('fp-observacion').value.trim() || null,
+    }).eq('id', id);
+    if(error) throw error;
+    showToast('Factura actualizada');
+    document.getElementById('modal-factura-pdf-overlay').classList.remove('open');
+    await loadFacturasPdfCliente(cuentaClienteActivaId);
+    renderFacturasPdfGrid();
+  } catch(err){
+    console.error(err);
+    showToast('Error al guardar: ' + err.message, true);
+  }
+});
+document.getElementById('btn-factura-pdf-delete').addEventListener('click', async ()=>{
+  const id = document.getElementById('fp-id').value;
+  if(!confirm('¿Eliminar este PDF y su texto extraído?')) return;
+  try{
+    const { error } = await supabaseClient.from('facturas_pdf').delete().eq('id', id);
+    if(error) throw error;
+    showToast('Factura eliminada');
+    document.getElementById('modal-factura-pdf-overlay').classList.remove('open');
+    await loadFacturasPdfCliente(cuentaClienteActivaId);
+    renderFacturasPdfGrid();
+  } catch(err){
+    console.error(err);
+    showToast('Error al eliminar: ' + err.message, true);
   }
 });
 
