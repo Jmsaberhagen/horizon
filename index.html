@@ -511,6 +511,7 @@
   <button data-tab="pendientes">Pendientes de Facturación</button>
   <button data-tab="reportes">Reportes</button>
   <button data-tab="cuentacliente">Cuenta Cliente</button>
+  <button data-tab="enviofacturas">Envío de Facturas</button>
   <button data-tab="planning">Planning</button>
   <button data-tab="usuarios" id="nav-usuarios" style="display:none;">Usuarios</button>
 </nav>
@@ -929,6 +930,38 @@
     </div>
   </section>
 
+  <section id="tab-enviofacturas" style="display:none;">
+    <div class="toolbar" style="flex-wrap:wrap;">
+      <input type="text" id="ef-search" placeholder="Buscar por cliente o N° de factura...">
+      <select id="ef-filter-estado">
+        <option value="pendiente">Sin enviar</option>
+        <option value="enviada">Ya enviadas</option>
+        <option value="">Todas</option>
+      </select>
+    </div>
+
+    <div class="panel">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>N° Factura</th>
+              <th>Emisión</th>
+              <th>Monto</th>
+              <th>Estado de envío</th>
+              <th style="width:140px;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="ef-tbody">
+            <tr><td colspan="6" class="empty-state">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="muted" id="ef-results-count" style="margin-top:10px;font-size:12px;"></div>
+  </section>
+
   <section id="tab-planning" style="display:none;">
     <div class="toolbar" style="flex-wrap:wrap;">
       <input type="date" id="plan-desde">
@@ -1095,6 +1128,35 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- MODAL REGISTRAR ENVÍO DE FACTURA -->
+<div class="overlay" id="modal-envio-overlay">
+  <div class="modal">
+    <h2>Registrar envío</h2>
+    <input type="hidden" id="ev-factura_pdf_id">
+    <div class="muted" id="ev-factura-info" style="font-size:12px;margin-bottom:14px;"></div>
+    <div class="field-grid">
+      <div class="field">
+        <label>Fecha de envío *</label>
+        <input type="date" id="ev-fecha_envio">
+      </div>
+      <div class="field">
+        <label>Email de destino *</label>
+        <input type="email" id="ev-email_destino">
+      </div>
+      <div class="field full">
+        <label>Observación</label>
+        <input type="text" id="ev-observacion" placeholder="Ej: reenviado por pedido del cliente">
+      </div>
+    </div>
+    <div id="ev-historial-box" style="margin-top:16px;"></div>
+    <div class="modal-actions">
+      <button class="btn secondary" id="btn-envio-cancel">Cerrar</button>
+      <button class="btn" id="btn-envio-save">Registrar envío</button>
+    </div>
+  </div>
+</div>
+
 
 <!-- MODAL FACTURA PDF (revisión de datos OCR) -->
 <div class="overlay" id="modal-factura-pdf-overlay">
@@ -1687,6 +1749,7 @@ const TAB_TITLES = {
   usuarios: 'Usuarios',
   reportes: 'Reportes',
   cuentacliente: 'Cuenta Cliente',
+  enviofacturas: 'Envío de Facturas',
   planning: 'Planning',
 };
 
@@ -3279,6 +3342,7 @@ function aplicarPermisosUI(){
     pendientes: ['maestro','admin','finanzas'],
     reportes:   ['maestro','admin','finanzas'],
     cuentacliente: ['maestro','admin','finanzas'],
+    enviofacturas: ['maestro','admin','finanzas'],
     planning:   ['maestro','admin','comercial','servicios','finanzas'],
   };
 
@@ -3551,6 +3615,7 @@ function renderDashboard(){
     pendientes: ['maestro','admin','finanzas'],
     reportes:   ['maestro','admin','finanzas'],
     cuentacliente: ['maestro','admin','finanzas'],
+    enviofacturas: ['maestro','admin','finanzas'],
     planning:   ['maestro','admin','comercial','servicios','finanzas'],
   };
 
@@ -3561,6 +3626,7 @@ function renderDashboard(){
     { tab:'pendientes', icon:'💰', title:'Pendientes de Facturación', count: accesoPorTab.pendientes.includes(rol) ? `${pendientesCache.filter(p=>p.estado==='pendiente').length} sin facturar` : '', visible:accesoPorTab.pendientes.includes(rol) },
     { tab:'reportes',   icon:'📊', title:'Reportes',   count:'Mora y facturación', visible:accesoPorTab.reportes.includes(rol) },
     { tab:'cuentacliente', icon:'🧾', title:'Cuenta Cliente', count:'Historial por cliente', visible:accesoPorTab.cuentacliente.includes(rol) },
+    { tab:'enviofacturas', icon:'📧', title:'Envío de Facturas', count: accesoPorTab.enviofacturas.includes(rol) ? `${todasFacturasPdfCache.filter(f=>!f._enviada).length} sin enviar` : '', visible:accesoPorTab.enviofacturas.includes(rol) },
     { tab:'planning',   icon:'📅', title:'Planning',   count:'Ocupación de flota', visible:accesoPorTab.planning.includes(rol) },
     { tab:'usuarios',   icon:'👤', title:'Usuarios',   count:`${usuariosCache.length} cuentas`, visible:esMaestroOAdmin },
   ];
@@ -4481,6 +4547,10 @@ document.getElementById('btn-subir-factura-pdf').addEventListener('click', async
     showToast('PDF subido y procesado con OCR correctamente');
     await loadFacturasPdfCliente(cuentaClienteActivaId);
     renderFacturasPdfGrid();
+    if(['maestro','admin','finanzas'].includes(miPerfil?.rol)){
+      await loadTodasFacturasParaEnvio();
+      renderDashboard();
+    }
   } catch(err){
     console.error(err);
     statusEl.textContent = '';
@@ -4543,6 +4613,145 @@ document.getElementById('btn-factura-pdf-delete').addEventListener('click', asyn
   }
 });
 
+// =========================================================
+// MÓDULO ENVÍO DE FACTURAS (cobranza)
+// =========================================================
+
+let todasFacturasPdfCache = [];
+let todosEnviosCache = [];
+
+async function loadTodasFacturasParaEnvio(){
+  const { data: facturas, error } = await supabaseClient
+    .from('facturas_pdf')
+    .select('*, clientes(razon_social, mail_envio_factura)')
+    .order('created_at', { ascending: false });
+  if(error){ console.error('Error cargando facturas_pdf (global):', error); return; }
+
+  const { data: envios, error: errEnvios } = await supabaseClient
+    .from('envios_factura_pdf')
+    .select('*')
+    .order('fecha_envio', { ascending: false });
+  if(errEnvios) console.error('Error cargando envios_factura_pdf:', errEnvios);
+  todosEnviosCache = envios || [];
+
+  const enviosPorFactura = {};
+  todosEnviosCache.forEach(e=>{
+    if(!enviosPorFactura[e.factura_pdf_id]) enviosPorFactura[e.factura_pdf_id] = [];
+    enviosPorFactura[e.factura_pdf_id].push(e);
+  });
+
+  todasFacturasPdfCache = facturas.map(f => ({
+    ...f,
+    _enviada: !!(enviosPorFactura[f.id] && enviosPorFactura[f.id].length > 0),
+    _ultimoEnvio: enviosPorFactura[f.id] ? enviosPorFactura[f.id][0] : null,
+    _cantEnvios: enviosPorFactura[f.id] ? enviosPorFactura[f.id].length : 0,
+  }));
+}
+
+function getFacturasEnvioFiltradas(){
+  const q = document.getElementById('ef-search').value.trim().toLowerCase();
+  const estado = document.getElementById('ef-filter-estado').value;
+  let list = todasFacturasPdfCache;
+  if(estado === 'pendiente') list = list.filter(f => !f._enviada);
+  if(estado === 'enviada') list = list.filter(f => f._enviada);
+  if(q){
+    list = list.filter(f =>
+      (f.clientes?.razon_social || '').toLowerCase().includes(q) ||
+      (f.numero_factura || '').toLowerCase().includes(q)
+    );
+  }
+  return list;
+}
+
+function renderEnvioFacturas(){
+  const list = getFacturasEnvioFiltradas();
+  const tbody = document.getElementById('ef-tbody');
+  if(list.length === 0){
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No hay facturas con este filtro.</td></tr>';
+    document.getElementById('ef-results-count').textContent = '';
+    return;
+  }
+  tbody.innerHTML = list.map(f=>{
+    const estadoBadge = f._enviada
+      ? `<span class="badge" style="color:var(--ok);border-color:var(--ok);">Enviada ${fmtDate(f._ultimoEnvio.fecha_envio)} — ${escapeHtml(f._ultimoEnvio.email_destino)}</span>`
+      : '<span class="badge" style="color:var(--danger);border-color:var(--danger);">Sin enviar</span>';
+    return `
+      <tr>
+        <td>${escapeHtml(f.clientes?.razon_social || '—')}</td>
+        <td class="muted">${escapeHtml(f.numero_factura || '—')}</td>
+        <td class="muted">${f.fecha_emision ? fmtDate(f.fecha_emision) : '—'}</td>
+        <td class="muted">${f.monto ? fmtMoney(f.monto,'USD') : '—'}</td>
+        <td>${estadoBadge}${f._cantEnvios > 1 ? ` <span class="muted" style="font-size:10px;">(${f._cantEnvios}x)</span>` : ''}</td>
+        <td>
+          <div class="row-actions">
+            <a href="${f.archivo_url}" target="_blank" class="btn secondary small" style="text-decoration:none;">Ver PDF</a>
+            <button class="btn small ${f._enviada ? 'secondary' : ''}" onclick="abrirRegistrarEnvio(${f.id})">${f._enviada ? 'Reenviar' : 'Marcar enviada'}</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+  document.getElementById('ef-results-count').textContent = `${list.length} factura(s)`;
+}
+
+document.getElementById('ef-search').addEventListener('input', renderEnvioFacturas);
+document.getElementById('ef-filter-estado').addEventListener('change', renderEnvioFacturas);
+
+function abrirRegistrarEnvio(facturaPdfId){
+  const f = todasFacturasPdfCache.find(x => x.id === facturaPdfId);
+  if(!f) return;
+  document.getElementById('ev-factura_pdf_id').value = facturaPdfId;
+  document.getElementById('ev-factura-info').textContent =
+    `${f.clientes?.razon_social || ''} — N° ${f.numero_factura || 'sin detectar'}`;
+  document.getElementById('ev-fecha_envio').value = new Date().toISOString().slice(0,10);
+  document.getElementById('ev-email_destino').value = f.clientes?.mail_envio_factura || '';
+  document.getElementById('ev-observacion').value = '';
+
+  const enviosDeEstaFactura = todosEnviosCache.filter(e => e.factura_pdf_id === facturaPdfId);
+  const historialBox = document.getElementById('ev-historial-box');
+  if(enviosDeEstaFactura.length > 0){
+    historialBox.innerHTML = '<div class="muted" style="font-size:11px;font-weight:700;margin-bottom:6px;">Historial de envíos</div>' +
+      enviosDeEstaFactura.map(e => `
+        <div class="muted" style="font-size:11px;padding:4px 0;border-top:1px solid var(--border);">
+          ${fmtDate(e.fecha_envio)} — ${escapeHtml(e.email_destino)}${e.observacion ? ' — '+escapeHtml(e.observacion) : ''}
+        </div>`).join('');
+  } else {
+    historialBox.innerHTML = '<div class="muted" style="font-size:11px;">Todavía no se registró ningún envío de esta factura.</div>';
+  }
+
+  document.getElementById('modal-envio-overlay').classList.add('open');
+}
+document.getElementById('btn-envio-cancel').addEventListener('click', ()=>{
+  document.getElementById('modal-envio-overlay').classList.remove('open');
+});
+document.getElementById('modal-envio-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'modal-envio-overlay') document.getElementById('modal-envio-overlay').classList.remove('open');
+});
+document.getElementById('btn-envio-save').addEventListener('click', async ()=>{
+  const facturaPdfId = document.getElementById('ev-factura_pdf_id').value;
+  const fecha = document.getElementById('ev-fecha_envio').value;
+  const email = document.getElementById('ev-email_destino').value.trim();
+  if(!fecha || !email){ showToast('Completá fecha y email', true); return; }
+
+  try{
+    const { error } = await supabaseClient.from('envios_factura_pdf').insert({
+      factura_pdf_id: Number(facturaPdfId),
+      fecha_envio: fecha,
+      email_destino: email,
+      observacion: document.getElementById('ev-observacion').value.trim() || null,
+      enviado_por: miPerfil?.id || null,
+    });
+    if(error) throw error;
+    showToast('Envío registrado correctamente');
+    document.getElementById('modal-envio-overlay').classList.remove('open');
+    await loadTodasFacturasParaEnvio();
+    renderEnvioFacturas();
+    renderDashboard();
+  } catch(err){
+    console.error(err);
+    showToast('Error al registrar: ' + err.message, true);
+  }
+});
+
 async function initApp(){
   try{
     console.log('[Horizon] cargando sucursales...');
@@ -4564,6 +4773,8 @@ async function initApp(){
       await autoGenerarPendientesDelMes();
       populateReportesFiltros();
       renderReportes();
+      await loadTodasFacturasParaEnvio();
+      renderEnvioFacturas();
     }
     if(miPerfil.rol === 'maestro' || miPerfil.rol === 'admin'){
       await loadUsuarios();
