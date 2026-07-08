@@ -4755,9 +4755,26 @@ async function subirFacturaPdfConOcr(file, clienteId, pendienteId, statusEl){
     const { data: { text } } = await window.Tesseract.recognize(canvas, 'spa');
 
     // ---------- 4. Intentar detectar N° factura / fecha / monto ----------
-    const matchNumero = text.match(/\b([FN][CD]A?-?\d{4}-?\d{6,8})\b/i);
-    const matchFecha = text.match(/\b(\d{2})[\/\-](\d{2})[\/\-](\d{4})\b/);
-    const matchMonto = text.match(/(?:U\$S|USD|\$)\s?([\d.,]{4,})/i);
+    // N° de factura: primero probamos el formato AFIP estándar (0031-00000584),
+    // buscando cerca de "N°"/"Nº"/"Numero", y si no aparece, probamos el formato
+    // viejo con prefijo de letras (FCA-/NCA-/NDA-, de las importaciones de GP).
+    let matchNumero =
+      text.match(/N[°ºo]\s*[:\-]?\s*(\d{3,5}[\s\-]?\d{7,9})/i) ||
+      text.match(/\b(\d{4}\s?-\s?\d{8})\b/) ||
+      text.match(/\b([FN][CD]A?-?\d{4}-?\d{6,8})\b/i);
+    let numeroDetectado = matchNumero ? matchNumero[1].replace(/\s/g,'').toUpperCase() : null;
+
+    // Fecha de emisión: preferimos la que está pegada a la palabra "Fecha"
+    // (para no confundirla con "Vto. Factura" o el vencimiento del CAE, que también son fechas)
+    let matchFecha =
+      text.match(/\bFecha\s*[:\-]?\s*(\d{2})[\/\-](\d{2})[\/\-](\d{4})/i) ||
+      text.match(/\b(\d{2})[\/\-](\d{2})[\/\-](\d{4})\b/);
+
+    // Monto: preferimos el "Total" del comprobante, no el primer número con $ que aparezca
+    // (que suele ser el importe de un ítem individual, no el total real).
+    let matchMonto =
+      text.match(/Total\s*[:\-]?\s*(?:U\$S|USD|\$)?\s*([\d.,]{4,})/i) ||
+      text.match(/(?:U\$S|USD|\$)\s?([\d.,]{4,})/i);
 
     let fechaISOdetectada = null;
     if(matchFecha){
@@ -4777,7 +4794,7 @@ async function subirFacturaPdfConOcr(file, clienteId, pendienteId, statusEl){
       pendiente_id: pendienteId,
       archivo_nombre: file.name,
       archivo_url: urlData.publicUrl,
-      numero_factura: matchNumero ? matchNumero[1].toUpperCase() : (pendienteRef?.numero_factura || null),
+      numero_factura: numeroDetectado || pendienteRef?.numero_factura || null,
       fecha_emision: fechaISOdetectada || pendienteRef?.fecha_facturacion || null,
       monto: montoDetectado,
       texto_extraido: text,
