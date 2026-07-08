@@ -4092,14 +4092,14 @@ function calcularConciliacion(clienteId, serie){
   grid.innerHTML = seriesOrdenadas.map((serie, idx)=>{
     const g = grupos[serie];
     const color = colorParaEquipo(serie);
-    const items = [...g.items].filter(p => p.estado === 'facturado').sort((a,b)=> (b.periodo_desde||'').localeCompare(a.periodo_desde||''));
+    const items = [...g.items].sort((a,b)=> (b.periodo_desde||'').localeCompare(a.periodo_desde||''));
     const groupId = `cc-grupo-${idx}`;
 
     const cardsHtml = items.map(p=>{
-      const esFacturado = true;
-      const esNC = esNotaDeCredito(p.numero_factura);
-      const estadoColor = esNC ? '#c084fc' : 'var(--ok)';
-      const estadoTexto = esNC ? 'Nota de Crédito' : 'Facturado';
+      const esFacturado = p.estado === 'facturado';
+      const esNC = esFacturado && esNotaDeCredito(p.numero_factura);
+      const estadoColor = esNC ? '#c084fc' : (esFacturado ? 'var(--ok)' : 'var(--accent)');
+      const estadoTexto = esNC ? 'Nota de Crédito' : (esFacturado ? 'Facturado' : 'Pendiente');
       const montoTexto = esNC ? `− ${fmtMoney(p.valor_alquiler_usd,'USD')}` : fmtMoney(p.valor_alquiler_usd,'USD');
       return `
         <div class="panel" style="padding:12px;border-left:3px solid ${estadoColor};background:var(--panel-2);cursor:pointer;" onclick="openEditPendiente(${p.id})" title="Clic para editar/ver este comprobante">
@@ -4108,11 +4108,11 @@ function calcularConciliacion(clienteId, serie){
           </div>
           <div style="font-size:17px;font-weight:700;color:${estadoColor};">${montoTexto}</div>
           <div class="muted" style="font-size:11px;margin-top:5px;">${fmtDate(p.periodo_desde)} → ${fmtDate(p.periodo_hasta)}</div>
-          <div class="muted" style="font-size:11px;margin-top:3px;">N° ${esNC ? 'Nota de Crédito' : 'Factura'}: <span style="color:var(--text);">${escapeHtml(p.numero_factura || '—')}</span></div>
-          <div class="muted" style="font-size:11px;margin-top:3px;">Emitida: <span style="color:var(--text);">${p.fecha_facturacion ? fmtDate(p.fecha_facturacion) : 'sin registrar'}</span></div>
+          ${esFacturado ? `<div class="muted" style="font-size:11px;margin-top:3px;">N° ${esNC ? 'Nota de Crédito' : 'Factura'}: <span style="color:var(--text);">${escapeHtml(p.numero_factura || '—')}</span></div>` : ''}
+          ${esFacturado ? `<div class="muted" style="font-size:11px;margin-top:3px;">Emitida: <span style="color:var(--text);">${p.fecha_facturacion ? fmtDate(p.fecha_facturacion) : 'sin registrar'}</span></div>` : ''}
           ${p.contratos?.fecha_salida ? `<div class="muted" style="font-size:11px;margin-top:3px;">Remito (salida): <span style="color:var(--text);">${fmtDate(p.contratos.fecha_salida)}</span></div>` : ''}
         </div>`;
-    }).join('') || '<div class="muted" style="padding:10px;font-size:12px;">Todavía no hay facturas cargadas para esta máquina — el facturador las genera desde Pendientes de Facturación.</div>';
+    }).join('') || '<div class="muted" style="padding:10px;font-size:12px;">Sin movimientos todavía para esta máquina.</div>';
 
     // ---------- Facturas PDF asociadas a esta máquina ----------
     const contratosDeEstaMaquina = contratosCache.filter(c =>
@@ -4174,7 +4174,7 @@ function calcularConciliacion(clienteId, serie){
         <div style="padding:14px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;" onclick="toggleGrupoEquipo('${groupId}')">
           <div>
             <div style="font-size:16px;font-weight:800;color:${color};">🚜 ${escapeHtml(serie)}</div>
-            <div class="muted" style="font-size:12px;margin-top:2px;">${escapeHtml(g.modelo || 'Modelo sin dato')} — ${items.length} factura(s)</div>
+            <div class="muted" style="font-size:12px;margin-top:2px;">${escapeHtml(g.modelo || 'Modelo sin dato')} — ${items.length} registro(s)</div>
           </div>
           <div style="display:flex;gap:16px;align-items:center;">
             <div style="text-align:right;">
@@ -4192,7 +4192,6 @@ function calcularConciliacion(clienteId, serie){
         <div id="${groupId}" style="display:none;padding:0 16px 16px 16px;border-top:1px solid var(--border);">
           <div class="dash-grid" style="grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));margin-top:14px;">
             ${cardsHtml}
-            ${conciliacionHtml}
             ${facturasPdfHtml}
             ${botonSubirPdf}
           </div>
