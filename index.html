@@ -1591,7 +1591,10 @@
       </div>
       <div class="field">
         <label>Fecha de salida</label>
-        <input type="date" id="c-fecha_salida">
+        <div style="display:flex;gap:6px;">
+          <input type="date" id="c-fecha_salida" style="flex:1;">
+          <button type="button" class="btn secondary small" onclick="document.getElementById('c-fecha_salida').value=''" title="Vaciar fecha">✕</button>
+        </div>
       </div>
 
       <div class="field">
@@ -1633,16 +1636,25 @@
         </div>
         <div class="field">
           <label>Fecha de vencimiento</label>
-          <input type="date" id="c-fecha_vencimiento">
+          <div style="display:flex;gap:6px;">
+            <input type="date" id="c-fecha_vencimiento" style="flex:1;">
+            <button type="button" class="btn secondary small" onclick="document.getElementById('c-fecha_vencimiento').value=''" title="Vaciar fecha">✕</button>
+          </div>
         </div>
         <div class="field">
           <label>Fecha de baja</label>
-          <input type="date" id="c-fecha_baja">
+          <div style="display:flex;gap:6px;">
+            <input type="date" id="c-fecha_baja" style="flex:1;">
+            <button type="button" class="btn secondary small" onclick="document.getElementById('c-fecha_baja').value=''" title="Vaciar fecha">✕</button>
+          </div>
         </div>
 
         <div class="field full">
           <label>Último período facturado — hasta</label>
-          <input type="date" id="c-ultimo_periodo_facturado_hasta">
+          <div style="display:flex;gap:6px;">
+            <input type="date" id="c-ultimo_periodo_facturado_hasta" style="flex:1;">
+            <button type="button" class="btn secondary small" onclick="document.getElementById('c-ultimo_periodo_facturado_hasta').value=''" title="Vaciar fecha">✕</button>
+          </div>
           <div class="muted" style="font-size:11px;margin-top:4px;">
             Clave: a partir de esta fecha la app genera sola el próximo pendiente. Si no la sabés con certeza, dejala vacía y el contrato queda marcado "a confirmar".
           </div>
