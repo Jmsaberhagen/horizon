@@ -1378,6 +1378,22 @@
   </div>
 </div>
 
+<!-- MODAL PERMISOS GRANULARES (solo maestro) -->
+<div class="overlay" id="modal-permisos-overlay">
+  <div class="modal wide">
+    <h2 id="modal-permisos-title">Permisos</h2>
+    <input type="hidden" id="pm-usuario-id">
+    <div class="muted" style="font-size:12px;margin-bottom:16px;">
+      Elegí a qué secciones puede entrar este usuario, y qué puede hacer dentro de cada una.
+    </div>
+    <div id="pm-grid"></div>
+    <div class="modal-actions">
+      <button class="btn secondary" id="btn-permisos-cancel">Cancelar</button>
+      <button class="btn" id="btn-permisos-save">Guardar permisos</button>
+    </div>
+  </div>
+</div>
+
 
 <!-- MODAL EQUIPO -->
 <div class="overlay" id="modal-equipo-overlay">
@@ -2522,6 +2538,11 @@ function resetContratoForm(){
   equipoSearchInput.value = '';
   document.getElementById('c-cliente-selected').textContent = '';
   document.getElementById('c-equipo-selected').textContent = '';
+  ['c-precio_sin_descuento','c-precio_con_descuento','c-moneda'].forEach(idCampo=>{
+    const el = document.getElementById(idCampo);
+    el.disabled = false;
+    el.title = '';
+  });
 }
 
 document.getElementById('btn-toggle-paso2').addEventListener('click', ()=>{
@@ -2590,6 +2611,15 @@ function openEditContrato(id){
   document.getElementById('c-flete_retiro_facturado').checked = !!c.flete_retiro_facturado;
   document.getElementById('c-periodicidad').value = c.periodicidad || 'mensual';
   document.getElementById('c-ultimo_periodo_facturado_hasta').value = c.ultimo_periodo_facturado_hasta || '';
+
+  // el precio de un contrato ya guardado solo lo puede tocar el maestro
+  const tienePrecio = c.precio_mensual_con_descuento != null || c.precio_mensual_sin_descuento != null;
+  const bloquearPrecio = tienePrecio && miPerfil.rol !== 'maestro';
+  ['c-precio_sin_descuento','c-precio_con_descuento','c-moneda'].forEach(idCampo=>{
+    const el = document.getElementById(idCampo);
+    el.disabled = bloquearPrecio;
+    el.title = bloquearPrecio ? 'Solo el usuario maestro puede modificar el precio de un contrato ya guardado' : '';
+  });
 
   openContratoOverlay();
 }
@@ -3433,6 +3463,28 @@ async function cargarMiPerfil(userId){
   return data;
 }
 
+// ---------- Permisos granulares por usuario ----------
+// El maestro siempre tiene todo. Para el resto, se lee miPerfil.permisos (JSON guardado en Supabase).
+function puede(seccion, accion){
+  if(!miPerfil) return false;
+  if(miPerfil.rol === 'maestro') return true;
+  accion = accion || 'ver';
+  return !!(miPerfil.permisos && miPerfil.permisos[seccion] && miPerfil.permisos[seccion][accion]);
+}
+
+const SECCIONES_PERMISOS = [
+  { key:'clientes',      label:'Clientes',      acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
+  { key:'contratos',     label:'Contratos',     acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
+  { key:'equipos',       label:'Equipos',       acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
+  { key:'pendientes',    label:'Pendientes de Facturación', acciones:[['ver','Ver'],['facturar','Facturar'],['eliminar','Eliminar']] },
+  { key:'reportes',      label:'Reportes',      acciones:[['ver','Ver']] },
+  { key:'cuentacliente', label:'Cuenta Cliente', acciones:[['ver','Ver'],['cargar_recibo','Cargar recibo'],['subir_pdf','Subir PDF']] },
+  { key:'planning',      label:'Planning',      acciones:[['ver','Ver'],['registrar_parada','Registrar parada']] },
+  { key:'retiros',       label:'Pendientes de Retiro', acciones:[['ver','Ver'],['marcar_retirada','Marcar retirada']] },
+  { key:'enviofacturas', label:'Envío de Facturas', acciones:[['ver','Ver'],['marcar_enviada','Marcar enviada']] },
+  { key:'usuarios',      label:'Usuarios',      acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar']] },
+];
+
 function aplicarPermisosUI(){
   if(!miPerfil) return;
   document.getElementById('user-name').textContent = miPerfil.nombre;
@@ -3441,36 +3493,21 @@ function aplicarPermisosUI(){
   pill.style.display = 'inline-block';
 
   const rol = miPerfil.rol;
-  const esMaestroOAdmin = rol === 'maestro' || rol === 'admin';
   document.getElementById('panel-herramientas-maestro').style.display = (rol === 'maestro') ? 'block' : 'none';
-
-  // qué pestañas ve cada rol
-  const accesoPorTab = {
-    clientes:   ['maestro','admin','comercial','finanzas'],
-    contratos:  ['maestro','admin','comercial','finanzas'],
-    equipos:    ['maestro','admin','servicios'],
-    pendientes: ['maestro','admin','finanzas'],
-    reportes:   ['maestro','admin','finanzas'],
-    cuentacliente: ['maestro','admin','finanzas'],
-    enviofacturas: ['maestro','admin','finanzas'],
-    planning:   ['maestro','admin','comercial','servicios','finanzas'],
-    retiros:    ['maestro','admin','comercial','servicios','finanzas'],
-  };
 
   document.querySelectorAll('nav button[data-tab]').forEach(btn=>{
     const tab = btn.dataset.tab;
     if(tab === 'inicio' || tab === 'usuarios') return;
-    const permitido = accesoPorTab[tab] ? accesoPorTab[tab].includes(rol) : false;
-    btn.style.display = permitido ? '' : 'none';
+    btn.style.display = puede(tab, 'ver') ? '' : 'none';
   });
 
-  document.getElementById('nav-usuarios').style.display = esMaestroOAdmin ? 'inline-block' : 'none';
+  document.getElementById('nav-usuarios').style.display = puede('usuarios','ver') ? 'inline-block' : 'none';
 
   // si quedó parado en una pestaña a la que ya no tiene acceso, lo mandamos a Inicio
   const activeTab = document.querySelector('nav button.active');
   if(activeTab){
     const tab = activeTab.dataset.tab;
-    const permitido = tab === 'inicio' || (tab === 'usuarios' && esMaestroOAdmin) || (accesoPorTab[tab] && accesoPorTab[tab].includes(rol));
+    const permitido = tab === 'inicio' || (tab === 'usuarios' && puede('usuarios','ver')) || puede(tab,'ver');
     if(!permitido) activarTab('inicio');
   }
 }
@@ -3580,6 +3617,57 @@ document.getElementById('btn-limpiar-facturas').addEventListener('click', async 
   }
 });
 
+// ---------- Gestión de Permisos granulares (solo maestro) ----------
+function abrirPermisosUsuario(userId){
+  const u = usuariosCache.find(x => String(x.id) === String(userId));
+  if(!u) return;
+  document.getElementById('pm-usuario-id').value = u.id;
+  document.getElementById('modal-permisos-title').textContent = `Permisos — ${u.nombre}`;
+
+  const permisosActuales = u.permisos || {};
+  const grid = document.getElementById('pm-grid');
+  grid.innerHTML = SECCIONES_PERMISOS.map(seccion => `
+    <div class="panel" style="padding:12px;margin-bottom:10px;">
+      <div style="font-weight:700;font-size:13px;margin-bottom:8px;">${seccion.label}</div>
+      <div style="display:flex;gap:18px;flex-wrap:wrap;">
+        ${seccion.acciones.map(([accKey, accLabel]) => `
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;text-transform:none;color:var(--text-dim);">
+            <input type="checkbox" class="pm-check" data-seccion="${seccion.key}" data-accion="${accKey}"
+              ${permisosActuales[seccion.key]?.[accKey] ? 'checked' : ''} style="width:auto;">
+            ${accLabel}
+          </label>`).join('')}
+      </div>
+    </div>`).join('');
+
+  document.getElementById('modal-permisos-overlay').classList.add('open');
+}
+document.getElementById('btn-permisos-cancel').addEventListener('click', ()=>{
+  document.getElementById('modal-permisos-overlay').classList.remove('open');
+});
+document.getElementById('modal-permisos-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'modal-permisos-overlay') document.getElementById('modal-permisos-overlay').classList.remove('open');
+});
+document.getElementById('btn-permisos-save').addEventListener('click', async ()=>{
+  const userId = document.getElementById('pm-usuario-id').value;
+  const nuevoPermisos = {};
+  document.querySelectorAll('.pm-check').forEach(chk=>{
+    const seccion = chk.dataset.seccion;
+    const accion = chk.dataset.accion;
+    if(!nuevoPermisos[seccion]) nuevoPermisos[seccion] = {};
+    nuevoPermisos[seccion][accion] = chk.checked;
+  });
+  try{
+    const { error } = await supabaseClient.from('perfiles').update({ permisos: nuevoPermisos }).eq('id', userId);
+    if(error) throw error;
+    showToast('Permisos actualizados correctamente');
+    document.getElementById('modal-permisos-overlay').classList.remove('open');
+    await loadUsuarios();
+  } catch(err){
+    console.error(err);
+    showToast('Error al guardar permisos: ' + err.message, true);
+  }
+});
+
 async function loadUsuarios(){
   const tbody = document.getElementById('usuarios-tbody');
   tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Cargando usuarios...</td></tr>';
@@ -3607,6 +3695,7 @@ function renderUsuarios(list){
       <td>
         <div class="row-actions">
           <button class="btn secondary small" onclick="openEditUsuario('${u.id}')">Editar</button>
+          ${(miPerfil.rol === 'maestro' && u.rol !== 'maestro') ? `<button class="btn secondary small" onclick="abrirPermisosUsuario('${u.id}')">Permisos</button>` : ''}
         </div>
       </td>
     </tr>`).join('');
@@ -3716,32 +3805,19 @@ document.getElementById('btn-usuario-save').addEventListener('click', async ()=>
 // ---------- Dashboard (Inicio) ----------
 function renderDashboard(){
   const rol = miPerfil.rol;
-  const esMaestroOAdmin = rol === 'maestro' || rol === 'admin';
   document.getElementById('dash-saludo').textContent = `Hola, ${miPerfil.nombre.split(' ')[0]}`;
 
-  const accesoPorTab = {
-    clientes:   ['maestro','admin','comercial','finanzas'],
-    contratos:  ['maestro','admin','comercial','finanzas'],
-    equipos:    ['maestro','admin','servicios'],
-    pendientes: ['maestro','admin','finanzas'],
-    reportes:   ['maestro','admin','finanzas'],
-    cuentacliente: ['maestro','admin','finanzas'],
-    enviofacturas: ['maestro','admin','finanzas'],
-    planning:   ['maestro','admin','comercial','servicios','finanzas'],
-    retiros:    ['maestro','admin','comercial','servicios','finanzas'],
-  };
-
   const tiles = [
-    { tab:'clientes',   icon:'🏢', title:'Clientes',   count:`${clientesCache.length} cargados`, visible:accesoPorTab.clientes.includes(rol) },
-    { tab:'contratos',  icon:'📄', title:'Contratos',  count:`${contratosCache.length} totales${(() => { const n = contratosCache.filter(c=>!c.datos_confirmados).length; return n>0 ? ` — ⚠ ${n} a confirmar` : ''; })()}`, visible:accesoPorTab.contratos.includes(rol) },
-    { tab:'equipos',    icon:'🚜', title:'Equipos',    count:`${equiposCache.length} en catálogo`, visible:accesoPorTab.equipos.includes(rol) },
-    { tab:'pendientes', icon:'💰', title:'Pendientes de Facturación', count: accesoPorTab.pendientes.includes(rol) ? `${pendientesCache.filter(p=>p.estado==='pendiente').length} sin facturar` : '', visible:accesoPorTab.pendientes.includes(rol) },
-    { tab:'reportes',   icon:'📊', title:'Reportes',   count:'Mora y facturación', visible:accesoPorTab.reportes.includes(rol) },
-    { tab:'cuentacliente', icon:'🧾', title:'Cuenta Cliente', count:'Historial por cliente', visible:accesoPorTab.cuentacliente.includes(rol) },
-    { tab:'enviofacturas', icon:'📧', title:'Envío de Facturas', count: accesoPorTab.enviofacturas.includes(rol) ? `${todasFacturasPdfCache.filter(f=>!f._enviada).length} sin enviar` : '', visible:accesoPorTab.enviofacturas.includes(rol) },
-    { tab:'planning',   icon:'📅', title:'Planning',   count:'Ocupación de flota', visible:accesoPorTab.planning.includes(rol) },
-    { tab:'retiros',    icon:'🚨', title:'Pendientes de Retiro', count: accesoPorTab.retiros.includes(rol) ? `${calcularRetirosUrgentes().length} urgente(s)` : '', visible:accesoPorTab.retiros.includes(rol) },
-    { tab:'usuarios',   icon:'👤', title:'Usuarios',   count:`${usuariosCache.length} cuentas`, visible:esMaestroOAdmin },
+    { tab:'clientes',   icon:'🏢', title:'Clientes',   count:`${clientesCache.length} cargados`, visible:puede('clientes','ver') },
+    { tab:'contratos',  icon:'📄', title:'Contratos',  count:`${contratosCache.length} totales${(() => { const n = contratosCache.filter(c=>!c.datos_confirmados).length; return n>0 ? ` — ⚠ ${n} a confirmar` : ''; })()}`, visible:puede('contratos','ver') },
+    { tab:'equipos',    icon:'🚜', title:'Equipos',    count:`${equiposCache.length} en catálogo`, visible:puede('equipos','ver') },
+    { tab:'pendientes', icon:'💰', title:'Pendientes de Facturación', count: puede('pendientes','ver') ? `${pendientesCache.filter(p=>p.estado==='pendiente').length} sin facturar` : '', visible:puede('pendientes','ver') },
+    { tab:'reportes',   icon:'📊', title:'Reportes',   count:'Mora y facturación', visible:puede('reportes','ver') },
+    { tab:'cuentacliente', icon:'🧾', title:'Cuenta Cliente', count:'Historial por cliente', visible:puede('cuentacliente','ver') },
+    { tab:'enviofacturas', icon:'📧', title:'Envío de Facturas', count: puede('enviofacturas','ver') ? `${todasFacturasPdfCache.filter(f=>!f._enviada).length} sin enviar` : '', visible:puede('enviofacturas','ver') },
+    { tab:'planning',   icon:'📅', title:'Planning',   count:'Ocupación de flota', visible:puede('planning','ver') },
+    { tab:'retiros',    icon:'🚨', title:'Pendientes de Retiro', count: puede('retiros','ver') ? `${calcularRetirosUrgentes().length} urgente(s)` : '', visible:puede('retiros','ver') },
+    { tab:'usuarios',   icon:'👤', title:'Usuarios',   count:`${usuariosCache.length} cuentas`, visible:puede('usuarios','ver') },
   ];
 
   const grid = document.getElementById('dash-grid');
@@ -5079,7 +5155,7 @@ async function initApp(){
     renderRetiros();
     mostrarAlertaRetirosSiCorresponde();
 
-    if(miPerfil.rol === 'maestro' || miPerfil.rol === 'admin' || miPerfil.rol === 'finanzas'){
+    if(puede('pendientes','ver') || puede('reportes','ver') || puede('enviofacturas','ver')){
       console.log('[Horizon] contratos OK, cargando requisitos y pendientes...');
       await loadTodosLosRequisitos();
       await loadTodosLosCertificados();
@@ -5090,11 +5166,11 @@ async function initApp(){
       await loadTodasFacturasParaEnvio();
       renderEnvioFacturas();
     }
-    if(miPerfil.rol === 'maestro' || miPerfil.rol === 'admin'){
+    if(puede('usuarios','ver')){
       await loadUsuarios();
     }
 
-    if(['maestro','admin','comercial','servicios','finanzas'].includes(miPerfil.rol)){
+    if(puede('planning','ver')){
       console.log('[Horizon] cargando planning...');
       await loadCatalogoModelos();
       await loadEquipoParadas();
