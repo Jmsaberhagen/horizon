@@ -4103,12 +4103,38 @@ function calcularConciliacion(clienteId, serie){
     const items = [...g.items].sort((a,b)=> (b.periodo_desde||'').localeCompare(a.periodo_desde||''));
     const groupId = `cc-grupo-${idx}`;
 
+    // ---------- Facturas PDF de esta máquina (para fusionarlas dentro de cada card) ----------
+    const contratosDeEstaMaquina = contratosCache.filter(c =>
+      c.cliente_id === cuentaClienteActivaId && c.equipos?.numero_serie === serie
+    );
+    const idsContratosMaquina = contratosDeEstaMaquina.map(c => c.id);
+    const facturasDeEstaMaquina = facturasPdfCache.filter(f => idsContratosMaquina.includes(f.contrato_id));
+    const pdfPorPendienteId = {};
+    facturasDeEstaMaquina.forEach(f => { if(f.pendiente_id) pdfPorPendienteId[f.pendiente_id] = f; });
+
     const cardsHtml = items.map(p=>{
       const esFacturado = p.estado === 'facturado';
       const esNC = esFacturado && esNotaDeCredito(p.numero_factura);
       const estadoColor = esNC ? '#c084fc' : (esFacturado ? 'var(--ok)' : 'var(--accent)');
       const estadoTexto = esNC ? 'Nota de Crédito' : (esFacturado ? 'Facturado' : 'Pendiente');
       const montoTexto = esNC ? `− ${fmtMoney(p.valor_alquiler_usd,'USD')}` : fmtMoney(p.valor_alquiler_usd,'USD');
+      const pdfAdjunto = pdfPorPendienteId[p.id];
+
+      let bloquePdf = '';
+      if(esFacturado){
+        if(pdfAdjunto){
+          bloquePdf = `
+            <div class="muted" style="font-size:11px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border);">
+              <a href="#" onclick="event.stopPropagation(); event.preventDefault(); abrirFacturaPdf(${pdfAdjunto.id});" style="color:var(--accent);text-decoration:none;">📎 Ver PDF adjunto</a>
+            </div>`;
+        } else {
+          bloquePdf = `
+            <div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border);">
+              <button class="btn secondary small" style="width:100%;" onclick="event.stopPropagation(); iniciarSubidaFacturaPdf(${p.id});">📎 + Adjuntar PDF</button>
+            </div>`;
+        }
+      }
+
       return `
         <div class="panel" style="padding:12px;border-left:3px solid ${estadoColor};background:var(--panel-2);cursor:pointer;" onclick="openEditPendiente(${p.id})" title="Clic para editar/ver este comprobante">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
@@ -4119,40 +4145,9 @@ function calcularConciliacion(clienteId, serie){
           ${esFacturado ? `<div class="muted" style="font-size:11px;margin-top:3px;">N° ${esNC ? 'Nota de Crédito' : 'Factura'}: <span style="color:var(--text);">${escapeHtml(p.numero_factura || '—')}</span></div>` : ''}
           ${esFacturado ? `<div class="muted" style="font-size:11px;margin-top:3px;">Emitida: <span style="color:var(--text);">${p.fecha_facturacion ? fmtDate(p.fecha_facturacion) : 'sin registrar'}</span></div>` : ''}
           ${p.contratos?.fecha_salida ? `<div class="muted" style="font-size:11px;margin-top:3px;">Remito (salida): <span style="color:var(--text);">${fmtDate(p.contratos.fecha_salida)}</span></div>` : ''}
+          ${bloquePdf}
         </div>`;
     }).join('') || '<div class="muted" style="padding:10px;font-size:12px;">Sin movimientos todavía para esta máquina.</div>';
-
-    // ---------- Facturas PDF asociadas a esta máquina ----------
-    const contratosDeEstaMaquina = contratosCache.filter(c =>
-      c.cliente_id === cuentaClienteActivaId && c.equipos?.numero_serie === serie
-    );
-    const idsContratosMaquina = contratosDeEstaMaquina.map(c => c.id);
-    const facturasDeEstaMaquina = facturasPdfCache.filter(f => idsContratosMaquina.includes(f.contrato_id));
-
-    const facturasPdfHtml = facturasDeEstaMaquina.map(f => `
-      <div class="panel" style="padding:0;overflow:hidden;cursor:pointer;" onclick="abrirFacturaPdf(${f.id})">
-        ${f.miniatura_base64
-          ? `<img src="${f.miniatura_base64}" style="width:100%;display:block;border-bottom:1px solid var(--border);">`
-          : `<div style="height:90px;display:flex;align-items:center;justify-content:center;background:var(--panel-2);font-size:24px;">📄</div>`}
-        <div style="padding:10px;">
-          <div style="font-size:13px;font-weight:700;color:var(--accent);">${escapeHtml(f.numero_factura || 'N° sin detectar')}</div>
-          <div class="muted" style="font-size:10px;margin-top:3px;">${f.fecha_emision ? fmtDate(f.fecha_emision) : 'Fecha sin detectar'}</div>
-          ${f.monto ? `<div class="muted" style="font-size:11px;margin-top:2px;">${fmtMoney(f.monto,'USD')}</div>` : ''}
-        </div>
-      </div>`).join('');
-
-    // ¿hay alguna factura real de esta máquina que todavía no tenga PDF adjunto?
-    const idsFacturasConPdf = new Set(facturasDeEstaMaquina.map(f => f.pendiente_id).filter(Boolean));
-    const facturaSinPdf = items.find(p => !idsFacturasConPdf.has(p.id));
-
-    const botonSubirPdf = facturaSinPdf ? `
-      <div class="panel" style="padding:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1px dashed var(--border);background:transparent;min-height:90px;"
-           onclick="iniciarSubidaFacturaPdf(${facturaSinPdf.id})" title="Se va a asociar a la factura N° ${escapeHtml(facturaSinPdf.numero_factura || '')}">
-        <div style="text-align:center;">
-          <div style="font-size:20px;">📎</div>
-          <div class="muted" style="font-size:11px;margin-top:4px;">+ Adjuntar PDF a factura ${escapeHtml(facturaSinPdf.numero_factura || '')}</div>
-        </div>
-      </div>` : '';
 
     const conciliacion = calcularConciliacion(cuentaClienteActivaId, serie);
     let conciliacionHtml = '';
@@ -4200,8 +4195,6 @@ function calcularConciliacion(clienteId, serie){
         <div id="${groupId}" style="display:none;padding:0 16px 16px 16px;border-top:1px solid var(--border);">
           <div class="dash-grid" style="grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));margin-top:14px;">
             ${cardsHtml}
-            ${facturasPdfHtml}
-            ${botonSubirPdf}
           </div>
         </div>
       </div>`;
