@@ -601,6 +601,11 @@
         <option value="no">⚠ Solo a confirmar</option>
         <option value="si">Solo confirmados</option>
       </select>
+      <select id="contrato-filter-demo">
+        <option value="">Todos (demo + alquiler)</option>
+        <option value="si">🎁 Solo DEMO</option>
+        <option value="no">Solo alquileres reales</option>
+      </select>
       <div style="flex:1"></div>
       <button class="btn secondary" id="btn-export-contratos-csv">Exportar CSV</button>
       <button class="btn secondary" id="btn-export-contratos-xls">Exportar XLS</button>
@@ -1615,6 +1620,13 @@
           <option value="baja">De baja</option>
         </select>
       </div>
+
+      <div class="field full" style="background:rgba(56,189,248,0.08);border:1px solid var(--accent-dim);border-radius:var(--radius);padding:12px;">
+        <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:13px;color:var(--text);">
+          <input type="checkbox" id="c-es_demo" style="width:auto;">
+          🎁 Es un contrato DEMO (prueba gratuita — ocupa la máquina pero NO genera facturación)
+        </label>
+      </div>
     </div>
 
     <button type="button" id="btn-toggle-paso2" class="btn secondary small" style="margin:18px 0 4px 0;">
@@ -2368,7 +2380,7 @@ function renderContratos(list){
     const precio = c.precio_mensual_con_descuento ?? c.precio_mensual_sin_descuento;
     return `
       <tr>
-        <td>${escapeHtml(cliente)}${c.datos_confirmados ? '' : ' <span class="badge" style="color:#ff9f43;border-color:#ff9f43;" title="Falta confirmar periodicidad / último período facturado">⚠ a confirmar</span>'}</td>
+        <td>${escapeHtml(cliente)}${c.es_demo ? ' <span class="badge" style="color:#38BDF8;border-color:#38BDF8;">🎁 DEMO</span>' : ''}${c.datos_confirmados ? '' : ' <span class="badge" style="color:#ff9f43;border-color:#ff9f43;" title="Falta confirmar periodicidad / último período facturado">⚠ a confirmar</span>'}</td>
         <td class="muted">${escapeHtml(equipo)}${c.tiene_flete_entrega && !c.flete_entrega_facturado ? ` <span class="badge" style="color:var(--accent);border-color:var(--accent-dim);" title="Flete de entrega sin facturar: ${fmtMoney(c.costo_flete_entrega,'USD')}">🚚 entrega</span>` : ''}${c.tiene_flete_retiro && !c.flete_retiro_facturado ? ` <span class="badge" style="color:#ff9f43;border-color:#ff9f43;" title="Flete de retiro sin facturar: ${fmtMoney(c.costo_flete_retiro,'USD')}">🚚 retiro</span>` : ''}</td>
         <td>${sucursal !== '—' ? `<span class="badge">${sucursal}</span>` : '—'}</td>
         <td class="muted">${fmtDate(c.fecha_salida)} → ${fmtDate(c.fecha_vencimiento)}</td>
@@ -2390,11 +2402,14 @@ function getFilteredContratos(){
   const sucursalId = document.getElementById('contrato-filter-sucursal').value;
   const estado = document.getElementById('contrato-filter-estado').value;
   const confirmado = document.getElementById('contrato-filter-confirmado').value;
+  const demo = document.getElementById('contrato-filter-demo').value;
   let list = contratosCache;
   if(sucursalId) list = list.filter(c => String(c.sucursal_id) === sucursalId);
   if(estado) list = list.filter(c => c.estado === estado);
   if(confirmado === 'no') list = list.filter(c => !c.datos_confirmados);
   if(confirmado === 'si') list = list.filter(c => c.datos_confirmados);
+  if(demo === 'si') list = list.filter(c => c.es_demo);
+  if(demo === 'no') list = list.filter(c => !c.es_demo);
   if(q){
     list = list.filter(c =>
       (c.clientes?.razon_social || '').toLowerCase().includes(q) ||
@@ -2410,12 +2425,13 @@ function applyContratoFilters(){
 document.getElementById('contrato-search-input').addEventListener('input', applyContratoFilters);
 document.getElementById('contrato-filter-sucursal').addEventListener('change', applyContratoFilters);
 document.getElementById('contrato-filter-estado').addEventListener('change', applyContratoFilters);
+document.getElementById('contrato-filter-demo').addEventListener('change', applyContratoFilters);
 document.getElementById('contrato-filter-confirmado').addEventListener('change', applyContratoFilters);
 
 function contratosToRows(list){
-  const headers = ['Cliente','Equipo N Serie','Sucursal','Periodicidad','Fecha Salida','Fecha Vencimiento','Ultimo Periodo Facturado','Confirmado','Moneda','Precio Mensual','Flete Entrega','Costo Flete Entrega','Flete Entrega Facturado','Flete Retiro','Costo Flete Retiro','Flete Retiro Facturado','Orden Compra','Obra','Estado'];
+  const headers = ['Cliente','Equipo N Serie','Sucursal','Es Demo','Periodicidad','Fecha Salida','Fecha Vencimiento','Ultimo Periodo Facturado','Confirmado','Moneda','Precio Mensual','Flete Entrega','Costo Flete Entrega','Flete Entrega Facturado','Flete Retiro','Costo Flete Retiro','Flete Retiro Facturado','Orden Compra','Obra','Estado'];
   const rows = list.map(c => [
-    c.clientes?.razon_social || '', c.equipos?.numero_serie || '', c.sucursales?.nombre || '',
+    c.clientes?.razon_social || '', c.equipos?.numero_serie || '', c.sucursales?.nombre || '', c.es_demo ? 'SI' : 'NO',
     c.periodicidad || '', c.fecha_salida || '', c.fecha_vencimiento || '',
     c.ultimo_periodo_facturado_hasta || '', c.datos_confirmados ? 'SI' : 'NO', c.moneda,
     c.precio_mensual_con_descuento ?? c.precio_mensual_sin_descuento ?? '',
@@ -2541,6 +2557,7 @@ function resetContratoForm(){
   document.getElementById('c-moneda').value = 'USD';
   document.getElementById('c-estado').value = 'activo';
   document.getElementById('c-periodicidad').value = 'mensual';
+  document.getElementById('c-es_demo').checked = false;
   document.getElementById('c-sucursal_id').value = '';
   document.getElementById('c-tiene_flete_entrega').checked = false;
   document.getElementById('c-flete-entrega-box').style.display = 'none';
@@ -2626,6 +2643,7 @@ function openEditContrato(id){
   document.getElementById('c-costo_flete_retiro').value = c.costo_flete_retiro ?? '';
   document.getElementById('c-flete_retiro_facturado').checked = !!c.flete_retiro_facturado;
   document.getElementById('c-periodicidad').value = c.periodicidad || 'mensual';
+  document.getElementById('c-es_demo').checked = !!c.es_demo;
   document.getElementById('c-ultimo_periodo_facturado_hasta').value = c.ultimo_periodo_facturado_hasta || '';
 
   // el precio de un contrato ya guardado solo lo puede tocar el maestro
@@ -2690,7 +2708,8 @@ document.getElementById('btn-contrato-save').addEventListener('click', async ()=
     flete_retiro_facturado: document.getElementById('c-flete_retiro_facturado').checked,
     periodicidad: document.getElementById('c-periodicidad').value,
     ultimo_periodo_facturado_hasta: document.getElementById('c-ultimo_periodo_facturado_hasta').value || null,
-    datos_confirmados: !!document.getElementById('c-ultimo_periodo_facturado_hasta').value,
+    datos_confirmados: document.getElementById('c-es_demo').checked ? true : !!document.getElementById('c-ultimo_periodo_facturado_hasta').value,
+    es_demo: document.getElementById('c-es_demo').checked,
   };
 
   try{
@@ -2936,6 +2955,7 @@ async function autoGenerarPendientesDelMes(){
   // - De baja: se genera hasta la fecha de baja nomás (esa renta corta igual
   //   se tiene que facturar, aunque la máquina ya se haya devuelto).
   const contratosAGenerar = contratosCache.filter(c =>
+    !c.es_demo &&
     c.datos_confirmados && c.ultimo_periodo_facturado_hasta &&
     (c.estado === 'activo' || (c.estado === 'baja' && c.fecha_baja))
   );
