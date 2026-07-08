@@ -2655,7 +2655,11 @@ document.getElementById('btn-contrato-save').addEventListener('click', async ()=
     // si se confirmó "último período facturado", limpiamos pendientes sin facturar
     // viejos de este contrato (pueden haber quedado mal generados antes de confirmar)
     // y regeneramos el correcto al instante, sin esperar al próximo login.
-    if(payload.datos_confirmados && contratoId){
+    // OJO: esto solo aplica si el contrato sigue ACTIVO — si quedó "de baja",
+    // cualquier pendiente sin facturar tiene que conservarse tal cual (puede ser
+    // la última renta real de esa máquina, todavía sin número de factura, y la
+    // máquina ya puede estar alquilada a otro cliente con otro contrato nuevo).
+    if(payload.datos_confirmados && payload.estado === 'activo' && contratoId){
       const { error: errLimpiar } = await supabaseClient
         .from('pendientes_facturacion')
         .delete()
@@ -2667,7 +2671,7 @@ document.getElementById('btn-contrato-save').addEventListener('click', async ()=
     showToast('Contrato guardado correctamente');
     closeContratoOverlay();
     await loadContratos();
-    if(payload.datos_confirmados) await autoGenerarPendientesDelMes();
+    if(payload.datos_confirmados && payload.estado === 'activo') await autoGenerarPendientesDelMes();
     await refrescarPendientesSiCorresponde();
   } catch(err){
     console.error(err);
@@ -2934,16 +2938,14 @@ contratoSearchInput.addEventListener('input', ()=>{
   document.getElementById('p-contrato_id').value = '';
   if(q.length < 2){ contratoResultsBox.classList.remove('open'); return; }
   const matches = contratosCache.filter(c =>
-    c.estado === 'activo' && (
-      (c.clientes?.razon_social || '').toLowerCase().includes(q) ||
-      (c.equipos?.numero_serie || '').toLowerCase().includes(q)
-    )
+    (c.clientes?.razon_social || '').toLowerCase().includes(q) ||
+    (c.equipos?.numero_serie || '').toLowerCase().includes(q)
   ).slice(0, 30);
   contratoResultsBox.innerHTML = matches.length === 0
-    ? '<div class="autocomplete-item muted">Sin resultados entre los contratos activos</div>'
+    ? '<div class="autocomplete-item muted">Sin resultados</div>'
     : matches.map(c=>`
         <div class="autocomplete-item" data-id="${c.id}" data-label="${escapeHtml(c.clientes?.razon_social||'')} — ${escapeHtml(c.equipos?.numero_serie||'')}">
-          ${escapeHtml(c.clientes?.razon_social || '—')}
+          ${escapeHtml(c.clientes?.razon_social || '—')} ${c.estado === 'baja' ? '<span class="muted">(de baja)</span>' : ''}
           <span class="sub">${escapeHtml(c.equipos?.numero_serie || '')} — ${escapeHtml(c.sucursales?.nombre || '')}</span>
         </div>`).join('');
   contratoResultsBox.classList.add('open');
