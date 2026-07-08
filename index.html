@@ -1508,6 +1508,17 @@
       </div>
     </div>
 
+    <div id="p-pdf-box" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+      <label style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.4px;">PDF de la factura (opcional)</label>
+      <div class="muted" style="font-size:11px;margin:4px 0 8px 0;">Podés adjuntarlo ahora, o dejarlo para después desde la Cuenta del Cliente.</div>
+      <div id="p-pdf-ya-cargado" style="display:none;margin-bottom:8px;"></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <input type="file" id="p-pdf-file" accept="application/pdf">
+        <button class="btn secondary small" id="btn-p-subir-pdf" type="button">Subir y procesar (OCR)</button>
+      </div>
+      <div class="muted" id="p-pdf-status" style="font-size:12px;margin-top:6px;"></div>
+    </div>
+
     <div class="modal-actions">
       <button class="btn secondary" id="btn-pendiente-cancel">Cancelar</button>
       <button class="btn danger" id="btn-pendiente-delete" style="display:none;">Eliminar</button>
@@ -3009,6 +3020,12 @@ function resetPendienteForm(){
   document.getElementById('p-flete-entrega-warning').style.display = 'none';
   document.getElementById('p-flete-retiro-warning').style.display = 'none';
   document.getElementById('p-cert-warning').style.display = 'none';
+  document.getElementById('p-pdf-box').style.display = 'none';
+  document.getElementById('p-pdf-file').value = '';
+  document.getElementById('p-pdf-status').textContent = '';
+  document.getElementById('p-pdf-ya-cargado').style.display = 'none';
+  document.getElementById('p-pdf-ya-cargado').innerHTML = '';
+  pendienteActualClienteId = null;
 }
 
 document.getElementById('btn-nuevo-pendiente').addEventListener('click', ()=>{
@@ -3050,8 +3067,52 @@ function openEditPendiente(id){
   renderRequisitosChecklist(p.contratos?.clientes?.id);
   mostrarAvisoFlete(p.contratos);
   mostrarAvisoCertificados(p.contratos?.clientes?.id);
+
+  pendienteActualClienteId = p.contratos?.clientes?.id || null;
+  document.getElementById('p-pdf-box').style.display = 'block';
+  cargarPdfYaAdjuntoEnModal(p.id);
+
   document.getElementById('modal-pendiente-overlay').classList.add('open');
 }
+
+let pendienteActualClienteId = null;
+
+async function cargarPdfYaAdjuntoEnModal(pendienteId){
+  const box = document.getElementById('p-pdf-ya-cargado');
+  box.style.display = 'none';
+  box.innerHTML = '';
+  const { data, error } = await supabaseClient.from('facturas_pdf').select('*').eq('pendiente_id', pendienteId).limit(1);
+  if(error || !data || data.length === 0) return;
+  const f = data[0];
+  box.style.display = 'flex';
+  box.style.alignItems = 'center';
+  box.style.gap = '10px';
+  box.innerHTML = `
+    ${f.miniatura_base64 ? `<img src="${f.miniatura_base64}" style="width:50px;border-radius:4px;border:1px solid var(--border);">` : ''}
+    <div>
+      <div class="muted" style="font-size:11px;">Ya tiene un PDF adjunto:</div>
+      <a href="${f.archivo_url}" target="_blank" style="color:var(--accent);font-size:12px;">${escapeHtml(f.archivo_nombre)}</a>
+    </div>`;
+}
+
+document.getElementById('btn-p-subir-pdf').addEventListener('click', async ()=>{
+  const pendienteId = document.getElementById('p-id').value;
+  if(!pendienteId){ showToast('Guardá el pendiente primero, después subí el PDF', true); return; }
+  const file = document.getElementById('p-pdf-file').files[0];
+  if(!file){ showToast('Seleccioná un archivo PDF', true); return; }
+  if(file.type !== 'application/pdf'){ showToast('El archivo debe ser un PDF', true); return; }
+  if(!pendienteActualClienteId){ showToast('No se pudo determinar el cliente de este pendiente', true); return; }
+
+  const ok = await subirFacturaPdfConOcr(file, pendienteActualClienteId, Number(pendienteId), document.getElementById('p-pdf-status'));
+  if(ok){
+    document.getElementById('p-pdf-file').value = '';
+    cargarPdfYaAdjuntoEnModal(Number(pendienteId));
+    if(['maestro','admin','finanzas'].includes(miPerfil?.rol)){
+      await loadTodasFacturasParaEnvio();
+      renderDashboard();
+    }
+  }
+});
 
 document.getElementById('btn-pendiente-save').addEventListener('click', async ()=>{
   const contratoId = document.getElementById('p-contrato_id').value;
@@ -3937,14 +3998,14 @@ function calcularConciliacion(clienteId, serie){
   grid.innerHTML = seriesOrdenadas.map((serie, idx)=>{
     const g = grupos[serie];
     const color = colorParaEquipo(serie);
-    const items = [...g.items].sort((a,b)=> (b.periodo_desde||'').localeCompare(a.periodo_desde||''));
+    const items = [...g.items].filter(p => p.estado === 'facturado').sort((a,b)=> (b.periodo_desde||'').localeCompare(a.periodo_desde||''));
     const groupId = `cc-grupo-${idx}`;
 
     const cardsHtml = items.map(p=>{
-      const esFacturado = p.estado === 'facturado';
-      const esNC = esFacturado && esNotaDeCredito(p.numero_factura);
-      const estadoColor = esNC ? '#c084fc' : (esFacturado ? 'var(--ok)' : 'var(--accent)');
-      const estadoTexto = esNC ? 'Nota de Crédito' : (esFacturado ? 'Facturado' : 'Pendiente');
+      const esFacturado = true;
+      const esNC = esNotaDeCredito(p.numero_factura);
+      const estadoColor = esNC ? '#c084fc' : 'var(--ok)';
+      const estadoTexto = esNC ? 'Nota de Crédito' : 'Facturado';
       const montoTexto = esNC ? `− ${fmtMoney(p.valor_alquiler_usd,'USD')}` : fmtMoney(p.valor_alquiler_usd,'USD');
       return `
         <div class="panel" style="padding:12px;border-left:3px solid ${estadoColor};background:var(--panel-2);cursor:pointer;" onclick="openEditPendiente(${p.id})" title="Clic para editar/ver este comprobante">
@@ -3953,18 +4014,17 @@ function calcularConciliacion(clienteId, serie){
           </div>
           <div style="font-size:17px;font-weight:700;color:${estadoColor};">${montoTexto}</div>
           <div class="muted" style="font-size:11px;margin-top:5px;">${fmtDate(p.periodo_desde)} → ${fmtDate(p.periodo_hasta)}</div>
-          ${esFacturado ? `<div class="muted" style="font-size:11px;margin-top:3px;">N° ${esNC ? 'Nota de Crédito' : 'Factura'}: <span style="color:var(--text);">${escapeHtml(p.numero_factura || '—')}</span></div>` : ''}
-          ${esFacturado ? `<div class="muted" style="font-size:11px;margin-top:3px;">Emitida: <span style="color:var(--text);">${p.fecha_facturacion ? fmtDate(p.fecha_facturacion) : 'sin registrar'}</span></div>` : ''}
+          <div class="muted" style="font-size:11px;margin-top:3px;">N° ${esNC ? 'Nota de Crédito' : 'Factura'}: <span style="color:var(--text);">${escapeHtml(p.numero_factura || '—')}</span></div>
+          <div class="muted" style="font-size:11px;margin-top:3px;">Emitida: <span style="color:var(--text);">${p.fecha_facturacion ? fmtDate(p.fecha_facturacion) : 'sin registrar'}</span></div>
           ${p.contratos?.fecha_salida ? `<div class="muted" style="font-size:11px;margin-top:3px;">Remito (salida): <span style="color:var(--text);">${fmtDate(p.contratos.fecha_salida)}</span></div>` : ''}
         </div>`;
-    }).join('') || '<div class="muted" style="padding:10px;font-size:12px;">Sin movimientos facturados todavía.</div>';
+    }).join('') || '<div class="muted" style="padding:10px;font-size:12px;">Todavía no hay facturas cargadas para esta máquina — el facturador las genera desde Pendientes de Facturación.</div>';
 
     // ---------- Facturas PDF asociadas a esta máquina ----------
     const contratosDeEstaMaquina = contratosCache.filter(c =>
       c.cliente_id === cuentaClienteActivaId && c.equipos?.numero_serie === serie
     );
     const idsContratosMaquina = contratosDeEstaMaquina.map(c => c.id);
-    const contratoObjetivo = contratosDeEstaMaquina.find(c => c.estado === 'activo') || contratosDeEstaMaquina[0];
     const facturasDeEstaMaquina = facturasPdfCache.filter(f => idsContratosMaquina.includes(f.contrato_id));
 
     const facturasPdfHtml = facturasDeEstaMaquina.map(f => `
@@ -3979,12 +4039,16 @@ function calcularConciliacion(clienteId, serie){
         </div>
       </div>`).join('');
 
-    const botonSubirPdf = contratoObjetivo ? `
+    // ¿hay alguna factura real de esta máquina que todavía no tenga PDF adjunto?
+    const idsFacturasConPdf = new Set(facturasDeEstaMaquina.map(f => f.pendiente_id).filter(Boolean));
+    const facturaSinPdf = items.find(p => !idsFacturasConPdf.has(p.id));
+
+    const botonSubirPdf = facturaSinPdf ? `
       <div class="panel" style="padding:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1px dashed var(--border);background:transparent;min-height:90px;"
-           onclick="iniciarSubidaFacturaPdf(${contratoObjetivo.id})">
+           onclick="iniciarSubidaFacturaPdf(${facturaSinPdf.id})" title="Se va a asociar a la factura N° ${escapeHtml(facturaSinPdf.numero_factura || '')}">
         <div style="text-align:center;">
           <div style="font-size:20px;">📎</div>
-          <div class="muted" style="font-size:11px;margin-top:4px;">+ Subir factura PDF</div>
+          <div class="muted" style="font-size:11px;margin-top:4px;">+ Adjuntar PDF a factura ${escapeHtml(facturaSinPdf.numero_factura || '')}</div>
         </div>
       </div>` : '';
 
@@ -4016,7 +4080,7 @@ function calcularConciliacion(clienteId, serie){
         <div style="padding:14px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;" onclick="toggleGrupoEquipo('${groupId}')">
           <div>
             <div style="font-size:16px;font-weight:800;color:${color};">🚜 ${escapeHtml(serie)}</div>
-            <div class="muted" style="font-size:12px;margin-top:2px;">${escapeHtml(g.modelo || 'Modelo sin dato')} — ${g.items.length} registro(s)</div>
+            <div class="muted" style="font-size:12px;margin-top:2px;">${escapeHtml(g.modelo || 'Modelo sin dato')} — ${items.length} factura(s)</div>
           </div>
           <div style="display:flex;gap:16px;align-items:center;">
             <div style="text-align:right;">
@@ -4512,7 +4576,7 @@ document.getElementById('btn-parada-save').addEventListener('click', async ()=>{
 
 let facturasPdfCache = [];
 let pdfWorkerConfigurado = false;
-let contratoObjetivoSubidaPdf = null; // contrato_id al que se va a asociar el próximo PDF subido
+let pendienteObjetivoSubidaPdf = null; // pendiente_id (factura puntual) al que se va a asociar el próximo PDF subido
 
 function asegurarPdfWorker(){
   if(pdfWorkerConfigurado) return;
@@ -4532,10 +4596,10 @@ async function loadFacturasPdfCliente(clienteId){
   facturasPdfCache = data;
 }
 
-// se llama desde el botón "+ Subir factura" de cada máquina, dentro de renderCuentaClienteCards
-function iniciarSubidaFacturaPdf(contratoId){
+// se llama desde el botón "+ Adjuntar PDF" de cada máquina, dentro de renderCuentaClienteCards
+function iniciarSubidaFacturaPdf(pendienteId){
   if(!cuentaClienteActivaId){ showToast('Buscá un cliente primero', true); return; }
-  contratoObjetivoSubidaPdf = contratoId;
+  pendienteObjetivoSubidaPdf = pendienteId;
   document.getElementById('cc-pdf-file-oculto').click();
 }
 
@@ -4543,19 +4607,37 @@ document.getElementById('cc-pdf-file-oculto').addEventListener('change', async (
   const file = e.target.files[0];
   if(!file) return;
   if(file.type !== 'application/pdf'){ showToast('El archivo debe ser un PDF', true); e.target.value=''; return; }
-  if(!contratoObjetivoSubidaPdf){ showToast('No se detectó a qué máquina asociar el PDF', true); e.target.value=''; return; }
+  if(!pendienteObjetivoSubidaPdf){ showToast('No se detectó a qué factura asociar el PDF', true); e.target.value=''; return; }
 
-  const statusEl = document.getElementById('cc-pdf-status');
+  const ok = await subirFacturaPdfConOcr(file, cuentaClienteActivaId, pendienteObjetivoSubidaPdf, document.getElementById('cc-pdf-status'));
+  e.target.value = '';
+  pendienteObjetivoSubidaPdf = null;
+  if(ok){
+    renderCuentaClienteCards();
+    if(['maestro','admin','finanzas'].includes(miPerfil?.rol)){
+      await loadTodasFacturasParaEnvio();
+      renderDashboard();
+    }
+  }
+});
+
+// ---------- Función compartida: sube un PDF, corre OCR, y lo asocia a un pendiente/factura puntual ----------
+// Devuelve true si salió bien, false si hubo error (ya muestra el toast correspondiente).
+async function subirFacturaPdfConOcr(file, clienteId, pendienteId, statusEl){
   try{
+    // buscamos el contrato_id correspondiente a ese pendiente, para mantener la columna igual de útil
+    const pendienteRef = pendientesCache.find(p => p.id === pendienteId);
+    const contratoId = pendienteRef ? pendienteRef.contrato_id : null;
+
     // ---------- 1. Subir el PDF a Storage ----------
-    statusEl.textContent = 'Subiendo PDF...';
-    const path = `cliente_${cuentaClienteActivaId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_')}`;
+    if(statusEl) statusEl.textContent = 'Subiendo PDF...';
+    const path = `cliente_${clienteId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_')}`;
     const { error: uploadError } = await supabaseClient.storage.from('facturas-pdf').upload(path, file);
     if(uploadError) throw uploadError;
     const { data: urlData } = supabaseClient.storage.from('facturas-pdf').getPublicUrl(path);
 
     // ---------- 2. Renderizar la 1ra página del PDF como imagen ----------
-    statusEl.textContent = 'Leyendo PDF...';
+    if(statusEl) statusEl.textContent = 'Leyendo PDF...';
     asegurarPdfWorker();
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -4575,7 +4657,7 @@ document.getElementById('cc-pdf-file-oculto').addEventListener('change', async (
     const miniaturaBase64 = canvasMini.toDataURL('image/jpeg', 0.6);
 
     // ---------- 3. Correr OCR sobre la imagen ----------
-    statusEl.textContent = 'Extrayendo texto (OCR)... esto puede tardar unos segundos';
+    if(statusEl) statusEl.textContent = 'Extrayendo texto (OCR)... esto puede tardar unos segundos';
     const { data: { text } } = await window.Tesseract.recognize(canvas, 'spa');
 
     // ---------- 4. Intentar detectar N° factura / fecha / monto ----------
@@ -4593,37 +4675,33 @@ document.getElementById('cc-pdf-file-oculto').addEventListener('change', async (
       montoDetectado = parseFloat(matchMonto[1].replace(/\./g,'').replace(',','.'));
     }
 
-    // ---------- 5. Guardar todo en la base ----------
-    statusEl.textContent = 'Guardando...';
+    // ---------- 5. Guardar todo en la base, asociado a la factura puntual ----------
+    if(statusEl) statusEl.textContent = 'Guardando...';
     const { error: insertError } = await supabaseClient.from('facturas_pdf').insert({
-      cliente_id: cuentaClienteActivaId,
-      contrato_id: contratoObjetivoSubidaPdf,
+      cliente_id: clienteId,
+      contrato_id: contratoId,
+      pendiente_id: pendienteId,
       archivo_nombre: file.name,
       archivo_url: urlData.publicUrl,
-      numero_factura: matchNumero ? matchNumero[1].toUpperCase() : null,
-      fecha_emision: fechaISOdetectada,
+      numero_factura: matchNumero ? matchNumero[1].toUpperCase() : (pendienteRef?.numero_factura || null),
+      fecha_emision: fechaISOdetectada || pendienteRef?.fecha_facturacion || null,
       monto: montoDetectado,
       texto_extraido: text,
       miniatura_base64: miniaturaBase64,
     });
     if(insertError) throw insertError;
 
-    statusEl.textContent = '';
-    e.target.value = '';
-    contratoObjetivoSubidaPdf = null;
+    if(statusEl) statusEl.textContent = '';
     showToast('PDF subido y procesado con OCR correctamente');
-    await loadFacturasPdfCliente(cuentaClienteActivaId);
-    renderCuentaClienteCards();
-    if(['maestro','admin','finanzas'].includes(miPerfil?.rol)){
-      await loadTodasFacturasParaEnvio();
-      renderDashboard();
-    }
+    await loadFacturasPdfCliente(clienteId);
+    return true;
   } catch(err){
     console.error(err);
-    statusEl.textContent = '';
+    if(statusEl) statusEl.textContent = '';
     showToast('Error al procesar el PDF: ' + err.message, true);
+    return false;
   }
-});
+}
 
 function abrirFacturaPdf(id){
   const f = facturasPdfCache.find(x => x.id === id);
