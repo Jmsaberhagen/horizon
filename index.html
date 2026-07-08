@@ -2929,11 +2929,22 @@ async function autoGenerarPendientesDelMes(){
   );
   if(contratosAGenerar.length === 0) return;
 
-  const periodosExistentes = {};
-  pendientesCache.forEach(p=>{
-    if(!periodosExistentes[p.contrato_id]) periodosExistentes[p.contrato_id] = new Set();
-    periodosExistentes[p.contrato_id].add(p.periodo_desde);
-  });
+  // Auto-saneamiento: antes de generar, borramos TODOS los pendientes sin
+  // facturar existentes de estos contratos (nunca los ya facturados) y
+  // los recalculamos de cero a partir del "último período facturado" actual.
+  // Esto evita que quede pegado cualquier resto duplicado/desalineado de
+  // una edición anterior, sea cual sea la causa puntual.
+  const idsContratos = contratosAGenerar.map(c => c.id);
+  try{
+    const { error: errLimpiar } = await supabaseClient
+      .from('pendientes_facturacion')
+      .delete()
+      .in('contrato_id', idsContratos)
+      .eq('estado', 'pendiente');
+    if(errLimpiar) console.error('[Horizon] no se pudieron limpiar pendientes antes de regenerar:', errLimpiar);
+  } catch(e){
+    console.error('[Horizon] error en el saneamiento previo:', e);
+  }
 
   const nuevos = [];
   for(const c of contratosAGenerar){
@@ -2942,25 +2953,22 @@ async function autoGenerarPendientesDelMes(){
     let guard = 0; // tope de seguridad para no generar infinitos períodos atrasados de una sola vez
     while(cursor <= limite && guard < 36){
       const hasta = calcularPeriodoHasta(cursor, c.periodicidad || 'mensual');
-      const yaExiste = periodosExistentes[c.id] && periodosExistentes[c.id].has(cursor);
-      if(!yaExiste){
-        const valorUsd = c.precio_mensual_con_descuento ?? c.precio_mensual_sin_descuento ?? 0;
-        nuevos.push({
-          contrato_id: c.id,
-          periodo_desde: cursor,
-          periodo_hasta: hasta,
-          valor_alquiler_usd: c.moneda === 'USD' ? valorUsd : null,
-          tc_aplicado: null,
-          potencial_facturacion: c.moneda === 'ARS' ? valorUsd : null,
-          estado: 'pendiente',
-        });
-      }
+      const valorUsd = c.precio_mensual_con_descuento ?? c.precio_mensual_sin_descuento ?? 0;
+      nuevos.push({
+        contrato_id: c.id,
+        periodo_desde: cursor,
+        periodo_hasta: hasta,
+        valor_alquiler_usd: c.moneda === 'USD' ? valorUsd : null,
+        tc_aplicado: null,
+        potencial_facturacion: c.moneda === 'ARS' ? valorUsd : null,
+        estado: 'pendiente',
+      });
       cursor = addDays(hasta, 1);
       guard++;
     }
   }
 
-  if(nuevos.length === 0) return;
+  if(nuevos.length === 0){ await loadPendientes(); return; }
 
   try{
     const { error } = await supabaseClient.from('pendientes_facturacion').insert(nuevos);
