@@ -5077,11 +5077,18 @@ async function marcarComoRetirada(contratoId){
     if(m) fechaISO = `${m[3]}-${m[2]}-${m[1]}`;
   }
   try{
+    // el retiro de logística finaliza el contrato: pasa a "De baja" con esa misma fecha
+    // (esto además libera el equipo automáticamente, por el trigger que ya tenemos en la base)
     const { error } = await supabaseClient.from('contratos')
-      .update({ retirada_confirmada: true, fecha_retiro_real: fechaISO })
+      .update({
+        retirada_confirmada: true,
+        fecha_retiro_real: fechaISO,
+        estado: 'baja',
+        fecha_baja: fechaISO,
+      })
       .eq('id', contratoId);
     if(error) throw error;
-    showToast('Retiro confirmado');
+    showToast('Retiro confirmado — el contrato quedó cerrado (De baja)');
     await loadContratos();
     renderRetiros();
     renderDashboard();
@@ -5092,10 +5099,15 @@ async function marcarComoRetirada(contratoId){
 }
 
 async function desmarcarRetirada(contratoId){
-  if(!confirm('¿Deshacer la confirmación de retiro? Va a volver a aparecer como pendiente.')) return;
+  if(!confirm('¿Deshacer la confirmación de retiro? El contrato vuelve a quedar Activo y la máquina otra vez ocupada.')) return;
   try{
     const { error } = await supabaseClient.from('contratos')
-      .update({ retirada_confirmada: false, fecha_retiro_real: null })
+      .update({
+        retirada_confirmada: false,
+        fecha_retiro_real: null,
+        estado: 'activo',
+        fecha_baja: null,
+      })
       .eq('id', contratoId);
     if(error) throw error;
     showToast('Se deshizo la confirmación de retiro');
