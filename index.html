@@ -1038,6 +1038,11 @@
       <select id="ret-filter-sucursal">
         <option value="">Todas las sucursales</option>
       </select>
+      <select id="ret-filter-retirada">
+        <option value="pendientes">Pendientes de retirar</option>
+        <option value="retiradas">Ya retiradas</option>
+        <option value="">Todas</option>
+      </select>
     </div>
     <div class="panel">
       <div class="table-wrap">
@@ -1050,10 +1055,11 @@
               <th>Sucursal</th>
               <th>Fecha de retiro</th>
               <th>Faltan</th>
+              <th style="width:150px;">Acciones</th>
             </tr>
           </thead>
           <tbody id="ret-tbody">
-            <tr><td colspan="6" class="empty-state">Cargando...</td></tr>
+            <tr><td colspan="7" class="empty-state">Cargando...</td></tr>
           </tbody>
         </table>
       </div>
@@ -4905,13 +4911,13 @@ document.getElementById('btn-envio-save').addEventListener('click', async ()=>{
 
 // Umbral de "urgente" para la card del dashboard y la alerta emergente: 72hs o menos (incluye vencidos)
 function calcularRetirosUrgentes(){
-  return calcularTodosLosRetiros().filter(r => r.horasRestantes <= 72);
+  return calcularTodosLosRetiros().filter(r => r.horasRestantes <= 72 && !r.contrato.retirada_confirmada);
 }
 
 function calcularTodosLosRetiros(){
   const ahora = new Date();
   return contratosCache
-    .filter(c => c.estado === 'activo' && c.fecha_vencimiento && c.equipos?.numero_serie)
+    .filter(c => c.fecha_vencimiento && c.equipos?.numero_serie)
     .map(c=>{
       const fechaVenc = new Date(c.fecha_vencimiento + 'T00:00:00');
       const horasRestantes = (fechaVenc - ahora) / 3600000;
@@ -4938,8 +4944,11 @@ function populateRetirosFiltros(){
 function renderRetiros(){
   const q = document.getElementById('ret-search').value.trim().toLowerCase();
   const sucursalId = document.getElementById('ret-filter-sucursal').value;
+  const filtroRetirada = document.getElementById('ret-filter-retirada').value;
   let lista = calcularTodosLosRetiros();
   if(sucursalId) lista = lista.filter(r => String(r.contrato.sucursal_id) === sucursalId);
+  if(filtroRetirada === 'pendientes') lista = lista.filter(r => !r.contrato.retirada_confirmada);
+  if(filtroRetirada === 'retiradas') lista = lista.filter(r => r.contrato.retirada_confirmada);
   if(q){
     lista = lista.filter(r =>
       (r.contrato.clientes?.razon_social||'').toLowerCase().includes(q) ||
@@ -4949,7 +4958,7 @@ function renderRetiros(){
 
   const tbody = document.getElementById('ret-tbody');
   if(lista.length === 0){
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No hay contratos activos con fecha de vencimiento cargada.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No hay contratos con este filtro.</td></tr>';
     document.getElementById('ret-results-count').textContent = '';
     return;
   }
@@ -4960,18 +4969,65 @@ function renderRetiros(){
     const faltanTexto = r.horasRestantes <= 0
       ? `Vencido hace ${Math.abs(dias)} día(s)`
       : `${dias} día(s)`;
+    const retirada = r.contrato.retirada_confirmada;
     return `
       <tr>
-        <td>${texto ? `<span class="badge" style="color:${color};border-color:${color};">${texto}</span>` : '<span class="muted">—</span>'}</td>
+        <td>${retirada ? '<span class="badge" style="color:var(--ok);border-color:var(--ok);">Retirada</span>' : (texto ? `<span class="badge" style="color:${color};border-color:${color};">${texto}</span>` : '<span class="muted">—</span>')}</td>
         <td>${escapeHtml(r.contrato.clientes?.razon_social || '—')}</td>
         <td class="muted">${escapeHtml(r.contrato.equipos?.numero_serie || '—')} <span class="muted">${escapeHtml(r.contrato.equipos?.modelo||'')}</span></td>
         <td>${r.contrato.sucursales?.nombre ? `<span class="badge">${r.contrato.sucursales.nombre}</span>` : '—'}</td>
         <td class="muted">${fmtDate(r.contrato.fecha_vencimiento)}</td>
-        <td style="color:${color};font-weight:700;">${faltanTexto}</td>
+        <td style="color:${retirada ? 'var(--text-dim)' : color};font-weight:700;">${retirada ? `Retirada ${r.contrato.fecha_retiro_real ? fmtDate(r.contrato.fecha_retiro_real) : ''}` : faltanTexto}</td>
+        <td>
+          ${retirada
+            ? `<button class="btn secondary small" onclick="desmarcarRetirada(${r.contrato.id})">Deshacer</button>`
+            : `<button class="btn small" onclick="marcarComoRetirada(${r.contrato.id})">✓ Marcar retirada</button>`}
+        </td>
       </tr>`;
   }).join('');
   document.getElementById('ret-results-count').textContent = `${lista.length} contrato(s)`;
 }
+document.getElementById('ret-filter-retirada').addEventListener('change', renderRetiros);
+
+async function marcarComoRetirada(contratoId){
+  const fecha = prompt('¿Qué día se retiró la máquina? (dd/mm/aaaa o dejalo vacío para hoy)', '');
+  let fechaISO = new Date().toISOString().slice(0,10);
+  if(fecha && fecha.trim()){
+    const m = fecha.trim().match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/);
+    if(m) fechaISO = `${m[3]}-${m[2]}-${m[1]}`;
+  }
+  try{
+    const { error } = await supabaseClient.from('contratos')
+      .update({ retirada_confirmada: true, fecha_retiro_real: fechaISO })
+      .eq('id', contratoId);
+    if(error) throw error;
+    showToast('Retiro confirmado');
+    await loadContratos();
+    renderRetiros();
+    renderDashboard();
+  } catch(err){
+    console.error(err);
+    showToast('Error al confirmar el retiro: ' + err.message, true);
+  }
+}
+
+async function desmarcarRetirada(contratoId){
+  if(!confirm('¿Deshacer la confirmación de retiro? Va a volver a aparecer como pendiente.')) return;
+  try{
+    const { error } = await supabaseClient.from('contratos')
+      .update({ retirada_confirmada: false, fecha_retiro_real: null })
+      .eq('id', contratoId);
+    if(error) throw error;
+    showToast('Se deshizo la confirmación de retiro');
+    await loadContratos();
+    renderRetiros();
+    renderDashboard();
+  } catch(err){
+    console.error(err);
+    showToast('Error: ' + err.message, true);
+  }
+}
+
 document.getElementById('ret-search').addEventListener('input', renderRetiros);
 document.getElementById('ret-filter-sucursal').addEventListener('change', renderRetiros);
 
