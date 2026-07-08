@@ -932,16 +932,8 @@
         </select>
       </div>
       <div class="dash-grid" id="cc-cards-grid" style="grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));"></div>
-
-      <div style="display:flex;align-items:center;gap:12px;margin:28px 0 10px 0;flex-wrap:wrap;">
-        <div style="font-size:13px;font-weight:700;">📄 Facturas (PDF) — con texto extraído por OCR</div>
-        <div style="flex:1"></div>
-        <input type="text" id="cc-pdf-search" placeholder="Buscar por N° factura o texto..." style="max-width:220px;">
-        <input type="file" id="cc-pdf-file" accept="application/pdf" style="max-width:220px;">
-        <button class="btn secondary small" id="btn-subir-factura-pdf">Subir PDF</button>
-      </div>
-      <div class="muted" id="cc-pdf-status" style="font-size:12px;margin-bottom:10px;"></div>
-      <div class="dash-grid" id="cc-pdf-grid" style="grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));"></div>
+      <div class="muted" id="cc-pdf-status" style="font-size:12px;margin-top:10px;"></div>
+      <input type="file" id="cc-pdf-file-oculto" accept="application/pdf" style="display:none;">
     </div>
   </section>
 
@@ -3821,7 +3813,7 @@ async function mostrarCuentaCliente(clienteId){
 
   document.getElementById('cc-pdf-search').value = '';
   await loadFacturasPdfCliente(clienteId);
-  renderFacturasPdfGrid();
+  renderCuentaClienteCards();
 
   // ---------- evolución mes a mes ----------
   const porMes = {};
@@ -3968,6 +3960,35 @@ function calcularConciliacion(clienteId, serie){
         </div>`;
     }).join('') || '<div class="muted" style="padding:10px;font-size:12px;">Sin movimientos facturados todavía.</div>';
 
+    // ---------- Facturas PDF asociadas a esta máquina ----------
+    const contratosDeEstaMaquina = contratosCache.filter(c =>
+      c.cliente_id === cuentaClienteActivaId && c.equipos?.numero_serie === serie
+    );
+    const idsContratosMaquina = contratosDeEstaMaquina.map(c => c.id);
+    const contratoObjetivo = contratosDeEstaMaquina.find(c => c.estado === 'activo') || contratosDeEstaMaquina[0];
+    const facturasDeEstaMaquina = facturasPdfCache.filter(f => idsContratosMaquina.includes(f.contrato_id));
+
+    const facturasPdfHtml = facturasDeEstaMaquina.map(f => `
+      <div class="panel" style="padding:0;overflow:hidden;cursor:pointer;" onclick="abrirFacturaPdf(${f.id})">
+        ${f.miniatura_base64
+          ? `<img src="${f.miniatura_base64}" style="width:100%;display:block;border-bottom:1px solid var(--border);">`
+          : `<div style="height:90px;display:flex;align-items:center;justify-content:center;background:var(--panel-2);font-size:24px;">📄</div>`}
+        <div style="padding:10px;">
+          <div style="font-size:13px;font-weight:700;color:var(--accent);">${escapeHtml(f.numero_factura || 'N° sin detectar')}</div>
+          <div class="muted" style="font-size:10px;margin-top:3px;">${f.fecha_emision ? fmtDate(f.fecha_emision) : 'Fecha sin detectar'}</div>
+          ${f.monto ? `<div class="muted" style="font-size:11px;margin-top:2px;">${fmtMoney(f.monto,'USD')}</div>` : ''}
+        </div>
+      </div>`).join('');
+
+    const botonSubirPdf = contratoObjetivo ? `
+      <div class="panel" style="padding:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1px dashed var(--border);background:transparent;min-height:90px;"
+           onclick="iniciarSubidaFacturaPdf(${contratoObjetivo.id})">
+        <div style="text-align:center;">
+          <div style="font-size:20px;">📎</div>
+          <div class="muted" style="font-size:11px;margin-top:4px;">+ Subir factura PDF</div>
+        </div>
+      </div>` : '';
+
     const conciliacion = calcularConciliacion(cuentaClienteActivaId, serie);
     let conciliacionHtml = '';
     if(conciliacion){
@@ -4015,6 +4036,8 @@ function calcularConciliacion(clienteId, serie){
           <div class="dash-grid" style="grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));margin-top:14px;">
             ${cardsHtml}
             ${conciliacionHtml}
+            ${facturasPdfHtml}
+            ${botonSubirPdf}
           </div>
         </div>
       </div>`;
@@ -4490,6 +4513,7 @@ document.getElementById('btn-parada-save').addEventListener('click', async ()=>{
 
 let facturasPdfCache = [];
 let pdfWorkerConfigurado = false;
+let contratoObjetivoSubidaPdf = null; // contrato_id al que se va a asociar el próximo PDF subido
 
 function asegurarPdfWorker(){
   if(pdfWorkerConfigurado) return;
@@ -4509,37 +4533,18 @@ async function loadFacturasPdfCliente(clienteId){
   facturasPdfCache = data;
 }
 
-function renderFacturasPdfGrid(){
-  const q = document.getElementById('cc-pdf-search').value.trim().toLowerCase();
-  const grid = document.getElementById('cc-pdf-grid');
-  let lista = facturasPdfCache;
-  if(q){
-    lista = lista.filter(f =>
-      (f.numero_factura||'').toLowerCase().includes(q) ||
-      (f.texto_extraido||'').toLowerCase().includes(q)
-    );
-  }
-  if(lista.length === 0){
-    grid.innerHTML = '<div class="muted" style="grid-column:1/-1;padding:14px;font-size:12px;">Todavía no hay facturas en PDF cargadas para este cliente.</div>';
-    return;
-  }
-  grid.innerHTML = lista.map(f => `
-    <div class="panel" style="padding:12px;cursor:pointer;" onclick="abrirFacturaPdf(${f.id})">
-      <div style="font-size:15px;font-weight:700;color:var(--accent);">${escapeHtml(f.numero_factura || 'N° sin detectar')}</div>
-      <div class="muted" style="font-size:11px;margin-top:4px;">${f.fecha_emision ? fmtDate(f.fecha_emision) : 'Fecha sin detectar'}</div>
-      <div class="muted" style="font-size:12px;margin-top:4px;">${f.monto ? fmtMoney(f.monto,'USD') : ''}</div>
-      <div class="muted" style="font-size:10px;margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(f.archivo_nombre)}</div>
-    </div>`).join('');
+// se llama desde el botón "+ Subir factura" de cada máquina, dentro de renderCuentaClienteCards
+function iniciarSubidaFacturaPdf(contratoId){
+  if(!cuentaClienteActivaId){ showToast('Buscá un cliente primero', true); return; }
+  contratoObjetivoSubidaPdf = contratoId;
+  document.getElementById('cc-pdf-file-oculto').click();
 }
 
-document.getElementById('cc-pdf-search').addEventListener('input', renderFacturasPdfGrid);
-
-document.getElementById('btn-subir-factura-pdf').addEventListener('click', async ()=>{
-  if(!cuentaClienteActivaId){ showToast('Buscá un cliente primero', true); return; }
-  const fileInput = document.getElementById('cc-pdf-file');
-  const file = fileInput.files[0];
-  if(!file){ showToast('Seleccioná un archivo PDF', true); return; }
-  if(file.type !== 'application/pdf'){ showToast('El archivo debe ser un PDF', true); return; }
+document.getElementById('cc-pdf-file-oculto').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  if(file.type !== 'application/pdf'){ showToast('El archivo debe ser un PDF', true); e.target.value=''; return; }
+  if(!contratoObjetivoSubidaPdf){ showToast('No se detectó a qué máquina asociar el PDF', true); e.target.value=''; return; }
 
   const statusEl = document.getElementById('cc-pdf-status');
   try{
@@ -4561,6 +4566,14 @@ document.getElementById('btn-subir-factura-pdf').addEventListener('click', async
     canvas.width = viewport.width;
     canvas.height = viewport.height;
     await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+
+    // ---------- 2b. Generar una miniatura chica para mostrar en la card ----------
+    const escalaMini = 160 / viewport.width;
+    const canvasMini = document.createElement('canvas');
+    canvasMini.width = 160;
+    canvasMini.height = viewport.height * escalaMini;
+    canvasMini.getContext('2d').drawImage(canvas, 0, 0, canvasMini.width, canvasMini.height);
+    const miniaturaBase64 = canvasMini.toDataURL('image/jpeg', 0.6);
 
     // ---------- 3. Correr OCR sobre la imagen ----------
     statusEl.textContent = 'Extrayendo texto (OCR)... esto puede tardar unos segundos';
@@ -4585,20 +4598,23 @@ document.getElementById('btn-subir-factura-pdf').addEventListener('click', async
     statusEl.textContent = 'Guardando...';
     const { error: insertError } = await supabaseClient.from('facturas_pdf').insert({
       cliente_id: cuentaClienteActivaId,
+      contrato_id: contratoObjetivoSubidaPdf,
       archivo_nombre: file.name,
       archivo_url: urlData.publicUrl,
       numero_factura: matchNumero ? matchNumero[1].toUpperCase() : null,
       fecha_emision: fechaISOdetectada,
       monto: montoDetectado,
       texto_extraido: text,
+      miniatura_base64: miniaturaBase64,
     });
     if(insertError) throw insertError;
 
     statusEl.textContent = '';
-    fileInput.value = '';
+    e.target.value = '';
+    contratoObjetivoSubidaPdf = null;
     showToast('PDF subido y procesado con OCR correctamente');
     await loadFacturasPdfCliente(cuentaClienteActivaId);
-    renderFacturasPdfGrid();
+    renderCuentaClienteCards();
     if(['maestro','admin','finanzas'].includes(miPerfil?.rol)){
       await loadTodasFacturasParaEnvio();
       renderDashboard();
@@ -4643,7 +4659,7 @@ document.getElementById('btn-factura-pdf-save').addEventListener('click', async 
     showToast('Factura actualizada');
     document.getElementById('modal-factura-pdf-overlay').classList.remove('open');
     await loadFacturasPdfCliente(cuentaClienteActivaId);
-    renderFacturasPdfGrid();
+    renderCuentaClienteCards();
   } catch(err){
     console.error(err);
     showToast('Error al guardar: ' + err.message, true);
@@ -4658,7 +4674,7 @@ document.getElementById('btn-factura-pdf-delete').addEventListener('click', asyn
     showToast('Factura eliminada');
     document.getElementById('modal-factura-pdf-overlay').classList.remove('open');
     await loadFacturasPdfCliente(cuentaClienteActivaId);
-    renderFacturasPdfGrid();
+    renderCuentaClienteCards();
   } catch(err){
     console.error(err);
     showToast('Error al eliminar: ' + err.message, true);
