@@ -2711,7 +2711,7 @@ document.getElementById('btn-contrato-save').addEventListener('click', async ()=
     showToast('Contrato guardado correctamente');
     closeContratoOverlay();
     await loadContratos();
-    if(payload.datos_confirmados && payload.estado === 'activo') await autoGenerarPendientesDelMes();
+    if(payload.datos_confirmados) await autoGenerarPendientesDelMes();
     await refrescarPendientesSiCorresponde();
   } catch(err){
     console.error(err);
@@ -2919,10 +2919,15 @@ function calcularPeriodoHasta(periodoDesde, periodicidad){
 // los que todavía están "a confirmar" quedan afuera hasta que se carguen a mano.
 async function autoGenerarPendientesDelMes(){
   const hoy = new Date().toISOString().slice(0,10);
-  const activos = contratosCache.filter(c =>
-    c.estado === 'activo' && c.datos_confirmados && c.ultimo_periodo_facturado_hasta
+  // Contratos confirmados que necesitan generar su próximo pendiente:
+  // - Activos: se genera hasta hoy (y va a seguir generando mes a mes).
+  // - De baja: se genera hasta la fecha de baja nomás (esa renta corta igual
+  //   se tiene que facturar, aunque la máquina ya se haya devuelto).
+  const contratosAGenerar = contratosCache.filter(c =>
+    c.datos_confirmados && c.ultimo_periodo_facturado_hasta &&
+    (c.estado === 'activo' || (c.estado === 'baja' && c.fecha_baja))
   );
-  if(activos.length === 0) return;
+  if(contratosAGenerar.length === 0) return;
 
   const periodosExistentes = {};
   pendientesCache.forEach(p=>{
@@ -2931,10 +2936,11 @@ async function autoGenerarPendientesDelMes(){
   });
 
   const nuevos = [];
-  for(const c of activos){
+  for(const c of contratosAGenerar){
     let cursor = addDays(c.ultimo_periodo_facturado_hasta, 1);
+    const limite = (c.estado === 'baja' && c.fecha_baja < hoy) ? c.fecha_baja : hoy;
     let guard = 0; // tope de seguridad para no generar infinitos períodos atrasados de una sola vez
-    while(cursor <= hoy && guard < 36){
+    while(cursor <= limite && guard < 36){
       const hasta = calcularPeriodoHasta(cursor, c.periodicidad || 'mensual');
       const yaExiste = periodosExistentes[c.id] && periodosExistentes[c.id].has(cursor);
       if(!yaExiste){
