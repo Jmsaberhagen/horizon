@@ -3207,14 +3207,32 @@ document.getElementById('pend-filter-sucursal').addEventListener('change', apply
 document.getElementById('pend-filter-provincia').addEventListener('change', applyPendFilters);
 document.getElementById('pend-filter-estado').addEventListener('change', applyPendFilters);
 
+// Busca, para un contrato, cuál fue el último período REALMENTE facturado
+// (ignora las Notas de Crédito, que no son una factura de alquiler en sí)
+function obtenerUltimaFacturaDelContrato(contratoId){
+  const facturados = pendientesCache.filter(p =>
+    p.contrato_id === contratoId && p.estado === 'facturado' && !esNotaDeCredito(p.numero_factura)
+  );
+  if(facturados.length === 0) return null;
+  facturados.sort((a,b) => (b.periodo_hasta || '').localeCompare(a.periodo_hasta || ''));
+  return facturados[0];
+}
+
 function pendientesToRows(list){
-  const headers = ['Cliente','Equipo','Sucursal','Provincia','Periodo Desde','Periodo Hasta','Valor USD','Estado','N Factura'];
-  const rows = list.map(p => [
-    p.contratos?.clientes?.razon_social || '', p.contratos?.equipos?.numero_serie || '',
-    p.contratos?.sucursales?.nombre || '', p.contratos?.clientes?.provincia || '',
-    p.periodo_desde || '', p.periodo_hasta || '', p.valor_alquiler_usd ?? '',
-    p.estado, p.numero_factura || '',
-  ]);
+  const headers = [
+    'Cliente','Equipo','Sucursal','Provincia','Periodo Desde','Periodo Hasta','Valor USD','Estado','N Factura',
+    'Ultimo Periodo Facturado Desde','Ultimo Periodo Facturado Hasta','N Factura Ultimo Periodo','Fecha Emision Ultima Factura',
+  ];
+  const rows = list.map(p => {
+    const ultima = obtenerUltimaFacturaDelContrato(p.contrato_id);
+    return [
+      p.contratos?.clientes?.razon_social || '', p.contratos?.equipos?.numero_serie || '',
+      p.contratos?.sucursales?.nombre || '', p.contratos?.clientes?.provincia || '',
+      p.periodo_desde || '', p.periodo_hasta || '', p.valor_alquiler_usd ?? '',
+      p.estado, p.numero_factura || '',
+      ultima?.periodo_desde || '', ultima?.periodo_hasta || '', ultima?.numero_factura || '', ultima?.fecha_facturacion || '',
+    ];
+  });
   return { headers, rows };
 }
 document.getElementById('btn-export-pendientes-csv').addEventListener('click', ()=>{
