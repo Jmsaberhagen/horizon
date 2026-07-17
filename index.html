@@ -3475,18 +3475,40 @@ async function cargarPdfYaAdjuntoEnModal(pendienteId){
   const box = document.getElementById('p-pdf-ya-cargado');
   box.style.display = 'none';
   box.innerHTML = '';
-  const { data, error } = await supabaseClient.from('facturas_pdf').select('*').eq('pendiente_id', pendienteId).limit(1);
+  const p = pendientesCache.find(x => x.id === pendienteId);
+  const { data, error } = await supabaseClient.from('facturas_pdf').select('*').eq('pendiente_id', pendienteId).order('created_at', { ascending: false });
   if(error || !data || data.length === 0) return;
-  const f = data[0];
-  box.style.display = 'flex';
-  box.style.alignItems = 'center';
-  box.style.gap = '10px';
-  box.innerHTML = `
-    ${f.miniatura_base64 ? `<img src="${f.miniatura_base64}" style="width:50px;border-radius:4px;border:1px solid var(--border);">` : ''}
-    <div>
-      <div class="muted" style="font-size:11px;">Ya tiene un PDF adjunto:</div>
-      <a href="${f.archivo_url}" target="_blank" style="color:var(--accent);font-size:12px;">${escapeHtml(f.archivo_nombre)}</a>
-    </div>`;
+
+  // El "vigente" es el que coincide con el N° de factura actual del pendiente.
+  // Si el período volvió a "Pendiente" por una NC, todavía no hay ningún PDF vigente
+  // (el/los anterior/es queda/n solo como historial, más abajo).
+  const vigente = (p && p.estado === 'facturado' && p.numero_factura)
+    ? (data.find(f => (f.numero_factura || '').trim() === p.numero_factura.trim()) || data[0])
+    : null;
+  const anteriores = data.filter(f => f !== vigente);
+
+  let html = '';
+  if(vigente){
+    html += `
+      <div style="display:flex;align-items:center;gap:10px;">
+        ${vigente.miniatura_base64 ? `<img src="${vigente.miniatura_base64}" style="width:50px;border-radius:4px;border:1px solid var(--border);">` : ''}
+        <div>
+          <div class="muted" style="font-size:11px;">Ya tiene un PDF adjunto:</div>
+          <a href="${vigente.archivo_url}" target="_blank" style="color:var(--accent);font-size:12px;">${escapeHtml(vigente.archivo_nombre)}</a>
+        </div>
+      </div>`;
+  }
+  if(anteriores.length > 0){
+    html += `
+      <div class="muted" style="font-size:11px;margin-top:${vigente ? '10px' : '0'};">
+        Documento(s) anterior(es) de este período (facturas ya anuladas por NC):
+        ${anteriores.map(f=>`<div style="margin-top:2px;"><a href="${f.archivo_url}" target="_blank" style="color:#c084fc;">${escapeHtml(f.archivo_nombre)}${f.numero_factura ? ' — '+escapeHtml(f.numero_factura) : ''}</a></div>`).join('')}
+      </div>`;
+  }
+  if(html){
+    box.style.display = 'block';
+    box.innerHTML = html;
+  }
 }
 
 document.getElementById('btn-p-subir-pdf').addEventListener('click', async ()=>{
@@ -4459,8 +4481,12 @@ function calcularConciliacion(clienteId, serie){
     );
     const idsContratosMaquina = contratosDeEstaMaquina.map(c => c.id);
     const facturasDeEstaMaquina = facturasPdfCache.filter(f => idsContratosMaquina.includes(f.contrato_id));
-    const pdfPorPendienteId = {};
-    facturasDeEstaMaquina.forEach(f => { if(f.pendiente_id) pdfPorPendienteId[f.pendiente_id] = f; });
+    const pdfsPorPendienteId = {};
+    facturasDeEstaMaquina.forEach(f => {
+      if(!f.pendiente_id) return;
+      if(!pdfsPorPendienteId[f.pendiente_id]) pdfsPorPendienteId[f.pendiente_id] = [];
+      pdfsPorPendienteId[f.pendiente_id].push(f);
+    });
 
     const cardsHtml = items.map(p=>{
       const esFacturado = p.estado === 'facturado';
@@ -4468,14 +4494,20 @@ function calcularConciliacion(clienteId, serie){
       const estadoColor = esNC ? '#c084fc' : (esFacturado ? 'var(--ok)' : 'var(--accent)');
       const estadoTexto = esNC ? 'Nota de Crédito' : (esFacturado ? 'Facturado' : 'Pendiente');
       const montoTexto = esNC ? `− ${fmtMoney(p.valor_alquiler_usd,'USD')}` : fmtMoney(p.valor_alquiler_usd,'USD');
-      const pdfAdjunto = pdfPorPendienteId[p.id];
+      const pdfsDelPeriodo = pdfsPorPendienteId[p.id] || [];
+      const pdfVigente = (esFacturado && p.numero_factura)
+        ? (pdfsDelPeriodo.find(f => (f.numero_factura || '').trim() === p.numero_factura.trim()) || pdfsDelPeriodo[0])
+        : null;
+      const pdfAnulado = p.numero_factura_anulada
+        ? pdfsDelPeriodo.find(f => (f.numero_factura || '').trim() === p.numero_factura_anulada.trim())
+        : null;
 
       let bloquePdf = '';
       if(esFacturado){
-        if(pdfAdjunto){
+        if(pdfVigente){
           bloquePdf = `
             <div class="muted" style="font-size:11px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border);">
-              <a href="#" onclick="event.stopPropagation(); event.preventDefault(); abrirFacturaPdf(${pdfAdjunto.id});" style="color:var(--accent);text-decoration:none;">📎 Ver PDF adjunto</a>
+              <a href="#" onclick="event.stopPropagation(); event.preventDefault(); abrirFacturaPdf(${pdfVigente.id});" style="color:var(--accent);text-decoration:none;">📎 Ver PDF adjunto</a>
             </div>`;
         } else {
           bloquePdf = `
@@ -4494,6 +4526,10 @@ function calcularConciliacion(clienteId, serie){
         <div class="muted" style="font-size:10px;margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);color:#c084fc;">
           Anulado — NC ${escapeHtml(p.nc_numero)}${p.nc_fecha ? ' del '+fmtDate(p.nc_fecha) : ''}${p.numero_factura_anulada ? ' (era factura '+escapeHtml(p.numero_factura_anulada)+')' : ''}
           ${p.nc_motivo ? `<br>Motivo: ${escapeHtml(p.nc_motivo)}` : ''}
+          <div style="margin-top:4px;display:flex;gap:10px;flex-wrap:wrap;">
+            ${pdfAnulado ? `<a href="#" onclick="event.stopPropagation(); event.preventDefault(); abrirFacturaPdf(${pdfAnulado.id});" style="color:#c084fc;">📎 Ver factura anulada</a>` : ''}
+            ${p.nc_archivo_url ? `<a href="${p.nc_archivo_url}" target="_blank" onclick="event.stopPropagation();" style="color:#c084fc;">📎 Ver Nota de Crédito</a>` : ''}
+          </div>
         </div>` : '';
 
       return `
