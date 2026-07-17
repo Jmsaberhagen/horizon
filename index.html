@@ -3034,12 +3034,16 @@ document.getElementById('btn-contrato-save').addEventListener('click', async ()=
     // cualquier pendiente sin facturar tiene que conservarse tal cual (puede ser
     // la última renta real de esa máquina, todavía sin número de factura, y la
     // máquina ya puede estar alquilada a otro cliente con otro contrato nuevo).
+    // TAMPOCO tocamos nunca un pendiente que tenga una Nota de Crédito asociada
+    // (nc_numero): aunque su estado volvió a "pendiente", ese registro es
+    // historial real de facturación/anulación, no un hueco descartable.
     if(payload.datos_confirmados && payload.estado === 'activo' && contratoId){
       const { error: errLimpiar } = await supabaseClient
         .from('pendientes_facturacion')
         .delete()
         .eq('contrato_id', contratoId)
-        .eq('estado', 'pendiente');
+        .eq('estado', 'pendiente')
+        .is('nc_numero', null);
       if(errLimpiar) console.error('No se pudieron limpiar pendientes viejos:', errLimpiar);
     }
 
@@ -3267,22 +3271,33 @@ async function autoGenerarPendientesDelMes(){
   );
   if(contratosAGenerar.length === 0) return;
 
-  // Auto-saneamiento: antes de generar, borramos TODOS los pendientes sin
-  // facturar existentes de estos contratos (nunca los ya facturados) y
-  // los recalculamos de cero a partir del "último período facturado" actual.
-  // Esto evita que quede pegado cualquier resto duplicado/desalineado de
-  // una edición anterior, sea cual sea la causa puntual.
+  // Auto-saneamiento: antes de generar, borramos los pendientes SIN facturar
+  // existentes de estos contratos que sean simples huecos auto-generados
+  // (nunca tocamos los ya facturados, y TAMPOCO los que tengan una Nota de
+  // Crédito asociada — nc_numero — aunque su estado haya vuelto a "pendiente":
+  // ese registro es historial real de facturación/anulación, no un hueco
+  // descartable, y borrarlo pierde el vínculo con la factura y la NC ya subidas).
   const idsContratos = contratosAGenerar.map(c => c.id);
   try{
     const { error: errLimpiar } = await supabaseClient
       .from('pendientes_facturacion')
       .delete()
       .in('contrato_id', idsContratos)
-      .eq('estado', 'pendiente');
+      .eq('estado', 'pendiente')
+      .is('nc_numero', null);
     if(errLimpiar) console.error('[Horizon] no se pudieron limpiar pendientes antes de regenerar:', errLimpiar);
   } catch(e){
     console.error('[Horizon] error en el saneamiento previo:', e);
   }
+
+  // Después del saneamiento, traemos qué períodos ya existen (por ejemplo los
+  // preservados por tener NC) para no generar un duplicado superpuesto.
+  const { data: existentes, error: errExistentes } = await supabaseClient
+    .from('pendientes_facturacion')
+    .select('contrato_id, periodo_desde')
+    .in('contrato_id', idsContratos);
+  if(errExistentes) console.error('[Horizon] no se pudo verificar pendientes existentes:', errExistentes);
+  const existentesSet = new Set((existentes || []).map(p => `${p.contrato_id}|${p.periodo_desde}`));
 
   const nuevos = [];
   for(const c of contratosAGenerar){
@@ -3291,16 +3306,18 @@ async function autoGenerarPendientesDelMes(){
     let guard = 0; // tope de seguridad para no generar infinitos períodos atrasados de una sola vez
     while(cursor <= limite && guard < 36){
       const hasta = calcularPeriodoHasta(cursor, c.periodicidad || 'mensual');
-      const valorUsd = c.precio_mensual_con_descuento ?? c.precio_mensual_sin_descuento ?? 0;
-      nuevos.push({
-        contrato_id: c.id,
-        periodo_desde: cursor,
-        periodo_hasta: hasta,
-        valor_alquiler_usd: c.moneda === 'USD' ? valorUsd : null,
-        tc_aplicado: null,
-        potencial_facturacion: c.moneda === 'ARS' ? valorUsd : null,
-        estado: 'pendiente',
-      });
+      if(!existentesSet.has(`${c.id}|${cursor}`)){
+        const valorUsd = c.precio_mensual_con_descuento ?? c.precio_mensual_sin_descuento ?? 0;
+        nuevos.push({
+          contrato_id: c.id,
+          periodo_desde: cursor,
+          periodo_hasta: hasta,
+          valor_alquiler_usd: c.moneda === 'USD' ? valorUsd : null,
+          tc_aplicado: null,
+          potencial_facturacion: c.moneda === 'ARS' ? valorUsd : null,
+          estado: 'pendiente',
+        });
+      }
       cursor = addDays(hasta, 1);
       guard++;
     }
@@ -5207,7 +5224,13 @@ async function subirFacturaPdfConOcr(file, clienteId, pendienteId, statusEl){
   } catch(err){
     console.error(err);
     if(statusEl) statusEl.textContent = '';
-    showToast('Error al procesar el PDF: ' + err.message, true);
+    if(err.message && err.message.includes('facturas_pdf_pendiente_id_fkey')){
+      showToast('Este pendiente ya no existe tal como estaba (se regeneró). Cerrá y volvé a abrirlo antes de subir el PDF.', true);
+      await loadPendientes();
+      if(cuentaClienteActivaId) renderCuentaClienteCards();
+    } else {
+      showToast('Error al procesar el PDF: ' + err.message, true);
+    }
     return false;
   }
 }
