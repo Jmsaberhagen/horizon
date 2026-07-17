@@ -528,6 +528,7 @@
   <button data-tab="enviofacturas">Envío de Facturas</button>
   <button data-tab="planning">Planning</button>
   <button data-tab="retiros">Pendientes de Retiro</button>
+  <button data-tab="remitos">Remitos</button>
   <button data-tab="usuarios" id="nav-usuarios" style="display:none;">Usuarios</button>
 </nav>
 
@@ -1089,6 +1090,56 @@
       </div>
     </div>
     <div class="muted" id="ret-results-count" style="margin-top:10px;font-size:12px;"></div>
+  </section>
+
+  <section id="tab-remitos" style="display:none;">
+    <div class="dash-hero" style="margin-bottom:14px;">
+      <h1 style="font-size:16px;">Remitos</h1>
+      <div class="sub">Escaneo del remito firmado en la entrega. Cuando se retira la máquina, se vuelve a firmar la misma hoja y se escanea de nuevo.</div>
+    </div>
+    <div class="toolbar" style="flex-wrap:wrap;">
+      <input type="text" id="rem-search" placeholder="Buscar por cliente, N° de remito, N° de serie u obra...">
+      <select id="rem-filter-sucursal">
+        <option value="">Todas las sucursales</option>
+      </select>
+      <select id="rem-filter-estado">
+        <option value="">Todos los estados</option>
+        <option value="pendiente">Entregado — pendiente de retiro</option>
+        <option value="retirado">Retirado</option>
+      </select>
+      <input type="date" id="rem-filter-entrega-desde" title="Entrega desde">
+      <input type="date" id="rem-filter-entrega-hasta" title="Entrega hasta">
+      <input type="date" id="rem-filter-retiro-desde" title="Retiro desde">
+      <input type="date" id="rem-filter-retiro-hasta" title="Retiro hasta">
+      <button class="btn secondary small" id="btn-rem-limpiar-filtros" type="button">Limpiar filtros</button>
+      <div style="flex:1"></div>
+      <button class="btn secondary" id="btn-export-remitos-csv">Exportar CSV</button>
+      <button class="btn secondary" id="btn-export-remitos-xls">Exportar XLSX</button>
+      <button class="btn" id="btn-nuevo-remito">+ Nuevo remito</button>
+    </div>
+
+    <div class="panel">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Equipo (N° Serie)</th>
+              <th>N° Remito</th>
+              <th>Sucursal</th>
+              <th>Fecha entrega</th>
+              <th>Fecha retiro</th>
+              <th>Estado</th>
+              <th style="width:190px;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="rem-tbody">
+            <tr><td colspan="8" class="empty-state">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="muted" id="rem-results-count" style="margin-top:10px;font-size:12px;"></div>
   </section>
 
 </main>
@@ -1763,6 +1814,114 @@
   </div>
 </div>
 
+<!-- MODAL REMITO (entrega — carga con OCR) -->
+<div class="overlay" id="modal-remito-overlay">
+  <div class="modal wide">
+    <h2 id="modal-remito-title">Nuevo remito</h2>
+    <input type="hidden" id="rem-id">
+
+    <div class="field-grid cols-3">
+      <div class="field full" style="position:relative;">
+        <label>Cliente *</label>
+        <input type="text" id="rem-cliente-search" placeholder="Buscar por razón social, CUIT o N° de cliente...">
+        <input type="hidden" id="rem-cliente_id">
+        <div class="autocomplete-list" id="rem-cliente-results"></div>
+      </div>
+
+      <div class="field" style="position:relative;">
+        <label>Equipo — N° de serie</label>
+        <input type="text" id="rem-equipo-search" placeholder="Buscar por número de serie...">
+        <input type="hidden" id="rem-equipo_id">
+        <div class="autocomplete-list" id="rem-equipo-results"></div>
+      </div>
+      <div class="field">
+        <label>Sucursal</label>
+        <select id="rem-sucursal_id">
+          <option value="">—</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>N° de Remito</label>
+        <input type="text" id="rem-numero_remito" placeholder="Se autocompleta con el OCR">
+      </div>
+
+      <div class="field">
+        <label>Fecha de entrega *</label>
+        <input type="date" id="rem-fecha_entrega">
+      </div>
+      <div class="field">
+        <label>Firma de entrega — aclaración</label>
+        <input type="text" id="rem-firma_entrega_aclaracion" placeholder="Nombre de quien firmó">
+      </div>
+      <div class="field">
+        <label>Obra</label>
+        <input type="text" id="rem-obra">
+      </div>
+
+      <div class="field full">
+        <label>Contacto de obra</label>
+        <input type="text" id="rem-contacto_obra">
+      </div>
+
+      <div class="field full" style="background:var(--panel-2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;">
+        <label>Escaneo del remito firmado (entrega)</label>
+        <input type="file" id="rem-archivo-entrega" accept="image/*,.pdf">
+        <div class="muted" id="rem-ocr-status" style="font-size:12px;margin-top:6px;"></div>
+        <div id="rem-archivo-actual" style="margin-top:6px;"></div>
+      </div>
+
+      <div class="field full">
+        <label>Texto completo extraído por OCR (para búsqueda futura)</label>
+        <textarea id="rem-texto_extraido_entrega" rows="5" style="font-family:monospace;font-size:11px;"></textarea>
+      </div>
+      <div class="field full">
+        <label>Observaciones</label>
+        <textarea id="rem-observacion" rows="2"></textarea>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn secondary" id="btn-remito-cancel">Cancelar</button>
+      <button class="btn danger" id="btn-remito-delete" style="display:none;">Eliminar</button>
+      <button class="btn" id="btn-remito-save">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL REGISTRAR RETIRO DE REMITO (2da firma, misma hoja) -->
+<div class="overlay" id="modal-retiro-remito-overlay">
+  <div class="modal">
+    <h2>Registrar retiro</h2>
+    <input type="hidden" id="rrt-id">
+    <div id="rrt-resumen" style="margin-bottom:14px;"></div>
+
+    <div class="field-grid">
+      <div class="field">
+        <label>Fecha de retiro *</label>
+        <input type="date" id="rrt-fecha_retiro">
+      </div>
+      <div class="field">
+        <label>Firma de retiro — aclaración</label>
+        <input type="text" id="rrt-firma_retiro_aclaracion" placeholder="Nombre de quien firmó">
+      </div>
+      <div class="field full" style="background:var(--panel-2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;">
+        <label>Escaneo del remito con la 2da firma (retiro)</label>
+        <input type="file" id="rrt-archivo-retiro" accept="image/*,.pdf">
+        <div class="muted" id="rrt-ocr-status" style="font-size:12px;margin-top:6px;"></div>
+      </div>
+      <div class="field full">
+        <label>Texto extraído por OCR</label>
+        <textarea id="rrt-texto_extraido_retiro" rows="4" style="font-family:monospace;font-size:11px;"></textarea>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn secondary" id="btn-retiro-remito-cancel">Cancelar</button>
+      <button class="btn" id="btn-retiro-remito-save">Guardar</button>
+    </div>
+  </div>
+</div>
+
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -1873,6 +2032,7 @@ const TAB_TITLES = {
   enviofacturas: 'Envío de Facturas',
   planning: 'Planning',
   retiros: 'Pendientes de Retiro',
+  remitos: 'Remitos',
 };
 
 function activarTab(tab){
@@ -3562,6 +3722,7 @@ const SECCIONES_PERMISOS = [
   { key:'planning',      label:'Planning',      acciones:[['ver','Ver'],['registrar_parada','Registrar parada']] },
   { key:'retiros',       label:'Pendientes de Retiro', acciones:[['ver','Ver'],['marcar_retirada','Marcar retirada']] },
   { key:'enviofacturas', label:'Envío de Facturas', acciones:[['ver','Ver'],['marcar_enviada','Marcar enviada']] },
+  { key:'remitos',       label:'Remitos',           acciones:[['ver','Ver'],['crear','Crear / cargar entrega'],['registrar_retiro','Registrar retiro'],['eliminar','Eliminar']] },
   { key:'usuarios',      label:'Usuarios',      acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar']] },
 ];
 
@@ -3897,6 +4058,7 @@ function renderDashboard(){
     { tab:'enviofacturas', icon:'📧', title:'Envío de Facturas', count: puede('enviofacturas','ver') ? `${todasFacturasPdfCache.filter(f=>!f._enviada).length} sin enviar` : '', visible:puede('enviofacturas','ver') },
     { tab:'planning',   icon:'📅', title:'Planning',   count:'Ocupación de flota', visible:puede('planning','ver') },
     { tab:'retiros',    icon:'🚨', title:'Pendientes de Retiro', count: puede('retiros','ver') ? `${calcularRetirosUrgentes().length} urgente(s)` : '', visible:puede('retiros','ver') },
+    { tab:'remitos',    icon:'📋', title:'Remitos',    count: puede('remitos','ver') ? `${remitosCache.filter(r=>!r.fecha_retiro).length} pendiente(s) de retiro` : '', visible:puede('remitos','ver') },
     { tab:'usuarios',   icon:'👤', title:'Usuarios',   count:`${usuariosCache.length} cuentas`, visible:puede('usuarios','ver') },
   ];
 
@@ -5510,6 +5672,505 @@ function descargarContratoPDF(contratoId){
   doc.save(nombreArchivo);
 }
 
+// =========================================================
+// MÓDULO: Remitos (entrega y retiro de máquinas)
+// =========================================================
+let remitosCache = [];
+
+async function loadRemitos(){
+  const { data, error } = await supabaseClient
+    .from('remitos')
+    .select('*, clientes(razon_social), equipos(numero_serie, modelo), sucursales(nombre)')
+    .order('fecha_entrega', { ascending: false });
+  if(error){ console.error('Error cargando remitos:', error); remitosCache = []; return; }
+  remitosCache = data;
+}
+
+function populateSucursalFilterRemitos(){
+  const sel = document.getElementById('rem-filter-sucursal');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Todas las sucursales</option>' +
+    sucursales.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
+  sel.value = current;
+}
+
+function getRemitosFiltrados(){
+  const q = document.getElementById('rem-search').value.trim().toLowerCase();
+  const sucursalId = document.getElementById('rem-filter-sucursal').value;
+  const estado = document.getElementById('rem-filter-estado').value;
+  const entregaDesde = document.getElementById('rem-filter-entrega-desde').value;
+  const entregaHasta = document.getElementById('rem-filter-entrega-hasta').value;
+  const retiroDesde = document.getElementById('rem-filter-retiro-desde').value;
+  const retiroHasta = document.getElementById('rem-filter-retiro-hasta').value;
+  let list = remitosCache;
+  if(sucursalId) list = list.filter(r => String(r.sucursal_id) === sucursalId);
+  if(estado === 'pendiente') list = list.filter(r => !r.fecha_retiro);
+  if(estado === 'retirado') list = list.filter(r => !!r.fecha_retiro);
+  if(entregaDesde) list = list.filter(r => r.fecha_entrega && r.fecha_entrega >= entregaDesde);
+  if(entregaHasta) list = list.filter(r => r.fecha_entrega && r.fecha_entrega <= entregaHasta);
+  if(retiroDesde) list = list.filter(r => r.fecha_retiro && r.fecha_retiro >= retiroDesde);
+  if(retiroHasta) list = list.filter(r => r.fecha_retiro && r.fecha_retiro <= retiroHasta);
+  if(q){
+    list = list.filter(r =>
+      (r.clientes?.razon_social || '').toLowerCase().includes(q) ||
+      (r.numero_remito || '').toLowerCase().includes(q) ||
+      (r.equipos?.numero_serie || '').toLowerCase().includes(q) ||
+      (r.obra || '').toLowerCase().includes(q)
+    );
+  }
+  return list;
+}
+
+function renderRemitos(){
+  const list = getRemitosFiltrados();
+  const tbody = document.getElementById('rem-tbody');
+  if(!tbody) return;
+  if(list.length === 0){
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No hay remitos con este filtro.</td></tr>';
+    document.getElementById('rem-results-count').textContent = '';
+    return;
+  }
+  tbody.innerHTML = list.map(r=>{
+    const retirado = !!r.fecha_retiro;
+    const estadoBadge = retirado
+      ? `<span class="badge" style="color:var(--ok);border-color:var(--ok);">Retirado</span>`
+      : `<span class="badge" style="color:#ff9f43;border-color:#ff9f43;">Pendiente de retiro</span>`;
+    return `
+      <tr>
+        <td>${escapeHtml(r.clientes?.razon_social || '—')}</td>
+        <td class="muted">${escapeHtml(r.equipos?.numero_serie || '—')}${r.equipos?.modelo ? ' — '+escapeHtml(r.equipos.modelo) : ''}</td>
+        <td class="muted">${escapeHtml(r.numero_remito || '—')}</td>
+        <td>${r.sucursales?.nombre ? `<span class="badge">${escapeHtml(r.sucursales.nombre)}</span>` : '—'}</td>
+        <td class="muted">${r.fecha_entrega ? fmtDate(r.fecha_entrega) : '—'}</td>
+        <td class="muted">${r.fecha_retiro ? fmtDate(r.fecha_retiro) : '—'}</td>
+        <td>${estadoBadge}</td>
+        <td>
+          <div class="row-actions">
+            ${r.archivo_entrega_url ? `<a href="${r.archivo_entrega_url}" target="_blank" class="btn secondary small" style="text-decoration:none;">Entrega</a>` : ''}
+            ${r.archivo_retiro_url ? `<a href="${r.archivo_retiro_url}" target="_blank" class="btn secondary small" style="text-decoration:none;">Retiro</a>` : ''}
+            <button class="btn secondary small" onclick="abrirEditarRemito(${r.id})">Editar</button>
+            ${!retirado && puede('remitos','registrar_retiro') ? `<button class="btn small" onclick="abrirRegistrarRetiro(${r.id})">Registrar retiro</button>` : ''}
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+  document.getElementById('rem-results-count').textContent = `${list.length} remito(s)`;
+}
+
+function applyRemitoFilters(){ renderRemitos(); }
+document.getElementById('rem-search').addEventListener('input', applyRemitoFilters);
+document.getElementById('rem-filter-sucursal').addEventListener('change', applyRemitoFilters);
+document.getElementById('rem-filter-estado').addEventListener('change', applyRemitoFilters);
+document.getElementById('rem-filter-entrega-desde').addEventListener('change', applyRemitoFilters);
+document.getElementById('rem-filter-entrega-hasta').addEventListener('change', applyRemitoFilters);
+document.getElementById('rem-filter-retiro-desde').addEventListener('change', applyRemitoFilters);
+document.getElementById('rem-filter-retiro-hasta').addEventListener('change', applyRemitoFilters);
+document.getElementById('btn-rem-limpiar-filtros').addEventListener('click', ()=>{
+  document.getElementById('rem-search').value = '';
+  document.getElementById('rem-filter-sucursal').value = '';
+  document.getElementById('rem-filter-estado').value = '';
+  document.getElementById('rem-filter-entrega-desde').value = '';
+  document.getElementById('rem-filter-entrega-hasta').value = '';
+  document.getElementById('rem-filter-retiro-desde').value = '';
+  document.getElementById('rem-filter-retiro-hasta').value = '';
+  renderRemitos();
+});
+
+function remitosToRows(list){
+  const headers = ['Cliente','Equipo N Serie','N Remito','Sucursal','Fecha Entrega','Firma Entrega','Fecha Retiro','Firma Retiro','Estado','Obra','Contacto Obra','Observacion'];
+  const rows = list.map(r => [
+    r.clientes?.razon_social || '', r.equipos?.numero_serie || '', r.numero_remito || '',
+    r.sucursales?.nombre || '', r.fecha_entrega || '', r.firma_entrega_aclaracion || '',
+    r.fecha_retiro || '', r.firma_retiro_aclaracion || '',
+    r.fecha_retiro ? 'Retirado' : 'Pendiente de retiro',
+    r.obra || '', r.contacto_obra || '', r.observacion || '',
+  ]);
+  return { headers, rows };
+}
+document.getElementById('btn-export-remitos-csv').addEventListener('click', ()=>{
+  const { headers, rows } = remitosToRows(getRemitosFiltrados());
+  exportCSV('remitos_horizon', headers, rows);
+});
+document.getElementById('btn-export-remitos-xls').addEventListener('click', ()=>{
+  const { headers, rows } = remitosToRows(getRemitosFiltrados());
+  exportXLS('remitos_horizon', headers, rows);
+});
+
+// ---------- Autocompletar Cliente / Equipo dentro del modal de remito ----------
+const remClienteSearchInput = document.getElementById('rem-cliente-search');
+const remClienteResultsBox = document.getElementById('rem-cliente-results');
+remClienteSearchInput.addEventListener('input', ()=>{
+  const q = remClienteSearchInput.value.trim().toLowerCase();
+  document.getElementById('rem-cliente_id').value = '';
+  if(q.length < 2){ remClienteResultsBox.classList.remove('open'); return; }
+  const matches = clientesCache.filter(c =>
+    (c.razon_social||'').toLowerCase().includes(q) ||
+    (c.cuit||'').toLowerCase().includes(q) ||
+    (c.numero_cliente||'').toLowerCase().includes(q)
+  ).slice(0, 30);
+  remClienteResultsBox.innerHTML = matches.length === 0
+    ? '<div class="autocomplete-item muted">Sin resultados</div>'
+    : matches.map(c=>`<div class="autocomplete-item" data-id="${c.id}" data-nombre="${escapeHtml(c.razon_social)}">${escapeHtml(c.razon_social)}</div>`).join('');
+  remClienteResultsBox.classList.add('open');
+});
+remClienteResultsBox.addEventListener('click', (e)=>{
+  const item = e.target.closest('.autocomplete-item');
+  if(!item || !item.dataset.id) return;
+  document.getElementById('rem-cliente_id').value = item.dataset.id;
+  remClienteSearchInput.value = item.dataset.nombre;
+  remClienteResultsBox.classList.remove('open');
+});
+
+const remEquipoSearchInput = document.getElementById('rem-equipo-search');
+const remEquipoResultsBox = document.getElementById('rem-equipo-results');
+remEquipoSearchInput.addEventListener('input', ()=>{
+  const q = remEquipoSearchInput.value.trim().toLowerCase();
+  document.getElementById('rem-equipo_id').value = '';
+  if(q.length < 1){ remEquipoResultsBox.classList.remove('open'); return; }
+  const matches = equiposCache.filter(e =>
+    (e.numero_serie||'').toLowerCase().includes(q) ||
+    (e.modelo||'').toLowerCase().includes(q)
+  ).slice(0, 30);
+  remEquipoResultsBox.innerHTML = matches.length === 0
+    ? '<div class="autocomplete-item muted">Sin resultados</div>'
+    : matches.map(e=>`<div class="autocomplete-item" data-id="${e.id}" data-serie="${escapeHtml(e.numero_serie)}">${escapeHtml(e.numero_serie)} <span class="sub">${escapeHtml(e.modelo||'')}</span></div>`).join('');
+  remEquipoResultsBox.classList.add('open');
+});
+remEquipoResultsBox.addEventListener('click', (e)=>{
+  const item = e.target.closest('.autocomplete-item');
+  if(!item || !item.dataset.id) return;
+  document.getElementById('rem-equipo_id').value = item.dataset.id;
+  remEquipoSearchInput.value = item.dataset.serie;
+  remEquipoResultsBox.classList.remove('open');
+});
+document.addEventListener('click', (e)=>{
+  if(!e.target.closest('#rem-cliente-search') && !e.target.closest('#rem-cliente-results')) remClienteResultsBox.classList.remove('open');
+  if(!e.target.closest('#rem-equipo-search') && !e.target.closest('#rem-equipo-results')) remEquipoResultsBox.classList.remove('open');
+});
+
+function populateSucursalSelectRemito(){
+  const sel = document.getElementById('rem-sucursal_id');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">—</option>' + sucursales.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
+  sel.value = current;
+}
+
+function resetRemitoForm(){
+  document.getElementById('rem-id').value = '';
+  document.getElementById('rem-cliente_id').value = '';
+  document.getElementById('rem-equipo_id').value = '';
+  remClienteSearchInput.value = '';
+  remEquipoSearchInput.value = '';
+  populateSucursalSelectRemito();
+  document.getElementById('rem-sucursal_id').value = '';
+  document.getElementById('rem-numero_remito').value = '';
+  document.getElementById('rem-fecha_entrega').value = new Date().toISOString().slice(0,10);
+  document.getElementById('rem-firma_entrega_aclaracion').value = '';
+  document.getElementById('rem-obra').value = '';
+  document.getElementById('rem-contacto_obra').value = '';
+  document.getElementById('rem-observacion').value = '';
+  document.getElementById('rem-texto_extraido_entrega').value = '';
+  const fileInput = document.getElementById('rem-archivo-entrega');
+  fileInput.value = '';
+  delete fileInput.dataset.miniatura;
+  document.getElementById('rem-ocr-status').textContent = '';
+  document.getElementById('rem-archivo-actual').innerHTML = '';
+  document.getElementById('btn-remito-delete').style.display = 'none';
+}
+
+document.getElementById('btn-nuevo-remito').addEventListener('click', ()=>{
+  resetRemitoForm();
+  document.getElementById('modal-remito-title').textContent = 'Nuevo remito (entrega)';
+  document.getElementById('modal-remito-overlay').classList.add('open');
+});
+document.getElementById('btn-remito-cancel').addEventListener('click', ()=>{
+  document.getElementById('modal-remito-overlay').classList.remove('open');
+});
+document.getElementById('modal-remito-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'modal-remito-overlay') document.getElementById('modal-remito-overlay').classList.remove('open');
+});
+
+function abrirEditarRemito(id){
+  const r = remitosCache.find(x=>x.id === id);
+  if(!r) return;
+  resetRemitoForm();
+  document.getElementById('modal-remito-title').textContent = 'Editar remito';
+  document.getElementById('rem-id').value = r.id;
+  document.getElementById('rem-cliente_id').value = r.cliente_id || '';
+  remClienteSearchInput.value = r.clientes ? r.clientes.razon_social : '';
+  document.getElementById('rem-equipo_id').value = r.equipo_id || '';
+  remEquipoSearchInput.value = r.equipos ? r.equipos.numero_serie : '';
+  document.getElementById('rem-sucursal_id').value = r.sucursal_id || '';
+  document.getElementById('rem-numero_remito').value = r.numero_remito || '';
+  document.getElementById('rem-fecha_entrega').value = r.fecha_entrega || '';
+  document.getElementById('rem-firma_entrega_aclaracion').value = r.firma_entrega_aclaracion || '';
+  document.getElementById('rem-obra').value = r.obra || '';
+  document.getElementById('rem-contacto_obra').value = r.contacto_obra || '';
+  document.getElementById('rem-observacion').value = r.observacion || '';
+  document.getElementById('rem-texto_extraido_entrega').value = r.texto_extraido_entrega || '';
+  document.getElementById('rem-archivo-actual').innerHTML = r.archivo_entrega_url
+    ? `<a href="${r.archivo_entrega_url}" target="_blank" class="btn secondary small" style="text-decoration:none;">Ver escaneo actual</a>`
+    : '<span class="muted" style="font-size:12px;">Sin escaneo cargado todavía</span>';
+  document.getElementById('btn-remito-delete').style.display = puede('remitos','eliminar') ? 'inline-block' : 'none';
+  document.getElementById('modal-remito-overlay').classList.add('open');
+}
+
+// ---------- Procesa un archivo (imagen o PDF) subido: genera miniatura + corre OCR ----------
+async function procesarArchivoRemitoOCR(file, statusEl){
+  if(statusEl) statusEl.textContent = 'Leyendo archivo...';
+  asegurarPdfWorker();
+  let canvas;
+  if(file.type === 'application/pdf'){
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 2.2 });
+    canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+  } else {
+    const bitmap = await createImageBitmap(file);
+    canvas = document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    canvas.getContext('2d').drawImage(bitmap, 0, 0);
+  }
+
+  const escalaMini = 220 / canvas.width;
+  const canvasMini = document.createElement('canvas');
+  canvasMini.width = 220;
+  canvasMini.height = canvas.height * escalaMini;
+  canvasMini.getContext('2d').drawImage(canvas, 0, 0, canvasMini.width, canvasMini.height);
+  const miniaturaBase64 = canvasMini.toDataURL('image/jpeg', 0.65);
+
+  if(statusEl) statusEl.textContent = 'Extrayendo texto (OCR)... esto puede tardar unos segundos';
+  const { data: { text } } = await window.Tesseract.recognize(canvas, 'spa');
+
+  return { text, miniaturaBase64 };
+}
+
+// Cruza el texto del OCR contra los clientes/equipos ya cargados en el sistema —
+// más confiable que adivinar un formato de remito que todavía no vimos.
+function detectarClienteEnTexto(text){
+  const textoNorm = text.toLowerCase().replace(/\s+/g,' ');
+  const candidatos = clientesCache
+    .filter(c => c.razon_social && c.razon_social.trim().length >= 4)
+    .sort((a,b)=> b.razon_social.length - a.razon_social.length);
+  for(const c of candidatos){
+    if(textoNorm.includes(c.razon_social.toLowerCase().replace(/\s+/g,' ').trim())) return c;
+  }
+  return null;
+}
+function detectarEquipoEnTexto(text){
+  for(const e of equiposCache){
+    if(e.numero_serie && text.includes(e.numero_serie)) return e;
+  }
+  return null;
+}
+
+document.getElementById('rem-archivo-entrega').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const statusEl = document.getElementById('rem-ocr-status');
+  try{
+    const { text, miniaturaBase64 } = await procesarArchivoRemitoOCR(file, statusEl);
+    document.getElementById('rem-texto_extraido_entrega').value = text;
+    e.target.dataset.miniatura = miniaturaBase64;
+
+    // N° de remito: patrones genéricos — se van a ajustar cuando veamos un escaneo real
+    const matchNumero =
+      text.match(/Remito\s*N[°ºo]?\s*[:\-]?\s*(\d[\d.\-\s]{3,14}\d)/i) ||
+      text.match(/N[°ºo]\s*[:\-]?\s*(\d[\d.\-\s]{3,14}\d)/i);
+    if(matchNumero && !document.getElementById('rem-numero_remito').value){
+      document.getElementById('rem-numero_remito').value = matchNumero[1].replace(/\s/g,'');
+    }
+
+    // Fecha de entrega: solo la completamos si el campo está vacío
+    const matchFecha =
+      text.match(/Fecha\s*[:\-]?\s*(\d{2})[\/\-](\d{2})[\/\-](\d{2,4})/i) ||
+      text.match(/\b(\d{2})[\/\-](\d{2})[\/\-](\d{4})\b/);
+    if(matchFecha){
+      let [, dd, mm, yyyy] = matchFecha;
+      if(yyyy.length === 2) yyyy = '20'+yyyy;
+      if(!document.getElementById('rem-fecha_entrega').value){
+        document.getElementById('rem-fecha_entrega').value = `${yyyy}-${mm}-${dd}`;
+      }
+    }
+
+    // Cliente / equipo: si no se seleccionó ninguno todavía, probamos detectarlos por coincidencia con lo ya cargado
+    if(!document.getElementById('rem-cliente_id').value){
+      const clienteDetectado = detectarClienteEnTexto(text);
+      if(clienteDetectado){
+        document.getElementById('rem-cliente_id').value = clienteDetectado.id;
+        remClienteSearchInput.value = clienteDetectado.razon_social;
+      }
+    }
+    if(!document.getElementById('rem-equipo_id').value){
+      const equipoDetectado = detectarEquipoEnTexto(text);
+      if(equipoDetectado){
+        document.getElementById('rem-equipo_id').value = equipoDetectado.id;
+        remEquipoSearchInput.value = equipoDetectado.numero_serie;
+      }
+    }
+
+    statusEl.textContent = 'Listo — revisá los datos detectados antes de guardar.';
+    showToast('Escaneo procesado. Revisá los campos detectados por el OCR.');
+  } catch(err){
+    console.error(err);
+    statusEl.textContent = '';
+    showToast('No se pudo procesar el OCR: ' + err.message, true);
+  }
+});
+
+document.getElementById('btn-remito-save').addEventListener('click', async ()=>{
+  const id = document.getElementById('rem-id').value;
+  const clienteId = document.getElementById('rem-cliente_id').value;
+  if(!clienteId){ showToast('Elegí un cliente', true); return; }
+  if(!document.getElementById('rem-fecha_entrega').value){ showToast('La fecha de entrega es obligatoria', true); return; }
+
+  const statusEl = document.getElementById('rem-ocr-status');
+  const fileInput = document.getElementById('rem-archivo-entrega');
+  const file = fileInput.files[0];
+
+  const payload = {
+    cliente_id: Number(clienteId),
+    equipo_id: document.getElementById('rem-equipo_id').value ? Number(document.getElementById('rem-equipo_id').value) : null,
+    sucursal_id: document.getElementById('rem-sucursal_id').value ? Number(document.getElementById('rem-sucursal_id').value) : null,
+    numero_remito: document.getElementById('rem-numero_remito').value || null,
+    fecha_entrega: document.getElementById('rem-fecha_entrega').value || null,
+    firma_entrega_aclaracion: document.getElementById('rem-firma_entrega_aclaracion').value || null,
+    obra: document.getElementById('rem-obra').value || null,
+    contacto_obra: document.getElementById('rem-contacto_obra').value || null,
+    observacion: document.getElementById('rem-observacion').value || null,
+    texto_extraido_entrega: document.getElementById('rem-texto_extraido_entrega').value || null,
+  };
+
+  try{
+    if(file){
+      if(statusEl) statusEl.textContent = 'Subiendo escaneo...';
+      const path = `entrega_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_')}`;
+      const { error: uploadError } = await supabaseClient.storage.from('remitos').upload(path, file);
+      if(uploadError) throw uploadError;
+      const { data: urlData } = supabaseClient.storage.from('remitos').getPublicUrl(path);
+      payload.archivo_entrega_nombre = file.name;
+      payload.archivo_entrega_url = urlData.publicUrl;
+      if(fileInput.dataset.miniatura) payload.miniatura_entrega_base64 = fileInput.dataset.miniatura;
+    }
+
+    if(id){
+      const { error } = await supabaseClient.from('remitos').update(payload).eq('id', id);
+      if(error) throw error;
+      showToast('Remito actualizado');
+    } else {
+      const { error } = await supabaseClient.from('remitos').insert(payload);
+      if(error) throw error;
+      showToast('Remito registrado');
+    }
+    document.getElementById('modal-remito-overlay').classList.remove('open');
+    await loadRemitos();
+    renderRemitos();
+  } catch(err){
+    console.error(err);
+    showToast('Error al guardar el remito: ' + err.message, true);
+  }
+});
+
+document.getElementById('btn-remito-delete').addEventListener('click', async ()=>{
+  const id = document.getElementById('rem-id').value;
+  if(!id) return;
+  if(!confirm('¿Eliminar este remito? Esta acción no se puede deshacer.')) return;
+  try{
+    const { error } = await supabaseClient.from('remitos').delete().eq('id', id);
+    if(error) throw error;
+    document.getElementById('modal-remito-overlay').classList.remove('open');
+    await loadRemitos();
+    renderRemitos();
+    showToast('Remito eliminado');
+  } catch(err){
+    console.error(err);
+    showToast('Error al eliminar: ' + err.message, true);
+  }
+});
+
+// ---------- Registrar retiro: se vuelve a escanear la misma hoja, ahora con la 2da firma ----------
+function abrirRegistrarRetiro(id){
+  const r = remitosCache.find(x=>x.id === id);
+  if(!r) return;
+  document.getElementById('rrt-id').value = r.id;
+  document.getElementById('rrt-resumen').innerHTML = `
+    <div style="font-weight:600;">${escapeHtml(r.clientes?.razon_social || '—')}</div>
+    <div class="muted" style="font-size:12px;">Equipo: ${escapeHtml(r.equipos?.numero_serie || '—')}${r.equipos?.modelo ? ' — '+escapeHtml(r.equipos.modelo) : ''}</div>
+    <div class="muted" style="font-size:12px;">N° Remito: ${escapeHtml(r.numero_remito || '—')} — Entregado el ${r.fecha_entrega ? fmtDate(r.fecha_entrega) : '—'}</div>
+  `;
+  document.getElementById('rrt-fecha_retiro').value = new Date().toISOString().slice(0,10);
+  document.getElementById('rrt-firma_retiro_aclaracion').value = '';
+  const fileInput = document.getElementById('rrt-archivo-retiro');
+  fileInput.value = '';
+  delete fileInput.dataset.miniatura;
+  document.getElementById('rrt-ocr-status').textContent = '';
+  document.getElementById('rrt-texto_extraido_retiro').value = '';
+  document.getElementById('modal-retiro-remito-overlay').classList.add('open');
+}
+document.getElementById('btn-retiro-remito-cancel').addEventListener('click', ()=>{
+  document.getElementById('modal-retiro-remito-overlay').classList.remove('open');
+});
+document.getElementById('modal-retiro-remito-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'modal-retiro-remito-overlay') document.getElementById('modal-retiro-remito-overlay').classList.remove('open');
+});
+
+document.getElementById('rrt-archivo-retiro').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const statusEl = document.getElementById('rrt-ocr-status');
+  try{
+    const { text, miniaturaBase64 } = await procesarArchivoRemitoOCR(file, statusEl);
+    document.getElementById('rrt-texto_extraido_retiro').value = text;
+    e.target.dataset.miniatura = miniaturaBase64;
+    statusEl.textContent = 'Listo.';
+  } catch(err){
+    console.error(err);
+    statusEl.textContent = '';
+    showToast('No se pudo procesar el OCR: ' + err.message, true);
+  }
+});
+
+document.getElementById('btn-retiro-remito-save').addEventListener('click', async ()=>{
+  const id = document.getElementById('rrt-id').value;
+  if(!id) return;
+  if(!document.getElementById('rrt-fecha_retiro').value){ showToast('La fecha de retiro es obligatoria', true); return; }
+  const statusEl = document.getElementById('rrt-ocr-status');
+  const fileInput = document.getElementById('rrt-archivo-retiro');
+  const file = fileInput.files[0];
+
+  const payload = {
+    fecha_retiro: document.getElementById('rrt-fecha_retiro').value || null,
+    firma_retiro_aclaracion: document.getElementById('rrt-firma_retiro_aclaracion').value || null,
+    texto_extraido_retiro: document.getElementById('rrt-texto_extraido_retiro').value || null,
+  };
+  try{
+    if(file){
+      if(statusEl) statusEl.textContent = 'Subiendo escaneo...';
+      const path = `retiro_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_')}`;
+      const { error: uploadError } = await supabaseClient.storage.from('remitos').upload(path, file);
+      if(uploadError) throw uploadError;
+      const { data: urlData } = supabaseClient.storage.from('remitos').getPublicUrl(path);
+      payload.archivo_retiro_nombre = file.name;
+      payload.archivo_retiro_url = urlData.publicUrl;
+      if(fileInput.dataset.miniatura) payload.miniatura_retiro_base64 = fileInput.dataset.miniatura;
+    }
+    const { error } = await supabaseClient.from('remitos').update(payload).eq('id', id);
+    if(error) throw error;
+    document.getElementById('modal-retiro-remito-overlay').classList.remove('open');
+    await loadRemitos();
+    renderRemitos();
+    showToast('Retiro registrado');
+  } catch(err){
+    console.error(err);
+    showToast('Error al registrar el retiro: ' + err.message, true);
+  }
+});
+
 async function initApp(){
   try{
     console.log('[Horizon] cargando sucursales...');
@@ -5541,6 +6202,14 @@ async function initApp(){
     if(puede('usuarios','ver')){
       await loadUsuarios();
     }
+
+    if(puede('remitos','ver')){
+      console.log('[Horizon] cargando remitos...');
+      await loadRemitos();
+      populateSucursalFilterRemitos();
+      renderRemitos();
+    }
+    document.getElementById('btn-nuevo-remito').style.display = puede('remitos','crear') ? '' : 'none';
 
     if(puede('planning','ver')){
       console.log('[Horizon] cargando planning...');
