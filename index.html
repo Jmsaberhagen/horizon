@@ -2995,6 +2995,7 @@ document.getElementById('btn-contrato-save').addEventListener('click', async ()=
     showToast('Contrato guardado correctamente');
     closeContratoOverlay();
     await loadContratos();
+    renderEquipos(getFilteredEquipos());
     if(payload.datos_confirmados) await autoGenerarPendientesDelMes();
     await refrescarPendientesSiCorresponde();
   } catch(err){
@@ -3017,6 +3018,7 @@ document.getElementById('btn-contrato-delete').addEventListener('click', async (
     showToast('Contrato eliminado');
     closeContratoOverlay();
     await loadContratos();
+    renderEquipos(getFilteredEquipos());
     await refrescarPendientesSiCorresponde();
   } catch(err){
     console.error(err);
@@ -6460,9 +6462,11 @@ async function initApp(){
     console.log('[Horizon] clientes OK, cargando equipos...');
     await loadEquipos();
     populateEquipoFilters();
-    renderEquipos(equiposCache);
     console.log('[Horizon] equipos OK, cargando contratos...');
     await loadContratos();
+    // recién acá contratosCache tiene datos, así que renderizamos equipos
+    // DESPUÉS de esto — si no, "alquilada" siempre da falso (contratosCache vacío)
+    renderEquipos(getFilteredEquipos());
 
     populateRetirosFiltros();
     renderRetiros();
