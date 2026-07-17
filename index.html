@@ -5235,6 +5235,25 @@ async function subirFacturaPdfConOcr(file, clienteId, pendienteId, statusEl){
     });
     if(insertError) throw insertError;
 
+    // El pendiente puede haberse marcado "Facturado" sin cargar todavía el N° de
+    // factura a mano (por ej. si se dejó para completar recién al adjuntar el PDF).
+    // Si el OCR detectó un número y/o una fecha y al pendiente le faltaban,
+    // los completamos ahí también — si no, esta columna queda vacía para siempre
+    // aunque el PDF con la factura ya esté cargado.
+    if(pendienteId && pendienteRef && (numeroDetectado || fechaISOdetectada)){
+      const syncPayload = {};
+      if(numeroDetectado && !pendienteRef.numero_factura) syncPayload.numero_factura = numeroDetectado;
+      if(fechaISOdetectada && !pendienteRef.fecha_facturacion) syncPayload.fecha_facturacion = fechaISOdetectada;
+      if(Object.keys(syncPayload).length > 0){
+        const { error: syncError } = await supabaseClient
+          .from('pendientes_facturacion')
+          .update(syncPayload)
+          .eq('id', pendienteId);
+        if(syncError) console.error('No se pudo sincronizar el N° de factura al pendiente:', syncError);
+        else await loadPendientes();
+      }
+    }
+
     if(statusEl) statusEl.textContent = '';
     showToast('PDF subido y procesado con OCR correctamente');
     await loadFacturasPdfCliente(clienteId);
