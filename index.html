@@ -558,7 +558,7 @@
       </select>
       <div style="flex:1"></div>
       <button class="btn secondary" id="btn-export-clientes-csv">Exportar CSV</button>
-      <button class="btn secondary" id="btn-export-clientes-xls">Exportar XLS</button>
+      <button class="btn secondary" id="btn-export-clientes-xls">Exportar XLSX</button>
       <button class="btn" id="btn-new-cliente">+ Nuevo cliente</button>
     </div>
 
@@ -613,7 +613,7 @@
       </select>
       <div style="flex:1"></div>
       <button class="btn secondary" id="btn-export-contratos-csv">Exportar CSV</button>
-      <button class="btn secondary" id="btn-export-contratos-xls">Exportar XLS</button>
+      <button class="btn secondary" id="btn-export-contratos-xls">Exportar XLSX</button>
       <button class="btn" id="btn-new-contrato">+ Nuevo contrato</button>
     </div>
 
@@ -659,7 +659,7 @@
       </select>
       <div style="flex:1"></div>
       <button class="btn secondary" id="btn-export-equipos-csv">Exportar CSV</button>
-      <button class="btn secondary" id="btn-export-equipos-xls">Exportar XLS</button>
+      <button class="btn secondary" id="btn-export-equipos-xls">Exportar XLSX</button>
       <button class="btn" id="btn-new-equipo">+ Nuevo equipo</button>
     </div>
 
@@ -701,7 +701,7 @@
       </select>
       <div style="flex:1"></div>
       <button class="btn secondary" id="btn-export-pendientes-csv">Exportar CSV</button>
-      <button class="btn secondary" id="btn-export-pendientes-xls">Exportar XLS</button>
+      <button class="btn secondary" id="btn-export-pendientes-xls">Exportar XLSX</button>
       <button class="btn secondary" id="btn-nuevo-pendiente">+ Pendiente manual</button>
     </div>
 
@@ -734,7 +734,7 @@
       <div class="muted" style="font-size:13px;">Gestión de usuarios y permisos del sistema.</div>
       <div style="flex:1"></div>
       <button class="btn secondary" id="btn-export-usuarios-csv">Exportar CSV</button>
-      <button class="btn secondary" id="btn-export-usuarios-xls">Exportar XLS</button>
+      <button class="btn secondary" id="btn-export-usuarios-xls">Exportar XLSX</button>
       <button class="btn" id="btn-new-usuario">+ Nuevo usuario</button>
     </div>
 
@@ -790,7 +790,7 @@
       <div style="flex:1"></div>
       <button class="btn secondary" id="btn-rep-limpiar">Limpiar filtros</button>
       <button class="btn" id="btn-rep-exportar">Exportar CSV</button>
-      <button class="btn secondary" id="btn-rep-exportar-xls">Exportar XLS</button>
+      <button class="btn secondary" id="btn-rep-exportar-xls">Exportar XLSX</button>
     </div>
 
     <div class="dash-grid" style="grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); margin-bottom:24px;">
@@ -966,6 +966,9 @@
       <input type="date" id="ef-filter-desde" title="Emisión desde">
       <input type="date" id="ef-filter-hasta" title="Emisión hasta">
       <button class="btn secondary small" id="btn-ef-limpiar-filtros" type="button">Limpiar filtros</button>
+      <div style="flex:1"></div>
+      <button class="btn secondary" id="btn-export-envio-csv">Exportar CSV</button>
+      <button class="btn secondary" id="btn-export-envio-xls">Exportar XLSX</button>
     </div>
 
     <div class="panel">
@@ -1766,6 +1769,7 @@
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // =========================================================
 // CONFIGURACIÓN — completar con los datos de tu proyecto Supabase
@@ -1833,21 +1837,15 @@ function exportCSV(filename, headers, rows){
 
 function exportXLS(filename, headers, rows){
   if(rows.length === 0){ showToast('No hay datos para exportar con este filtro', true); return; }
-  const esc = v => String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
-  html += '<head><meta charset="UTF-8"></head><body><table border="1">';
-  html += '<tr>' + headers.map(h => `<th>${esc(h)}</th>`).join('') + '</tr>';
-  rows.forEach(row=>{
-    html += '<tr>' + row.map(cell => `<td>${esc(cell)}</td>`).join('') + '</tr>';
+  const wsData = [headers, ...rows.map(row => row.map(cell => cell ?? ''))];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  ws['!cols'] = headers.map((h, i) => {
+    const maxLen = Math.max(String(h).length, ...rows.map(r => String(r[i] ?? '').length));
+    return { wch: Math.min(Math.max(maxLen + 2, 10), 60) };
   });
-  html += '</table></body></html>';
-  const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${filename}.xls`;
-  a.click();
-  URL.revokeObjectURL(url);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Datos');
+  XLSX.writeFile(wb, `${filename}.xlsx`);
 }
 
 // ---------- Signo del comprobante (FC/ND suman, NC resta) ----------
@@ -5047,6 +5045,25 @@ document.getElementById('btn-ef-limpiar-filtros').addEventListener('click', ()=>
   document.getElementById('ef-filter-desde').value = '';
   document.getElementById('ef-filter-hasta').value = '';
   renderEnvioFacturas();
+});
+
+function envioFacturasToRows(list){
+  const headers = ['Cliente','N Factura','Fecha Emision','Sucursal','Estado Envio','Fecha Ultimo Envio','Email Destino','Cantidad Envios','URL Archivo'];
+  const rows = list.map(f => [
+    f.clientes?.razon_social || '', f.numero_factura || '', f.fecha_emision || '',
+    f.contratos?.sucursales?.nombre || '', f._enviada ? 'Enviada' : 'Sin enviar',
+    f._ultimoEnvio?.fecha_envio || '', f._ultimoEnvio?.email_destino || '',
+    f._cantEnvios || 0, f.archivo_url || '',
+  ]);
+  return { headers, rows };
+}
+document.getElementById('btn-export-envio-csv').addEventListener('click', ()=>{
+  const { headers, rows } = envioFacturasToRows(getFacturasEnvioFiltradas());
+  exportCSV('envio_facturas_horizon', headers, rows);
+});
+document.getElementById('btn-export-envio-xls').addEventListener('click', ()=>{
+  const { headers, rows } = envioFacturasToRows(getFacturasEnvioFiltradas());
+  exportXLS('envio_facturas_horizon', headers, rows);
 });
 
 function abrirRegistrarEnvio(facturaPdfId){
