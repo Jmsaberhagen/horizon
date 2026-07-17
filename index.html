@@ -955,6 +955,17 @@
         <option value="enviada">Ya enviadas</option>
         <option value="">Todas</option>
       </select>
+      <select id="ef-filter-sucursal">
+        <option value="">Todas las sucursales</option>
+      </select>
+      <select id="ef-filter-reenvio">
+        <option value="">Con y sin reenvíos</option>
+        <option value="unico">Enviadas 1 vez</option>
+        <option value="multiple">Reenviadas (2 o más)</option>
+      </select>
+      <input type="date" id="ef-filter-desde" title="Emisión desde">
+      <input type="date" id="ef-filter-hasta" title="Emisión hasta">
+      <button class="btn secondary small" id="btn-ef-limpiar-filtros" type="button">Limpiar filtros</button>
     </div>
 
     <div class="panel">
@@ -965,7 +976,7 @@
               <th>Cliente</th>
               <th>N° Factura</th>
               <th>Emisión</th>
-              <th>Monto</th>
+              <th>Sucursal</th>
               <th>Estado de envío</th>
               <th style="width:140px;">Acciones</th>
             </tr>
@@ -4932,7 +4943,7 @@ let todosEnviosCache = [];
 async function loadTodasFacturasParaEnvio(){
   const { data: facturas, error } = await supabaseClient
     .from('facturas_pdf')
-    .select('*, clientes(razon_social, mail_envio_factura)')
+    .select('*, clientes(razon_social, mail_envio_factura), contratos(sucursal_id, sucursales(nombre))')
     .order('created_at', { ascending: false });
   if(error){ console.error('Error cargando facturas_pdf (global):', error); return; }
 
@@ -4955,14 +4966,33 @@ async function loadTodasFacturasParaEnvio(){
     _ultimoEnvio: enviosPorFactura[f.id] ? enviosPorFactura[f.id][0] : null,
     _cantEnvios: enviosPorFactura[f.id] ? enviosPorFactura[f.id].length : 0,
   }));
+
+  populateSucursalFilterEnvio();
+}
+
+function populateSucursalFilterEnvio(){
+  const sel = document.getElementById('ef-filter-sucursal');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Todas las sucursales</option>' +
+    sucursales.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
+  sel.value = current;
 }
 
 function getFacturasEnvioFiltradas(){
   const q = document.getElementById('ef-search').value.trim().toLowerCase();
   const estado = document.getElementById('ef-filter-estado').value;
+  const sucursalId = document.getElementById('ef-filter-sucursal').value;
+  const reenvio = document.getElementById('ef-filter-reenvio').value;
+  const desde = document.getElementById('ef-filter-desde').value;
+  const hasta = document.getElementById('ef-filter-hasta').value;
   let list = todasFacturasPdfCache;
   if(estado === 'pendiente') list = list.filter(f => !f._enviada);
   if(estado === 'enviada') list = list.filter(f => f._enviada);
+  if(sucursalId) list = list.filter(f => String(f.contratos?.sucursal_id ?? '') === sucursalId);
+  if(reenvio === 'unico') list = list.filter(f => f._cantEnvios === 1);
+  if(reenvio === 'multiple') list = list.filter(f => f._cantEnvios >= 2);
+  if(desde) list = list.filter(f => f.fecha_emision && f.fecha_emision >= desde);
+  if(hasta) list = list.filter(f => f.fecha_emision && f.fecha_emision <= hasta);
   if(q){
     list = list.filter(f =>
       (f.clientes?.razon_social || '').toLowerCase().includes(q) ||
@@ -4984,12 +5014,13 @@ function renderEnvioFacturas(){
     const estadoBadge = f._enviada
       ? `<span class="badge" style="color:var(--ok);border-color:var(--ok);">Enviada ${fmtDate(f._ultimoEnvio.fecha_envio)} — ${escapeHtml(f._ultimoEnvio.email_destino)}</span>`
       : '<span class="badge" style="color:var(--danger);border-color:var(--danger);">Sin enviar</span>';
+    const sucursalNombre = f.contratos?.sucursales?.nombre || '—';
     return `
       <tr>
         <td>${escapeHtml(f.clientes?.razon_social || '—')}</td>
         <td class="muted">${escapeHtml(f.numero_factura || '—')}</td>
         <td class="muted">${f.fecha_emision ? fmtDate(f.fecha_emision) : '—'}</td>
-        <td class="muted">${f.monto ? fmtMoney(f.monto,'USD') : '—'}</td>
+        <td>${sucursalNombre !== '—' ? `<span class="badge">${escapeHtml(sucursalNombre)}</span>` : '—'}</td>
         <td>${estadoBadge}${f._cantEnvios > 1 ? ` <span class="muted" style="font-size:10px;">(${f._cantEnvios}x)</span>` : ''}</td>
         <td>
           <div class="row-actions">
@@ -5004,6 +5035,19 @@ function renderEnvioFacturas(){
 
 document.getElementById('ef-search').addEventListener('input', renderEnvioFacturas);
 document.getElementById('ef-filter-estado').addEventListener('change', renderEnvioFacturas);
+document.getElementById('ef-filter-sucursal').addEventListener('change', renderEnvioFacturas);
+document.getElementById('ef-filter-reenvio').addEventListener('change', renderEnvioFacturas);
+document.getElementById('ef-filter-desde').addEventListener('change', renderEnvioFacturas);
+document.getElementById('ef-filter-hasta').addEventListener('change', renderEnvioFacturas);
+document.getElementById('btn-ef-limpiar-filtros').addEventListener('click', ()=>{
+  document.getElementById('ef-search').value = '';
+  document.getElementById('ef-filter-estado').value = 'pendiente';
+  document.getElementById('ef-filter-sucursal').value = '';
+  document.getElementById('ef-filter-reenvio').value = '';
+  document.getElementById('ef-filter-desde').value = '';
+  document.getElementById('ef-filter-hasta').value = '';
+  renderEnvioFacturas();
+});
 
 function abrirRegistrarEnvio(facturaPdfId){
   const f = todasFacturasPdfCache.find(x => x.id === facturaPdfId);
