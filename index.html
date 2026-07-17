@@ -1115,6 +1115,7 @@
       <div style="flex:1"></div>
       <button class="btn secondary" id="btn-export-remitos-csv">Exportar CSV</button>
       <button class="btn secondary" id="btn-export-remitos-xls">Exportar XLSX</button>
+      <button class="btn secondary" id="btn-importar-lote-remitos">📥 Importar por lotes</button>
       <button class="btn" id="btn-nuevo-remito">+ Nuevo remito</button>
     </div>
 
@@ -1918,6 +1919,66 @@
     <div class="modal-actions">
       <button class="btn secondary" id="btn-retiro-remito-cancel">Cancelar</button>
       <button class="btn" id="btn-retiro-remito-save">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL IMPORTACIÓN MASIVA DE REMITOS -->
+<div class="overlay" id="modal-lote-remitos-overlay">
+  <div class="modal wide">
+    <h2>Importación masiva de remitos</h2>
+    <div class="muted" style="font-size:12px;margin-top:-10px;margin-bottom:14px;">
+      Subí varios escaneos de una — se les corre el OCR uno por uno y después revisás/corregís los datos detectados antes de guardar.
+    </div>
+
+    <div id="lote-paso-archivos">
+      <div class="field-grid">
+        <div class="field">
+          <label>Sucursal para todo el lote (opcional)</label>
+          <select id="lote-sucursal_id">
+            <option value="">—</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Archivos (imágenes o PDF) — podés seleccionar varios juntos</label>
+          <input type="file" id="lote-archivos-input" accept="image/*,.pdf" multiple>
+        </div>
+      </div>
+      <div class="muted" id="lote-progreso" style="font-size:12px;margin-top:10px;"></div>
+      <div style="background:var(--panel-2);border-radius:4px;height:6px;margin-top:6px;overflow:hidden;display:none;" id="lote-progreso-barra-wrap">
+        <div id="lote-progreso-barra" style="background:var(--accent);height:100%;width:0%;transition:width 0.2s;"></div>
+      </div>
+      <div class="modal-actions" style="margin-top:16px;">
+        <button class="btn secondary" id="btn-lote-cancel">Cancelar</button>
+        <button class="btn" id="btn-lote-procesar">Procesar archivos</button>
+      </div>
+    </div>
+
+    <div id="lote-paso-revision" style="display:none;">
+      <div class="muted" id="lote-resumen" style="font-size:12px;margin-bottom:10px;"></div>
+      <div class="table-wrap" style="max-height:420px;overflow-y:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:50px;">Img</th>
+              <th>Archivo</th>
+              <th>Cliente</th>
+              <th>N° de serie</th>
+              <th>N° Remito</th>
+              <th>Fecha entrega</th>
+              <th style="width:70px;">Estado</th>
+              <th style="width:50px;"></th>
+            </tr>
+          </thead>
+          <tbody id="lote-tbody"></tbody>
+        </table>
+      </div>
+      <datalist id="lote-clientes-datalist"></datalist>
+      <datalist id="lote-equipos-datalist"></datalist>
+      <div class="modal-actions" style="margin-top:16px;">
+        <button class="btn secondary" id="btn-lote-cerrar">Cerrar</button>
+        <button class="btn" id="btn-lote-guardar-todos">Guardar todos</button>
+      </div>
     </div>
   </div>
 </div>
@@ -6171,6 +6232,213 @@ document.getElementById('btn-retiro-remito-save').addEventListener('click', asyn
   }
 });
 
+// =========================================================
+// MÓDULO: Importación masiva de remitos (OCR en lote)
+// =========================================================
+let loteRemitosState = [];
+
+function abrirImportadorLoteRemitos(){
+  loteRemitosState = [];
+  document.getElementById('lote-archivos-input').value = '';
+  document.getElementById('lote-sucursal_id').innerHTML = '<option value="">—</option>' +
+    sucursales.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
+  document.getElementById('lote-progreso').textContent = '';
+  document.getElementById('lote-progreso-barra-wrap').style.display = 'none';
+  document.getElementById('lote-progreso-barra').style.width = '0%';
+  document.getElementById('lote-paso-archivos').style.display = 'block';
+  document.getElementById('lote-paso-revision').style.display = 'none';
+  document.getElementById('btn-lote-procesar').disabled = false;
+  document.getElementById('modal-lote-remitos-overlay').classList.add('open');
+}
+document.getElementById('btn-importar-lote-remitos').addEventListener('click', abrirImportadorLoteRemitos);
+document.getElementById('btn-lote-cancel').addEventListener('click', ()=>{
+  document.getElementById('modal-lote-remitos-overlay').classList.remove('open');
+});
+document.getElementById('btn-lote-cerrar').addEventListener('click', ()=>{
+  document.getElementById('modal-lote-remitos-overlay').classList.remove('open');
+  loadRemitos().then(renderRemitos);
+});
+document.getElementById('modal-lote-remitos-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'modal-lote-remitos-overlay') document.getElementById('modal-lote-remitos-overlay').classList.remove('open');
+});
+
+document.getElementById('btn-lote-procesar').addEventListener('click', async ()=>{
+  const files = Array.from(document.getElementById('lote-archivos-input').files || []);
+  if(files.length === 0){ showToast('Elegí al menos un archivo', true); return; }
+  const sucursalId = document.getElementById('lote-sucursal_id').value || null;
+  const btn = document.getElementById('btn-lote-procesar');
+  const progresoEl = document.getElementById('lote-progreso');
+  const barraWrap = document.getElementById('lote-progreso-barra-wrap');
+  const barra = document.getElementById('lote-progreso-barra');
+
+  btn.disabled = true;
+  barraWrap.style.display = 'block';
+  loteRemitosState = [];
+
+  for(let i = 0; i < files.length; i++){
+    const file = files[i];
+    progresoEl.textContent = `Procesando archivo ${i+1} de ${files.length}: ${file.name}...`;
+    barra.style.width = `${Math.round(((i)/files.length)*100)}%`;
+    try{
+      const { text, miniaturaBase64 } = await procesarArchivoRemitoOCR(file, null);
+
+      const matchNumero =
+        text.match(/Remito\s*N[°ºo]?\s*[:\-]?\s*(\d[\d.\-\s]{3,14}\d)/i) ||
+        text.match(/N[°ºo]\s*[:\-]?\s*(\d[\d.\-\s]{3,14}\d)/i);
+      const numeroDetectado = matchNumero ? matchNumero[1].replace(/\s/g,'') : '';
+
+      const matchFecha =
+        text.match(/Fecha\s*[:\-]?\s*(\d{2})[\/\-](\d{2})[\/\-](\d{2,4})/i) ||
+        text.match(/\b(\d{2})[\/\-](\d{2})[\/\-](\d{4})\b/);
+      let fechaDetectada = '';
+      if(matchFecha){
+        let [, dd, mm, yyyy] = matchFecha;
+        if(yyyy.length === 2) yyyy = '20'+yyyy;
+        fechaDetectada = `${yyyy}-${mm}-${dd}`;
+      }
+
+      const clienteDetectado = detectarClienteEnTexto(text);
+      const equipoDetectado = detectarEquipoEnTexto(text);
+
+      loteRemitosState.push({
+        file,
+        miniaturaBase64,
+        texto: text,
+        numeroRemito: numeroDetectado,
+        fechaEntrega: fechaDetectada,
+        clienteNombre: clienteDetectado ? clienteDetectado.razon_social : '',
+        equipoSerie: equipoDetectado ? equipoDetectado.numero_serie : '',
+        sucursalId,
+        detectadoOk: !!(clienteDetectado && fechaDetectada),
+        error: null,
+        guardado: false,
+      });
+    } catch(err){
+      console.error('Error procesando', file.name, err);
+      loteRemitosState.push({
+        file, miniaturaBase64: null, texto: '', numeroRemito: '', fechaEntrega: '',
+        clienteNombre: '', equipoSerie: '', sucursalId, detectadoOk: false,
+        error: 'No se pudo leer/procesar el archivo', guardado: false,
+      });
+    }
+  }
+  barra.style.width = '100%';
+  progresoEl.textContent = `Listo. ${files.length} archivo(s) procesado(s).`;
+
+  document.getElementById('lote-clientes-datalist').innerHTML =
+    clientesCache.map(c => `<option value="${escapeHtml(c.razon_social)}">`).join('');
+  document.getElementById('lote-equipos-datalist').innerHTML =
+    equiposCache.map(e => `<option value="${escapeHtml(e.numero_serie)}">`).join('');
+
+  document.getElementById('lote-paso-archivos').style.display = 'none';
+  document.getElementById('lote-paso-revision').style.display = 'block';
+  renderTablaLoteRemitos();
+});
+
+function renderTablaLoteRemitos(){
+  const tbody = document.getElementById('lote-tbody');
+  const pendientes = loteRemitosState.filter(r => !r.guardado);
+  if(pendientes.length === 0){
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No quedan archivos por guardar.</td></tr>';
+  } else {
+    tbody.innerHTML = pendientes.map((r) => {
+      const idx = loteRemitosState.indexOf(r);
+      const okBadge = r.error
+        ? `<span class="badge" style="color:var(--danger);border-color:var(--danger);" title="${escapeHtml(r.error)}">⚠</span>`
+        : (r.detectadoOk
+          ? `<span class="badge" style="color:var(--ok);border-color:var(--ok);">✓</span>`
+          : `<span class="badge" style="color:#ff9f43;border-color:#ff9f43;">⚠ revisar</span>`);
+      return `
+        <tr data-idx="${idx}">
+          <td>${r.miniaturaBase64 ? `<img src="${r.miniaturaBase64}" style="width:40px;border-radius:4px;">` : '—'}</td>
+          <td class="muted" style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(r.file.name)}">${escapeHtml(r.file.name)}</td>
+          <td><input type="text" class="lote-input-cliente" data-idx="${idx}" list="lote-clientes-datalist" value="${escapeHtml(r.clienteNombre)}" style="min-width:170px;"></td>
+          <td><input type="text" class="lote-input-equipo" data-idx="${idx}" list="lote-equipos-datalist" value="${escapeHtml(r.equipoSerie)}" style="min-width:110px;"></td>
+          <td><input type="text" class="lote-input-numero" data-idx="${idx}" value="${escapeHtml(r.numeroRemito)}" style="min-width:100px;"></td>
+          <td><input type="date" class="lote-input-fecha" data-idx="${idx}" value="${r.fechaEntrega}"></td>
+          <td>${okBadge}</td>
+          <td><button type="button" class="btn secondary small" onclick="quitarFilaLoteRemitos(${idx})">✕</button></td>
+        </tr>`;
+    }).join('');
+  }
+  const okCount = loteRemitosState.filter(r=>r.detectadoOk && !r.error).length;
+  const revisarCount = loteRemitosState.length - okCount;
+  document.getElementById('lote-resumen').textContent =
+    `${loteRemitosState.length} archivo(s) — ${okCount} con cliente y fecha detectados, ${revisarCount} necesitan revisión.`;
+}
+
+document.getElementById('lote-tbody').addEventListener('input', (e)=>{
+  const idx = Number(e.target.dataset.idx);
+  if(Number.isNaN(idx) || !loteRemitosState[idx]) return;
+  if(e.target.classList.contains('lote-input-cliente')) loteRemitosState[idx].clienteNombre = e.target.value;
+  if(e.target.classList.contains('lote-input-equipo')) loteRemitosState[idx].equipoSerie = e.target.value;
+  if(e.target.classList.contains('lote-input-numero')) loteRemitosState[idx].numeroRemito = e.target.value;
+  if(e.target.classList.contains('lote-input-fecha')) loteRemitosState[idx].fechaEntrega = e.target.value;
+});
+
+function quitarFilaLoteRemitos(idx){
+  loteRemitosState.splice(idx, 1);
+  renderTablaLoteRemitos();
+}
+
+document.getElementById('btn-lote-guardar-todos').addEventListener('click', async ()=>{
+  const btn = document.getElementById('btn-lote-guardar-todos');
+  btn.disabled = true;
+  let guardados = 0, fallidos = 0;
+
+  for(const r of loteRemitosState){
+    if(r.guardado) continue;
+    r.error = null;
+
+    const cliente = clientesCache.find(c => (c.razon_social||'').trim().toLowerCase() === r.clienteNombre.trim().toLowerCase());
+    if(!cliente){ r.error = 'Cliente no identificado — elegilo de la lista'; fallidos++; continue; }
+    if(!r.fechaEntrega){ r.error = 'Falta la fecha de entrega'; fallidos++; continue; }
+    const equipo = r.equipoSerie
+      ? equiposCache.find(e => (e.numero_serie||'').trim().toLowerCase() === r.equipoSerie.trim().toLowerCase())
+      : null;
+    if(r.equipoSerie && !equipo){ r.error = 'N° de serie no identificado'; fallidos++; continue; }
+
+    try{
+      const path = `entrega_lote_${Date.now()}_${Math.random().toString(36).slice(2,7)}_${r.file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_')}`;
+      const { error: uploadError } = await supabaseClient.storage.from('remitos').upload(path, r.file);
+      if(uploadError) throw uploadError;
+      const { data: urlData } = supabaseClient.storage.from('remitos').getPublicUrl(path);
+
+      const { error: insertError } = await supabaseClient.from('remitos').insert({
+        cliente_id: cliente.id,
+        equipo_id: equipo ? equipo.id : null,
+        sucursal_id: r.sucursalId ? Number(r.sucursalId) : null,
+        numero_remito: r.numeroRemito || null,
+        fecha_entrega: r.fechaEntrega,
+        archivo_entrega_nombre: r.file.name,
+        archivo_entrega_url: urlData.publicUrl,
+        miniatura_entrega_base64: r.miniaturaBase64,
+        texto_extraido_entrega: r.texto,
+      });
+      if(insertError) throw insertError;
+
+      r.guardado = true;
+      guardados++;
+    } catch(err){
+      console.error(err);
+      r.error = err.message;
+      fallidos++;
+    }
+  }
+
+  renderTablaLoteRemitos();
+  await loadRemitos();
+  renderRemitos();
+  btn.disabled = false;
+
+  if(fallidos === 0){
+    showToast(`Se guardaron ${guardados} remito(s) correctamente.`);
+    document.getElementById('modal-lote-remitos-overlay').classList.remove('open');
+  } else {
+    showToast(`${guardados} guardado(s), ${fallidos} con error — revisá las filas marcadas en rojo.`, true);
+  }
+});
+
 async function initApp(){
   try{
     console.log('[Horizon] cargando sucursales...');
@@ -6210,6 +6478,7 @@ async function initApp(){
       renderRemitos();
     }
     document.getElementById('btn-nuevo-remito').style.display = puede('remitos','crear') ? '' : 'none';
+    document.getElementById('btn-importar-lote-remitos').style.display = puede('remitos','crear') ? '' : 'none';
 
     if(puede('planning','ver')){
       console.log('[Horizon] cargando planning...');
