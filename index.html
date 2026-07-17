@@ -1319,6 +1319,57 @@
   </div>
 </div>
 
+<!-- MODAL ANULAR PERÍODO CON NOTA DE CRÉDITO -->
+<div class="overlay" id="modal-nc-overlay">
+  <div class="modal">
+    <h2>Anular con Nota de Crédito</h2>
+    <input type="hidden" id="nc-pendiente-id">
+    <div class="muted" style="font-size:12px;margin-top:-10px;margin-bottom:14px;">
+      Sube la NC que anula esta factura. El período vuelve a quedar "Pendiente" para poder refacturarlo, y queda registrado qué factura se anuló y por qué.
+    </div>
+
+    <div id="nc-resumen" class="panel" style="padding:10px 12px;margin-bottom:14px;background:var(--panel-2);"></div>
+
+    <div class="field-grid">
+      <div class="field full">
+        <label>Motivo de la anulación</label>
+        <select id="nc-motivo-select">
+          <option value="Falta de OC">Falta de Orden de Compra</option>
+          <option value="Falta de HES">Falta de HES / conformidad de servicio</option>
+          <option value="Error en el importe">Error en el importe facturado</option>
+          <option value="Error en datos del cliente">Error en datos del cliente</option>
+          <option value="Error en el período">Error en el período facturado</option>
+          <option value="otro">Otro (detallar abajo)</option>
+        </select>
+      </div>
+      <div class="field full">
+        <label>Detalle (obligatorio si elegiste "Otro")</label>
+        <input type="text" id="nc-motivo-detalle" placeholder="Ej: el cliente pidió refacturar a otra razón social">
+      </div>
+
+      <div class="field full" style="background:var(--panel-2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;">
+        <label>Archivo de la Nota de Crédito (PDF)</label>
+        <input type="file" id="nc-archivo" accept="application/pdf">
+        <div class="muted" id="nc-ocr-status" style="font-size:12px;margin-top:6px;"></div>
+      </div>
+
+      <div class="field">
+        <label>N° de Nota de Crédito</label>
+        <input type="text" id="nc-numero" placeholder="Se autocompleta con el OCR">
+      </div>
+      <div class="field">
+        <label>Fecha de la NC</label>
+        <input type="date" id="nc-fecha">
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn secondary" id="btn-nc-cancel">Cancelar</button>
+      <button class="btn danger" id="btn-nc-guardar">Anular y volver a Pendiente</button>
+    </div>
+  </div>
+</div>
+
 
 <!-- MODAL RECIBO DE COBRO -->
 <div class="overlay" id="modal-recibo-overlay">
@@ -4432,7 +4483,18 @@ function calcularConciliacion(clienteId, serie){
               <button class="btn secondary small" style="width:100%;" onclick="event.stopPropagation(); iniciarSubidaFacturaPdf(${p.id});">📎 + Adjuntar PDF</button>
             </div>`;
         }
+        if(!esNC){
+          bloquePdf += `
+            <div style="margin-top:6px;">
+              <button class="btn danger small" style="width:100%;" onclick="event.stopPropagation(); abrirAnularConNC(${p.id});">🔴 Anular con NC</button>
+            </div>`;
+        }
       }
+      const trazaNC = p.nc_numero ? `
+        <div class="muted" style="font-size:10px;margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);color:#c084fc;">
+          Anulado — NC ${escapeHtml(p.nc_numero)}${p.nc_fecha ? ' del '+fmtDate(p.nc_fecha) : ''}${p.numero_factura_anulada ? ' (era factura '+escapeHtml(p.numero_factura_anulada)+')' : ''}
+          ${p.nc_motivo ? `<br>Motivo: ${escapeHtml(p.nc_motivo)}` : ''}
+        </div>` : '';
 
       return `
         <div class="panel" style="padding:12px;border-left:3px solid ${estadoColor};background:var(--panel-2);cursor:pointer;" onclick="openEditPendiente(${p.id})" title="Clic para editar/ver este comprobante">
@@ -4445,6 +4507,7 @@ function calcularConciliacion(clienteId, serie){
           ${esFacturado ? `<div class="muted" style="font-size:11px;margin-top:3px;">Emitida: <span style="color:var(--text);">${p.fecha_facturacion ? fmtDate(p.fecha_facturacion) : 'sin registrar'}</span></div>` : ''}
           ${p.contratos?.fecha_salida ? `<div class="muted" style="font-size:11px;margin-top:3px;">Remito (salida): <span style="color:var(--text);">${fmtDate(p.contratos.fecha_salida)}</span></div>` : ''}
           ${bloquePdf}
+          ${trazaNC}
         </div>`;
     }).join('') || '<div class="muted" style="padding:10px;font-size:12px;">Sin movimientos todavía para esta máquina.</div>';
 
@@ -5165,6 +5228,153 @@ document.getElementById('btn-factura-pdf-delete').addEventListener('click', asyn
   } catch(err){
     console.error(err);
     showToast('Error al eliminar: ' + err.message, true);
+  }
+});
+
+// =========================================================
+// MÓDULO: Anular período facturado con Nota de Crédito
+// (vuelve el pendiente a "pendiente" para poder refacturarlo, con trazabilidad)
+// =========================================================
+function abrirAnularConNC(pendienteId){
+  const p = pendientesCache.find(x => x.id === pendienteId);
+  if(!p) return;
+  if(p.estado !== 'facturado' || esNotaDeCredito(p.numero_factura)){
+    showToast('Este período no se puede anular con NC', true);
+    return;
+  }
+  document.getElementById('nc-pendiente-id').value = p.id;
+  document.getElementById('nc-resumen').innerHTML = `
+    <div style="font-weight:600;">${escapeHtml(p.contratos?.equipos?.numero_serie || '—')} ${p.contratos?.equipos?.modelo ? '— '+escapeHtml(p.contratos.equipos.modelo) : ''}</div>
+    <div class="muted" style="font-size:12px;margin-top:2px;">Período: ${fmtDate(p.periodo_desde)} → ${fmtDate(p.periodo_hasta)} — ${fmtMoney(p.valor_alquiler_usd,'USD')}</div>
+    <div class="muted" style="font-size:12px;">Factura a anular: <span style="color:var(--text);">${escapeHtml(p.numero_factura || '—')}</span> (emitida ${p.fecha_facturacion ? fmtDate(p.fecha_facturacion) : '—'})</div>
+  `;
+  document.getElementById('nc-motivo-select').value = 'Falta de OC';
+  document.getElementById('nc-motivo-detalle').value = '';
+  document.getElementById('nc-archivo').value = '';
+  document.getElementById('nc-numero').value = '';
+  document.getElementById('nc-fecha').value = new Date().toISOString().slice(0,10);
+  document.getElementById('nc-ocr-status').textContent = '';
+  document.getElementById('modal-nc-overlay').classList.add('open');
+}
+document.getElementById('btn-nc-cancel').addEventListener('click', ()=>{
+  document.getElementById('modal-nc-overlay').classList.remove('open');
+});
+document.getElementById('modal-nc-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'modal-nc-overlay') document.getElementById('modal-nc-overlay').classList.remove('open');
+});
+
+document.getElementById('nc-archivo').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const statusEl = document.getElementById('nc-ocr-status');
+  try{
+    statusEl.textContent = 'Leyendo PDF...';
+    asegurarPdfWorker();
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 2.2 });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+
+    statusEl.textContent = 'Extrayendo texto (OCR)...';
+    const { data: { text } } = await window.Tesseract.recognize(canvas, 'spa');
+
+    // N° de NC: buscamos cerca de "Nota de Crédito" / "N.C." o, si no aparece, el formato AFIP estándar
+    const matchNumero =
+      text.match(/Nota\s*de\s*Cr[ée]dito[^0-9]{0,30}(\d{3,5}[\s\-]?\d{7,9})/i) ||
+      text.match(/N\.?\s*C\.?\s*[:\-]?\s*(\d{3,5}[\s\-]?\d{7,9})/i) ||
+      text.match(/N[°ºo]\s*[:\-]?\s*(\d{3,5}[\s\-]?\d{7,9})/i) ||
+      text.match(/\b(\d{4}\s?-\s?\d{8})\b/);
+    if(matchNumero) document.getElementById('nc-numero').value = matchNumero[1].replace(/\s/g,'').toUpperCase();
+
+    const matchFecha =
+      text.match(/\bFecha\s*[:\-]?\s*(\d{2})[\/\-](\d{2})[\/\-](\d{4})/i) ||
+      text.match(/\b(\d{2})[\/\-](\d{2})[\/\-](\d{4})\b/);
+    if(matchFecha){
+      const [, dd, mm, yyyy] = matchFecha;
+      document.getElementById('nc-fecha').value = `${yyyy}-${mm}-${dd}`;
+    }
+
+    e.target.dataset.textoExtraido = text;
+    statusEl.textContent = 'Listo — revisá el N° y la fecha detectados antes de guardar.';
+  } catch(err){
+    console.error(err);
+    statusEl.textContent = '';
+    showToast('No se pudo procesar el OCR: ' + err.message, true);
+  }
+});
+
+document.getElementById('btn-nc-guardar').addEventListener('click', async ()=>{
+  const pendienteId = document.getElementById('nc-pendiente-id').value;
+  const p = pendientesCache.find(x => x.id === Number(pendienteId));
+  if(!p) return;
+
+  const archivoInput = document.getElementById('nc-archivo');
+  const file = archivoInput.files[0];
+  const ncNumero = document.getElementById('nc-numero').value.trim();
+  const ncFecha = document.getElementById('nc-fecha').value;
+  const motivoSelect = document.getElementById('nc-motivo-select').value;
+  const motivoDetalle = document.getElementById('nc-motivo-detalle').value.trim();
+
+  if(!file){ showToast('Subí el PDF de la Nota de Crédito', true); return; }
+  if(!ncNumero){ showToast('Falta el N° de Nota de Crédito', true); return; }
+  if(!ncFecha){ showToast('Falta la fecha de la NC', true); return; }
+  if(motivoSelect === 'otro' && !motivoDetalle){ showToast('Detallá el motivo de la anulación', true); return; }
+
+  const motivoFinal = motivoSelect === 'otro'
+    ? motivoDetalle
+    : (motivoDetalle ? `${document.getElementById('nc-motivo-select').selectedOptions[0].text} — ${motivoDetalle}` : document.getElementById('nc-motivo-select').selectedOptions[0].text);
+
+  const btn = document.getElementById('btn-nc-guardar');
+  btn.disabled = true;
+  try{
+    const path = `nc_${p.contrato_id}_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_')}`;
+    const { error: uploadError } = await supabaseClient.storage.from('facturas-pdf').upload(path, file);
+    if(uploadError) throw uploadError;
+    const { data: urlData } = supabaseClient.storage.from('facturas-pdf').getPublicUrl(path);
+
+    const payload = {
+      estado: 'pendiente',
+      numero_factura_anulada: p.numero_factura,
+      fecha_factura_anulada: p.fecha_facturacion,
+      numero_factura: null,
+      fecha_facturacion: null,
+      nc_numero: ncNumero,
+      nc_fecha: ncFecha,
+      nc_motivo: motivoFinal,
+      nc_archivo_url: urlData.publicUrl,
+    };
+    const { error: updateError } = await supabaseClient.from('pendientes_facturacion').update(payload).eq('id', p.id);
+    if(updateError) throw updateError;
+
+    // si este período era el último facturado del contrato, retrocedemos esa marca
+    // para que quede reflejado que en realidad todavía falta facturar desde acá
+    const contrato = contratosCache.find(c => c.id === p.contrato_id);
+    if(contrato && contrato.ultimo_periodo_facturado_hasta === p.periodo_hasta && p.periodo_desde){
+      const diaAnterior = new Date(p.periodo_desde + 'T00:00:00');
+      diaAnterior.setDate(diaAnterior.getDate() - 1);
+      const nuevoUltimoPeriodo = diaAnterior.toISOString().slice(0,10);
+      const { error: errContrato } = await supabaseClient
+        .from('contratos')
+        .update({ ultimo_periodo_facturado_hasta: nuevoUltimoPeriodo })
+        .eq('id', contrato.id);
+      if(errContrato) console.error('No se pudo retroceder el último período facturado del contrato:', errContrato);
+    }
+
+    showToast('Período anulado y vuelto a "Pendiente" correctamente');
+    document.getElementById('modal-nc-overlay').classList.remove('open');
+    await loadContratos();
+    await loadPendientes();
+    await refrescarPendientesSiCorresponde();
+    renderCuentaClienteCards();
+  } catch(err){
+    console.error(err);
+    showToast('Error al anular el período: ' + err.message, true);
+  } finally {
+    btn.disabled = false;
   }
 });
 
