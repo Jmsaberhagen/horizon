@@ -606,6 +606,11 @@
         <option value="si">🎁 Solo DEMO</option>
         <option value="no">Solo alquileres reales</option>
       </select>
+      <select id="contrato-filter-precio">
+        <option value="">Con precio y sin precio</option>
+        <option value="con">💲 Con precio colocado</option>
+        <option value="sin">⚠ Sin precio colocado</option>
+      </select>
       <div style="flex:1"></div>
       <button class="btn secondary" id="btn-export-contratos-csv">Exportar CSV</button>
       <button class="btn secondary" id="btn-export-contratos-xls">Exportar XLS</button>
@@ -1576,12 +1581,17 @@
         <div class="muted" id="c-cliente-selected" style="font-size:12px;margin-top:4px;"></div>
       </div>
 
-      <div class="field full" style="position:relative;">
+      <div class="field" style="position:relative;">
         <label>Equipo — N° de serie *</label>
-        <input type="text" id="c-equipo-search" placeholder="Buscar por número de serie o modelo...">
+        <input type="text" id="c-equipo-search" placeholder="Buscar por número de serie...">
         <input type="hidden" id="c-equipo_id">
         <div class="autocomplete-list" id="c-equipo-results"></div>
         <div class="muted" id="c-equipo-selected" style="font-size:12px;margin-top:4px;"></div>
+      </div>
+
+      <div class="field">
+        <label>Modelo de la máquina</label>
+        <input type="text" id="c-equipo-modelo" placeholder="Se autocompleta al elegir la serie" readonly style="opacity:0.75;">
       </div>
 
       <div class="field">
@@ -2403,6 +2413,7 @@ function getFilteredContratos(){
   const estado = document.getElementById('contrato-filter-estado').value;
   const confirmado = document.getElementById('contrato-filter-confirmado').value;
   const demo = document.getElementById('contrato-filter-demo').value;
+  const precioFiltro = document.getElementById('contrato-filter-precio').value;
   let list = contratosCache;
   if(sucursalId) list = list.filter(c => String(c.sucursal_id) === sucursalId);
   if(estado) list = list.filter(c => c.estado === estado);
@@ -2410,6 +2421,8 @@ function getFilteredContratos(){
   if(confirmado === 'si') list = list.filter(c => c.datos_confirmados);
   if(demo === 'si') list = list.filter(c => c.es_demo);
   if(demo === 'no') list = list.filter(c => !c.es_demo);
+  if(precioFiltro === 'con') list = list.filter(c => c.precio_mensual_con_descuento != null || c.precio_mensual_sin_descuento != null);
+  if(precioFiltro === 'sin') list = list.filter(c => c.precio_mensual_con_descuento == null && c.precio_mensual_sin_descuento == null);
   if(q){
     list = list.filter(c =>
       (c.clientes?.razon_social || '').toLowerCase().includes(q) ||
@@ -2427,6 +2440,7 @@ document.getElementById('contrato-filter-sucursal').addEventListener('change', a
 document.getElementById('contrato-filter-estado').addEventListener('change', applyContratoFilters);
 document.getElementById('contrato-filter-demo').addEventListener('change', applyContratoFilters);
 document.getElementById('contrato-filter-confirmado').addEventListener('change', applyContratoFilters);
+document.getElementById('contrato-filter-precio').addEventListener('change', applyContratoFilters);
 
 function contratosToRows(list){
   const headers = ['Cliente','Equipo N Serie','Sucursal','Es Demo','Periodicidad','Fecha Salida','Fecha Vencimiento','Ultimo Periodo Facturado','Confirmado','Moneda','Precio Mensual','Flete Entrega','Costo Flete Entrega','Flete Entrega Facturado','Flete Retiro','Costo Flete Retiro','Flete Retiro Facturado','Orden Compra','Obra','Estado'];
@@ -2491,6 +2505,8 @@ const equipoResultsBox = document.getElementById('c-equipo-results');
 equipoSearchInput.addEventListener('input', ()=>{
   const q = equipoSearchInput.value.trim().toLowerCase();
   document.getElementById('c-equipo_id').value = '';
+  document.getElementById('c-equipo-modelo').value = '';
+  document.getElementById('c-equipo-selected').textContent = '';
   if(q.length < 1){ equipoResultsBox.classList.remove('open'); return; }
   const matches = equiposCache.filter(e =>
     (e.numero_serie||'').toLowerCase().includes(q) ||
@@ -2503,7 +2519,7 @@ equipoSearchInput.addEventListener('input', ()=>{
     </div>`;
   } else {
     equipoResultsBox.innerHTML = matches.map(e=>`
-      <div class="autocomplete-item" data-id="${e.id}" data-serie="${escapeHtml(e.numero_serie)}">
+      <div class="autocomplete-item" data-id="${e.id}" data-serie="${escapeHtml(e.numero_serie)}" data-modelo="${escapeHtml(e.modelo || '')}">
         ${escapeHtml(e.numero_serie)}
         <span class="sub">${escapeHtml(e.modelo || '')} — ${e.estado}</span>
       </div>`).join('');
@@ -2516,6 +2532,7 @@ equipoResultsBox.addEventListener('click', (e)=>{
   if(!item || !item.dataset.id) return;
   document.getElementById('c-equipo_id').value = item.dataset.id;
   equipoSearchInput.value = item.dataset.serie;
+  document.getElementById('c-equipo-modelo').value = item.dataset.modelo || '';
   document.getElementById('c-equipo-selected').textContent = '✓ Equipo seleccionado';
   equipoResultsBox.classList.remove('open');
 });
@@ -2569,6 +2586,7 @@ function resetContratoForm(){
   document.getElementById('btn-toggle-paso2').textContent = '▾ Mostrar detalles para confirmar (periodicidad, TC, último período facturado...)';
   clienteSearchInput.value = '';
   equipoSearchInput.value = '';
+  document.getElementById('c-equipo-modelo').value = '';
   document.getElementById('c-cliente-selected').textContent = '';
   document.getElementById('c-equipo-selected').textContent = '';
   ['c-precio_sin_descuento','c-precio_con_descuento','c-moneda'].forEach(idCampo=>{
@@ -2618,6 +2636,7 @@ function openEditContrato(id){
 
   document.getElementById('c-equipo_id').value = c.equipo_id;
   equipoSearchInput.value = c.equipos ? c.equipos.numero_serie : '';
+  document.getElementById('c-equipo-modelo').value = c.equipos ? (c.equipos.modelo || '') : '';
   document.getElementById('c-equipo-selected').textContent = '✓ Equipo seleccionado';
 
   document.getElementById('c-sucursal_id').value = c.sucursal_id || '';
@@ -5277,8 +5296,8 @@ function descargarContratoPDF(contratoId){
   const periodicidadTexto = { mensual:'Mensual', semanal:'Semanal', diario:'Diario' }[c.periodicidad] || 'Mensual';
   const precio = c.precio_mensual_con_descuento ?? c.precio_mensual_sin_descuento;
   const datosEquipo = [
-    ['Modelo', c.equipos?.modelo || '—'],
     ['N° de serie', c.equipos?.numero_serie || '—'],
+    ['Modelo', c.equipos?.modelo || '—'],
     ['Sucursal / Punto de venta', c.sucursales?.nombre || '—'],
     ['Remito de entrega', c.remito || '—'],
     ['Fecha de salida', c.fecha_salida ? fmtDate(c.fecha_salida) : '—'],
