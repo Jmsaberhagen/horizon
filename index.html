@@ -1497,9 +1497,11 @@
         <label>Estado</label>
         <select id="e-estado">
           <option value="disponible">Disponible</option>
-          <option value="alquilada">Alquilada</option>
           <option value="baja">De baja</option>
         </select>
+        <div class="muted" style="font-size:11px;margin-top:4px;">
+          "Alquilada" no se elige acá — se calcula solo según si el equipo tiene un contrato activo.
+        </div>
       </div>
 
       <div class="field">
@@ -2753,7 +2755,7 @@ equipoSearchInput.addEventListener('input', ()=>{
     equipoResultsBox.innerHTML = matches.map(e=>`
       <div class="autocomplete-item" data-id="${e.id}" data-serie="${escapeHtml(e.numero_serie)}" data-modelo="${escapeHtml(e.modelo || '')}">
         ${escapeHtml(e.numero_serie)}
-        <span class="sub">${escapeHtml(e.modelo || '')} — ${e.estado}</span>
+        <span class="sub">${escapeHtml(e.modelo || '')} — ${estadoActualEquipo(e)}</span>
       </div>`).join('');
   }
   equipoResultsBox.classList.add('open');
@@ -3561,6 +3563,15 @@ function populateEquipoFilters(){
   selSuc.value = cur;
 }
 
+// El estado "alquilada" NUNCA se guarda a mano ni por trigger: se calcula en el momento
+// a partir de si el equipo tiene un contrato activo. Así nunca puede desincronizarse.
+// "De baja" sigue siendo manual (equipo que salió de la flota, no un alquiler puntual).
+function estadoActualEquipo(equipo){
+  if(equipo.estado === 'baja') return 'baja';
+  const tieneContratoActivo = contratosCache.some(c => c.equipo_id === equipo.id && c.estado === 'activo');
+  return tieneContratoActivo ? 'alquilada' : 'disponible';
+}
+
 function renderEquipos(list){
   const tbody = document.getElementById('equipos-tbody');
   if(list.length === 0){
@@ -3571,13 +3582,14 @@ function renderEquipos(list){
   const estadoColor = { disponible: 'var(--ok)', alquilada: 'var(--accent)', baja: 'var(--danger)' };
   tbody.innerHTML = list.map(e=>{
     const suc = sucursales.find(s => s.id === e.sucursal_id);
-    const color = estadoColor[e.estado] || 'var(--text-dim)';
+    const estadoCalc = estadoActualEquipo(e);
+    const color = estadoColor[estadoCalc] || 'var(--text-dim)';
     return `
       <tr>
         <td>${escapeHtml(e.numero_serie)}</td>
         <td class="muted">${escapeHtml(e.modelo || '—')}</td>
         <td>${suc ? `<span class="badge">${suc.nombre}</span>` : '<span class="muted">—</span>'}</td>
-        <td><span class="badge" style="color:${color};border-color:${color};">${e.estado}</span></td>
+        <td><span class="badge" style="color:${color};border-color:${color};">${estadoCalc}</span></td>
         <td>${e.tipo === 'tercero' ? `<span class="badge" style="color:#ff9f43;border-color:#ff9f43;" title="${e.proveedor_tercero ? 'Proveedor: '+escapeHtml(e.proveedor_tercero) : ''}">De terceros</span>` : '<span class="muted" style="font-size:11px;">Propio</span>'}</td>
         <td>
           <div class="row-actions">
@@ -3596,7 +3608,7 @@ function getFilteredEquipos(){
   const tipo = document.getElementById('equipo-filter-tipo').value;
   let list = equiposCache;
   if(sucursalId) list = list.filter(e => String(e.sucursal_id) === sucursalId);
-  if(estado) list = list.filter(e => e.estado === estado);
+  if(estado) list = list.filter(e => estadoActualEquipo(e) === estado);
   if(tipo) list = list.filter(e => e.tipo === tipo);
   if(q){
     list = list.filter(e =>
@@ -3617,7 +3629,7 @@ document.getElementById('equipo-filter-tipo').addEventListener('change', applyEq
 function equiposToRows(list){
   const headers = ['N Serie','Modelo','Sucursal','Estado','Tipo','Proveedor Tercero'];
   const rows = list.map(e => [
-    e.numero_serie, e.modelo, sucursales.find(s=>s.id===e.sucursal_id)?.nombre || '', e.estado,
+    e.numero_serie, e.modelo, sucursales.find(s=>s.id===e.sucursal_id)?.nombre || '', estadoActualEquipo(e),
     e.tipo === 'tercero' ? 'De terceros' : 'Propio', e.proveedor_tercero || '',
   ]);
   return { headers, rows };
@@ -3676,7 +3688,7 @@ function openEditEquipo(id){
   document.getElementById('e-numero_serie').value = e.numero_serie || '';
   document.getElementById('e-modelo').value = e.modelo || '';
   document.getElementById('e-sucursal_id').value = e.sucursal_id || '';
-  document.getElementById('e-estado').value = e.estado || 'disponible';
+  document.getElementById('e-estado').value = (e.estado === 'baja') ? 'baja' : 'disponible';
   document.getElementById('e-tipo').value = e.tipo || 'propio';
   document.getElementById('e-proveedor_tercero').value = e.proveedor_tercero || '';
   document.getElementById('e-proveedor-field').style.display = (e.tipo === 'tercero') ? 'block' : 'none';
