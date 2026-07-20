@@ -529,6 +529,7 @@
   <button data-tab="planning">Planning</button>
   <button data-tab="retiros">Pendientes de Retiro</button>
   <button data-tab="remitos">Remitos</button>
+  <button data-tab="presupuestos">Presupuestos</button>
   <button data-tab="usuarios" id="nav-usuarios" style="display:none;">Usuarios</button>
 </nav>
 
@@ -1142,6 +1143,48 @@
       </div>
     </div>
     <div class="muted" id="rem-results-count" style="margin-top:10px;font-size:12px;"></div>
+  </section>
+
+  <section id="tab-presupuestos" style="display:none;">
+    <div class="dash-hero" style="margin-bottom:14px;">
+      <h1 style="font-size:16px;">Presupuestos</h1>
+      <div class="sub">Numeración correlativa — un presupuesto nunca se borra, solo se anula.</div>
+    </div>
+    <div class="toolbar" style="flex-wrap:wrap;">
+      <input type="text" id="pres-search" placeholder="Buscar por N°, empresa o contacto...">
+      <select id="pres-filter-estado">
+        <option value="">Todos los estados</option>
+        <option value="vigente">Vigente</option>
+        <option value="aceptado">Aceptado</option>
+        <option value="vencido">Vencido</option>
+        <option value="anulado">Anulado</option>
+      </select>
+      <button class="btn secondary small" id="btn-pres-limpiar-filtros" type="button">Limpiar filtros</button>
+      <div style="flex:1"></div>
+      <button class="btn secondary" id="btn-export-presupuestos-csv">Exportar CSV</button>
+      <button class="btn" id="btn-nuevo-presupuesto">+ Nuevo presupuesto</button>
+    </div>
+    <div class="panel">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>N°</th>
+              <th>Fecha</th>
+              <th>Cliente / Empresa</th>
+              <th>Ítems</th>
+              <th>Total</th>
+              <th>Estado</th>
+              <th style="width:190px;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="pres-tbody">
+            <tr><td colspan="7" class="empty-state">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="muted" id="pres-results-count" style="margin-top:10px;font-size:12px;"></div>
   </section>
 
 </main>
@@ -2049,6 +2092,117 @@
   </div>
 </div>
 
+<!-- MODAL PRESUPUESTO (nuevo / editar) -->
+<div class="overlay" id="modal-presupuesto-overlay">
+  <div class="modal wide">
+    <h2 id="pres-modal-titulo">Nuevo presupuesto</h2>
+    <input type="hidden" id="pres-id">
+    <div class="muted" id="pres-modal-numero" style="font-size:12px;margin-top:-10px;margin-bottom:14px;"></div>
+
+    <div class="field-grid cols-3">
+      <div class="field full" style="position:relative;">
+        <label>Cliente (buscar en la base)</label>
+        <input type="text" id="pres-cliente-search" placeholder="Buscar por razón social, CUIT o N° de cliente... (dejalo vacío si es un prospecto nuevo)">
+        <input type="hidden" id="pres-cliente_id">
+        <div class="autocomplete-list" id="pres-cliente-results"></div>
+      </div>
+      <div class="field">
+        <label>Empresa (si es prospecto nuevo)</label>
+        <input type="text" id="pres-empresa_nombre">
+      </div>
+      <div class="field">
+        <label>Contacto</label>
+        <input type="text" id="pres-contacto_nombre">
+      </div>
+      <div class="field">
+        <label>Email de contacto</label>
+        <input type="text" id="pres-contacto_email">
+      </div>
+      <div class="field">
+        <label>Teléfono de contacto</label>
+        <input type="text" id="pres-contacto_telefono">
+      </div>
+      <div class="field">
+        <label>Sucursal</label>
+        <select id="pres-sucursal_id"><option value="">—</option></select>
+      </div>
+
+      <div class="field">
+        <label>Fecha de emisión</label>
+        <input type="date" id="pres-fecha_emision">
+      </div>
+      <div class="field">
+        <label>Validez (días)</label>
+        <input type="number" id="pres-validez_dias" value="7">
+      </div>
+      <div class="field">
+        <label>Moneda</label>
+        <select id="pres-moneda">
+          <option value="USD">USD</option>
+          <option value="ARS">ARS</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Condición de pago</label>
+        <input type="text" id="pres-condicion_pago" placeholder="Ej: 30 días fecha de factura">
+      </div>
+      <div class="field">
+        <label>Forma de pago</label>
+        <input type="text" id="pres-forma_pago" placeholder="Ej: Transferencia bancaria">
+      </div>
+    </div>
+
+    <h3 style="margin:20px 0 10px 0;font-size:13px;color:var(--accent);">Equipos cotizados</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Modelo (buscar en catálogo)</th>
+            <th style="width:110px;">Cantidad</th>
+            <th style="width:120px;">Período</th>
+            <th style="width:140px;">Precio unitario</th>
+            <th style="width:110px;">Subtotal</th>
+            <th style="width:40px;"></th>
+          </tr>
+        </thead>
+        <tbody id="pres-items-tbody"></tbody>
+      </table>
+    </div>
+    <datalist id="pres-modelos-datalist"></datalist>
+    <button class="btn secondary small" id="btn-pres-agregar-item" type="button" style="margin-top:10px;">+ Agregar equipo</button>
+    <div style="text-align:right;margin-top:10px;font-size:14px;">
+      Total: <strong id="pres-total-preview">U$D 0,00</strong>
+    </div>
+
+    <div class="field full" style="margin-top:14px;">
+      <label>Notas / condiciones adicionales</label>
+      <textarea id="pres-notas" rows="3"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn secondary" id="btn-presupuesto-cancel">Cancelar</button>
+      <button class="btn" id="btn-presupuesto-save">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ANULAR PRESUPUESTO -->
+<div class="overlay" id="modal-anular-presupuesto-overlay">
+  <div class="modal">
+    <h2>Anular presupuesto</h2>
+    <input type="hidden" id="anp-id">
+    <div class="muted" id="anp-resumen" style="font-size:13px;margin-bottom:14px;"></div>
+    <div class="field full">
+      <label>Motivo de la anulación</label>
+      <textarea id="anp-motivo" rows="3" placeholder="Ej: el cliente eligió otro proveedor / se canceló la obra / reemplazado por el presupuesto N°..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn secondary" id="btn-anular-presupuesto-cancel">Cancelar</button>
+      <button class="btn danger" id="btn-anular-presupuesto-confirmar">Anular presupuesto</button>
+    </div>
+  </div>
+</div>
+
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -2160,6 +2314,7 @@ const TAB_TITLES = {
   planning: 'Planning',
   retiros: 'Pendientes de Retiro',
   remitos: 'Remitos',
+  presupuestos: 'Presupuestos',
 };
 
 function activarTab(tab){
@@ -3983,6 +4138,7 @@ const SECCIONES_PERMISOS = [
   { key:'retiros',       label:'Pendientes de Retiro', acciones:[['ver','Ver'],['marcar_retirada','Marcar retirada']] },
   { key:'enviofacturas', label:'Envío de Facturas', acciones:[['ver','Ver'],['marcar_enviada','Marcar enviada']] },
   { key:'remitos',       label:'Remitos',           acciones:[['ver','Ver'],['crear','Crear / cargar entrega'],['registrar_retiro','Registrar retiro'],['eliminar','Eliminar']] },
+  { key:'presupuestos',  label:'Presupuestos',      acciones:[['ver','Ver'],['crear','Crear / editar'],['anular','Anular']] },
   { key:'usuarios',      label:'Usuarios',      acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar']] },
 ];
 
@@ -4319,6 +4475,7 @@ function renderDashboard(){
     { tab:'planning',   icon:'📅', title:'Planning',   count:'Ocupación de flota', visible:puede('planning','ver') },
     { tab:'retiros',    icon:'🚨', title:'Pendientes de Retiro', count: puede('retiros','ver') ? `${calcularRetirosUrgentes().length} urgente(s)` : '', visible:puede('retiros','ver') },
     { tab:'remitos',    icon:'📋', title:'Remitos',    count: puede('remitos','ver') ? `${remitosCache.filter(r=>!r.fecha_retiro).length} pendiente(s) de retiro` : '', visible:puede('remitos','ver') },
+    { tab:'presupuestos', icon:'🧾', title:'Presupuestos', count: puede('presupuestos','ver') ? `${presupuestosCache.filter(p=>p.estado==='vigente').length} vigente(s)` : '', visible:puede('presupuestos','ver') },
     { tab:'usuarios',   icon:'👤', title:'Usuarios',   count:`${usuariosCache.length} cuentas`, visible:puede('usuarios','ver') },
   ];
 
@@ -6836,6 +6993,522 @@ document.getElementById('btn-lote-guardar-todos').addEventListener('click', asyn
   }
 });
 
+// =========================================================
+// MÓDULO: Presupuestos (numeración correlativa, nunca se borran)
+// =========================================================
+let presupuestosCache = [];
+let presupuestoItemsState = [];
+
+async function loadPresupuestos(){
+  const { data, error } = await supabaseClient
+    .from('presupuestos')
+    .select('*, clientes(razon_social), sucursales(nombre), presupuesto_items(*)')
+    .order('numero', { ascending: false });
+  if(error){ console.error('Error cargando presupuestos:', error); presupuestosCache = []; return; }
+  presupuestosCache = data;
+}
+
+function totalPresupuesto(p){
+  const items = p.presupuesto_items || [];
+  return items.reduce((acc, it) => acc + (Number(it.cantidad)||0) * (Number(it.precio_unitario)||0), 0);
+}
+
+function getPresupuestosFiltrados(){
+  const q = document.getElementById('pres-search').value.trim().toLowerCase();
+  const estado = document.getElementById('pres-filter-estado').value;
+  let list = presupuestosCache;
+  if(estado) list = list.filter(p => p.estado === estado);
+  if(q){
+    list = list.filter(p =>
+      String(p.numero).includes(q) ||
+      (p.clientes?.razon_social || '').toLowerCase().includes(q) ||
+      (p.empresa_nombre || '').toLowerCase().includes(q) ||
+      (p.contacto_nombre || '').toLowerCase().includes(q)
+    );
+  }
+  return list;
+}
+
+function renderPresupuestos(){
+  const list = getPresupuestosFiltrados();
+  const tbody = document.getElementById('pres-tbody');
+  if(list.length === 0){
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No hay presupuestos con este filtro.</td></tr>';
+    document.getElementById('pres-results-count').textContent = '';
+    return;
+  }
+  const estadoColor = { vigente: 'var(--accent)', aceptado: 'var(--ok)', vencido: '#ff9f43', anulado: 'var(--danger)' };
+  tbody.innerHTML = list.map(p=>{
+    const empresa = p.clientes?.razon_social || p.empresa_nombre || '—';
+    const color = estadoColor[p.estado] || 'var(--text-dim)';
+    const cantItems = (p.presupuesto_items || []).length;
+    return `
+      <tr>
+        <td style="font-weight:600;">N° ${String(p.numero).padStart(5,'0')}</td>
+        <td class="muted">${fmtDate(p.fecha_emision)}</td>
+        <td>${escapeHtml(empresa)}${p.contacto_nombre ? ` <span class="muted" style="font-size:11px;">— ${escapeHtml(p.contacto_nombre)}</span>` : ''}</td>
+        <td class="muted">${cantItems} equipo(s)</td>
+        <td class="muted">${fmtMoney(totalPresupuesto(p), p.moneda || 'USD')}</td>
+        <td><span class="badge" style="color:${color};border-color:${color};">${p.estado}</span></td>
+        <td>
+          <div class="row-actions">
+            <button class="btn secondary small" onclick="abrirEditarPresupuesto(${p.id})">${p.estado === 'anulado' ? 'Ver' : 'Editar'}</button>
+            <button class="btn secondary small" onclick="generarPresupuestoPDF(${p.id})">PDF</button>
+            ${p.estado !== 'anulado' && puede('presupuestos','anular') ? `<button class="btn danger small" onclick="abrirAnularPresupuesto(${p.id})">Anular</button>` : ''}
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+  document.getElementById('pres-results-count').textContent = `${list.length} presupuesto(s)`;
+}
+function applyPresFilters(){ renderPresupuestos(); }
+document.getElementById('pres-search').addEventListener('input', applyPresFilters);
+document.getElementById('pres-filter-estado').addEventListener('change', applyPresFilters);
+document.getElementById('btn-pres-limpiar-filtros').addEventListener('click', ()=>{
+  document.getElementById('pres-search').value = '';
+  document.getElementById('pres-filter-estado').value = '';
+  renderPresupuestos();
+});
+
+function presupuestosToRows(list){
+  const headers = ['Numero','Fecha','Cliente Empresa','Contacto','Cantidad Items','Total','Moneda','Estado'];
+  const rows = list.map(p => [
+    p.numero, p.fecha_emision, p.clientes?.razon_social || p.empresa_nombre || '', p.contacto_nombre || '',
+    (p.presupuesto_items || []).length, totalPresupuesto(p), p.moneda, p.estado,
+  ]);
+  return { headers, rows };
+}
+document.getElementById('btn-export-presupuestos-csv').addEventListener('click', ()=>{
+  const { headers, rows } = presupuestosToRows(getPresupuestosFiltrados());
+  exportCSV('presupuestos_horizon', headers, rows);
+});
+
+// ---------- Autocompletar cliente en el modal de presupuesto ----------
+const presClienteSearchInput = document.getElementById('pres-cliente-search');
+const presClienteResultsBox = document.getElementById('pres-cliente-results');
+presClienteSearchInput.addEventListener('input', ()=>{
+  const q = presClienteSearchInput.value.trim().toLowerCase();
+  document.getElementById('pres-cliente_id').value = '';
+  if(q.length < 2){ presClienteResultsBox.classList.remove('open'); return; }
+  const matches = clientesCache.filter(c =>
+    (c.razon_social||'').toLowerCase().includes(q) ||
+    (c.cuit||'').toLowerCase().includes(q) ||
+    (c.numero_cliente||'').toLowerCase().includes(q)
+  ).slice(0, 30);
+  presClienteResultsBox.innerHTML = matches.length === 0
+    ? '<div class="autocomplete-item muted">Sin resultados — dejalo así si es un prospecto nuevo y completá "Empresa" abajo</div>'
+    : matches.map(c=>`<div class="autocomplete-item" data-id="${c.id}" data-nombre="${escapeHtml(c.razon_social)}">${escapeHtml(c.razon_social)}</div>`).join('');
+  presClienteResultsBox.classList.add('open');
+});
+presClienteResultsBox.addEventListener('click', (e)=>{
+  const item = e.target.closest('.autocomplete-item');
+  if(!item || !item.dataset.id) return;
+  document.getElementById('pres-cliente_id').value = item.dataset.id;
+  presClienteSearchInput.value = item.dataset.nombre;
+  presClienteResultsBox.classList.remove('open');
+});
+document.addEventListener('click', (e)=>{
+  if(!e.target.closest('#pres-cliente-search') && !e.target.closest('#pres-cliente-results')) presClienteResultsBox.classList.remove('open');
+});
+
+function populateSucursalSelectPresupuesto(){
+  const sel = document.getElementById('pres-sucursal_id');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">—</option>' + sucursales.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
+  sel.value = current;
+}
+
+// ---------- Ítems del presupuesto (tabla dinámica) ----------
+function renderPresItemsTabla(){
+  const tbody = document.getElementById('pres-items-tbody');
+  if(presupuestoItemsState.length === 0){
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Agregá al menos un equipo.</td></tr>';
+  } else {
+    tbody.innerHTML = presupuestoItemsState.map((it, idx) => {
+      const subtotal = (Number(it.cantidad)||0) * (Number(it.precio_unitario)||0);
+      return `
+        <tr data-idx="${idx}">
+          <td><input type="text" class="pres-item-modelo" data-idx="${idx}" list="pres-modelos-datalist" value="${escapeHtml(it.modelo||'')}" placeholder="Ej: HA20RTJPRO" style="min-width:180px;"></td>
+          <td><input type="number" class="pres-item-cantidad" data-idx="${idx}" value="${it.cantidad}" min="1" style="width:70px;"></td>
+          <td>
+            <select class="pres-item-periodo" data-idx="${idx}">
+              <option value="Día" ${it.periodo==='Día'?'selected':''}>Día</option>
+              <option value="Semana" ${it.periodo==='Semana'?'selected':''}>Semana</option>
+              <option value="Mes" ${it.periodo==='Mes'?'selected':''}>Mes</option>
+            </select>
+          </td>
+          <td><input type="number" class="pres-item-precio" data-idx="${idx}" value="${it.precio_unitario}" step="0.01" style="width:110px;"></td>
+          <td class="muted">${fmtMoney(subtotal, document.getElementById('pres-moneda').value)}</td>
+          <td><button type="button" class="btn secondary small" onclick="quitarItemPresupuesto(${idx})">✕</button></td>
+        </tr>`;
+    }).join('');
+  }
+  const total = presupuestoItemsState.reduce((acc,it)=> acc + (Number(it.cantidad)||0)*(Number(it.precio_unitario)||0), 0);
+  document.getElementById('pres-total-preview').textContent = fmtMoney(total, document.getElementById('pres-moneda').value);
+}
+document.getElementById('pres-items-tbody').addEventListener('input', (e)=>{
+  const idx = Number(e.target.dataset.idx);
+  if(Number.isNaN(idx) || !presupuestoItemsState[idx]) return;
+  if(e.target.classList.contains('pres-item-modelo')){
+    presupuestoItemsState[idx].modelo = e.target.value;
+    const ficha = buscarFichaTecnica(e.target.value);
+    presupuestoItemsState[idx].categoria = ficha ? ficha.categoria : '';
+  }
+  if(e.target.classList.contains('pres-item-cantidad')) presupuestoItemsState[idx].cantidad = e.target.value;
+  if(e.target.classList.contains('pres-item-precio')) presupuestoItemsState[idx].precio_unitario = e.target.value;
+  renderPresItemsTabla();
+});
+document.getElementById('pres-items-tbody').addEventListener('change', (e)=>{
+  const idx = Number(e.target.dataset.idx);
+  if(Number.isNaN(idx) || !presupuestoItemsState[idx]) return;
+  if(e.target.classList.contains('pres-item-periodo')) presupuestoItemsState[idx].periodo = e.target.value;
+});
+document.getElementById('pres-moneda').addEventListener('change', renderPresItemsTabla);
+function quitarItemPresupuesto(idx){
+  presupuestoItemsState.splice(idx, 1);
+  renderPresItemsTabla();
+}
+document.getElementById('btn-pres-agregar-item').addEventListener('click', ()=>{
+  presupuestoItemsState.push({ modelo:'', categoria:'', cantidad:1, periodo:'Mes', precio_unitario:0 });
+  renderPresItemsTabla();
+});
+
+function resetPresupuestoForm(){
+  document.getElementById('pres-id').value = '';
+  document.getElementById('pres-modal-numero').textContent = '';
+  document.getElementById('pres-cliente_id').value = '';
+  presClienteSearchInput.value = '';
+  document.getElementById('pres-empresa_nombre').value = '';
+  document.getElementById('pres-contacto_nombre').value = '';
+  document.getElementById('pres-contacto_email').value = '';
+  document.getElementById('pres-contacto_telefono').value = '';
+  populateSucursalSelectPresupuesto();
+  document.getElementById('pres-sucursal_id').value = '';
+  document.getElementById('pres-fecha_emision').value = new Date().toISOString().slice(0,10);
+  document.getElementById('pres-validez_dias').value = 7;
+  document.getElementById('pres-moneda').value = 'USD';
+  document.getElementById('pres-condicion_pago').value = '';
+  document.getElementById('pres-forma_pago').value = '';
+  document.getElementById('pres-notas').value = '';
+  document.getElementById('pres-modelos-datalist').innerHTML =
+    catalogoTecnicoCache.filter(c => c.especificaciones && c.especificaciones.length).map(c=>`<option value="${escapeHtml(c.modelo)}">`).join('');
+  presupuestoItemsState = [{ modelo:'', categoria:'', cantidad:1, periodo:'Mes', precio_unitario:0 }];
+  renderPresItemsTabla();
+}
+
+document.getElementById('btn-nuevo-presupuesto').addEventListener('click', ()=>{
+  resetPresupuestoForm();
+  document.getElementById('pres-modal-titulo').textContent = 'Nuevo presupuesto';
+  document.getElementById('modal-presupuesto-overlay').classList.add('open');
+});
+document.getElementById('btn-presupuesto-cancel').addEventListener('click', ()=>{
+  document.getElementById('modal-presupuesto-overlay').classList.remove('open');
+});
+document.getElementById('modal-presupuesto-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'modal-presupuesto-overlay') document.getElementById('modal-presupuesto-overlay').classList.remove('open');
+});
+
+function abrirEditarPresupuesto(id){
+  const p = presupuestosCache.find(x => x.id === id);
+  if(!p) return;
+  resetPresupuestoForm();
+  document.getElementById('pres-modal-titulo').textContent = p.estado === 'anulado' ? 'Presupuesto (anulado — solo lectura)' : 'Editar presupuesto';
+  document.getElementById('pres-modal-numero').textContent = `N° ${String(p.numero).padStart(5,'0')}`;
+  document.getElementById('pres-id').value = p.id;
+  document.getElementById('pres-cliente_id').value = p.cliente_id || '';
+  presClienteSearchInput.value = p.clientes ? p.clientes.razon_social : '';
+  document.getElementById('pres-empresa_nombre').value = p.empresa_nombre || '';
+  document.getElementById('pres-contacto_nombre').value = p.contacto_nombre || '';
+  document.getElementById('pres-contacto_email').value = p.contacto_email || '';
+  document.getElementById('pres-contacto_telefono').value = p.contacto_telefono || '';
+  document.getElementById('pres-sucursal_id').value = p.sucursal_id || '';
+  document.getElementById('pres-fecha_emision').value = p.fecha_emision || '';
+  document.getElementById('pres-validez_dias').value = p.validez_dias || 7;
+  document.getElementById('pres-moneda').value = p.moneda || 'USD';
+  document.getElementById('pres-condicion_pago').value = p.condicion_pago || '';
+  document.getElementById('pres-forma_pago').value = p.forma_pago || '';
+  document.getElementById('pres-notas').value = p.notas || '';
+  presupuestoItemsState = (p.presupuesto_items || []).length > 0
+    ? p.presupuesto_items.map(it => ({ modelo: it.modelo||'', categoria: it.categoria||'', cantidad: it.cantidad, periodo: it.periodo||'Mes', precio_unitario: it.precio_unitario }))
+    : [{ modelo:'', categoria:'', cantidad:1, periodo:'Mes', precio_unitario:0 }];
+  renderPresItemsTabla();
+  document.getElementById('modal-presupuesto-overlay').classList.add('open');
+}
+
+document.getElementById('btn-presupuesto-save').addEventListener('click', async ()=>{
+  const id = document.getElementById('pres-id').value;
+  const itemsValidos = presupuestoItemsState.filter(it => it.modelo && Number(it.cantidad) > 0);
+  if(itemsValidos.length === 0){ showToast('Agregá al menos un equipo con modelo y cantidad', true); return; }
+
+  const payload = {
+    cliente_id: document.getElementById('pres-cliente_id').value ? Number(document.getElementById('pres-cliente_id').value) : null,
+    empresa_nombre: document.getElementById('pres-empresa_nombre').value || null,
+    contacto_nombre: document.getElementById('pres-contacto_nombre').value || null,
+    contacto_email: document.getElementById('pres-contacto_email').value || null,
+    contacto_telefono: document.getElementById('pres-contacto_telefono').value || null,
+    sucursal_id: document.getElementById('pres-sucursal_id').value ? Number(document.getElementById('pres-sucursal_id').value) : null,
+    fecha_emision: document.getElementById('pres-fecha_emision').value || null,
+    validez_dias: Number(document.getElementById('pres-validez_dias').value) || 7,
+    moneda: document.getElementById('pres-moneda').value,
+    condicion_pago: document.getElementById('pres-condicion_pago').value || null,
+    forma_pago: document.getElementById('pres-forma_pago').value || null,
+    notas: document.getElementById('pres-notas').value || null,
+  };
+
+  try{
+    let presupuestoId = id ? Number(id) : null;
+    if(presupuestoId){
+      const { error } = await supabaseClient.from('presupuestos').update(payload).eq('id', presupuestoId);
+      if(error) throw error;
+      // reemplazamos los ítems: se borran los viejos y se insertan los nuevos
+      // (lo que nunca se borra es la CABECERA del presupuesto — el número y el historial)
+      const { error: delError } = await supabaseClient.from('presupuesto_items').delete().eq('presupuesto_id', presupuestoId);
+      if(delError) throw delError;
+    } else {
+      const { data, error } = await supabaseClient.from('presupuestos').insert(payload).select().single();
+      if(error) throw error;
+      presupuestoId = data.id;
+    }
+
+    const itemsPayload = itemsValidos.map((it, i) => ({
+      presupuesto_id: presupuestoId,
+      modelo: it.modelo,
+      categoria: it.categoria || null,
+      descripcion: it.modelo,
+      cantidad: Number(it.cantidad),
+      periodo: it.periodo,
+      precio_unitario: Number(it.precio_unitario) || 0,
+      orden: i,
+    }));
+    const { error: itemsError } = await supabaseClient.from('presupuesto_items').insert(itemsPayload);
+    if(itemsError) throw itemsError;
+
+    showToast(id ? 'Presupuesto actualizado' : 'Presupuesto creado');
+    document.getElementById('modal-presupuesto-overlay').classList.remove('open');
+    await loadPresupuestos();
+    renderPresupuestos();
+  } catch(err){
+    console.error(err);
+    showToast('Error al guardar el presupuesto: ' + err.message, true);
+  }
+});
+
+// ---------- Anular presupuesto (nunca se borra) ----------
+function abrirAnularPresupuesto(id){
+  const p = presupuestosCache.find(x => x.id === id);
+  if(!p) return;
+  document.getElementById('anp-id').value = p.id;
+  document.getElementById('anp-resumen').innerHTML = `
+    <strong>N° ${String(p.numero).padStart(5,'0')}</strong> — ${escapeHtml(p.clientes?.razon_social || p.empresa_nombre || '—')}<br>
+    ${fmtMoney(totalPresupuesto(p), p.moneda||'USD')}
+  `;
+  document.getElementById('anp-motivo').value = '';
+  document.getElementById('modal-anular-presupuesto-overlay').classList.add('open');
+}
+document.getElementById('btn-anular-presupuesto-cancel').addEventListener('click', ()=>{
+  document.getElementById('modal-anular-presupuesto-overlay').classList.remove('open');
+});
+document.getElementById('modal-anular-presupuesto-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'modal-anular-presupuesto-overlay') document.getElementById('modal-anular-presupuesto-overlay').classList.remove('open');
+});
+document.getElementById('btn-anular-presupuesto-confirmar').addEventListener('click', async ()=>{
+  const id = document.getElementById('anp-id').value;
+  if(!id) return;
+  try{
+    const { error } = await supabaseClient.from('presupuestos').update({
+      estado: 'anulado',
+      motivo_anulacion: document.getElementById('anp-motivo').value || null,
+    }).eq('id', id);
+    if(error) throw error;
+    document.getElementById('modal-anular-presupuesto-overlay').classList.remove('open');
+    await loadPresupuestos();
+    renderPresupuestos();
+    showToast('Presupuesto anulado. Sigue en el listado con historial completo.');
+  } catch(err){
+    console.error(err);
+    showToast('Error al anular: ' + err.message, true);
+  }
+});
+
+// ---------- Generar el PDF del presupuesto (con fichas técnicas de anexo + links internos) ----------
+function generarPresupuestoPDF(id){
+  const p = presupuestosCache.find(x => x.id === id);
+  if(!p) return;
+  const items = (p.presupuesto_items || []).slice().sort((a,b)=>(a.orden||0)-(b.orden||0));
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'mm', format:'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const marginX = 18;
+
+  // ---------- Página 1: carátula + ítems ----------
+  let y = 15;
+  try{ doc.addImage(LOGO_PDF_BASE64, 'PNG', marginX, y, 65, 13.3); } catch(e){ console.error(e); }
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(14);
+  doc.text(`PRESUPUESTO N° ${String(p.numero).padStart(5,'0')}`, pageWidth - marginX, y + 5, { align:'right' });
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(9);
+  doc.text(`Fecha de emisión: ${fmtDate(p.fecha_emision)}`, pageWidth - marginX, y + 11, { align:'right' });
+  doc.text(`Válido por ${p.validez_dias || 7} días`, pageWidth - marginX, y + 16, { align:'right' });
+
+  y += 26;
+  doc.setDrawColor(30, 100, 200);
+  doc.setLineWidth(0.8);
+  doc.line(marginX, y, pageWidth - marginX, y);
+  y += 8;
+
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(10);
+  doc.text('DATOS DEL CLIENTE', marginX, y);
+  y += 6;
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(9);
+  const empresa = p.clientes?.razon_social || p.empresa_nombre || '—';
+  doc.text(`Empresa: ${empresa}`, marginX, y); y += 5;
+  if(p.contacto_nombre){ doc.text(`Contacto: ${p.contacto_nombre}`, marginX, y); y += 5; }
+  if(p.contacto_email){ doc.text(`Email: ${p.contacto_email}`, marginX, y); y += 5; }
+  if(p.contacto_telefono){ doc.text(`Teléfono: ${p.contacto_telefono}`, marginX, y); y += 5; }
+
+  y += 6;
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(10);
+  doc.text('EQUIPOS COTIZADOS', marginX, y);
+  y += 8;
+
+  // encabezado de tabla
+  const colModelo = marginX, colCant = 100, colPer = 122, colPrecio = 145, colSub = 175;
+  doc.setFillColor(20, 60, 120);
+  doc.rect(marginX, y - 5, pageWidth - marginX*2, 7, 'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(8.5);
+  doc.text('Equipo', colModelo + 2, y);
+  doc.text('Cant.', colCant, y);
+  doc.text('Período', colPer, y);
+  doc.text('Precio unit.', colPrecio, y);
+  doc.text('Subtotal', colSub, y);
+  doc.setTextColor(0,0,0);
+  y += 8;
+
+  const linksAFichas = []; // {yPosicion, modelo}
+  let total = 0;
+  items.forEach((it) => {
+    const ficha = buscarFichaTecnica(it.modelo);
+    const subtotal = (Number(it.cantidad)||0) * (Number(it.precio_unitario)||0);
+    total += subtotal;
+
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(9);
+    doc.text(it.descripcion || it.modelo, colModelo + 2, y);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(8.5);
+    doc.text(String(it.cantidad), colCant, y);
+    doc.text(it.periodo || 'Mes', colPer, y);
+    doc.text(fmtMoney(it.precio_unitario, p.moneda), colPrecio, y);
+    doc.text(fmtMoney(subtotal, p.moneda), colSub, y);
+    y += 5;
+
+    if(ficha && ficha.especificaciones && ficha.especificaciones.length){
+      doc.setTextColor(30, 100, 200);
+      doc.setFontSize(8);
+      doc.textWithLink('Ver ficha técnica →', colModelo + 2, y, { url: undefined });
+      linksAFichas.push({ y: y - 3, modelo: it.modelo, ficha });
+      doc.setTextColor(0,0,0);
+      y += 6;
+    } else {
+      y += 3;
+    }
+    doc.setDrawColor(220,220,220);
+    doc.line(marginX, y, pageWidth - marginX, y);
+    y += 6;
+  });
+
+  y += 2;
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(11);
+  doc.text(`TOTAL: ${fmtMoney(total, p.moneda)}`, pageWidth - marginX, y, { align:'right' });
+  y += 12;
+
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(10);
+  doc.text('CONDICIONES COMERCIALES', marginX, y);
+  y += 6;
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8.5);
+  const condiciones = [
+    `Condición de pago: ${p.condicion_pago || 'A convenir'}`,
+    `Forma de pago: ${p.forma_pago || 'A convenir'}`,
+    `Moneda: ${p.moneda} — los valores no incluyen IVA.`,
+    `Validez de la oferta: ${p.validez_dias || 7} días desde la fecha de emisión.`,
+    'Los equipos se alquilan sin operador. Flete a cargo del cliente salvo que se indique lo contrario.',
+  ];
+  condiciones.forEach(linea => { doc.text(linea, marginX, y); y += 5; });
+  if(p.notas){
+    y += 3;
+    doc.setFont('helvetica','bold');
+    doc.text('Notas:', marginX, y); y += 5;
+    doc.setFont('helvetica','normal');
+    const lineasNotas = doc.splitTextToSize(p.notas, pageWidth - marginX*2);
+    doc.text(lineasNotas, marginX, y);
+  }
+
+  // ---------- Páginas de anexo: ficha técnica de cada modelo cotizado ----------
+  const paginaDeModelo = {};
+  const modelosUnicos = [...new Set(items.map(it => it.modelo).filter(Boolean))];
+  modelosUnicos.forEach(modelo => {
+    const ficha = buscarFichaTecnica(modelo);
+    if(!ficha || !ficha.especificaciones || ficha.especificaciones.length === 0) return;
+    doc.addPage();
+    paginaDeModelo[modelo] = doc.internal.getNumberOfPages();
+    let fy = 20;
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(13);
+    doc.text(`Ficha técnica — ${ficha.modelo}`, marginX, fy);
+    fy += 6;
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(9);
+    doc.setTextColor(120);
+    doc.text(ficha.categoria || '', marginX, fy);
+    doc.setTextColor(0);
+    fy += 10;
+
+    ficha.especificaciones.forEach(spec => {
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(9.5);
+      doc.setTextColor(110);
+      doc.text(spec.label, marginX, fy);
+      doc.setTextColor(0);
+      doc.setFont('helvetica','bold');
+      doc.text(String(spec.valor), marginX + 80, fy);
+      fy += 7;
+      doc.setDrawColor(230,230,230);
+      doc.line(marginX, fy - 4, pageWidth - marginX, fy - 4);
+    });
+  });
+
+  // ---------- ahora sí, volvemos a la página 1 y convertimos los textos en links reales ----------
+  doc.setPage(1);
+  linksAFichas.forEach(l => {
+    const pagina = paginaDeModelo[l.modelo];
+    if(pagina){
+      doc.link(colModelo + 2, l.y, 40, 4, { pageNumber: pagina });
+    }
+  });
+
+  // ---------- Pie de página en todas las páginas ----------
+  const totalPaginas = doc.internal.getNumberOfPages();
+  for(let pNum = 1; pNum <= totalPaginas; pNum++){
+    doc.setPage(pNum);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(150);
+    doc.text('Horizon Sudamérica — Panamericana Km. 34.300 Colectora Oeste, Ramal Escobar, Grand Bourg, Buenos Aires', marginX, 290);
+    doc.text(`Página ${pNum} de ${totalPaginas}`, pageWidth - marginX, 290, { align:'right' });
+    doc.setTextColor(0);
+  }
+
+  doc.save(`Presupuesto_${String(p.numero).padStart(5,'0')}_${empresa.replace(/[^a-zA-Z0-9]/g,'_')}.pdf`);
+}
+
 async function initApp(){
   try{
     console.log('[Horizon] cargando sucursales...');
@@ -6879,6 +7552,13 @@ async function initApp(){
     }
     document.getElementById('btn-nuevo-remito').style.display = puede('remitos','crear') ? '' : 'none';
     document.getElementById('btn-importar-lote-remitos').style.display = puede('remitos','crear') ? '' : 'none';
+
+    if(puede('presupuestos','ver')){
+      console.log('[Horizon] cargando presupuestos...');
+      await loadPresupuestos();
+      renderPresupuestos();
+    }
+    document.getElementById('btn-nuevo-presupuesto').style.display = puede('presupuestos','crear') ? '' : 'none';
 
     if(puede('planning','ver')){
       console.log('[Horizon] cargando planning...');
