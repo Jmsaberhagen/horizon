@@ -3323,7 +3323,13 @@ async function autoGenerarPendientesDelMes(){
     const limite = (c.estado === 'baja' && c.fecha_baja < hoy) ? c.fecha_baja : hoy;
     let guard = 0; // tope de seguridad para no generar infinitos períodos atrasados de una sola vez
     while(cursor <= limite && guard < 36){
-      const hasta = calcularPeriodoHasta(cursor, c.periodicidad || 'mensual');
+      let hasta = calcularPeriodoHasta(cursor, c.periodicidad || 'mensual');
+      // Si el contrato está de baja y el período de calendario se pasaría de la
+      // fecha de baja, lo cortamos justo ahí: la última renta real termina el
+      // día de la baja, no al final del mes/semana "de calendario" completo.
+      if(c.estado === 'baja' && c.fecha_baja && hasta > c.fecha_baja){
+        hasta = c.fecha_baja;
+      }
       if(!existentesSet.has(`${c.id}|${cursor}`)){
         const valorUsd = c.precio_mensual_con_descuento ?? c.precio_mensual_sin_descuento ?? 0;
         nuevos.push({
