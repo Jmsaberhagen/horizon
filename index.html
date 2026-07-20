@@ -1523,6 +1523,18 @@
 </div>
 
 
+<!-- MODAL FICHA TÉCNICA (solo lectura, viene del catálogo por modelo) -->
+<div class="overlay" id="modal-ficha-tecnica-overlay">
+  <div class="modal">
+    <h2 id="ft-titulo">Ficha técnica</h2>
+    <div class="muted" id="ft-subtitulo" style="font-size:12px;margin-top:-10px;margin-bottom:14px;"></div>
+    <div id="ft-tabla"></div>
+    <div class="modal-actions">
+      <button class="btn secondary" id="btn-ficha-tecnica-cerrar">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL EQUIPO -->
 <div class="overlay" id="modal-equipo-overlay">
   <div class="modal">
@@ -3683,6 +3695,59 @@ function populateEquipoFilters(){
   selSuc.value = cur;
 }
 
+// =========================================================
+// MÓDULO: Catálogo técnico de modelos (ficha ampliada de la máquina)
+// =========================================================
+let catalogoTecnicoCache = [];
+
+async function loadCatalogoTecnico(){
+  const { data, error } = await supabaseClient.from('catalogo_modelos').select('*');
+  if(error){ console.error('Error cargando catalogo_modelos:', error); catalogoTecnicoCache = []; return; }
+  catalogoTecnicoCache = data;
+}
+
+// Normaliza para poder comparar "HA20RTJ PRO" con "HA20RTJPRO" o "ha20 rtj pro"
+function normalizarModelo(m){
+  return (m || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+function buscarFichaTecnica(modeloEquipo){
+  const norm = normalizarModelo(modeloEquipo);
+  if(!norm) return null;
+  return catalogoTecnicoCache.find(c => normalizarModelo(c.modelo) === norm) || null;
+}
+
+function abrirFichaTecnica(equipoId){
+  const e = equiposCache.find(x => x.id === equipoId);
+  if(!e) return;
+  const ficha = buscarFichaTecnica(e.modelo);
+  if(!ficha){ showToast('No hay ficha técnica cargada para este modelo todavía', true); return; }
+
+  document.getElementById('ft-titulo').textContent = `Ficha técnica — ${ficha.modelo}`;
+  document.getElementById('ft-subtitulo').textContent =
+    `${ficha.categoria || ''} · Equipo N° de serie ${e.numero_serie}`;
+
+  const specs = Array.isArray(ficha.especificaciones) ? ficha.especificaciones : [];
+  document.getElementById('ft-tabla').innerHTML = specs.length === 0
+    ? '<div class="muted">Sin especificaciones cargadas para este modelo.</div>'
+    : `<table style="width:100%;">
+        <tbody>
+          ${specs.map(s => `
+            <tr style="border-bottom:1px solid var(--border);">
+              <td class="muted" style="padding:6px 10px 6px 0;width:55%;">${escapeHtml(s.label)}</td>
+              <td style="padding:6px 0;font-weight:600;">${escapeHtml(s.valor)}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  document.getElementById('modal-ficha-tecnica-overlay').classList.add('open');
+}
+document.getElementById('btn-ficha-tecnica-cerrar').addEventListener('click', ()=>{
+  document.getElementById('modal-ficha-tecnica-overlay').classList.remove('open');
+});
+document.getElementById('modal-ficha-tecnica-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'modal-ficha-tecnica-overlay') document.getElementById('modal-ficha-tecnica-overlay').classList.remove('open');
+});
+
 // El estado "alquilada" NUNCA se guarda a mano ni por trigger: se calcula en el momento
 // a partir de si el equipo tiene un contrato activo. Así nunca puede desincronizarse.
 // "De baja" sigue siendo manual (equipo que salió de la flota, no un alquiler puntual).
@@ -3704,6 +3769,7 @@ function renderEquipos(list){
     const suc = sucursales.find(s => s.id === e.sucursal_id);
     const estadoCalc = estadoActualEquipo(e);
     const color = estadoColor[estadoCalc] || 'var(--text-dim)';
+    const tieneFicha = !!buscarFichaTecnica(e.modelo);
     return `
       <tr>
         <td>${escapeHtml(e.numero_serie)}</td>
@@ -3714,6 +3780,7 @@ function renderEquipos(list){
         <td>
           <div class="row-actions">
             <button class="btn secondary small" onclick="openEditEquipo(${e.id})">Editar</button>
+            ${tieneFicha ? `<button class="btn secondary small" onclick="abrirFichaTecnica(${e.id})">📋 Ficha</button>` : ''}
           </div>
         </td>
       </tr>`;
@@ -6778,6 +6845,7 @@ async function initApp(){
     console.log('[Horizon] clientes OK, cargando equipos...');
     await loadEquipos();
     populateEquipoFilters();
+    await loadCatalogoTecnico();
     console.log('[Horizon] equipos OK, cargando contratos...');
     await loadContratos();
     // recién acá contratosCache tiene datos, así que renderizamos equipos
