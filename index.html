@@ -2179,6 +2179,54 @@
       <textarea id="pres-notas" rows="3"></textarea>
     </div>
 
+    <h3 style="margin:20px 0 10px 0;font-size:13px;color:var(--accent);">Lugar y fecha de entrega del equipo</h3>
+    <div class="field-grid cols-3">
+      <div class="field full">
+        <label>Entregar en obra (dirección)</label>
+        <input type="text" id="pres-obra">
+      </div>
+      <div class="field">
+        <label>El día</label>
+        <input type="date" id="pres-fecha_entrega">
+      </div>
+      <div class="field">
+        <label>Horario</label>
+        <input type="text" id="pres-horario_entrega" placeholder="Ej: 9 a 13 hs">
+      </div>
+      <div class="field">
+        <label>Persona responsable de recibir/entregar</label>
+        <input type="text" id="pres-persona_responsable">
+      </div>
+      <div class="field">
+        <label>Celular</label>
+        <input type="text" id="pres-celular_responsable">
+      </div>
+    </div>
+
+    <h3 style="margin:20px 0 10px 0;font-size:13px;color:var(--accent);">Datos de facturación</h3>
+    <div class="field-grid cols-3">
+      <div class="field">
+        <label>Facturar a</label>
+        <input type="text" id="pres-facturar_a">
+      </div>
+      <div class="field">
+        <label>C.U.I.T.</label>
+        <input type="text" id="pres-facturar_cuit">
+      </div>
+      <div class="field">
+        <label>Teléfono / Fax</label>
+        <input type="text" id="pres-facturar_tel">
+      </div>
+      <div class="field full">
+        <label>Domicilio</label>
+        <input type="text" id="pres-facturar_domicilio">
+      </div>
+      <div class="field full">
+        <label>Mail de entrega de factura electrónica</label>
+        <input type="text" id="pres-mail_factura_electronica">
+      </div>
+    </div>
+
     <div class="modal-actions">
       <button class="btn secondary" id="btn-presupuesto-cancel">Cancelar</button>
       <button class="btn" id="btn-presupuesto-save">Guardar</button>
@@ -6071,6 +6119,86 @@ document.getElementById('btn-alerta-retiros-ok').addEventListener('click', ()=>{
 // =========================================================
 // MÓDULO: Descargar contrato en PDF
 // =========================================================
+// Agrega, en una página nueva de un documento jsPDF ya abierto, el texto completo
+// de las Condiciones Generales del Acuerdo de Alquiler (compartido entre el PDF
+// de Contrato y el de Presupuesto, para no duplicar el texto en dos lugares).
+// Devuelve el número de página donde quedó el banner decorativo, para que el
+// llamador pueda excluir esa página del pie de página estándar.
+function agregarPaginaCondicionesGenerales(doc, pageWidth, marginX){
+  // ---------- Página 2: Condiciones Generales del Acuerdo de Alquiler ----------
+  doc.addPage();
+  let y2 = 12;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(90);
+  doc.text('Panamericana Km. 34.300 Colectora Oeste, Ramal Escobar', pageWidth - marginX, y2, { align: 'right' });
+  doc.text('(1615) Grand Bourg, Buenos Aires – Argentina', pageWidth - marginX, y2 + 3.8, { align: 'right' });
+  doc.text('Teléfono: 03327-452-191  Fax: 03327-452-192', pageWidth - marginX, y2 + 7.6, { align: 'right' });
+  doc.setTextColor(0);
+
+  y2 += 20;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('CONDICIONES GENERALES', pageWidth / 2, y2, { align: 'center' });
+  y2 += 8;
+
+  const condicionesGenerales = [
+    'Por la presente solicitud, HORIZON HIGH REACH LIMITED, en adelante denominada "HORIZON", nos entrega en locación un equipo por el plazo incluido en la factura correspondiente.',
+    'La locación se pacta por el precio y además condiciones que se incluyan en la factura correspondiente, de acuerdo al periodo estipulado, acordándose que el precio del excedente del tiempo estipulado lo fija HORIZON.',
+    'Habiendo inspeccionado cuidadosamente el equipo, así como sus accesorios, recibimos el mismo de plena conformidad en buen estado de uso y conservación, y nos obligamos a devolver el mismo en las mismas condiciones, asumiendo la total responsabilidad por todos los daños que se causen en el equipo por el uso que del mismo hagamos, así como el que realiza cualquiera de nuestros empleados.',
+    'Nos obligamos a que el equipo no será usado por ninguna otra persona que no sea la persona locataria o sus empleados, siendo que todos ellos deberán tener la edad apropiada, debidamente calificados para hacerlo y contando con la instrucción relativa a su uso y funcionamiento.',
+    'Manifestamos que en este acto recibimos de Manual de Seguridad para operadores y mecánicos, y que todas las personas que utilizarán el equipo han comprendido y pondrán en práctica las instrucciones y recomendaciones contenidas en el mismo.',
+    'Nos obligamos a no usar el equipo y no permitir que el equipo sea utilizado con un objeto contrario a la ley, la moral y las buenas costumbres, o en aquellos casos en los que el equipo necesite ser reparado o debido a desperfectos, no tenga las condiciones de seguridad requeridas por el Manual de Operaciones.',
+    'Nos obligamos a no sublocar o prestar el equipo ni cederlo bajo ninguna forma jurídica, sin el previo consentimiento escrito de "HORIZON".',
+    'Nos obligamos a notificar en forma inmediata a "HORIZON" en caso de accidente, daños o robo del equipo, así como en el caso de accidente, daños a las personas y a la propiedad, y a realizar la correspondiente denuncia policial dentro de las 24 hs. de ocurrido el siniestro.',
+    'Diariamente inspeccionaremos el equipo y cesaremos en su uso cuando el mismo necesite mantenimiento y reparación, notificando en forma inmediata a "HORIZON", no pudiendo permitir que los servicios de mantenimiento y reparación sean realizados por ninguna otra persona que no sea "HORIZON", sin tener el previo consentimiento escrito de "HORIZON", la cual prestará los citados servicios. Para el caso de que el equipo tenga un accidente o necesite reparación, autorizaremos a "HORIZON" a retirar de hecho el equipo.',
+    'Para todas las obligaciones comprendidas en las presentes Condiciones Generales, se pacta en forma expresa la mora automática, de conformidad con el Artículo 886, primera parte del Código Civil. Si no cumpliéramos cualquiera de estas Condiciones Generales, autorizamos a "HORIZON" a tomar las siguientes medidas en forma conjunta: A. Resolver la relación existente y retirar de hecho el equipo sin necesidad de procedimiento judicial y extrajudicial algún, cualquiera sea el lugar de ubicación del mismo; B. Exigir el pago íntegro de la locación del equipo. C. Utilizar todos los medios legales que correspondan. En caso de aplicación de la presente cláusula, "HORIZON" no será responsable por los reclamos que puedan existir por el retiro de hecho del equipo, no pudiendo invocar prejuicios de ninguna naturaleza.',
+    'Si el equipo fuera retenido más allá del plazo convenido, autorizamos a "HORIZON" a retirar de hecho el equipo del lugar donde esté, sin necesidad de realizar ningún procedimiento judicial o extrajudicial alguno, así como a cobrarnos la suma de dos alquileres diarios, en concepto de clausula penal, por cada día de demora en la devolución del equipo.',
+    'Se entiende que el plazo de la locación comienza con la salida del equipo del depósito de "HORIZON" y termina con la devolución y aceptación del equipo en el citado depósito.',
+    'Durante todo el plazo de la locación nos obligamos a abonar el seguro que contratará "HORIZON" para mantener el equipo asegurado contra todo riesgo por cualquier causa que se pudiere generar y por una la suma no menor al valor del equipo el cual será suministrado oportunamente por "HORIZON", así como nos obligamos a abonar el seguro que contratará "HORIZON" de responsabilidad civil por los daños que el equipo pudiere causar en las personas o en las cosas.',
+    'Asumimos la total y completa responsabilidad por el lucro cesante generado hurto, robo, incendio accidente, apropiación indebida, uso inadecuado del equipo. Se entiende por lucro cesante el tiempo que "HORIZON" no tiene el equipo disponible para locación, la base es el valor del alquiler diario del equipo.',
+    'Asumimos la total y completa responsabilidad por todos los daños en las personas y en las cosas que el equipo pudiese causar desde el momento que tomamos la posesión del equipo y hasta el momento de la devolución y aceptación del equipo por parte de "HORIZON", siendo que la citada aceptación deberá ser por escrito, no pudiendo presumírsela por ningún otro medio.',
+    'Aceptamos que "HORIZON" facture los daños ocasionados al/los equipo/s por mal uso u operación deficiente del/los mismo/s, como así también los servicios de gomería, sean en el período de alquiler o a la recepción del/los mismo/s en nuestro taller. La inspección se realizará durante la semana subsiguiente al término del alquiler.',
+    'Horizon High Reach Limited se reserva el derecho a modificar el Acuerdo de Alquiler en casos excepcionales.',
+    'A todos los efectos de la locación, constituimos domicilio en el que consta en la factura correspondiente.',
+    'Asimismo, nos sometemos a la jurisdicción de los Tribunales de la Ciudad de Buenos Aires, renunciando a cualquier fuero o jurisdicción que pudiere corresponder.',
+  ];
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.6);
+  const anchoTexto = pageWidth - marginX * 2 - 5;
+  condicionesGenerales.forEach((clausulaTexto, idx) => {
+    const numero = `${idx + 1}.`;
+    const lineas = doc.splitTextToSize(clausulaTexto, anchoTexto - 6);
+    if(y2 + lineas.length * 3.15 > 236){ doc.addPage(); y2 = 15; }
+    doc.text(numero, marginX, y2);
+    doc.text(lineas, marginX + 6, y2);
+    y2 += lineas.length * 3.15 + 1.3;
+  });
+
+  y2 += 8;
+  if(y2 > 258){ doc.addPage(); y2 = 20; }
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.text('Firma: ______________________________', marginX, y2);
+  y2 += 7;
+  doc.text('Aclaración: ______________________________', marginX, y2);
+  y2 += 7;
+  doc.text('Cargo: ______________________________', marginX, y2);
+
+  // banner decorativo al pie de la página de condiciones
+  let paginaConBanner = null;
+  try{
+    const bannerW = pageWidth;
+    const bannerH = bannerW / (2475/406);
+    doc.addImage(FOOTER_BANNER_BASE64, 'JPEG', 0, 297 - bannerH, bannerW, bannerH);
+    paginaConBanner = doc.internal.getNumberOfPages();
+  } catch(e){ console.error('No se pudo insertar el banner decorativo:', e); }
+
+  return paginaConBanner;
+}
+
 function descargarContratoPDF(contratoId){
   const c = contratosCache.find(x => x.id === contratoId);
   if(!c){ showToast('No se encontró el contrato', true); return; }
@@ -6201,75 +6329,7 @@ function descargarContratoPDF(contratoId){
   doc.text('Firma — Cliente', mitadPagina + 15, y + 5);
 
   // ---------- Página 2: Condiciones Generales del Acuerdo de Alquiler ----------
-  doc.addPage();
-  let y2 = 12;
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(90);
-  doc.text('Panamericana Km. 34.300 Colectora Oeste, Ramal Escobar', pageWidth - marginX, y2, { align: 'right' });
-  doc.text('(1615) Grand Bourg, Buenos Aires – Argentina', pageWidth - marginX, y2 + 3.8, { align: 'right' });
-  doc.text('Teléfono: 03327-452-191  Fax: 03327-452-192', pageWidth - marginX, y2 + 7.6, { align: 'right' });
-  doc.setTextColor(0);
-
-  y2 += 20;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.text('CONDICIONES GENERALES', pageWidth / 2, y2, { align: 'center' });
-  y2 += 8;
-
-  const condicionesGenerales = [
-    'Por la presente solicitud, HORIZON HIGH REACH LIMITED, en adelante denominada "HORIZON", nos entrega en locación un equipo por el plazo incluido en la factura correspondiente.',
-    'La locación se pacta por el precio y además condiciones que se incluyan en la factura correspondiente, de acuerdo al periodo estipulado, acordándose que el precio del excedente del tiempo estipulado lo fija HORIZON.',
-    'Habiendo inspeccionado cuidadosamente el equipo, así como sus accesorios, recibimos el mismo de plena conformidad en buen estado de uso y conservación, y nos obligamos a devolver el mismo en las mismas condiciones, asumiendo la total responsabilidad por todos los daños que se causen en el equipo por el uso que del mismo hagamos, así como el que realiza cualquiera de nuestros empleados.',
-    'Nos obligamos a que el equipo no será usado por ninguna otra persona que no sea la persona locataria o sus empleados, siendo que todos ellos deberán tener la edad apropiada, debidamente calificados para hacerlo y contando con la instrucción relativa a su uso y funcionamiento.',
-    'Manifestamos que en este acto recibimos de Manual de Seguridad para operadores y mecánicos, y que todas las personas que utilizarán el equipo han comprendido y pondrán en práctica las instrucciones y recomendaciones contenidas en el mismo.',
-    'Nos obligamos a no usar el equipo y no permitir que el equipo sea utilizado con un objeto contrario a la ley, la moral y las buenas costumbres, o en aquellos casos en los que el equipo necesite ser reparado o debido a desperfectos, no tenga las condiciones de seguridad requeridas por el Manual de Operaciones.',
-    'Nos obligamos a no sublocar o prestar el equipo ni cederlo bajo ninguna forma jurídica, sin el previo consentimiento escrito de "HORIZON".',
-    'Nos obligamos a notificar en forma inmediata a "HORIZON" en caso de accidente, daños o robo del equipo, así como en el caso de accidente, daños a las personas y a la propiedad, y a realizar la correspondiente denuncia policial dentro de las 24 hs. de ocurrido el siniestro.',
-    'Diariamente inspeccionaremos el equipo y cesaremos en su uso cuando el mismo necesite mantenimiento y reparación, notificando en forma inmediata a "HORIZON", no pudiendo permitir que los servicios de mantenimiento y reparación sean realizados por ninguna otra persona que no sea "HORIZON", sin tener el previo consentimiento escrito de "HORIZON", la cual prestará los citados servicios. Para el caso de que el equipo tenga un accidente o necesite reparación, autorizaremos a "HORIZON" a retirar de hecho el equipo.',
-    'Para todas las obligaciones comprendidas en las presentes Condiciones Generales, se pacta en forma expresa la mora automática, de conformidad con el Artículo 886, primera parte del Código Civil. Si no cumpliéramos cualquiera de estas Condiciones Generales, autorizamos a "HORIZON" a tomar las siguientes medidas en forma conjunta: A. Resolver la relación existente y retirar de hecho el equipo sin necesidad de procedimiento judicial y extrajudicial algún, cualquiera sea el lugar de ubicación del mismo; B. Exigir el pago íntegro de la locación del equipo. C. Utilizar todos los medios legales que correspondan. En caso de aplicación de la presente cláusula, "HORIZON" no será responsable por los reclamos que puedan existir por el retiro de hecho del equipo, no pudiendo invocar prejuicios de ninguna naturaleza.',
-    'Si el equipo fuera retenido más allá del plazo convenido, autorizamos a "HORIZON" a retirar de hecho el equipo del lugar donde esté, sin necesidad de realizar ningún procedimiento judicial o extrajudicial alguno, así como a cobrarnos la suma de dos alquileres diarios, en concepto de clausula penal, por cada día de demora en la devolución del equipo.',
-    'Se entiende que el plazo de la locación comienza con la salida del equipo del depósito de "HORIZON" y termina con la devolución y aceptación del equipo en el citado depósito.',
-    'Durante todo el plazo de la locación nos obligamos a abonar el seguro que contratará "HORIZON" para mantener el equipo asegurado contra todo riesgo por cualquier causa que se pudiere generar y por una la suma no menor al valor del equipo el cual será suministrado oportunamente por "HORIZON", así como nos obligamos a abonar el seguro que contratará "HORIZON" de responsabilidad civil por los daños que el equipo pudiere causar en las personas o en las cosas.',
-    'Asumimos la total y completa responsabilidad por el lucro cesante generado hurto, robo, incendio accidente, apropiación indebida, uso inadecuado del equipo. Se entiende por lucro cesante el tiempo que "HORIZON" no tiene el equipo disponible para locación, la base es el valor del alquiler diario del equipo.',
-    'Asumimos la total y completa responsabilidad por todos los daños en las personas y en las cosas que el equipo pudiese causar desde el momento que tomamos la posesión del equipo y hasta el momento de la devolución y aceptación del equipo por parte de "HORIZON", siendo que la citada aceptación deberá ser por escrito, no pudiendo presumírsela por ningún otro medio.',
-    'Aceptamos que "HORIZON" facture los daños ocasionados al/los equipo/s por mal uso u operación deficiente del/los mismo/s, como así también los servicios de gomería, sean en el período de alquiler o a la recepción del/los mismo/s en nuestro taller. La inspección se realizará durante la semana subsiguiente al término del alquiler.',
-    'Horizon High Reach Limited se reserva el derecho a modificar el Acuerdo de Alquiler en casos excepcionales.',
-    'A todos los efectos de la locación, constituimos domicilio en el que consta en la factura correspondiente.',
-    'Asimismo, nos sometemos a la jurisdicción de los Tribunales de la Ciudad de Buenos Aires, renunciando a cualquier fuero o jurisdicción que pudiere corresponder.',
-  ];
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.6);
-  const anchoTexto = pageWidth - marginX * 2 - 5;
-  condicionesGenerales.forEach((clausulaTexto, idx) => {
-    const numero = `${idx + 1}.`;
-    const lineas = doc.splitTextToSize(clausulaTexto, anchoTexto - 6);
-    if(y2 + lineas.length * 3.15 > 236){ doc.addPage(); y2 = 15; }
-    doc.text(numero, marginX, y2);
-    doc.text(lineas, marginX + 6, y2);
-    y2 += lineas.length * 3.15 + 1.3;
-  });
-
-  y2 += 8;
-  if(y2 > 258){ doc.addPage(); y2 = 20; }
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.text('Firma: ______________________________', marginX, y2);
-  y2 += 7;
-  doc.text('Aclaración: ______________________________', marginX, y2);
-  y2 += 7;
-  doc.text('Cargo: ______________________________', marginX, y2);
-
-  // banner decorativo al pie de la página de condiciones
-  let paginaConBanner = null;
-  try{
-    const bannerW = pageWidth;
-    const bannerH = bannerW / (2475/406);
-    doc.addImage(FOOTER_BANNER_BASE64, 'JPEG', 0, 297 - bannerH, bannerW, bannerH);
-    paginaConBanner = doc.internal.getNumberOfPages();
-  } catch(e){ console.error('No se pudo insertar el banner decorativo:', e); }
+  const paginaConBanner = agregarPaginaCondicionesGenerales(doc, pageWidth, marginX);
 
   // ---------- Pie de página ----------
   const totalPaginas = doc.internal.getNumberOfPages();
@@ -7106,6 +7166,17 @@ presClienteResultsBox.addEventListener('click', (e)=>{
   document.getElementById('pres-cliente_id').value = item.dataset.id;
   presClienteSearchInput.value = item.dataset.nombre;
   presClienteResultsBox.classList.remove('open');
+
+  // autocompletamos los datos de facturación con lo que ya tenemos del cliente
+  // (el usuario los puede corregir a mano después si hace falta)
+  const cliente = clientesCache.find(c => c.id === Number(item.dataset.id));
+  if(cliente){
+    if(!document.getElementById('pres-facturar_a').value) document.getElementById('pres-facturar_a').value = cliente.razon_social || '';
+    if(!document.getElementById('pres-facturar_cuit').value) document.getElementById('pres-facturar_cuit').value = cliente.cuit || '';
+    if(!document.getElementById('pres-facturar_domicilio').value) document.getElementById('pres-facturar_domicilio').value = cliente.direccion || '';
+    if(!document.getElementById('pres-facturar_tel').value) document.getElementById('pres-facturar_tel').value = cliente.telefono || '';
+    if(!document.getElementById('pres-mail_factura_electronica').value) document.getElementById('pres-mail_factura_electronica').value = cliente.mail_envio_factura || '';
+  }
 });
 document.addEventListener('click', (e)=>{
   if(!e.target.closest('#pres-cliente-search') && !e.target.closest('#pres-cliente-results')) presClienteResultsBox.classList.remove('open');
@@ -7190,6 +7261,16 @@ function resetPresupuestoForm(){
   document.getElementById('pres-condicion_pago').value = '';
   document.getElementById('pres-forma_pago').value = '';
   document.getElementById('pres-notas').value = '';
+  document.getElementById('pres-obra').value = '';
+  document.getElementById('pres-fecha_entrega').value = '';
+  document.getElementById('pres-horario_entrega').value = '';
+  document.getElementById('pres-persona_responsable').value = '';
+  document.getElementById('pres-celular_responsable').value = '';
+  document.getElementById('pres-facturar_a').value = '';
+  document.getElementById('pres-facturar_cuit').value = '';
+  document.getElementById('pres-facturar_domicilio').value = '';
+  document.getElementById('pres-facturar_tel').value = '';
+  document.getElementById('pres-mail_factura_electronica').value = '';
   document.getElementById('pres-modelos-datalist').innerHTML =
     catalogoTecnicoCache.filter(c => c.especificaciones && c.especificaciones.length).map(c=>`<option value="${escapeHtml(c.modelo)}">`).join('');
   presupuestoItemsState = [{ modelo:'', categoria:'', cantidad:1, periodo:'Mes', precio_unitario:0 }];
@@ -7228,6 +7309,16 @@ function abrirEditarPresupuesto(id){
   document.getElementById('pres-condicion_pago').value = p.condicion_pago || '';
   document.getElementById('pres-forma_pago').value = p.forma_pago || '';
   document.getElementById('pres-notas').value = p.notas || '';
+  document.getElementById('pres-obra').value = p.obra || '';
+  document.getElementById('pres-fecha_entrega').value = p.fecha_entrega || '';
+  document.getElementById('pres-horario_entrega').value = p.horario_entrega || '';
+  document.getElementById('pres-persona_responsable').value = p.persona_responsable || '';
+  document.getElementById('pres-celular_responsable').value = p.celular_responsable || '';
+  document.getElementById('pres-facturar_a').value = p.facturar_a || '';
+  document.getElementById('pres-facturar_cuit').value = p.facturar_cuit || '';
+  document.getElementById('pres-facturar_domicilio').value = p.facturar_domicilio || '';
+  document.getElementById('pres-facturar_tel').value = p.facturar_tel || '';
+  document.getElementById('pres-mail_factura_electronica').value = p.mail_factura_electronica || '';
   presupuestoItemsState = (p.presupuesto_items || []).length > 0
     ? p.presupuesto_items.map(it => ({ modelo: it.modelo||'', categoria: it.categoria||'', cantidad: it.cantidad, periodo: it.periodo||'Mes', precio_unitario: it.precio_unitario }))
     : [{ modelo:'', categoria:'', cantidad:1, periodo:'Mes', precio_unitario:0 }];
@@ -7253,6 +7344,16 @@ document.getElementById('btn-presupuesto-save').addEventListener('click', async 
     condicion_pago: document.getElementById('pres-condicion_pago').value || null,
     forma_pago: document.getElementById('pres-forma_pago').value || null,
     notas: document.getElementById('pres-notas').value || null,
+    obra: document.getElementById('pres-obra').value || null,
+    fecha_entrega: document.getElementById('pres-fecha_entrega').value || null,
+    horario_entrega: document.getElementById('pres-horario_entrega').value || null,
+    persona_responsable: document.getElementById('pres-persona_responsable').value || null,
+    celular_responsable: document.getElementById('pres-celular_responsable').value || null,
+    facturar_a: document.getElementById('pres-facturar_a').value || null,
+    facturar_cuit: document.getElementById('pres-facturar_cuit').value || null,
+    facturar_domicilio: document.getElementById('pres-facturar_domicilio').value || null,
+    facturar_tel: document.getElementById('pres-facturar_tel').value || null,
+    mail_factura_electronica: document.getElementById('pres-mail_factura_electronica').value || null,
   };
 
   try{
@@ -7449,7 +7550,33 @@ function generarPresupuestoPDF(id){
     doc.setFont('helvetica','normal');
     const lineasNotas = doc.splitTextToSize(p.notas, pageWidth - marginX*2);
     doc.text(lineasNotas, marginX, y);
+    y += lineasNotas.length * 5;
   }
+
+  if(y > 250){ doc.addPage(); y = 20; }
+  y += 10;
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(10);
+  doc.text('LUGAR Y FECHA DE ENTREGA DEL EQUIPO', marginX, y);
+  y += 6;
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8.5);
+  doc.text(`Entregar en obra: ${p.obra || '_______________________________________'}`, marginX, y); y += 5;
+  doc.text(`El día: ${p.fecha_entrega ? fmtDate(p.fecha_entrega) : '____/____/______'}     Horario: ${p.horario_entrega || '_______________'}`, marginX, y); y += 5;
+  doc.text(`Persona responsable de recibir/entregar el equipo: ${p.persona_responsable || '_______________________________________'}`, marginX, y); y += 5;
+  doc.text(`Celular: ${p.celular_responsable || '_______________________________________'}`, marginX, y); y += 8;
+
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(10);
+  doc.text('DATOS DE FACTURACIÓN', marginX, y);
+  y += 6;
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8.5);
+  doc.text(`Facturar a: ${p.facturar_a || empresa}`, marginX, y); y += 5;
+  doc.text(`C.U.I.T.: ${p.facturar_cuit || '_______________________________________'}`, marginX, y); y += 5;
+  doc.text(`Domicilio: ${p.facturar_domicilio || '_______________________________________'}`, marginX, y); y += 5;
+  doc.text(`Tel./Fax: ${p.facturar_tel || '_______________________________________'}`, marginX, y); y += 5;
+  doc.text(`Mail de entrega de factura electrónica: ${p.mail_factura_electronica || '_______________________________________'}`, marginX, y); y += 5;
 
   // ---------- Páginas de anexo: ficha técnica de cada modelo cotizado ----------
   const paginaDeModelo = {};
@@ -7494,9 +7621,13 @@ function generarPresupuestoPDF(id){
     }
   });
 
-  // ---------- Pie de página en todas las páginas ----------
+  // ---------- Condiciones Generales — siempre van al final del presupuesto ----------
+  const paginaConBanner = agregarPaginaCondicionesGenerales(doc, pageWidth, marginX);
+
+  // ---------- Pie de página en todas las páginas (salvo la del banner) ----------
   const totalPaginas = doc.internal.getNumberOfPages();
   for(let pNum = 1; pNum <= totalPaginas; pNum++){
+    if(pNum === paginaConBanner) continue;
     doc.setPage(pNum);
     doc.setFont('helvetica','normal');
     doc.setFontSize(7.5);
