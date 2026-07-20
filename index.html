@@ -713,6 +713,7 @@
             <tr>
               <th>Cliente</th>
               <th>Equipo</th>
+              <th>Modelo</th>
               <th>Sucursal</th>
               <th>Período</th>
               <th>Valor a facturar</th>
@@ -722,7 +723,7 @@
             </tr>
           </thead>
           <tbody id="pendientes-tbody">
-            <tr><td colspan="8" class="empty-state">Cargando pendientes...</td></tr>
+            <tr><td colspan="9" class="empty-state">Cargando pendientes...</td></tr>
           </tbody>
         </table>
       </div>
@@ -3098,7 +3099,7 @@ async function refrescarPendientesSiCorresponde(){
 
 async function loadPendientes(){
   const tbody = document.getElementById('pendientes-tbody');
-  tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Cargando pendientes...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="9" class="empty-state">Cargando pendientes...</td></tr>';
 
   const pageSize = 1000;
   let allData = [];
@@ -3151,13 +3152,14 @@ function populatePendFilters(){
 function renderPendientes(list){
   const tbody = document.getElementById('pendientes-tbody');
   if(list.length === 0){
-    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No hay pendientes con ese filtro.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No hay pendientes con ese filtro.</td></tr>';
     document.getElementById('pendientes-results-count').textContent = '';
     return;
   }
   tbody.innerHTML = list.map(p=>{
     const cliente = p.contratos?.clientes?.razon_social || '—';
     const equipo = p.contratos?.equipos ? p.contratos.equipos.numero_serie : '—';
+    const modelo = p.contratos?.equipos?.modelo || '—';
     const sucursal = p.contratos?.sucursales?.nombre || '—';
     const reqCount = clienteRequisitosCache[p.contratos?.clientes?.id]?.length || 0;
     const estadoBadge = p.estado === 'facturado'
@@ -3167,6 +3169,7 @@ function renderPendientes(list){
       <tr>
         <td>${escapeHtml(cliente)}</td>
         <td class="muted">${escapeHtml(equipo)}${p.contratos?.tiene_flete_entrega && !p.contratos?.flete_entrega_facturado ? ` <span class="badge" style="color:var(--accent);border-color:var(--accent-dim);" title="Flete de entrega sin facturar: ${fmtMoney(p.contratos.costo_flete_entrega,'USD')}">🚚 entrega</span>` : ''}${p.contratos?.tiene_flete_retiro && !p.contratos?.flete_retiro_facturado ? ` <span class="badge" style="color:#ff9f43;border-color:#ff9f43;" title="Flete de retiro sin facturar: ${fmtMoney(p.contratos.costo_flete_retiro,'USD')}">🚚 retiro</span>` : ''}</td>
+        <td class="muted">${escapeHtml(modelo)}</td>
         <td>${sucursal !== '—' ? `<span class="badge">${sucursal}</span>` : '—'}</td>
         <td class="muted">${fmtDate(p.periodo_desde)} → ${fmtDate(p.periodo_hasta)}</td>
         <td class="muted">${p.valor_alquiler_usd ? fmtMoney(p.valor_alquiler_usd, 'USD') : fmtMoney(p.potencial_facturacion, 'ARS')}</td>
@@ -3194,7 +3197,8 @@ function getFilteredPendientesLista(){
   if(q){
     list = list.filter(p =>
       (p.contratos?.clientes?.razon_social || '').toLowerCase().includes(q) ||
-      (p.contratos?.equipos?.numero_serie || '').toLowerCase().includes(q)
+      (p.contratos?.equipos?.numero_serie || '').toLowerCase().includes(q) ||
+      (p.contratos?.equipos?.modelo || '').toLowerCase().includes(q)
     );
   }
   return list;
@@ -3220,13 +3224,13 @@ function obtenerUltimaFacturaDelContrato(contratoId){
 
 function pendientesToRows(list){
   const headers = [
-    'Cliente','Equipo','Sucursal','Provincia','Periodo Desde','Periodo Hasta','Valor USD','Estado','N Factura',
+    'Cliente','Equipo','Modelo','Sucursal','Provincia','Periodo Desde','Periodo Hasta','Valor USD','Estado','N Factura',
     'Ultimo Periodo Facturado Desde','Ultimo Periodo Facturado Hasta','N Factura Ultimo Periodo','Fecha Emision Ultima Factura',
   ];
   const rows = list.map(p => {
     const ultima = obtenerUltimaFacturaDelContrato(p.contrato_id);
     return [
-      p.contratos?.clientes?.razon_social || '', p.contratos?.equipos?.numero_serie || '',
+      p.contratos?.clientes?.razon_social || '', p.contratos?.equipos?.numero_serie || '', p.contratos?.equipos?.modelo || '',
       p.contratos?.sucursales?.nombre || '', p.contratos?.clientes?.provincia || '',
       p.periodo_desde || '', p.periodo_hasta || '', p.valor_alquiler_usd ?? '',
       p.estado, p.numero_factura || '',
