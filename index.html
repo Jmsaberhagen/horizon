@@ -1634,60 +1634,64 @@
 
 <!-- MODAL PENDIENTE (manual / editar / facturar) -->
 <div class="overlay" id="modal-pendiente-overlay">
-  <div class="modal">
+  <div class="modal wide">
     <h2 id="modal-pendiente-title">Nuevo pendiente</h2>
     <input type="hidden" id="p-id">
 
-    <div id="p-datos-factura-box" style="display:none;background:var(--panel-2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-top:16px;">
-      <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:8px;">Datos para confeccionar la factura</div>
-      <div class="field-grid cols-3" style="gap:8px 16px;">
-        <div><span class="muted" style="font-size:11px;">Cliente</span><br><span id="pdf-cliente" style="font-size:13px;font-weight:600;">—</span></div>
-        <div><span class="muted" style="font-size:11px;">N° de cliente</span><br><span id="pdf-numero_cliente" style="font-size:13px;">—</span></div>
-        <div><span class="muted" style="font-size:11px;">C.U.I.T.</span><br><span id="pdf-cuit" style="font-size:13px;">—</span></div>
-        <div class="field full" style="grid-column:1/-1;"><span class="muted" style="font-size:11px;">Domicilio</span><br><span id="pdf-domicilio" style="font-size:13px;">—</span></div>
-        <div><span class="muted" style="font-size:11px;">Obra</span><br><span id="pdf-obra" style="font-size:13px;">—</span></div>
-        <div><span class="muted" style="font-size:11px;">Contacto de obra</span><br><span id="pdf-contacto_obra" style="font-size:13px;">—</span></div>
-        <div><span class="muted" style="font-size:11px;">N° de remito</span><br><span id="pdf-remito" style="font-size:13px;">—</span></div>
-        <div><span class="muted" style="font-size:11px;">N° de Orden de Compra</span><br><span id="pdf-orden_de_compra" style="font-size:13px;">—</span></div>
-        <div><span class="muted" style="font-size:11px;">Mail de envío de factura</span><br><span id="pdf-mail_envio_factura" style="font-size:13px;">—</span></div>
-        <div class="field full" style="grid-column:1/-1;"><span class="muted" style="font-size:11px;">Observaciones del contrato</span><br><span id="pdf-observacion" style="font-size:13px;">—</span></div>
-      </div>
-    </div>
-
-    <div class="field-grid">
-      <div class="field full" style="position:relative;">
-        <label>Contrato — buscar por cliente o N° de serie *</label>
-        <input type="text" id="p-contrato-search" placeholder="Buscar contrato activo...">
-        <input type="hidden" id="p-contrato_id">
-        <div class="autocomplete-list" id="p-contrato-results"></div>
-        <div class="muted" id="p-contrato-selected" style="font-size:12px;margin-top:4px;"></div>
+    <div style="display:flex;gap:20px;align-items:flex-start;margin-top:10px;">
+      <div id="p-datos-factura-box" style="display:none;flex:0 0 300px;background:var(--panel-2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;">
+        <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:10px;">Datos para confeccionar la factura</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div><span class="muted" style="font-size:11px;">Cliente</span><br><span id="pdf-cliente" style="font-size:13px;font-weight:600;">—</span></div>
+          <div><span class="muted" style="font-size:11px;">N° de cliente</span><br><span id="pdf-numero_cliente" style="font-size:13px;">—</span></div>
+          <div><span class="muted" style="font-size:11px;">C.U.I.T.</span><br><span id="pdf-cuit" style="font-size:13px;">—</span></div>
+          <div><span class="muted" style="font-size:11px;">Domicilio</span><br><span id="pdf-domicilio" style="font-size:13px;">—</span></div>
+          <div><span class="muted" style="font-size:11px;">Obra</span><br><span id="pdf-obra" style="font-size:13px;">—</span></div>
+          <div><span class="muted" style="font-size:11px;">Contacto de obra</span><br><span id="pdf-contacto_obra" style="font-size:13px;">—</span></div>
+          <div><span class="muted" style="font-size:11px;">N° de remito</span><br><span id="pdf-remito" style="font-size:13px;">—</span></div>
+          <div><span class="muted" style="font-size:11px;">N° de Orden de Compra</span><br><span id="pdf-orden_de_compra" style="font-size:13px;">—</span></div>
+          <div><span class="muted" style="font-size:11px;">Mail de envío de factura</span><br><span id="pdf-mail_envio_factura" style="font-size:13px;">—</span></div>
+          <div><span class="muted" style="font-size:11px;">Observaciones del contrato</span><br><span id="pdf-observacion" style="font-size:13px;">—</span></div>
+        </div>
       </div>
 
-      <div class="field">
-        <label>Período — desde</label>
-        <input type="date" id="p-periodo_desde">
-      </div>
-      <div class="field">
-        <label>Período — hasta</label>
-        <input type="date" id="p-periodo_hasta">
-      </div>
+      <div style="flex:1;min-width:0;">
+        <div class="field-grid">
+          <div class="field full" style="position:relative;">
+            <label>Contrato — buscar por cliente o N° de serie *</label>
+            <input type="text" id="p-contrato-search" placeholder="Buscar contrato activo...">
+            <input type="hidden" id="p-contrato_id">
+            <div class="autocomplete-list" id="p-contrato-results"></div>
+            <div class="muted" id="p-contrato-selected" style="font-size:12px;margin-top:4px;"></div>
+          </div>
 
-      <div class="field">
-        <label>Valor alquiler (USD)</label>
-        <input type="number" step="0.01" id="p-valor_alquiler_usd">
-      </div>
-      <div class="field">
-        <label>Flete (USD)</label>
-        <input type="number" step="0.01" id="p-flete_usd">
-      </div>
+          <div class="field">
+            <label>Período — desde</label>
+            <input type="date" id="p-periodo_desde">
+          </div>
+          <div class="field">
+            <label>Período — hasta</label>
+            <input type="date" id="p-periodo_hasta">
+          </div>
 
-      <div class="field">
-        <label>Tipo de cambio aplicado</label>
-        <input type="number" step="0.0001" id="p-tc_aplicado">
-      </div>
-      <div class="field">
-        <label>Potencial facturación (ARS)</label>
-        <input type="number" step="0.01" id="p-potencial_facturacion">
+          <div class="field">
+            <label>Valor alquiler (USD)</label>
+            <input type="number" step="0.01" id="p-valor_alquiler_usd">
+          </div>
+          <div class="field">
+            <label>Flete (USD)</label>
+            <input type="number" step="0.01" id="p-flete_usd">
+          </div>
+
+          <div class="field">
+            <label>Tipo de cambio aplicado</label>
+            <input type="number" step="0.0001" id="p-tc_aplicado">
+          </div>
+          <div class="field">
+            <label>Potencial facturación (ARS)</label>
+            <input type="number" step="0.01" id="p-potencial_facturacion">
+          </div>
+        </div>
       </div>
     </div>
 
