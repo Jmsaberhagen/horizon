@@ -1638,6 +1638,22 @@
     <h2 id="modal-pendiente-title">Nuevo pendiente</h2>
     <input type="hidden" id="p-id">
 
+    <div id="p-datos-factura-box" style="display:none;background:var(--panel-2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-top:16px;">
+      <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:8px;">Datos para confeccionar la factura</div>
+      <div class="field-grid cols-3" style="gap:8px 16px;">
+        <div><span class="muted" style="font-size:11px;">Cliente</span><br><span id="pdf-cliente" style="font-size:13px;font-weight:600;">—</span></div>
+        <div><span class="muted" style="font-size:11px;">N° de cliente</span><br><span id="pdf-numero_cliente" style="font-size:13px;">—</span></div>
+        <div><span class="muted" style="font-size:11px;">C.U.I.T.</span><br><span id="pdf-cuit" style="font-size:13px;">—</span></div>
+        <div class="field full" style="grid-column:1/-1;"><span class="muted" style="font-size:11px;">Domicilio</span><br><span id="pdf-domicilio" style="font-size:13px;">—</span></div>
+        <div><span class="muted" style="font-size:11px;">Obra</span><br><span id="pdf-obra" style="font-size:13px;">—</span></div>
+        <div><span class="muted" style="font-size:11px;">Contacto de obra</span><br><span id="pdf-contacto_obra" style="font-size:13px;">—</span></div>
+        <div><span class="muted" style="font-size:11px;">N° de remito</span><br><span id="pdf-remito" style="font-size:13px;">—</span></div>
+        <div><span class="muted" style="font-size:11px;">N° de Orden de Compra</span><br><span id="pdf-orden_de_compra" style="font-size:13px;">—</span></div>
+        <div><span class="muted" style="font-size:11px;">Mail de envío de factura</span><br><span id="pdf-mail_envio_factura" style="font-size:13px;">—</span></div>
+        <div class="field full" style="grid-column:1/-1;"><span class="muted" style="font-size:11px;">Observaciones del contrato</span><br><span id="pdf-observacion" style="font-size:13px;">—</span></div>
+      </div>
+    </div>
+
     <div class="field-grid">
       <div class="field full" style="position:relative;">
         <label>Contrato — buscar por cliente o N° de serie *</label>
@@ -3326,7 +3342,8 @@ async function loadPendientes(){
           id, moneda, cliente_id, fecha_salida,
           tiene_flete_entrega, costo_flete_entrega, flete_entrega_facturado,
           tiene_flete_retiro, costo_flete_retiro, flete_retiro_facturado,
-          clientes(id, razon_social, provincia),
+          remito, orden_de_compra, obra, contacto_obra, observacion,
+          clientes(id, razon_social, provincia, numero_cliente, cuit, direccion, ciudad, mail_envio_factura),
           equipos(numero_serie, modelo),
           sucursales(id, nombre)
         )`)
@@ -3627,6 +3644,7 @@ contratoResultsBox.addEventListener('click', (e)=>{
   renderRequisitosChecklist(contrato?.clientes?.id);
   mostrarAvisoFlete(contrato);
   mostrarAvisoCertificados(contrato?.cliente_id);
+  mostrarDatosFactura(contrato);
 });
 document.addEventListener('click', (e)=>{
   if(!e.target.closest('#p-contrato-search') && !e.target.closest('#p-contrato-results')) contratoResultsBox.classList.remove('open');
@@ -3692,7 +3710,26 @@ function resetPendienteForm(){
   document.getElementById('p-pdf-status').textContent = '';
   document.getElementById('p-pdf-ya-cargado').style.display = 'none';
   document.getElementById('p-pdf-ya-cargado').innerHTML = '';
+  mostrarDatosFactura(null);
   pendienteActualClienteId = null;
+}
+
+function mostrarDatosFactura(contrato){
+  const box = document.getElementById('p-datos-factura-box');
+  if(!contrato){ box.style.display = 'none'; return; }
+  const clienteRef = contrato.clientes || {};
+  const clienteCompleto = clientesCache.find(c => c.id === (contrato.cliente_id ?? clienteRef.id)) || clienteRef;
+  document.getElementById('pdf-cliente').textContent = clienteRef.razon_social || clienteCompleto.razon_social || '—';
+  document.getElementById('pdf-numero_cliente').textContent = clienteCompleto.numero_cliente || '—';
+  document.getElementById('pdf-cuit').textContent = clienteCompleto.cuit || '—';
+  document.getElementById('pdf-domicilio').textContent = [clienteCompleto.direccion, clienteCompleto.ciudad].filter(Boolean).join(', ') || '—';
+  document.getElementById('pdf-obra').textContent = contrato.obra || '—';
+  document.getElementById('pdf-contacto_obra').textContent = contrato.contacto_obra || '—';
+  document.getElementById('pdf-remito').textContent = contrato.remito || '—';
+  document.getElementById('pdf-orden_de_compra').textContent = contrato.orden_de_compra || '—';
+  document.getElementById('pdf-mail_envio_factura').textContent = clienteCompleto.mail_envio_factura || '—';
+  document.getElementById('pdf-observacion').textContent = contrato.observacion || '—';
+  box.style.display = 'block';
 }
 
 document.getElementById('btn-nuevo-pendiente').addEventListener('click', ()=>{
@@ -3734,6 +3771,7 @@ function openEditPendiente(id){
   renderRequisitosChecklist(p.contratos?.clientes?.id);
   mostrarAvisoFlete(p.contratos);
   mostrarAvisoCertificados(p.contratos?.clientes?.id);
+  mostrarDatosFactura(p.contratos);
 
   pendienteActualClienteId = p.contratos?.clientes?.id || null;
   document.getElementById('p-pdf-box').style.display = 'block';
