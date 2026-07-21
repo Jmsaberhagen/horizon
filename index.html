@@ -3539,14 +3539,27 @@ async function autoGenerarPendientesDelMes(){
   const nuevos = [];
   for(const c of contratosAGenerar){
     let cursor = addDays(c.ultimo_periodo_facturado_hasta, 1);
-    const limite = (c.estado === 'baja' && c.fecha_baja < hoy) ? c.fecha_baja : hoy;
+    // El límite de facturación es la fecha PACTADA con el cliente (vencimiento),
+    // no la fecha real en que logística retira la máquina (fecha_baja) — eso
+    // puede demorarse unos días y no corresponde cobrárselo ni de más ni de menos.
+    // Si no hay vencimiento cargado, usamos fecha_baja como resguardo (contrato
+    // ya cerrado sin fecha pactada conocida); si tampoco hay nada, hasta hoy.
+    let limite = hoy;
+    if(c.fecha_vencimiento && c.fecha_vencimiento < limite){
+      limite = c.fecha_vencimiento;
+    } else if(!c.fecha_vencimiento && c.estado === 'baja' && c.fecha_baja && c.fecha_baja < limite){
+      limite = c.fecha_baja;
+    }
     let guard = 0; // tope de seguridad para no generar infinitos períodos atrasados de una sola vez
     while(cursor <= limite && guard < 36){
       let hasta = calcularPeriodoHasta(cursor, c.periodicidad || 'mensual');
-      // Si el contrato está de baja y el período de calendario se pasaría de la
-      // fecha de baja, lo cortamos justo ahí: la última renta real termina el
-      // día de la baja, no al final del mes/semana "de calendario" completo.
-      if(c.estado === 'baja' && c.fecha_baja && hasta > c.fecha_baja){
+      // Si el período de calendario se pasaría de la fecha de vencimiento pactada,
+      // lo cortamos justo ahí: la facturación se corta en la fecha acordada con
+      // el cliente, no al final del mes/semana "de calendario" completo, y sin
+      // importar cuándo se termine retirando físicamente el equipo.
+      if(c.fecha_vencimiento && hasta > c.fecha_vencimiento){
+        hasta = c.fecha_vencimiento;
+      } else if(!c.fecha_vencimiento && c.estado === 'baja' && c.fecha_baja && hasta > c.fecha_baja){
         hasta = c.fecha_baja;
       }
       if(!existentesSet.has(`${c.id}|${cursor}`)){
@@ -4774,9 +4787,15 @@ function calcularConciliacion(clienteId, serie){
   const precioMensual = masReciente.precio_mensual_con_descuento ?? masReciente.precio_mensual_sin_descuento ?? 0;
   if(!precioMensual) return null;
 
-  // fecha de referencia: si el contrato está de baja, hasta su fecha de baja; si no, hasta hoy
+  // fecha de referencia: la pactada con el cliente (vencimiento), no la fecha real
+  // de retiro físico — eso puede demorarse y no corresponde facturarlo de más.
   const hoy = new Date().toISOString().slice(0,10);
-  const fechaHasta = (masReciente.estado === 'baja' && masReciente.fecha_baja) ? masReciente.fecha_baja : hoy;
+  let fechaHasta = hoy;
+  if(masReciente.fecha_vencimiento && masReciente.fecha_vencimiento < fechaHasta){
+    fechaHasta = masReciente.fecha_vencimiento;
+  } else if(!masReciente.fecha_vencimiento && masReciente.estado === 'baja' && masReciente.fecha_baja && masReciente.fecha_baja < fechaHasta){
+    fechaHasta = masReciente.fecha_baja;
+  }
 
   const dias = Math.round((new Date(fechaHasta+'T00:00:00') - new Date(fechaSalida+'T00:00:00')) / 86400000);
   if(dias < 0) return null;
