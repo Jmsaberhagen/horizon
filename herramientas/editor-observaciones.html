@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Editor de Observaciones - Horizon</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --hz-navy:#0a2a52;
+    --hz-blue:#1652a3;
+    --hz-red:#c0392b;
+    --bg:#eef1f5;
+    --panel:#ffffff;
+    --border:#d7dce3;
+    --text:#1b2430;
+    --muted:#5b6b7d;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+  }
+  header{
+    background:linear-gradient(90deg,var(--hz-navy),var(--hz-blue));
+    color:#fff;
+    padding:18px 28px;
+    display:flex;
+    align-items:center;
+    gap:14px;
+    box-shadow:0 2px 8px rgba(0,0,0,.15);
+  }
+  header .logo-mark{
+    font-weight:800;
+    font-size:22px;
+    letter-spacing:1px;
+  }
+  header .logo-mark span{color:#ffb400;}
+  header .subtitle{
+    font-size:13px;
+    opacity:.85;
+    border-left:1px solid rgba(255,255,255,.4);
+    padding-left:14px;
+  }
+  .layout{
+    display:grid;
+    grid-template-columns:320px 1fr;
+    gap:20px;
+    padding:20px;
+    align-items:start;
+  }
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:18px;
+    box-shadow:0 1px 3px rgba(0,0,0,.06);
+  }
+  .panel h2{
+    font-size:14px;
+    text-transform:uppercase;
+    letter-spacing:.5px;
+    color:var(--hz-navy);
+    margin:0 0 12px;
+    border-bottom:2px solid #f0f0f0;
+    padding-bottom:8px;
+  }
+  .step{margin-bottom:20px;}
+  .step-num{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:22px;height:22px;
+    background:var(--hz-blue);
+    color:#fff;
+    border-radius:50%;
+    font-size:12px;
+    font-weight:700;
+    margin-right:8px;
+  }
+  input[type=file]{
+    width:100%;
+    padding:8px;
+    border:1px dashed var(--border);
+    border-radius:6px;
+    background:#fafbfc;
+    font-size:13px;
+  }
+  button{
+    cursor:pointer;
+    border:none;
+    border-radius:6px;
+    padding:9px 14px;
+    font-size:13px;
+    font-weight:600;
+    transition:.15s;
+  }
+  button.primary{background:var(--hz-blue);color:#fff;}
+  button.primary:hover{background:#0f3d7a;}
+  button.secondary{background:#eef1f5;color:var(--hz-navy);border:1px solid var(--border);}
+  button.secondary:hover{background:#e2e7ee;}
+  button.danger{background:#fdecea;color:var(--hz-red);border:1px solid #f3c6c1;}
+  button.danger:hover{background:#fbdedb;}
+  button:disabled{opacity:.45;cursor:not-allowed;}
+  .btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+  .hint{font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:6px;}
+  .textarea-block{margin-top:10px;}
+  textarea{
+    width:100%;
+    min-height:110px;
+    font-family:"Courier New",monospace;
+    font-size:13px;
+    padding:8px;
+    border:1px solid var(--border);
+    border-radius:6px;
+    resize:vertical;
+  }
+  select, input[type=number], input[type=color]{
+    width:100%;
+    padding:7px;
+    border:1px solid var(--border);
+    border-radius:6px;
+    font-size:13px;
+    margin-top:4px;
+  }
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .zone-list{list-style:none;margin:8px 0 0;padding:0;font-size:12.5px;}
+  .zone-list li{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:6px 8px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;background:#fafbfc;
+  }
+  .zone-list li.active{border-color:var(--hz-blue);background:#eef4fd;}
+  .zone-list button{padding:3px 8px;font-size:11px;}
+  .canvas-wrap{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:16px;
+    overflow:auto;
+    max-height:88vh;
+    text-align:center;
+  }
+  .canvas-stack{
+    position:relative;
+    display:inline-block;
+  }
+  .canvas-stack canvas{
+    display:block;
+  }
+  #overlayCanvas{
+    position:absolute;
+    left:0;top:0;
+    cursor:crosshair;
+  }
+  .badge{
+    display:inline-block;
+    font-size:11px;
+    font-weight:700;
+    padding:2px 8px;
+    border-radius:10px;
+    background:#ffb400;
+    color:#3a2a00;
+    margin-left:8px;
+  }
+  .page-nav{
+    display:flex;
+    gap:10px;
+    align-items:center;
+    justify-content:center;
+    margin-bottom:12px;
+    font-size:13px;
+  }
+  .empty-state{
+    padding:60px 20px;
+    text-align:center;
+    color:var(--muted);
+  }
+  .empty-state svg{opacity:.3;margin-bottom:10px;}
+  footer{
+    text-align:center;
+    padding:14px;
+    font-size:11.5px;
+    color:var(--muted);
+  }
+  .mode-toggle{display:flex;gap:6px;margin-top:8px;}
+  .mode-toggle button{flex:1;}
+  .mode-toggle button.on{background:var(--hz-navy);color:#fff;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark">HORIZON<span>·</span>HIGH REACH</div>
+  <div class="subtitle">Editor de observaciones de Facturas / Notas de Crédito</div>
+</header>
+
+<div class="layout">
+
+  <!-- PANEL IZQUIERDO -->
+  <div class="panel">
+
+    <div class="step">
+      <h2><span class="step-num">1</span>Cargar PDF</h2>
+      <input type="file" id="fileInput" accept="application/pdf">
+      <div class="hint">Subí el PDF de la FC o NC original. Se muestra tal cual fue generado (con membrete, QR, código de barras, etc.).</div>
+    </div>
+
+    <div class="step">
+      <h2><span class="step-num">2</span>Página</h2>
+      <div class="page-nav">
+        <button class="secondary" id="prevPage">◀</button>
+        <span id="pageInfo">-</span>
+        <button class="secondary" id="nextPage">▶</button>
+      </div>
+    </div>
+
+    <div class="step">
+      <h2><span class="step-num">3</span>Zona a editar</h2>
+      <div class="hint">Dibujá un rectángulo sobre el bloque de observaciones (Remito, OC, HES, Certificación, autorización, etc.) haciendo click y arrastrando sobre el documento.</div>
+      <div class="mode-toggle">
+        <button class="secondary on" id="modeDraw">Dibujar zona</button>
+        <button class="secondary" id="modeSelect">Seleccionar zona</button>
+      </div>
+      <ul class="zone-list" id="zoneList"></ul>
+    </div>
+
+    <div class="step" id="editBox" style="display:none;">
+      <h2><span class="step-num">4</span>Editar contenido de la zona</h2>
+      <div class="textarea-block">
+        <textarea id="zoneText" placeholder="Ej: REMITO 3162&#10;OC 759-G194&#10;HES 00458&#10;OBRA 759 PLUSPETROL"></textarea>
+      </div>
+      <div class="row2">
+        <div>
+          <label class="hint">Tamaño de fuente</label>
+          <input type="number" id="fontSize" value="11" min="6" max="40">
+        </div>
+        <div>
+          <label class="hint">Color de texto</label>
+          <input type="color" id="fontColor" value="#000000">
+        </div>
+      </div>
+      <div class="row2">
+        <div>
+          <label class="hint">Alineación</label>
+          <select id="align">
+            <option value="left">Izquierda</option>
+            <option value="center">Centro</option>
+          </select>
+        </div>
+        <div>
+          <label class="hint">Fuente</label>
+          <select id="fontFamily">
+            <option value="Arial, sans-serif">Arial</option>
+            <option value="'Courier New', monospace">Courier New</option>
+            <option value="'Times New Roman', serif">Times New Roman</option>
+          </select>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="primary" id="applyZone">Aplicar cambios</button>
+        <button class="danger" id="deleteZone">Eliminar zona</button>
+      </div>
+    </div>
+
+    <div class="step">
+      <h2><span class="step-num">5</span>Exportar</h2>
+      <div class="btn-row">
+        <button class="primary" id="exportPdf" disabled>Descargar PDF editado</button>
+      </div>
+      <div class="hint">Se genera un PDF nuevo, imagen por imagen, con las zonas tapadas y el texto reemplazado. El resto del comprobante (logo, totales, QR, código de barras, CAE) queda intacto.</div>
+    </div>
+
+  </div>
+
+  <!-- CANVAS -->
+  <div class="canvas-wrap">
+    <div id="emptyState" class="empty-state">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#5b6b7d" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+      <div>Cargá un PDF para empezar</div>
+    </div>
+    <div class="canvas-stack" id="canvasStack" style="display:none;">
+      <canvas id="baseCanvas"></canvas>
+      <canvas id="overlayCanvas"></canvas>
+    </div>
+  </div>
+
+</div>
+
+<footer>Horizon Argentina · Herramienta interna de edición de comprobantes (uso local, no modifica el PDF fiscal original)</footer>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+const RENDER_SCALE = 2.2; // resolución de trabajo/exportación
+
+let pdfDoc = null;
+let currentPageNum = 1;
+let totalPages = 1;
+let baseCanvas = document.getElementById('baseCanvas');
+let overlayCanvas = document.getElementById('overlayCanvas');
+let baseCtx = baseCanvas.getContext('2d');
+let overlayCtx = overlayCanvas.getContext('2d');
+
+// zones per page: { pageNum: [ {x,y,w,h,text,fontSize,color,align,fontFamily} ] }
+let zonesByPage = {};
+let activeZoneIndex = -1;
+let mode = 'draw'; // 'draw' | 'select'
+let drawing = false;
+let startX, startY;
+
+document.getElementById('fileInput').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  document.getElementById('emptyState').innerHTML = '<div>Cargando PDF...</div>';
+  document.getElementById('emptyState').style.display='block';
+  document.getElementById('canvasStack').style.display='none';
+  try{
+    const buf = await file.arrayBuffer();
+    pdfDoc = await pdfjsLib.getDocument({data: buf}).promise;
+    totalPages = pdfDoc.numPages;
+    currentPageNum = 1;
+    zonesByPage = {};
+    document.getElementById('emptyState').style.display='none';
+    document.getElementById('canvasStack').style.display='inline-block';
+    document.getElementById('exportPdf').disabled = false;
+    await renderPage(currentPageNum);
+  }catch(err){
+    console.error(err);
+    document.getElementById('emptyState').style.display='block';
+    document.getElementById('canvasStack').style.display='none';
+    document.getElementById('emptyState').innerHTML =
+      '<div style="color:#c0392b;font-weight:600;">No se pudo cargar el PDF.</div>'+
+      '<div style="font-size:12px;margin-top:8px;">'+ (err && err.message ? err.message : err) +'</div>';
+  }
+});
+
+async function renderPage(num){
+  const page = await pdfDoc.getPage(num);
+  const viewport = page.getViewport({scale: RENDER_SCALE});
+  baseCanvas.width = overlayCanvas.width = viewport.width;
+  baseCanvas.height = overlayCanvas.height = viewport.height;
+  document.getElementById('canvasStack').style.width = viewport.width+'px';
+  document.getElementById('canvasStack').style.height = viewport.height+'px';
+  await page.render({canvasContext: baseCtx, viewport}).promise;
+  document.getElementById('pageInfo').textContent = `${num} / ${totalPages}`;
+  activeZoneIndex = -1;
+  document.getElementById('editBox').style.display='none';
+  redrawOverlay();
+}
+
+document.getElementById('prevPage').addEventListener('click', async ()=>{
+  if(!pdfDoc || currentPageNum<=1) return;
+  currentPageNum--;
+  await renderPage(currentPageNum);
+});
+document.getElementById('nextPage').addEventListener('click', async ()=>{
+  if(!pdfDoc || currentPageNum>=totalPages) return;
+  currentPageNum++;
+  await renderPage(currentPageNum);
+});
+
+document.getElementById('modeDraw').addEventListener('click', ()=>{
+  mode='draw';
+  document.getElementById('modeDraw').classList.add('on');
+  document.getElementById('modeSelect').classList.remove('on');
+});
+document.getElementById('modeSelect').addEventListener('click', ()=>{
+  mode='select';
+  document.getElementById('modeSelect').classList.add('on');
+  document.getElementById('modeDraw').classList.remove('on');
+});
+
+function getZones(){
+  if(!zonesByPage[currentPageNum]) zonesByPage[currentPageNum] = [];
+  return zonesByPage[currentPageNum];
+}
+
+overlayCanvas.addEventListener('mousedown', (e)=>{
+  if(!pdfDoc) return;
+  const rect = overlayCanvas.getBoundingClientRect();
+  const x = (e.clientX-rect.left) * (overlayCanvas.width/rect.width);
+  const y = (e.clientY-rect.top) * (overlayCanvas.height/rect.height);
+
+  if(mode==='draw'){
+    drawing = true;
+    startX = x; startY = y;
+  } else {
+    // select: click inside an existing zone
+    const zones = getZones();
+    for(let i=zones.length-1;i>=0;i--){
+      const z = zones[i];
+      if(x>=z.x && x<=z.x+z.w && y>=z.y && y<=z.y+z.h){
+        selectZone(i);
+        return;
+      }
+    }
+  }
+});
+
+overlayCanvas.addEventListener('mousemove', (e)=>{
+  if(!drawing) return;
+  const rect = overlayCanvas.getBoundingClientRect();
+  const x = (e.clientX-rect.left) * (overlayCanvas.width/rect.width);
+  const y = (e.clientY-rect.top) * (overlayCanvas.height/rect.height);
+  redrawOverlay();
+  overlayCtx.strokeStyle = '#c0392b';
+  overlayCtx.lineWidth = 2;
+  overlayCtx.setLineDash([6,4]);
+  overlayCtx.strokeRect(Math.min(startX,x), Math.min(startY,y), Math.abs(x-startX), Math.abs(y-startY));
+});
+
+overlayCanvas.addEventListener('mouseup', (e)=>{
+  if(!drawing) return;
+  drawing = false;
+  const rect = overlayCanvas.getBoundingClientRect();
+  const x = (e.clientX-rect.left) * (overlayCanvas.width/rect.width);
+  const y = (e.clientY-rect.top) * (overlayCanvas.height/rect.height);
+  const zx = Math.min(startX,x), zy = Math.min(startY,y);
+  const zw = Math.abs(x-startX), zh = Math.abs(y-startY);
+  if(zw<8 || zh<8){ redrawOverlay(); return; }
+  const zones = getZones();
+  zones.push({
+    x:zx, y:zy, w:zw, h:zh,
+    text:'', fontSize:22, color:'#000000', align:'left', fontFamily:'Arial, sans-serif'
+  });
+  selectZone(zones.length-1);
+});
+
+function selectZone(i){
+  activeZoneIndex = i;
+  const z = getZones()[i];
+  document.getElementById('editBox').style.display='block';
+  document.getElementById('zoneText').value = z.text;
+  document.getElementById('fontSize').value = z.fontSize;
+  document.getElementById('fontColor').value = z.color;
+  document.getElementById('align').value = z.align;
+  document.getElementById('fontFamily').value = z.fontFamily;
+  redrawOverlay();
+  renderZoneList();
+}
+
+function renderZoneList(){
+  const zones = getZones();
+  const ul = document.getElementById('zoneList');
+  ul.innerHTML = '';
+  zones.forEach((z,i)=>{
+    const li = document.createElement('li');
+    if(i===activeZoneIndex) li.classList.add('active');
+    const label = document.createElement('span');
+    label.textContent = `Zona ${i+1}${z.text? ' · '+z.text.slice(0,18).replace(/\n/g,' ') : ' (vacía)'}`;
+    const btn = document.createElement('button');
+    btn.className='secondary';
+    btn.textContent='Editar';
+    btn.onclick = ()=>selectZone(i);
+    li.appendChild(label);
+    li.appendChild(btn);
+    ul.appendChild(li);
+  });
+}
+
+document.getElementById('applyZone').addEventListener('click', ()=>{
+  if(activeZoneIndex<0) return;
+  const z = getZones()[activeZoneIndex];
+  z.text = document.getElementById('zoneText').value;
+  z.fontSize = parseInt(document.getElementById('fontSize').value)||22;
+  z.color = document.getElementById('fontColor').value;
+  z.align = document.getElementById('align').value;
+  z.fontFamily = document.getElementById('fontFamily').value;
+  redrawOverlay();
+  renderZoneList();
+});
+
+document.getElementById('deleteZone').addEventListener('click', ()=>{
+  if(activeZoneIndex<0) return;
+  const zones = getZones();
+  zones.splice(activeZoneIndex,1);
+  activeZoneIndex = -1;
+  document.getElementById('editBox').style.display='none';
+  redrawOverlay();
+  renderZoneList();
+});
+
+function redrawOverlay(){
+  overlayCtx.clearRect(0,0,overlayCanvas.width, overlayCanvas.height);
+  const zones = getZones();
+  zones.forEach((z,i)=>{
+    // white cover
+    overlayCtx.fillStyle = '#ffffff';
+    overlayCtx.fillRect(z.x, z.y, z.w, z.h);
+    // border to indicate zone
+    overlayCtx.strokeStyle = i===activeZoneIndex ? '#1652a3' : '#c9c9c9';
+    overlayCtx.lineWidth = i===activeZoneIndex ? 2 : 1;
+    overlayCtx.setLineDash(i===activeZoneIndex ? [] : [4,3]);
+    overlayCtx.strokeRect(z.x, z.y, z.w, z.h);
+    // text
+    if(z.text){
+      drawWrappedText(overlayCtx, z);
+    }
+  });
+}
+
+function drawWrappedText(ctx, z){
+  ctx.save();
+  ctx.fillStyle = z.color;
+  ctx.font = `${z.fontSize}px ${z.fontFamily}`;
+  ctx.textBaseline = 'top';
+  const lineHeight = z.fontSize * 1.25;
+  const paddingX = 4, paddingY = 4;
+  const maxWidth = z.w - paddingX*2;
+  let cursorY = z.y + paddingY;
+
+  const paragraphs = z.text.split('\n');
+  paragraphs.forEach(paragraph=>{
+    const words = paragraph.split(' ');
+    let line = '';
+    words.forEach((word, idx)=>{
+      const testLine = line ? line+' '+word : word;
+      const w = ctx.measureText(testLine).width;
+      if(w > maxWidth && line){
+        drawLine(ctx, line, z, cursorY, maxWidth, paddingX);
+        cursorY += lineHeight;
+        line = word;
+      } else {
+        line = testLine;
+      }
+    });
+    drawLine(ctx, line, z, cursorY, maxWidth, paddingX);
+    cursorY += lineHeight;
+  });
+  ctx.restore();
+}
+
+function drawLine(ctx, line, z, y, maxWidth, paddingX){
+  let x = z.x + paddingX;
+  if(z.align==='center'){
+    const w = ctx.measureText(line).width;
+    x = z.x + (z.w - w)/2;
+  }
+  ctx.fillText(line, x, y);
+}
+
+document.getElementById('exportPdf').addEventListener('click', async ()=>{
+  if(!pdfDoc) return;
+  const { jsPDF } = window.jspdf;
+  let pdfOut = null;
+
+  for(let p=1;p<=totalPages;p++){
+    const page = await pdfDoc.getPage(p);
+    const viewport = page.getViewport({scale: RENDER_SCALE});
+    const tmpCanvas = document.createElement('canvas');
+    tmpCanvas.width = viewport.width;
+    tmpCanvas.height = viewport.height;
+    const tmpCtx = tmpCanvas.getContext('2d');
+    await page.render({canvasContext: tmpCtx, viewport}).promise;
+
+    // apply zones for this page
+    const zones = zonesByPage[p] || [];
+    zones.forEach(z=>{
+      tmpCtx.fillStyle = '#ffffff';
+      tmpCtx.fillRect(z.x, z.y, z.w, z.h);
+      if(z.text) drawWrappedText(tmpCtx, z);
+    });
+
+    const imgData = tmpCanvas.toDataURL('image/jpeg', 0.95);
+    const pxToMm = 25.4/72; // pdf.js viewport is in CSS px at 72dpi base * scale
+    const pageWmm = (viewport.width/RENDER_SCALE) * pxToMm;
+    const pageHmm = (viewport.height/RENDER_SCALE) * pxToMm;
+    const orientation = pageWmm > pageHmm ? 'l' : 'p';
+
+    if(p===1){
+      pdfOut = new jsPDF({orientation, unit:'mm', format:[pageWmm, pageHmm]});
+    } else {
+      pdfOut.addPage([pageWmm, pageHmm], orientation);
+    }
+    pdfOut.addImage(imgData, 'JPEG', 0, 0, pageWmm, pageHmm);
+  }
+
+  pdfOut.save('comprobante-editado.pdf');
+});
+</script>
+</body>
+</html>

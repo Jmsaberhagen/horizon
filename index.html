@@ -530,6 +530,8 @@
   <button data-tab="retiros">Pendientes de Retiro</button>
   <button data-tab="remitos">Remitos</button>
   <button data-tab="presupuestos">Presupuestos</button>
+  <button data-tab="editorobs">Editor de Observaciones</button>
+  <button data-tab="panoramacobranzas">Panorama de Cobranzas</button>
   <button data-tab="usuarios" id="nav-usuarios" style="display:none;">Usuarios</button>
 </nav>
 
@@ -1185,6 +1187,28 @@
       </div>
     </div>
     <div class="muted" id="pres-results-count" style="margin-top:10px;font-size:12px;"></div>
+  </section>
+
+  <section id="tab-editorobs" style="display:none;">
+    <div class="dash-hero" style="margin-bottom:14px;">
+      <h1 style="font-size:16px;">Editor de Observaciones</h1>
+      <div class="sub">Herramienta para tapar y reemplazar texto en un PDF (por ejemplo, el campo de observaciones de un comprobante). Todo el trabajo se hace en tu navegador — no se guarda ni se sube nada.</div>
+    </div>
+    <div class="panel" style="padding:0;overflow:hidden;">
+      <iframe src="herramientas/editor-observaciones.html" title="Editor de Observaciones"
+        style="width:100%;height:82vh;border:none;display:block;background:#fff;"></iframe>
+    </div>
+  </section>
+
+  <section id="tab-panoramacobranzas" style="display:none;">
+    <div class="dash-hero" style="margin-bottom:14px;">
+      <h1 style="font-size:16px;">Panorama de Cobranzas</h1>
+      <div class="sub">Subí el Excel de cobranzas (ej. exportado del sistema contable) para ver antigüedad de saldos, detalle por cliente y exportar el resumen.</div>
+    </div>
+    <div class="panel" style="padding:0;overflow:hidden;">
+      <iframe src="herramientas/panorama-cobranzas.html" title="Panorama de Cobranzas"
+        style="width:100%;height:82vh;border:none;display:block;background:#090b0f;"></iframe>
+    </div>
   </section>
 
 </main>
@@ -2383,6 +2407,8 @@ const TAB_TITLES = {
   retiros: 'Pendientes de Retiro',
   remitos: 'Remitos',
   presupuestos: 'Presupuestos',
+  editorobs: 'Editor de Observaciones',
+  panoramacobranzas: 'Panorama de Cobranzas',
 };
 
 function activarTab(tab){
@@ -4242,6 +4268,8 @@ const SECCIONES_PERMISOS = [
   { key:'enviofacturas', label:'Envío de Facturas', acciones:[['ver','Ver'],['marcar_enviada','Marcar enviada']] },
   { key:'remitos',       label:'Remitos',           acciones:[['ver','Ver'],['crear','Crear / cargar entrega'],['registrar_retiro','Registrar retiro'],['eliminar','Eliminar']] },
   { key:'presupuestos',  label:'Presupuestos',      acciones:[['ver','Ver'],['crear','Crear / editar'],['anular','Anular']] },
+  { key:'editorobs',          label:'Editor de Observaciones', acciones:[['ver','Ver / usar']] },
+  { key:'panoramacobranzas',  label:'Panorama de Cobranzas',   acciones:[['ver','Ver / usar']] },
   { key:'usuarios',      label:'Usuarios',      acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar']] },
 ];
 
@@ -4579,6 +4607,8 @@ function renderDashboard(){
     { tab:'retiros',    icon:'🚨', title:'Pendientes de Retiro', count: puede('retiros','ver') ? `${calcularRetirosUrgentes().length} urgente(s)` : '', visible:puede('retiros','ver') },
     { tab:'remitos',    icon:'📋', title:'Remitos',    count: puede('remitos','ver') ? `${remitosCache.filter(r=>!r.fecha_retiro).length} pendiente(s) de retiro` : '', visible:puede('remitos','ver') },
     { tab:'presupuestos', icon:'🧾', title:'Presupuestos', count: puede('presupuestos','ver') ? `${presupuestosCache.filter(p=>p.estado==='vigente').length} vigente(s)` : '', visible:puede('presupuestos','ver') },
+    { tab:'editorobs', icon:'✏️', title:'Editor de Observaciones', count: '', visible:puede('editorobs','ver') },
+    { tab:'panoramacobranzas', icon:'📊', title:'Panorama de Cobranzas', count: '', visible:puede('panoramacobranzas','ver') },
     { tab:'usuarios',   icon:'👤', title:'Usuarios',   count:`${usuariosCache.length} cuentas`, visible:puede('usuarios','ver') },
   ];
 
