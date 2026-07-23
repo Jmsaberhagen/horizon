@@ -620,6 +620,7 @@
       <div style="flex:1"></div>
       <button class="btn secondary" id="btn-export-contratos-csv">Exportar CSV</button>
       <button class="btn secondary" id="btn-export-contratos-xls">Exportar XLSX</button>
+      <button class="btn secondary" id="btn-export-contratos-redistribucion-pdf">📦 PDF Redistribución por Modelo</button>
       <button class="btn" id="btn-new-contrato">+ Nuevo contrato</button>
     </div>
 
@@ -2985,9 +2986,9 @@ document.getElementById('contrato-filter-confirmado').addEventListener('change',
 document.getElementById('contrato-filter-precio').addEventListener('change', applyContratoFilters);
 
 function contratosToRows(list){
-  const headers = ['Cliente','Equipo N Serie','Sucursal','Es Demo','Periodicidad','Fecha Salida','Fecha Vencimiento','Ultimo Periodo Facturado','Confirmado','Moneda','Precio Mensual','Flete Entrega','Costo Flete Entrega','Flete Entrega Facturado','Flete Retiro','Costo Flete Retiro','Flete Retiro Facturado','Orden Compra','Obra','Estado'];
+  const headers = ['Cliente','Equipo N Serie','Modelo','Sucursal','Es Demo','Periodicidad','Fecha Salida','Fecha Vencimiento','Ultimo Periodo Facturado','Confirmado','Moneda','Precio Mensual','Flete Entrega','Costo Flete Entrega','Flete Entrega Facturado','Flete Retiro','Costo Flete Retiro','Flete Retiro Facturado','Orden Compra','Obra','Estado'];
   const rows = list.map(c => [
-    c.clientes?.razon_social || '', c.equipos?.numero_serie || '', c.sucursales?.nombre || '', c.es_demo ? 'SI' : 'NO',
+    c.clientes?.razon_social || '', c.equipos?.numero_serie || '', c.equipos?.modelo || '', c.sucursales?.nombre || '', c.es_demo ? 'SI' : 'NO',
     c.periodicidad || '', c.fecha_salida || '', c.fecha_vencimiento || '',
     c.ultimo_periodo_facturado_hasta || '', c.datos_confirmados ? 'SI' : 'NO', c.moneda,
     c.precio_mensual_con_descuento ?? c.precio_mensual_sin_descuento ?? '',
@@ -3005,6 +3006,79 @@ document.getElementById('btn-export-contratos-xls').addEventListener('click', ()
   const { headers, rows } = contratosToRows(getFilteredContratos());
   exportXLS('contratos_horizon', headers, rows);
 });
+
+// ---------- PDF de redistribución de flota por modelo ----------
+function descargarRedistribucionPDF(){
+  const list = getFilteredContratos().filter(c => c.estado === 'activo' && !c.es_demo);
+
+  const porModelo = {};
+  list.forEach(c => {
+    const modelo = c.equipos?.modelo || 'Sin modelo';
+    if(!porModelo[modelo]) porModelo[modelo] = [];
+    porModelo[modelo].push(c);
+  });
+  const modelos = Object.keys(porModelo).sort();
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const marginX = 14;
+  let y = 15;
+
+  try{
+    doc.addImage(LOGO_PDF_BASE64, 'PNG', marginX, y, 55, 11.3);
+  } catch(e){ console.error('No se pudo insertar el logo:', e); }
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.text('REDISTRIBUCIÓN DE FLOTA POR MODELO', pageWidth - marginX, y + 8, { align: 'right' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(90);
+  doc.text(`Generado: ${fmtDate(new Date().toISOString().slice(0,10))}`, pageWidth - marginX, y + 14, { align: 'right' });
+  doc.setTextColor(0);
+
+  y += 22;
+
+  modelos.forEach(modelo => {
+    const contratosModelo = porModelo[modelo].slice().sort((a,b) => {
+      const pa = a.clientes?.provincia || '';
+      const pb = b.clientes?.provincia || '';
+      return pa.localeCompare(pb);
+    });
+
+    if(y > 260){ doc.addPage(); y = 15; }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setFillColor(230, 240, 250);
+    doc.rect(marginX, y - 4, pageWidth - marginX*2, 7, 'F');
+    doc.text(`${modelo}  (${contratosModelo.length} equipo${contratosModelo.length === 1 ? '' : 's'})`, marginX + 2, y);
+    y += 5;
+
+    const body = contratosModelo.map(c => [
+      c.clientes?.razon_social || '—',
+      c.clientes?.provincia || '—',
+      c.sucursales?.nombre || '—',
+      c.equipos?.numero_serie || '—',
+      fmtMoney(c.precio_mensual_con_descuento ?? c.precio_mensual_sin_descuento ?? 0, c.moneda),
+    ]);
+
+    doc.autoTable({
+      startY: y,
+      head: [['Cliente', 'Provincia', 'Sucursal', 'N° Serie', 'Precio mensual']],
+      body: body,
+      theme: 'grid',
+      styles: { fontSize: 8.5, cellPadding: 1.5 },
+      headStyles: { fillColor: [56, 189, 248], textColor: 255, fontStyle: 'bold' },
+      margin: { left: marginX, right: marginX },
+    });
+    y = doc.lastAutoTable.finalY + 8;
+  });
+
+  doc.save('redistribucion_flota_por_modelo.pdf');
+}
+document.getElementById('btn-export-contratos-redistribucion-pdf').addEventListener('click', descargarRedistribucionPDF);
 
 // ---------- Autocompletar Cliente ----------
 const clienteSearchInput = document.getElementById('c-cliente-search');
