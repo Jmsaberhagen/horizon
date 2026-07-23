@@ -433,11 +433,11 @@ const TYPE_LABEL = {
 };
 
 const BUCKETS = [
-  {key:"corriente", label:"Corriente",  color:"var(--blue)"},
-  {key:"b1_30",     label:"1-30 días",  color:"var(--amber)"},
-  {key:"b31_60",    label:"31-60 días", color:"var(--orange)"},
-  {key:"b61_90",    label:"61-90 días", color:"#ff6a4d"},
-  {key:"b90",       label:"90+ días",   color:"var(--red)"}
+  {key:"corriente", label:"0-30 días",   color:"var(--blue)"},
+  {key:"b1_30",     label:"31-60 días",  color:"var(--amber)"},
+  {key:"b31_60",    label:"61-90 días",  color:"var(--orange)"},
+  {key:"b61_90",    label:"91-120 días", color:"#ff6a4d"},
+  {key:"b90",       label:"+120 días",   color:"var(--red)"}
 ];
 
 const RISK = {
@@ -566,11 +566,20 @@ function daysOverdue(fechaVenc){
   return Math.floor((TODAY - fechaVenc) / 86400000);
 }
 
-function bucketFor(days){
-  if(days <= 0) return "corriente";
-  if(days <= 30) return "b1_30";
-  if(days <= 60) return "b31_60";
-  if(days <= 90) return "b61_90";
+// Antigüedad de la deuda: SIEMPRE se cuenta desde la fecha de emisión del
+// comprobante, sin importar el acuerdo de pago de cada cliente. Es un
+// concepto distinto de "días vencido" (que sí depende de la fecha de
+// vencimiento pactada — ver daysOverdue arriba).
+function daysSinceIssue(fechaDoc){
+  if(!fechaDoc) return 0;
+  return Math.floor((TODAY - fechaDoc) / 86400000);
+}
+
+function bucketFor(ageDays){
+  if(ageDays <= 30) return "corriente";
+  if(ageDays <= 60) return "b1_30";
+  if(ageDays <= 90) return "b31_60";
+  if(ageDays <= 120) return "b61_90";
   return "b90";
 }
 
@@ -615,22 +624,29 @@ function buildClients(docs, basisKey){
 
     const buckets = {corriente:0,b1_30:0,b31_60:0,b61_90:0,b90:0};
     let maxDaysOverdue = -9999;
+    let overdueTotal = 0;
     debit.forEach(d=>{
       if(d.remaining > 0.01){
-        const days = daysOverdue(d.fechaVenc);
-        const bk = bucketFor(days === -9999 ? 0 : days);
+        const ageDays = daysSinceIssue(d.fechaDoc);
+        const bk = bucketFor(ageDays);
         buckets[bk] += d.remaining;
-        if(days !== -9999) maxDaysOverdue = Math.max(maxDaysOverdue, days);
-        d._days = days;
+
+        const diasVenc = daysOverdue(d.fechaVenc);
+        if(diasVenc !== -9999 && diasVenc > 0){
+          maxDaysOverdue = Math.max(maxDaysOverdue, diasVenc);
+          overdueTotal += d.remaining;
+        }
+        d._days = diasVenc;
         d._bucket = bk;
+        d._ageDays = ageDays;
       } else {
         d._days = d.fechaVenc ? daysOverdue(d.fechaVenc) : -9999;
         d._bucket = null;
+        d._ageDays = d.fechaDoc ? daysSinceIssue(d.fechaDoc) : 0;
       }
     });
 
-    const overdueTotal = buckets.b1_30+buckets.b31_60+buckets.b61_90+buckets.b90;
-    const openTotal = overdueTotal + buckets.corriente;
+    const openTotal = buckets.corriente + buckets.b1_30 + buckets.b31_60 + buckets.b61_90 + buckets.b90;
 
     let risk;
     if(totalBalance <= 0.01) risk = "aldia";
@@ -1016,7 +1032,7 @@ function downloadClientPDF(c){
 
   doc.autoTable({
     startY: y + 6,
-    margin: {left: margin, right: margin},
+    margin: {left: margin, right: margin, bottom: bannerH + 34},
     head: [["Tramo", "", "Monto"]],
     body: agingRows.map(r => [r.label, "", fmtMoney(r.monto)]),
     theme: "grid",
@@ -1069,7 +1085,7 @@ function downloadClientPDF(c){
 
   doc.autoTable({
     startY: y2+8,
-    margin:{left:margin,right:margin},
+    margin:{left:margin,right:margin, bottom: bannerH + 34},
     head:[["Tipo","N\u00b0 Documento","Fecha","Vencimiento","D\u00edas venc.","Pendiente"]],
     body,
     theme:"grid",
