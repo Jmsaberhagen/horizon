@@ -19,8 +19,10 @@
     --radius:8px;
   }
   *{box-sizing:border-box;}
+  html{overflow-x:hidden;}
   body{
     margin:0;
+    overflow-x:hidden;
     background:var(--bg);
     color:var(--text);
     font-family:'Segoe UI', Arial, sans-serif;
@@ -2406,6 +2408,11 @@ function activarTab(tab){
   document.querySelectorAll('main > section').forEach(s=> s.style.display = 'none');
   const section = document.getElementById('tab-' + tab);
   if(section) section.style.display = 'block';
+
+  // Las herramientas embebidas (iframe a pantalla completa) manejan su propio scroll
+  // interno — bloqueamos el de la página para que no aparezca un doble scrollbar.
+  const esHerramientaEmbebida = (tab === 'editorobs' || tab === 'panoramacobranzas');
+  document.body.style.overflow = esHerramientaEmbebida ? 'hidden' : '';
 
   const subbar = document.getElementById('subbar');
   if(tab === 'inicio'){
