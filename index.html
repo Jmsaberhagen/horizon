@@ -534,6 +534,7 @@
   <button data-tab="presupuestos">Presupuestos</button>
   <button data-tab="editorobs">Editor de Observaciones</button>
   <button data-tab="panoramacobranzas">Panorama de Cobranzas</button>
+  <button data-tab="panoramaproveedores">Panorama de Deuda a Proveedores</button>
   <button data-tab="usuarios" id="nav-usuarios" style="display:none;">Usuarios</button>
 </nav>
 
@@ -1199,6 +1200,11 @@
 
   <section id="tab-panoramacobranzas" style="display:none;margin:-24px calc(-50vw + 50% - 0px);padding:0;">
     <iframe src="herramientas/panorama-cobranzas.html" title="Panorama de Cobranzas"
+      style="width:100%;height:calc(100vh - 113px);border:none;display:block;background:#090b0f;"></iframe>
+  </section>
+
+  <section id="tab-panoramaproveedores" style="display:none;margin:-24px calc(-50vw + 50% - 0px);padding:0;">
+    <iframe src="herramientas/panorama-proveedores.html" title="Panorama de Deuda a Proveedores"
       style="width:100%;height:calc(100vh - 113px);border:none;display:block;background:#090b0f;"></iframe>
   </section>
 
@@ -2400,6 +2406,7 @@ const TAB_TITLES = {
   presupuestos: 'Presupuestos',
   editorobs: 'Editor de Observaciones',
   panoramacobranzas: 'Panorama de Cobranzas',
+  panoramaproveedores: 'Panorama de Deuda a Proveedores',
 };
 
 function activarTab(tab){
@@ -2412,7 +2419,7 @@ function activarTab(tab){
 
   // Las herramientas embebidas (iframe a pantalla completa) manejan su propio scroll
   // interno — bloqueamos el de la página para que no aparezca un doble scrollbar.
-  const esHerramientaEmbebida = (tab === 'editorobs' || tab === 'panoramacobranzas');
+  const esHerramientaEmbebida = (tab === 'editorobs' || tab === 'panoramacobranzas' || tab === 'panoramaproveedores');
   document.body.style.overflow = esHerramientaEmbebida ? 'hidden' : '';
 
   const subbar = document.getElementById('subbar');
@@ -4339,6 +4346,7 @@ const SECCIONES_PERMISOS = [
   { key:'presupuestos',  label:'Presupuestos',      acciones:[['ver','Ver'],['crear','Crear / editar'],['anular','Anular']] },
   { key:'editorobs',          label:'Editor de Observaciones', acciones:[['ver','Ver / usar']] },
   { key:'panoramacobranzas',  label:'Panorama de Cobranzas',   acciones:[['ver','Ver / usar']] },
+  { key:'panoramaproveedores', label:'Panorama de Deuda a Proveedores', acciones:[['ver','Ver / usar']] },
   { key:'usuarios',      label:'Usuarios',      acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar']] },
 ];
 
@@ -4678,6 +4686,7 @@ function renderDashboard(){
     { tab:'presupuestos', icon:'🧾', title:'Presupuestos', count: puede('presupuestos','ver') ? `${presupuestosCache.filter(p=>p.estado==='vigente').length} vigente(s)` : '', visible:puede('presupuestos','ver') },
     { tab:'editorobs', icon:'✏️', title:'Editor de Observaciones', count: '', visible:puede('editorobs','ver') },
     { tab:'panoramacobranzas', icon:'📊', title:'Panorama de Cobranzas', count: '', visible:puede('panoramacobranzas','ver') },
+    { tab:'panoramaproveedores', icon:'📉', title:'Panorama de Deuda a Proveedores', count: '', visible:puede('panoramaproveedores','ver') },
     { tab:'usuarios',   icon:'👤', title:'Usuarios',   count:`${usuariosCache.length} cuentas`, visible:puede('usuarios','ver') },
   ];
 
