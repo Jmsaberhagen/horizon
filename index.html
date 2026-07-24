@@ -3288,13 +3288,13 @@ function openEditContrato(id){
   document.getElementById('c-es_demo').checked = !!c.es_demo;
   document.getElementById('c-ultimo_periodo_facturado_hasta').value = c.ultimo_periodo_facturado_hasta || '';
 
-  // el precio de un contrato ya guardado solo lo puede tocar el maestro
+  // el precio de un contrato ya guardado solo lo puede tocar quien tenga el permiso granular
   const tienePrecio = c.precio_mensual_con_descuento != null || c.precio_mensual_sin_descuento != null;
-  const bloquearPrecio = tienePrecio && miPerfil.rol !== 'maestro';
+  const bloquearPrecio = tienePrecio && !puede('contratos','editar_precio');
   ['c-precio_sin_descuento','c-precio_con_descuento','c-moneda'].forEach(idCampo=>{
     const el = document.getElementById(idCampo);
     el.disabled = bloquearPrecio;
-    el.title = bloquearPrecio ? 'Solo el usuario maestro puede modificar el precio de un contrato ya guardado' : '';
+    el.title = bloquearPrecio ? 'No tenés permiso para modificar el precio de un contrato ya guardado' : '';
   });
 
   openContratoOverlay();
@@ -4334,7 +4334,7 @@ function puede(seccion, accion){
 
 const SECCIONES_PERMISOS = [
   { key:'clientes',      label:'Clientes',      acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
-  { key:'contratos',     label:'Contratos',     acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
+  { key:'contratos',     label:'Contratos',     acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar'],['editar_precio','Editar precio ya guardado']] },
   { key:'equipos',       label:'Equipos',       acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
   { key:'pendientes',    label:'Pendientes de Facturación', acciones:[['ver','Ver'],['facturar','Facturar'],['eliminar','Eliminar']] },
   { key:'reportes',      label:'Reportes',      acciones:[['ver','Ver']] },
