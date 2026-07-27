@@ -2116,6 +2116,7 @@
               <th>N° de serie</th>
               <th>N° Remito</th>
               <th>Fecha entrega</th>
+              <th>Obra / Dirección</th>
               <th style="width:70px;">Estado</th>
               <th style="width:50px;"></th>
             </tr>
@@ -6799,7 +6800,13 @@ async function procesarArchivoRemitoOCR(file, statusEl){
 
 // Cruza el texto del OCR contra los clientes/equipos ya cargados en el sistema —
 // más confiable que adivinar un formato de remito que todavía no vimos.
-function detectarClienteEnTexto(text){
+function detectarClienteEnTexto(text, numeroClienteDetectado){
+  // 1) Si pudimos leer el N° de cliente, es la forma más confiable de matchear
+  //    (el nombre de fantasía a veces no coincide letra por letra con la razón social).
+  if(numeroClienteDetectado){
+    const porNumero = clientesCache.find(c => (c.numero_cliente||'').toString().trim() === numeroClienteDetectado.trim());
+    if(porNumero) return porNumero;
+  }
   const textoNorm = text.toLowerCase().replace(/\s+/g,' ');
   const candidatos = clientesCache
     .filter(c => c.razon_social && c.razon_social.trim().length >= 4)
@@ -6816,6 +6823,56 @@ function detectarEquipoEnTexto(text){
   return null;
 }
 
+// Extrae del texto (OCR o texto plano) todos los campos relevantes de un remito:
+// N° de remito, fecha de entrega, N° de cliente, modelo/serie de la máquina y
+// la dirección de entrega (obra). Se usa tanto en la carga individual como en
+// el importador por lotes.
+function extraerCamposRemito(text){
+  const resultado = { numeroRemito:'', fechaEntrega:'', numeroCliente:'', modeloTexto:'', serieTexto:'', obra:'' };
+
+  const matchNumero =
+    text.match(/Remito\s*N[°ºo]?\s*[:\-]?\s*(\d[\d.\-\s]{3,14}\d)/i) ||
+    text.match(/N[°ºo]\s*[:\-]?\s*(\d[\d.\-\s]{3,14}\d)/i);
+  if(matchNumero) resultado.numeroRemito = matchNumero[1].replace(/\s/g,'');
+
+  // Fecha de entrega: preferimos la etiqueta "Fecha:" a secas; si no aparece,
+  // probamos con "Fecha de Salida:" (el remito de sistema suele traer ambas).
+  const matchFecha =
+    text.match(/Fecha\s*[:\-]?\s*(\d{2})[\/\-](\d{2})[\/\-](\d{2,4})/i) ||
+    text.match(/Fecha\s+de\s+Salida\s*[:\-]?\s*(\d{2})[\/\-](\d{2})[\/\-](\d{2,4})/i) ||
+    text.match(/\b(\d{2})[\/\-](\d{2})[\/\-](\d{4})\b/);
+  if(matchFecha){
+    let [, dd, mm, yyyy] = matchFecha;
+    if(yyyy.length === 2) yyyy = '20'+yyyy;
+    resultado.fechaEntrega = `${yyyy}-${mm}-${dd}`;
+  }
+
+  // N° de cliente
+  const matchNroCliente = text.match(/Nro\.?\s*Cliente\s*[:\-]?\s*(\d{2,10})/i);
+  if(matchNroCliente) resultado.numeroCliente = matchNroCliente[1];
+
+  // Modelo + N° de serie: en los remitos de Horizon el renglón del equipo tiene
+  // la forma "ALQ <MODELO> SERIE <NUMERO> MARCA HAULOTTE"
+  const matchModeloSerie = text.match(/ALQ\s+([A-Z0-9]{3,15})\s+SERIE\s*[:\-]?\s*(\d{4,10})/i);
+  if(matchModeloSerie){
+    resultado.modeloTexto = matchModeloSerie[1].toUpperCase();
+    resultado.serieTexto = matchModeloSerie[2];
+  } else {
+    const matchSerieSuelta = text.match(/SERIE\s*[:\-]?\s*(\d{4,10})/i);
+    if(matchSerieSuelta) resultado.serieTexto = matchSerieSuelta[1];
+  }
+
+  // Dirección de entrega (obra): lo que sigue a "Entregar en:" hasta el fin de línea.
+  // Ojo: en los PDF de sistema a veces el bloque de etiquetas queda separado del
+  // bloque de valores (por el orden de extracción), así que si lo que "sigue" es
+  // en realidad otra etiqueta (termina en ":"), lo descartamos.
+  const matchObra = text.match(/Entregar\s+en\s*[:\-]?\s*([^\n\r]{4,120})/i);
+  if(matchObra && !/:\s*$/.test(matchObra[1].trim())) resultado.obra = matchObra[1].trim();
+
+  return resultado;
+}
+
+
 document.getElementById('rem-archivo-entrega').addEventListener('change', async (e)=>{
   const file = e.target.files[0];
   if(!file) return;
@@ -6825,29 +6882,21 @@ document.getElementById('rem-archivo-entrega').addEventListener('change', async 
     document.getElementById('rem-texto_extraido_entrega').value = text;
     e.target.dataset.miniatura = miniaturaBase64;
 
-    // N° de remito: patrones genéricos — se van a ajustar cuando veamos un escaneo real
-    const matchNumero =
-      text.match(/Remito\s*N[°ºo]?\s*[:\-]?\s*(\d[\d.\-\s]{3,14}\d)/i) ||
-      text.match(/N[°ºo]\s*[:\-]?\s*(\d[\d.\-\s]{3,14}\d)/i);
-    if(matchNumero && !document.getElementById('rem-numero_remito').value){
-      document.getElementById('rem-numero_remito').value = matchNumero[1].replace(/\s/g,'');
-    }
+    const campos = extraerCamposRemito(text);
 
-    // Fecha de entrega: solo la completamos si el campo está vacío
-    const matchFecha =
-      text.match(/Fecha\s*[:\-]?\s*(\d{2})[\/\-](\d{2})[\/\-](\d{2,4})/i) ||
-      text.match(/\b(\d{2})[\/\-](\d{2})[\/\-](\d{4})\b/);
-    if(matchFecha){
-      let [, dd, mm, yyyy] = matchFecha;
-      if(yyyy.length === 2) yyyy = '20'+yyyy;
-      if(!document.getElementById('rem-fecha_entrega').value){
-        document.getElementById('rem-fecha_entrega').value = `${yyyy}-${mm}-${dd}`;
-      }
+    if(campos.numeroRemito && !document.getElementById('rem-numero_remito').value){
+      document.getElementById('rem-numero_remito').value = campos.numeroRemito;
+    }
+    if(campos.fechaEntrega && !document.getElementById('rem-fecha_entrega').value){
+      document.getElementById('rem-fecha_entrega').value = campos.fechaEntrega;
+    }
+    if(campos.obra && !document.getElementById('rem-obra').value){
+      document.getElementById('rem-obra').value = campos.obra;
     }
 
     // Cliente / equipo: si no se seleccionó ninguno todavía, probamos detectarlos por coincidencia con lo ya cargado
     if(!document.getElementById('rem-cliente_id').value){
-      const clienteDetectado = detectarClienteEnTexto(text);
+      const clienteDetectado = detectarClienteEnTexto(text, campos.numeroCliente);
       if(clienteDetectado){
         document.getElementById('rem-cliente_id').value = clienteDetectado.id;
         remClienteSearchInput.value = clienteDetectado.razon_social;
@@ -6858,6 +6907,9 @@ document.getElementById('rem-archivo-entrega').addEventListener('change', async 
       if(equipoDetectado){
         document.getElementById('rem-equipo_id').value = equipoDetectado.id;
         remEquipoSearchInput.value = equipoDetectado.numero_serie;
+      } else if(campos.serieTexto){
+        // No está cargado en el catálogo todavía: al menos dejamos el N° de serie leído en el buscador para revisión manual
+        remEquipoSearchInput.value = campos.serieTexto;
       }
     }
 
@@ -7068,41 +7120,28 @@ document.getElementById('btn-lote-procesar').addEventListener('click', async ()=
     try{
       const { text, miniaturaBase64 } = await procesarArchivoRemitoOCR(file, null);
 
-      const matchNumero =
-        text.match(/Remito\s*N[°ºo]?\s*[:\-]?\s*(\d[\d.\-\s]{3,14}\d)/i) ||
-        text.match(/N[°ºo]\s*[:\-]?\s*(\d[\d.\-\s]{3,14}\d)/i);
-      const numeroDetectado = matchNumero ? matchNumero[1].replace(/\s/g,'') : '';
-
-      const matchFecha =
-        text.match(/Fecha\s*[:\-]?\s*(\d{2})[\/\-](\d{2})[\/\-](\d{2,4})/i) ||
-        text.match(/\b(\d{2})[\/\-](\d{2})[\/\-](\d{4})\b/);
-      let fechaDetectada = '';
-      if(matchFecha){
-        let [, dd, mm, yyyy] = matchFecha;
-        if(yyyy.length === 2) yyyy = '20'+yyyy;
-        fechaDetectada = `${yyyy}-${mm}-${dd}`;
-      }
-
-      const clienteDetectado = detectarClienteEnTexto(text);
+      const campos = extraerCamposRemito(text);
+      const clienteDetectado = detectarClienteEnTexto(text, campos.numeroCliente);
       const equipoDetectado = detectarEquipoEnTexto(text);
 
       loteRemitosState.push({
         file,
         miniaturaBase64,
         texto: text,
-        numeroRemito: numeroDetectado,
-        fechaEntrega: fechaDetectada,
+        numeroRemito: campos.numeroRemito,
+        fechaEntrega: campos.fechaEntrega,
+        obra: campos.obra,
         clienteNombre: clienteDetectado ? clienteDetectado.razon_social : '',
-        equipoSerie: equipoDetectado ? equipoDetectado.numero_serie : '',
+        equipoSerie: equipoDetectado ? equipoDetectado.numero_serie : (campos.serieTexto || ''),
         sucursalId,
-        detectadoOk: !!(clienteDetectado && fechaDetectada),
+        detectadoOk: !!(clienteDetectado && campos.fechaEntrega),
         error: null,
         guardado: false,
       });
     } catch(err){
       console.error('Error procesando', file.name, err);
       loteRemitosState.push({
-        file, miniaturaBase64: null, texto: '', numeroRemito: '', fechaEntrega: '',
+        file, miniaturaBase64: null, texto: '', numeroRemito: '', fechaEntrega: '', obra: '',
         clienteNombre: '', equipoSerie: '', sucursalId, detectadoOk: false,
         error: 'No se pudo leer/procesar el archivo', guardado: false,
       });
@@ -7125,7 +7164,7 @@ function renderTablaLoteRemitos(){
   const tbody = document.getElementById('lote-tbody');
   const pendientes = loteRemitosState.filter(r => !r.guardado);
   if(pendientes.length === 0){
-    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No quedan archivos por guardar.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No quedan archivos por guardar.</td></tr>';
   } else {
     tbody.innerHTML = pendientes.map((r) => {
       const idx = loteRemitosState.indexOf(r);
@@ -7142,6 +7181,7 @@ function renderTablaLoteRemitos(){
           <td><input type="text" class="lote-input-equipo" data-idx="${idx}" list="lote-equipos-datalist" value="${escapeHtml(r.equipoSerie)}" style="min-width:110px;"></td>
           <td><input type="text" class="lote-input-numero" data-idx="${idx}" value="${escapeHtml(r.numeroRemito)}" style="min-width:100px;"></td>
           <td><input type="date" class="lote-input-fecha" data-idx="${idx}" value="${r.fechaEntrega}"></td>
+          <td><input type="text" class="lote-input-obra" data-idx="${idx}" value="${escapeHtml(r.obra||'')}" placeholder="Dirección de entrega" style="min-width:160px;"></td>
           <td>${okBadge}</td>
           <td><button type="button" class="btn secondary small" onclick="quitarFilaLoteRemitos(${idx})">✕</button></td>
         </tr>`;
@@ -7160,6 +7200,7 @@ document.getElementById('lote-tbody').addEventListener('input', (e)=>{
   if(e.target.classList.contains('lote-input-equipo')) loteRemitosState[idx].equipoSerie = e.target.value;
   if(e.target.classList.contains('lote-input-numero')) loteRemitosState[idx].numeroRemito = e.target.value;
   if(e.target.classList.contains('lote-input-fecha')) loteRemitosState[idx].fechaEntrega = e.target.value;
+  if(e.target.classList.contains('lote-input-obra')) loteRemitosState[idx].obra = e.target.value;
 });
 
 function quitarFilaLoteRemitos(idx){
@@ -7196,6 +7237,7 @@ document.getElementById('btn-lote-guardar-todos').addEventListener('click', asyn
         sucursal_id: r.sucursalId ? Number(r.sucursalId) : null,
         numero_remito: r.numeroRemito || null,
         fecha_entrega: r.fechaEntrega,
+        obra: r.obra || null,
         archivo_entrega_nombre: r.file.name,
         archivo_entrega_url: urlData.publicUrl,
         miniatura_entrega_base64: r.miniaturaBase64,
