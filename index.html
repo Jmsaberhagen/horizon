@@ -535,6 +535,7 @@
   <button data-tab="editorobs">Editor de Observaciones</button>
   <button data-tab="panoramacobranzas">Panorama de Cobranzas</button>
   <button data-tab="panoramaproveedores">Panorama de Deuda a Proveedores</button>
+  <button data-tab="datosbancarios">Datos Bancarios de Proveedores</button>
   <button data-tab="usuarios" id="nav-usuarios" style="display:none;">Usuarios</button>
 </nav>
 
@@ -1207,6 +1208,74 @@
     <iframe src="herramientas/panorama-proveedores.html" title="Panorama de Deuda a Proveedores"
       style="width:100%;height:calc(100vh - 113px);border:none;display:block;background:#090b0f;"></iframe>
   </section>
+
+  <section id="tab-datosbancarios" style="display:none;">
+    <div class="toolbar">
+      <input type="text" id="dbp-search-input" placeholder="Buscar por nombre, CUIT, alias o CBU...">
+      <select id="dbp-filter-banco">
+        <option value="">Todos los bancos</option>
+      </select>
+      <select id="dbp-filter-estado">
+        <option value="">Todos</option>
+        <option value="sin_banco">Sin banco cargado</option>
+        <option value="cbu_invalido">CBU inválido</option>
+      </select>
+      <div style="flex:1"></div>
+      <button class="btn secondary" id="btn-export-dbp-csv">Exportar CSV</button>
+      <button class="btn secondary" id="btn-export-dbp-xls">Exportar XLSX</button>
+      <button class="btn" id="btn-new-dbp">+ Nuevo proveedor</button>
+    </div>
+
+    <div class="panel">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Nombre / Cuenta</th>
+              <th>CUIT</th>
+              <th>Banco</th>
+              <th>CBU / Alias</th>
+              <th style="width:90px;">Estado</th>
+              <th style="width:150px;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="dbp-tbody">
+            <tr><td colspan="6" class="empty-state">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="muted" id="dbp-results-count" style="margin-top:10px;font-size:12px;"></div>
+  </section>
+
+  <div class="modal-overlay" id="modal-dbp-overlay">
+    <div class="modal" style="max-width:560px;">
+      <h3 id="dbp-modal-title">Nuevo proveedor</h3>
+      <input type="hidden" id="dbp-id">
+      <label>Nombre / Descripción de cuenta *</label>
+      <input type="text" id="dbp-nombre_cuenta" placeholder="Ej: WURTH ARGENTINA SA">
+      <label>Titularidad (razón social completa)</label>
+      <input type="text" id="dbp-titularidad" placeholder="Opcional">
+      <label>CUIT</label>
+      <input type="text" id="dbp-cuit" placeholder="Sin guiones, ej: 30631810582">
+      <label>Banco</label>
+      <input type="text" id="dbp-banco" list="dbp-bancos-datalist" placeholder="Ej: BANCO DE GALICIA Y BUENOS AIRES">
+      <datalist id="dbp-bancos-datalist"></datalist>
+      <label>CBU</label>
+      <input type="text" id="dbp-cbu" placeholder="22 dígitos" maxlength="22">
+      <div id="dbp-cbu-status" class="muted" style="font-size:12px;margin-top:4px;"></div>
+      <label>Alias</label>
+      <input type="text" id="dbp-alias" placeholder="Opcional">
+      <label>Observación</label>
+      <input type="text" id="dbp-observacion" placeholder="Opcional">
+      <div style="display:flex;gap:10px;margin-top:16px;">
+        <button class="btn" id="btn-dbp-save">Guardar</button>
+        <button class="btn secondary" id="btn-dbp-cancel">Cancelar</button>
+        <div style="flex:1"></div>
+        <button class="btn danger" id="btn-dbp-delete" style="display:none;">Eliminar</button>
+      </div>
+    </div>
+  </div>
 
 </main>
 </div> <!-- /app-shell -->
@@ -2319,6 +2388,7 @@ let sucursales = [];
 let clientesCache = [];
 let equiposCache = [];
 let contratosCache = [];
+let datosBancariosCache = [];
 let pendientesCache = [];
 let reqCounter = 0;
 
@@ -2408,6 +2478,7 @@ const TAB_TITLES = {
   editorobs: 'Editor de Observaciones',
   panoramacobranzas: 'Panorama de Cobranzas',
   panoramaproveedores: 'Panorama de Deuda a Proveedores',
+  datosbancarios: 'Datos Bancarios de Proveedores',
 };
 
 function activarTab(tab){
@@ -4351,6 +4422,7 @@ const SECCIONES_PERMISOS = [
   { key:'editorobs',          label:'Editor de Observaciones', acciones:[['ver','Ver / usar']] },
   { key:'panoramacobranzas',  label:'Panorama de Cobranzas',   acciones:[['ver','Ver / usar']] },
   { key:'panoramaproveedores', label:'Panorama de Deuda a Proveedores', acciones:[['ver','Ver / usar']] },
+  { key:'datos_bancarios', label:'Datos Bancarios de Proveedores', acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
   { key:'usuarios',      label:'Usuarios',      acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar']] },
 ];
 
@@ -4691,6 +4763,7 @@ function renderDashboard(){
     { tab:'editorobs', icon:'✏️', title:'Editor de Observaciones', count: '', visible:puede('editorobs','ver') },
     { tab:'panoramacobranzas', icon:'📊', title:'Panorama de Cobranzas', count: '', visible:puede('panoramacobranzas','ver') },
     { tab:'panoramaproveedores', icon:'📉', title:'Panorama de Deuda a Proveedores', count: '', visible:puede('panoramaproveedores','ver') },
+    { tab:'datosbancarios', icon:'🏦', title:'Datos Bancarios de Proveedores', count:`${datosBancariosCache.length} proveedores`, visible:puede('datos_bancarios','ver') },
     { tab:'usuarios',   icon:'👤', title:'Usuarios',   count:`${usuariosCache.length} cuentas`, visible:puede('usuarios','ver') },
   ];
 
@@ -7268,6 +7341,240 @@ document.getElementById('btn-lote-guardar-todos').addEventListener('click', asyn
 });
 
 // =========================================================
+// MÓDULO: Datos Bancarios de Proveedores
+// =========================================================
+
+async function loadDatosBancarios(){
+  const { data, error } = await supabaseClient
+    .from('datos_bancarios_proveedores')
+    .select('*')
+    .order('nombre_cuenta');
+  if(error){ console.error('Error cargando datos bancarios:', error); datosBancariosCache = []; return; }
+  datosBancariosCache = data;
+}
+
+function populateDbpFiltros(){
+  const bancos = [...new Set(datosBancariosCache.map(d => d.banco).filter(Boolean))].sort();
+  document.getElementById('dbp-filter-banco').innerHTML =
+    '<option value="">Todos los bancos</option>' + bancos.map(b => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join('');
+  document.getElementById('dbp-bancos-datalist').innerHTML =
+    bancos.map(b => `<option value="${escapeHtml(b)}">`).join('');
+}
+
+// Algoritmo real de validación de CBU (Argentina): 22 dígitos, dos bloques
+// con dígito verificador propio (bloque banco/sucursal de 8, bloque cuenta de 14).
+function validarCBU(cbu){
+  if(!cbu) return null; // sin dato, no opinamos
+  const limpio = cbu.replace(/\D/g,'');
+  if(limpio.length !== 22) return false;
+  const bloque1 = limpio.slice(0,8), bloque2 = limpio.slice(8);
+  const dv = (digits, pesos) => {
+    const suma = digits.slice(0,-1).split('').reduce((acc,d,i)=>acc + Number(d)*pesos[i], 0);
+    return (10 - (suma % 10)) % 10;
+  };
+  const dv1ok = dv(bloque1, [7,1,3,9,7,1,3]) === Number(bloque1[7]);
+  const dv2ok = dv(bloque2, [3,9,7,1,3,9,7,1,3,9,7,1,3]) === Number(bloque2[13]);
+  return dv1ok && dv2ok;
+}
+
+function getFilteredDatosBancarios(){
+  const q = document.getElementById('dbp-search-input').value.trim().toLowerCase();
+  const banco = document.getElementById('dbp-filter-banco').value;
+  const estado = document.getElementById('dbp-filter-estado').value;
+  let list = datosBancariosCache;
+  if(banco) list = list.filter(d => d.banco === banco);
+  if(estado === 'sin_banco') list = list.filter(d => !d.banco);
+  if(estado === 'cbu_invalido') list = list.filter(d => validarCBU(d.cbu) === false);
+  if(q){
+    list = list.filter(d =>
+      (d.nombre_cuenta||'').toLowerCase().includes(q) ||
+      (d.titularidad||'').toLowerCase().includes(q) ||
+      (d.cuit||'').includes(q) ||
+      (d.alias||'').toLowerCase().includes(q) ||
+      (d.cbu||'').includes(q)
+    );
+  }
+  return list;
+}
+
+function fmtCUIT(cuit){
+  if(!cuit) return '—';
+  const s = cuit.toString().replace(/\D/g,'');
+  if(s.length !== 11) return cuit;
+  return `${s.slice(0,2)}-${s.slice(2,10)}-${s.slice(10)}`;
+}
+
+function renderDatosBancarios(){
+  const list = getFilteredDatosBancarios();
+  const tbody = document.getElementById('dbp-tbody');
+  if(list.length === 0){
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No hay proveedores con este filtro.</td></tr>';
+    document.getElementById('dbp-results-count').textContent = '';
+    return;
+  }
+  tbody.innerHTML = list.map(d=>{
+    const cbuOk = validarCBU(d.cbu);
+    let estadoBadge;
+    if(!d.banco) estadoBadge = '<span class="badge" style="color:#ff9f43;border-color:#ff9f43;" title="Falta cargar el banco">⚠ Sin banco</span>';
+    else if(cbuOk === false) estadoBadge = '<span class="badge" style="color:var(--danger);border-color:var(--danger);" title="El CBU no pasa la validación de dígito verificador">✕ CBU inválido</span>';
+    else estadoBadge = '<span class="badge" style="color:var(--ok);border-color:var(--ok);">✓ OK</span>';
+    return `
+      <tr>
+        <td>
+          <div style="font-weight:600;">${escapeHtml(d.nombre_cuenta)}</div>
+          ${d.titularidad ? `<div class="muted" style="font-size:11px;">${escapeHtml(d.titularidad)}</div>` : ''}
+        </td>
+        <td class="muted">${fmtCUIT(d.cuit)}</td>
+        <td class="muted">${escapeHtml(d.banco || '—')}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-family:monospace;font-size:12px;">${escapeHtml(d.cbu || d.alias || '—')}</span>
+            ${(d.cbu || d.alias) ? `<button class="btn secondary small" title="Copiar" onclick="copiarAlPortapapeles('${escapeHtml(d.cbu || d.alias)}')">📋</button>` : ''}
+          </div>
+          ${(d.alias && d.cbu) ? `<div class="muted" style="font-size:11px;">Alias: ${escapeHtml(d.alias)}</div>` : ''}
+        </td>
+        <td>${estadoBadge}</td>
+        <td>
+          <div class="row-actions">
+            <button class="btn secondary small" onclick="abrirEditarDbp(${d.id})">${puede('datos_bancarios','editar') ? 'Editar' : 'Ver'}</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+  document.getElementById('dbp-results-count').textContent = `${list.length} proveedor(es)`;
+}
+
+function copiarAlPortapapeles(texto){
+  navigator.clipboard.writeText(texto).then(()=> showToast('Copiado al portapapeles'))
+    .catch(()=> showToast('No se pudo copiar', true));
+}
+
+function applyDbpFilters(){ renderDatosBancarios(); }
+document.getElementById('dbp-search-input').addEventListener('input', applyDbpFilters);
+document.getElementById('dbp-filter-banco').addEventListener('change', applyDbpFilters);
+document.getElementById('dbp-filter-estado').addEventListener('change', applyDbpFilters);
+
+function dbpToRows(list){
+  const headers = ['Nombre / Cuenta','Titularidad','CUIT','Banco','CBU','Alias','Observación'];
+  const rows = list.map(d => [d.nombre_cuenta, d.titularidad||'', d.cuit||'', d.banco||'', d.cbu||'', d.alias||'', d.observacion||'']);
+  return { headers, rows };
+}
+document.getElementById('btn-export-dbp-csv').addEventListener('click', ()=>{
+  const { headers, rows } = dbpToRows(getFilteredDatosBancarios());
+  exportCSV('datos_bancarios_proveedores', headers, rows);
+});
+document.getElementById('btn-export-dbp-xls').addEventListener('click', ()=>{
+  const { headers, rows } = dbpToRows(getFilteredDatosBancarios());
+  exportXLS('datos_bancarios_proveedores', headers, rows);
+});
+
+function limpiarModalDbp(){
+  document.getElementById('dbp-id').value = '';
+  document.getElementById('dbp-nombre_cuenta').value = '';
+  document.getElementById('dbp-titularidad').value = '';
+  document.getElementById('dbp-cuit').value = '';
+  document.getElementById('dbp-banco').value = '';
+  document.getElementById('dbp-cbu').value = '';
+  document.getElementById('dbp-alias').value = '';
+  document.getElementById('dbp-observacion').value = '';
+  document.getElementById('dbp-cbu-status').textContent = '';
+}
+
+document.getElementById('btn-new-dbp').addEventListener('click', ()=>{
+  limpiarModalDbp();
+  document.getElementById('dbp-modal-title').textContent = 'Nuevo proveedor';
+  document.getElementById('btn-dbp-delete').style.display = 'none';
+  document.getElementById('modal-dbp-overlay').classList.add('open');
+});
+
+function abrirEditarDbp(id){
+  const d = datosBancariosCache.find(x=>x.id === id);
+  if(!d) return;
+  limpiarModalDbp();
+  document.getElementById('dbp-modal-title').textContent = 'Editar proveedor';
+  document.getElementById('dbp-id').value = d.id;
+  document.getElementById('dbp-nombre_cuenta').value = d.nombre_cuenta || '';
+  document.getElementById('dbp-titularidad').value = d.titularidad || '';
+  document.getElementById('dbp-cuit').value = d.cuit || '';
+  document.getElementById('dbp-banco').value = d.banco || '';
+  document.getElementById('dbp-cbu').value = d.cbu || '';
+  document.getElementById('dbp-alias').value = d.alias || '';
+  document.getElementById('dbp-observacion').value = d.observacion || '';
+  document.getElementById('btn-dbp-delete').style.display = puede('datos_bancarios','eliminar') ? 'inline-block' : 'none';
+  document.getElementById('modal-dbp-overlay').classList.add('open');
+}
+
+document.getElementById('dbp-cbu').addEventListener('input', (e)=>{
+  const cbu = e.target.value.replace(/\D/g,'');
+  const statusEl = document.getElementById('dbp-cbu-status');
+  if(!cbu){ statusEl.textContent = ''; return; }
+  if(cbu.length < 22){ statusEl.textContent = `${cbu.length}/22 dígitos`; statusEl.style.color = 'var(--text-dim)'; return; }
+  const ok = validarCBU(cbu);
+  statusEl.textContent = ok ? '✓ CBU válido' : '✕ El CBU no pasa la validación de dígito verificador — revisalo';
+  statusEl.style.color = ok ? 'var(--ok)' : 'var(--danger)';
+});
+
+document.getElementById('btn-dbp-cancel').addEventListener('click', ()=>{
+  document.getElementById('modal-dbp-overlay').classList.remove('open');
+});
+document.getElementById('modal-dbp-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'modal-dbp-overlay') document.getElementById('modal-dbp-overlay').classList.remove('open');
+});
+
+document.getElementById('btn-dbp-save').addEventListener('click', async ()=>{
+  const id = document.getElementById('dbp-id').value;
+  const nombre = document.getElementById('dbp-nombre_cuenta').value.trim();
+  if(!nombre){ showToast('El nombre / descripción de cuenta es obligatorio', true); return; }
+
+  const payload = {
+    nombre_cuenta: nombre,
+    titularidad: document.getElementById('dbp-titularidad').value.trim() || null,
+    cuit: document.getElementById('dbp-cuit').value.trim() || null,
+    banco: document.getElementById('dbp-banco').value.trim() || null,
+    cbu: document.getElementById('dbp-cbu').value.trim() || null,
+    alias: document.getElementById('dbp-alias').value.trim() || null,
+    observacion: document.getElementById('dbp-observacion').value.trim() || null,
+  };
+
+  try{
+    if(id){
+      const { error } = await supabaseClient.from('datos_bancarios_proveedores').update(payload).eq('id', id);
+      if(error) throw error;
+      showToast('Proveedor actualizado');
+    } else {
+      const { error } = await supabaseClient.from('datos_bancarios_proveedores').insert(payload);
+      if(error) throw error;
+      showToast('Proveedor creado');
+    }
+    document.getElementById('modal-dbp-overlay').classList.remove('open');
+    await loadDatosBancarios();
+    populateDbpFiltros();
+    renderDatosBancarios();
+  } catch(err){
+    console.error(err);
+    showToast('Error al guardar: ' + err.message, true);
+  }
+});
+
+document.getElementById('btn-dbp-delete').addEventListener('click', async ()=>{
+  const id = document.getElementById('dbp-id').value;
+  if(!id) return;
+  if(!confirm('¿Eliminar este proveedor de la base de datos bancarios? Esta acción no se puede deshacer.')) return;
+  try{
+    const { error } = await supabaseClient.from('datos_bancarios_proveedores').delete().eq('id', id);
+    if(error) throw error;
+    document.getElementById('modal-dbp-overlay').classList.remove('open');
+    await loadDatosBancarios();
+    populateDbpFiltros();
+    renderDatosBancarios();
+    showToast('Proveedor eliminado');
+  } catch(err){
+    console.error(err);
+    showToast('Error al eliminar: ' + err.message, true);
+  }
+});
+
+// =========================================================
 // MÓDULO: Presupuestos (numeración correlativa, nunca se borran)
 // =========================================================
 let presupuestosCache = [];
@@ -7948,6 +8255,14 @@ async function initApp(){
       inicializarFechasPlanning();
       renderPlanning();
     }
+
+    if(puede('datos_bancarios','ver')){
+      console.log('[Horizon] cargando datos bancarios de proveedores...');
+      await loadDatosBancarios();
+      populateDbpFiltros();
+      renderDatosBancarios();
+    }
+    document.getElementById('btn-new-dbp').style.display = puede('datos_bancarios','crear') ? '' : 'none';
 
     console.log('[Horizon] listo.');
     renderDashboard();
