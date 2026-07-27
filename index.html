@@ -1249,30 +1249,47 @@
   </section>
 
   <div class="overlay" id="modal-dbp-overlay">
-    <div class="modal" style="max-width:560px;">
-      <h3 id="dbp-modal-title">Nuevo proveedor</h3>
+    <div class="modal">
+      <h2 id="dbp-modal-title">Nuevo proveedor</h2>
       <input type="hidden" id="dbp-id">
-      <label>Nombre / Descripción de cuenta *</label>
-      <input type="text" id="dbp-nombre_cuenta" placeholder="Ej: WURTH ARGENTINA SA">
-      <label>Titularidad (razón social completa)</label>
-      <input type="text" id="dbp-titularidad" placeholder="Opcional">
-      <label>CUIT</label>
-      <input type="text" id="dbp-cuit" placeholder="Sin guiones, ej: 30631810582">
-      <label>Banco</label>
-      <input type="text" id="dbp-banco" list="dbp-bancos-datalist" placeholder="Ej: BANCO DE GALICIA Y BUENOS AIRES">
-      <datalist id="dbp-bancos-datalist"></datalist>
-      <label>CBU</label>
-      <input type="text" id="dbp-cbu" placeholder="22 dígitos" maxlength="22">
-      <div id="dbp-cbu-status" class="muted" style="font-size:12px;margin-top:4px;"></div>
-      <label>Alias</label>
-      <input type="text" id="dbp-alias" placeholder="Opcional">
-      <label>Observación</label>
-      <input type="text" id="dbp-observacion" placeholder="Opcional">
-      <div style="display:flex;gap:10px;margin-top:16px;">
-        <button class="btn" id="btn-dbp-save">Guardar</button>
+
+      <div class="field-grid">
+        <div class="field full">
+          <label>Nombre / Descripción de cuenta *</label>
+          <input type="text" id="dbp-nombre_cuenta" placeholder="Ej: WURTH ARGENTINA SA">
+        </div>
+        <div class="field full">
+          <label>Titularidad (razón social completa)</label>
+          <input type="text" id="dbp-titularidad" placeholder="Opcional">
+        </div>
+        <div class="field">
+          <label>CUIT</label>
+          <input type="text" id="dbp-cuit" placeholder="Sin guiones, ej: 30631810582">
+        </div>
+        <div class="field">
+          <label>Banco</label>
+          <input type="text" id="dbp-banco" list="dbp-bancos-datalist" placeholder="Ej: BANCO DE GALICIA">
+          <datalist id="dbp-bancos-datalist"></datalist>
+        </div>
+        <div class="field full">
+          <label>CBU</label>
+          <input type="text" id="dbp-cbu" placeholder="22 dígitos" maxlength="22">
+          <div id="dbp-cbu-status" class="muted" style="font-size:12px;margin-top:4px;"></div>
+        </div>
+        <div class="field">
+          <label>Alias</label>
+          <input type="text" id="dbp-alias" placeholder="Opcional">
+        </div>
+        <div class="field">
+          <label>Observación</label>
+          <input type="text" id="dbp-observacion" placeholder="Opcional">
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn danger" id="btn-dbp-delete" style="display:none;margin-right:auto;">Eliminar</button>
         <button class="btn secondary" id="btn-dbp-cancel">Cancelar</button>
-        <div style="flex:1"></div>
-        <button class="btn danger" id="btn-dbp-delete" style="display:none;">Eliminar</button>
+        <button class="btn" id="btn-dbp-save">Guardar</button>
       </div>
     </div>
   </div>
