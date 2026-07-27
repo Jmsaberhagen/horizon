@@ -3445,7 +3445,7 @@ async function loadPendientes(){
     const { data, error } = await supabaseClient
       .from('pendientes_facturacion')
       .select(`*, contratos(
-          id, moneda, cliente_id, fecha_salida,
+          id, moneda, cliente_id, fecha_salida, estado,
           tiene_flete_entrega, costo_flete_entrega, flete_entrega_facturado,
           tiene_flete_retiro, costo_flete_retiro, flete_retiro_facturado,
           remito, orden_de_compra, obra, contacto_obra, observacion,
@@ -3563,15 +3563,18 @@ function obtenerUltimaFacturaDelContrato(contratoId){
 function pendientesToRows(list){
   const headers = [
     'Cliente','Equipo','Modelo','Sucursal','Provincia','Periodo Desde','Periodo Hasta','Valor USD','Estado','N Factura',
+    'Estado Contrato',
     'Ultimo Periodo Facturado Desde','Ultimo Periodo Facturado Hasta','N Factura Ultimo Periodo','Fecha Emision Ultima Factura',
   ];
   const rows = list.map(p => {
     const ultima = obtenerUltimaFacturaDelContrato(p.contrato_id);
+    const estadoContrato = p.contratos?.estado === 'activo' ? 'Activo' : 'De baja';
     return [
       p.contratos?.clientes?.razon_social || '', p.contratos?.equipos?.numero_serie || '', p.contratos?.equipos?.modelo || '',
       p.contratos?.sucursales?.nombre || '', p.contratos?.clientes?.provincia || '',
       p.periodo_desde || '', p.periodo_hasta || '', p.valor_alquiler_usd ?? '',
       p.estado, p.numero_factura || '',
+      estadoContrato,
       ultima?.periodo_desde || '', ultima?.periodo_hasta || '', ultima?.numero_factura || '', ultima?.fecha_facturacion || '',
     ];
   });
