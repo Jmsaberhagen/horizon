@@ -711,6 +711,7 @@
       <div style="flex:1"></div>
       <button class="btn secondary" id="btn-export-pendientes-csv">Exportar CSV</button>
       <button class="btn secondary" id="btn-export-pendientes-xls">Exportar XLSX</button>
+      <button class="btn secondary" id="btn-export-pendientes-agrupado">📊 Exportar Agrupado por Cliente</button>
       <button class="btn secondary" id="btn-nuevo-pendiente">+ Pendiente manual</button>
     </div>
 
@@ -3676,6 +3677,57 @@ document.getElementById('btn-export-pendientes-csv').addEventListener('click', (
 document.getElementById('btn-export-pendientes-xls').addEventListener('click', ()=>{
   const { headers, rows } = pendientesToRows(getFilteredPendientesLista());
   exportXLS('pendientes_horizon', headers, rows);
+});
+
+// Vista agrupada: pensada para decidir por dónde arrancar a facturar.
+// Agrupa por Cliente (ordenado por quien tiene más plata pendiente primero),
+// y dentro de cada cliente ordena por N° de serie, con subtotal por cliente
+// y total general al pie.
+function pendientesAgrupadoToRows(list){
+  const headers = ['Cliente','N Equipo','Modelo','Sucursal','Periodo Desde','Periodo Hasta','Valor USD','Estado','N Factura'];
+
+  const porCliente = new Map();
+  list.forEach(p=>{
+    const clienteId = p.contratos?.clientes?.id || 'sin_cliente';
+    const clienteNombre = p.contratos?.clientes?.razon_social || '(Sin cliente)';
+    if(!porCliente.has(clienteId)) porCliente.set(clienteId, { nombre: clienteNombre, items: [], total: 0 });
+    const grupo = porCliente.get(clienteId);
+    const valor = Number(p.valor_alquiler_usd) || 0;
+    grupo.total += (p.estado === 'pendiente' ? valor : 0); // el total que "queda por facturar" solo suma lo pendiente
+    grupo.items.push(p);
+  });
+
+  // Clientes con más plata pendiente primero, así se sabe por dónde arrancar
+  const grupos = [...porCliente.values()].sort((a,b)=> b.total - a.total);
+
+  const rows = [];
+  let totalGeneral = 0;
+  grupos.forEach(grupo=>{
+    // Dentro del cliente: por N° de serie, para no repetir viajes/búsquedas de la misma máquina
+    grupo.items.sort((a,b)=> (a.contratos?.equipos?.numero_serie||'').localeCompare(b.contratos?.equipos?.numero_serie||''));
+    grupo.items.forEach(p=>{
+      rows.push([
+        grupo.nombre,
+        p.contratos?.equipos?.numero_serie || '',
+        p.contratos?.equipos?.modelo || '',
+        p.contratos?.sucursales?.nombre || '',
+        p.periodo_desde || '', p.periodo_hasta || '',
+        p.valor_alquiler_usd ?? '',
+        p.estado,
+        p.numero_factura || '',
+      ]);
+    });
+    rows.push([`TOTAL ${grupo.nombre} ►`, '', '', '', '', '', grupo.total.toFixed(2), '', '']);
+    rows.push(['', '', '', '', '', '', '', '', '']);
+    totalGeneral += grupo.total;
+  });
+  rows.push(['TOTAL GENERAL PENDIENTE ►', '', '', '', '', '', totalGeneral.toFixed(2), '', '']);
+
+  return { headers, rows };
+}
+document.getElementById('btn-export-pendientes-agrupado').addEventListener('click', ()=>{
+  const { headers, rows } = pendientesAgrupadoToRows(getFilteredPendientesLista());
+  exportXLS('pendientes_horizon_agrupado_por_cliente', headers, rows);
 });
 
 // Cache de requisitos por cliente_id, para no ir a buscar a supabase cada vez
