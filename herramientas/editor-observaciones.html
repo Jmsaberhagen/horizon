@@ -218,7 +218,7 @@
 
     <div class="step">
       <h2><span class="step-num">3</span>Corregir período informado <span class="badge">automático</span></h2>
-      <div class="hint">Ingresá las fechas correctas y el sistema reemplaza el bloque "De: ... A: ... US$" con la tipografía y tamaño exactos del original (Tahoma / Trebuchet MS), sin que tengas que dibujar ni tapar nada a mano.</div>
+      <div class="hint">Ingresá las fechas correctas y el sistema reemplaza el bloque "De: ... A: ... US$" con la tipografía y tamaño exactos del original (Tahoma / Trebuchet MS), sin que tengas que dibujar ni tapar nada a mano. Se aplica automáticamente a todas las páginas del PDF (ORIGINAL y DUPLICADO).</div>
       <div class="row2">
         <div>
           <label class="hint">Fecha Desde</label>
@@ -579,8 +579,9 @@ document.getElementById('deleteZone').addEventListener('click', ()=>{
 });
 
 // ---------- Corrección automática de período ----------
-function findPeriodoZoneIndex(){
-  return getZones().findIndex(z => z.type === 'periodo');
+function findPeriodoZoneIndexEnPagina(pageNum){
+  const zones = zonesByPage[pageNum] || [];
+  return zones.findIndex(z => z.type === 'periodo');
 }
 
 document.getElementById('btnInsertarPeriodo').addEventListener('click', ()=>{
@@ -595,8 +596,6 @@ document.getElementById('btnInsertarPeriodo').addEventListener('click', ()=>{
   // los inputs de ajuste fino están en px de canvas; los guardamos ya convertidos a puntos PDF
   const dx = dxPts / s, dy = dyPts / s;
 
-  const zones = getZones();
-  let idx = findPeriodoZoneIndex();
   const zonaData = {
     type:'periodo',
     x: PERIODO_CAL.zoneX*s, y: PERIODO_CAL.zoneY*s, w: PERIODO_CAL.zoneW*s, h: PERIODO_CAL.zoneH*s,
@@ -604,21 +603,30 @@ document.getElementById('btnInsertarPeriodo').addEventListener('click', ()=>{
     fechaHasta: fechaISOaDDMMYYYY(hastaIso),
     dx, dy,
   };
-  if(idx === -1){
-    zones.push(zonaData);
-    idx = zones.length-1;
-  } else {
-    Object.assign(zones[idx], zonaData);
+
+  // Se aplica a TODAS las páginas del PDF (ej. ORIGINAL y DUPLICADO comparten el mismo diseño)
+  let idxEnPaginaActual = -1;
+  for(let p=1; p<=totalPages; p++){
+    if(!zonesByPage[p]) zonesByPage[p] = [];
+    const idx = findPeriodoZoneIndexEnPagina(p);
+    if(idx === -1){
+      zonesByPage[p].push({...zonaData});
+      if(p === currentPageNum) idxEnPaginaActual = zonesByPage[p].length-1;
+    } else {
+      Object.assign(zonesByPage[p][idx], zonaData);
+      if(p === currentPageNum) idxEnPaginaActual = idx;
+    }
   }
-  activeZoneIndex = idx;
+  activeZoneIndex = idxEnPaginaActual;
   redrawOverlay();
   renderZoneList();
 });
 
 document.getElementById('btnQuitarPeriodo').addEventListener('click', ()=>{
-  const idx = findPeriodoZoneIndex();
-  if(idx === -1) return;
-  getZones().splice(idx,1);
+  for(let p=1; p<=totalPages; p++){
+    const idx = findPeriodoZoneIndexEnPagina(p);
+    if(idx !== -1) zonesByPage[p].splice(idx,1);
+  }
   activeZoneIndex = -1;
   redrawOverlay();
   renderZoneList();
