@@ -217,8 +217,38 @@
     </div>
 
     <div class="step">
-      <h2><span class="step-num">3</span>Zona a editar</h2>
-      <div class="hint">Dibujá un rectángulo sobre el bloque de observaciones (Remito, OC, HES, Certificación, autorización, etc.) haciendo click y arrastrando sobre el documento.</div>
+      <h2><span class="step-num">3</span>Corregir período informado <span class="badge">automático</span></h2>
+      <div class="hint">Ingresá las fechas correctas y el sistema reemplaza el bloque "De: ... A: ... US$" con la tipografía y tamaño exactos del original (Tahoma / Trebuchet MS), sin que tengas que dibujar ni tapar nada a mano.</div>
+      <div class="row2">
+        <div>
+          <label class="hint">Fecha Desde</label>
+          <input type="date" id="periodoDesde">
+        </div>
+        <div>
+          <label class="hint">Fecha Hasta</label>
+          <input type="date" id="periodoHasta">
+        </div>
+      </div>
+      <div class="hint" style="margin-top:8px;">Ajuste fino (solo si el bloque no cae en el lugar exacto, ej. factura con varios ítems):</div>
+      <div class="row2">
+        <div>
+          <label class="hint">Desplazar X (px)</label>
+          <input type="number" id="periodoOffsetX" value="0" step="1">
+        </div>
+        <div>
+          <label class="hint">Desplazar Y (px)</label>
+          <input type="number" id="periodoOffsetY" value="0" step="1">
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="primary" id="btnInsertarPeriodo">Insertar / actualizar período</button>
+        <button class="danger" id="btnQuitarPeriodo">Quitar corrección de período</button>
+      </div>
+    </div>
+
+    <div class="step">
+      <h2><span class="step-num">4</span>Zona a editar (manual)</h2>
+      <div class="hint">Para otros datos (Remito, OC, HES, Certificación, autorización, etc.) dibujá un rectángulo sobre el bloque haciendo click y arrastrando sobre el documento.</div>
       <div class="mode-toggle">
         <button class="secondary on" id="modeDraw">Dibujar zona</button>
         <button class="secondary" id="modeSelect">Seleccionar zona</button>
@@ -227,7 +257,7 @@
     </div>
 
     <div class="step" id="editBox" style="display:none;">
-      <h2><span class="step-num">4</span>Editar contenido de la zona</h2>
+      <h2><span class="step-num">5</span>Editar contenido de la zona</h2>
       <div class="textarea-block">
         <textarea id="zoneText" placeholder="Ej: REMITO 3162&#10;OC 759-G194&#10;HES 00458&#10;OBRA 759 PLUSPETROL"></textarea>
       </div>
@@ -265,7 +295,7 @@
     </div>
 
     <div class="step">
-      <h2><span class="step-num">5</span>Exportar</h2>
+      <h2><span class="step-num">6</span>Exportar</h2>
       <div class="btn-row">
         <button class="primary" id="exportPdf" disabled>Descargar PDF editado</button>
       </div>
@@ -303,12 +333,58 @@ let overlayCanvas = document.getElementById('overlayCanvas');
 let baseCtx = baseCanvas.getContext('2d');
 let overlayCtx = overlayCanvas.getContext('2d');
 
-// zones per page: { pageNum: [ {x,y,w,h,text,fontSize,color,align,fontFamily} ] }
+// zones per page: { pageNum: [ {x,y,w,h,text,fontSize,color,align,fontFamily,type} ] }
 let zonesByPage = {};
 let activeZoneIndex = -1;
 let mode = 'draw'; // 'draw' | 'select'
 let drawing = false;
 let startX, startY;
+
+// Calibración exacta (en puntos PDF, 72dpi) tomada carácter por carácter de una
+// factura real del sistema Horizon: "De: DD/MM/YYYY  A: DD/MM/YYYY  US$"
+// "De:" / "A:" / "US$" -> Tahoma 7.45pt · fechas -> Trebuchet MS 8pt · todo negro.
+const PERIODO_CAL = {
+  xDe: 269.0, xFechaDesde: 287.0, xA: 348.1, xFechaHasta: 359.5, xUS: 413.6,
+  yTopEtiquetas: 321.0,  // top del texto Tahoma
+  yTopFechas: 321.6,     // top del texto Trebuchet MS (prácticamente igual)
+  zoneX: 266, zoneY: 318, zoneW: 172, zoneH: 13,
+  fontTahoma: 7.45, fontTrebuchet: 8.0,
+  fontFamilyTahoma: "Tahoma, Verdana, Geneva, sans-serif",
+  fontFamilyTrebuchet: "'Trebuchet MS', Tahoma, Verdana, sans-serif",
+};
+
+function fechaISOaDDMMYYYY(iso){
+  if(!iso) return '';
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function drawPeriodoZone(ctx, z, interactive){
+  const s = RENDER_SCALE;
+  ctx.save();
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(z.x, z.y, z.w, z.h);
+  if(interactive){
+    ctx.strokeStyle = z.__active ? '#1652a3' : '#c9c9c9';
+    ctx.lineWidth = z.__active ? 2 : 1;
+    ctx.setLineDash(z.__active ? [] : [4,3]);
+    ctx.strokeRect(z.x, z.y, z.w, z.h);
+  }
+
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = '#000000';
+  const dx = (z.dx||0)*s, dy = (z.dy||0)*s;
+  const draw = (text, xPts, yPts, fontPts, fontFamily) => {
+    ctx.font = `${fontPts*s}px ${fontFamily}`;
+    ctx.fillText(text, xPts*s + dx, yPts*s + dy);
+  };
+  draw('De:', PERIODO_CAL.xDe, PERIODO_CAL.yTopEtiquetas, PERIODO_CAL.fontTahoma, PERIODO_CAL.fontFamilyTahoma);
+  draw(z.fechaDesde||'', PERIODO_CAL.xFechaDesde, PERIODO_CAL.yTopFechas, PERIODO_CAL.fontTrebuchet, PERIODO_CAL.fontFamilyTrebuchet);
+  draw('A:', PERIODO_CAL.xA, PERIODO_CAL.yTopEtiquetas, PERIODO_CAL.fontTahoma, PERIODO_CAL.fontFamilyTahoma);
+  draw(z.fechaHasta||'', PERIODO_CAL.xFechaHasta, PERIODO_CAL.yTopFechas, PERIODO_CAL.fontTrebuchet, PERIODO_CAL.fontFamilyTrebuchet);
+  draw('US$', PERIODO_CAL.xUS, PERIODO_CAL.yTopEtiquetas, PERIODO_CAL.fontTahoma, PERIODO_CAL.fontFamilyTahoma);
+  ctx.restore();
+}
 
 document.getElementById('fileInput').addEventListener('change', async (e)=>{
   const file = e.target.files[0];
@@ -423,7 +499,7 @@ overlayCanvas.addEventListener('mouseup', (e)=>{
   const zones = getZones();
   zones.push({
     x:zx, y:zy, w:zw, h:zh,
-    text:'', fontSize:22, color:'#000000', align:'left', fontFamily:'Arial, sans-serif'
+    text:'', fontSize:22, color:'#000000', align:'left', fontFamily:'Arial, sans-serif', type:'text'
   });
   selectZone(zones.length-1);
 });
@@ -431,6 +507,15 @@ overlayCanvas.addEventListener('mouseup', (e)=>{
 function selectZone(i){
   activeZoneIndex = i;
   const z = getZones()[i];
+  if(z.type === 'periodo'){
+    // los períodos se editan desde su propio panel (paso 3), no desde el editor genérico
+    document.getElementById('editBox').style.display='none';
+    document.getElementById('periodoDesde').value = ddmmyyyyAiso(z.fechaDesde);
+    document.getElementById('periodoHasta').value = ddmmyyyyAiso(z.fechaHasta);
+    redrawOverlay();
+    renderZoneList();
+    return;
+  }
   document.getElementById('editBox').style.display='block';
   document.getElementById('zoneText').value = z.text;
   document.getElementById('fontSize').value = z.fontSize;
@@ -441,6 +526,13 @@ function selectZone(i){
   renderZoneList();
 }
 
+function ddmmyyyyAiso(ddmmyyyy){
+  if(!ddmmyyyy) return '';
+  const [d,m,y] = ddmmyyyy.split('/');
+  if(!d||!m||!y) return '';
+  return `${y}-${m}-${d}`;
+}
+
 function renderZoneList(){
   const zones = getZones();
   const ul = document.getElementById('zoneList');
@@ -449,7 +541,11 @@ function renderZoneList(){
     const li = document.createElement('li');
     if(i===activeZoneIndex) li.classList.add('active');
     const label = document.createElement('span');
-    label.textContent = `Zona ${i+1}${z.text? ' · '+z.text.slice(0,18).replace(/\n/g,' ') : ' (vacía)'}`;
+    if(z.type === 'periodo'){
+      label.textContent = `📅 Período: ${z.fechaDesde||'?'} → ${z.fechaHasta||'?'}`;
+    } else {
+      label.textContent = `Zona ${i+1}${z.text? ' · '+z.text.slice(0,18).replace(/\n/g,' ') : ' (vacía)'}`;
+    }
     const btn = document.createElement('button');
     btn.className='secondary';
     btn.textContent='Editar';
@@ -482,10 +578,61 @@ document.getElementById('deleteZone').addEventListener('click', ()=>{
   renderZoneList();
 });
 
+// ---------- Corrección automática de período ----------
+function findPeriodoZoneIndex(){
+  return getZones().findIndex(z => z.type === 'periodo');
+}
+
+document.getElementById('btnInsertarPeriodo').addEventListener('click', ()=>{
+  if(!pdfDoc){ alert('Primero cargá un PDF.'); return; }
+  const desdeIso = document.getElementById('periodoDesde').value;
+  const hastaIso = document.getElementById('periodoHasta').value;
+  if(!desdeIso || !hastaIso){ alert('Completá ambas fechas.'); return; }
+
+  const s = RENDER_SCALE;
+  const dxPts = parseFloat(document.getElementById('periodoOffsetX').value)||0;
+  const dyPts = parseFloat(document.getElementById('periodoOffsetY').value)||0;
+  // los inputs de ajuste fino están en px de canvas; los guardamos ya convertidos a puntos PDF
+  const dx = dxPts / s, dy = dyPts / s;
+
+  const zones = getZones();
+  let idx = findPeriodoZoneIndex();
+  const zonaData = {
+    type:'periodo',
+    x: PERIODO_CAL.zoneX*s, y: PERIODO_CAL.zoneY*s, w: PERIODO_CAL.zoneW*s, h: PERIODO_CAL.zoneH*s,
+    fechaDesde: fechaISOaDDMMYYYY(desdeIso),
+    fechaHasta: fechaISOaDDMMYYYY(hastaIso),
+    dx, dy,
+  };
+  if(idx === -1){
+    zones.push(zonaData);
+    idx = zones.length-1;
+  } else {
+    Object.assign(zones[idx], zonaData);
+  }
+  activeZoneIndex = idx;
+  redrawOverlay();
+  renderZoneList();
+});
+
+document.getElementById('btnQuitarPeriodo').addEventListener('click', ()=>{
+  const idx = findPeriodoZoneIndex();
+  if(idx === -1) return;
+  getZones().splice(idx,1);
+  activeZoneIndex = -1;
+  redrawOverlay();
+  renderZoneList();
+});
+
 function redrawOverlay(){
   overlayCtx.clearRect(0,0,overlayCanvas.width, overlayCanvas.height);
   const zones = getZones();
   zones.forEach((z,i)=>{
+    z.__active = (i===activeZoneIndex);
+    if(z.type === 'periodo'){
+      drawPeriodoZone(overlayCtx, z, true);
+      return;
+    }
     // white cover
     overlayCtx.fillStyle = '#ffffff';
     overlayCtx.fillRect(z.x, z.y, z.w, z.h);
@@ -558,6 +705,10 @@ document.getElementById('exportPdf').addEventListener('click', async ()=>{
     // apply zones for this page
     const zones = zonesByPage[p] || [];
     zones.forEach(z=>{
+      if(z.type === 'periodo'){
+        drawPeriodoZone(tmpCtx, z);
+        return;
+      }
       tmpCtx.fillStyle = '#ffffff';
       tmpCtx.fillRect(z.x, z.y, z.w, z.h);
       if(z.text) drawWrappedText(tmpCtx, z);
