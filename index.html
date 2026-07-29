@@ -3153,17 +3153,22 @@ function descargarRedistribucionPDF(){
     doc.text(`${modelo}  (${contratosModelo.length} equipo${contratosModelo.length === 1 ? '' : 's'})`, marginX + 2, y);
     y += 5;
 
-    const body = contratosModelo.map(c => [
-      c.clientes?.razon_social || '—',
-      c.clientes?.provincia || '—',
-      c.sucursales?.nombre || '—',
-      c.equipos?.numero_serie || '—',
-      fmtMoney(c.precio_mensual_con_descuento ?? c.precio_mensual_sin_descuento ?? 0, c.moneda),
-    ]);
+    const body = contratosModelo.map(c => {
+      const ultima = obtenerUltimaFacturaDelContrato(c.id);
+      return [
+        c.clientes?.razon_social || '—',
+        c.clientes?.provincia || '—',
+        c.sucursales?.nombre || '—',
+        c.equipos?.numero_serie || '—',
+        fmtMoney(c.precio_mensual_con_descuento ?? c.precio_mensual_sin_descuento ?? 0, c.moneda),
+        ultima ? fmtDate(ultima.periodo_hasta) : '—',
+        ultima ? fmtDate(addDays(ultima.periodo_hasta, 1)) : '—',
+      ];
+    });
 
     doc.autoTable({
       startY: y,
-      head: [['Cliente', 'Provincia', 'Sucursal', 'N° Serie', 'Precio mensual']],
+      head: [['Cliente', 'Provincia', 'Sucursal', 'N° Serie', 'Precio mensual', 'Últ. período facturado', 'Próximo a facturar']],
       body: body,
       theme: 'grid',
       styles: { fontSize: 8.5, cellPadding: 1.5 },
