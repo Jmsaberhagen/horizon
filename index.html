@@ -2563,6 +2563,7 @@ document.querySelectorAll('nav button[data-tab]').forEach(btn=>{
 });
 
 document.getElementById('btn-volver-inicio').addEventListener('click', ()=>{
+  dashCategoriaActual = null; // al volver al inicio explícitamente, arrancamos desde las categorías
   activarTab('inicio');
   renderDashboard(); // refresca contadores al volver
 });
@@ -4856,12 +4857,14 @@ document.getElementById('btn-usuario-save').addEventListener('click', async ()=>
 });
 
 // ---------- Dashboard (Inicio) ----------
+let dashCategoriaActual = null; // null = viendo las categorías; string = viendo el detalle de una categoría
+
 function renderDashboard(){
   const rol = miPerfil.rol;
   document.getElementById('dash-saludo').textContent = `Hola, ${miPerfil.nombre.split(' ')[0]}`;
 
   const categorias = [
-    { titulo:'Ventas', tiles:[
+    { key:'ventas', titulo:'Ventas', icon:'💵', tiles:[
       { tab:'clientes',   icon:'🏢', title:'Clientes',   count:`${clientesCache.length} cargados`, visible:puede('clientes','ver') },
       { tab:'contratos',  icon:'📄', title:'Contratos',  count:`${contratosCache.length} totales${(() => { const n = contratosCache.filter(c=>!c.datos_confirmados).length; return n>0 ? ` — ⚠ ${n} a confirmar` : ''; })()}`, visible:puede('contratos','ver') },
       { tab:'pendientes', icon:'💰', title:'Pendientes de Facturación', count: puede('pendientes','ver') ? `${pendientesCache.filter(p=>p.estado==='pendiente').length} sin facturar` : '', visible:puede('pendientes','ver') },
@@ -4869,45 +4872,76 @@ function renderDashboard(){
       { tab:'panoramacobranzas', icon:'📊', title:'Panorama de Cobranzas', count: '', visible:puede('panoramacobranzas','ver') },
       { tab:'cuentacliente', icon:'🧾', title:'Cuenta Cliente', count:'Historial por cliente', visible:puede('cuentacliente','ver') },
     ]},
-    { titulo:'Logística', tiles:[
+    { key:'logistica', titulo:'Logística', icon:'🚜', tiles:[
       { tab:'equipos',    icon:'🚜', title:'Equipos',    count:`${equiposCache.length} en catálogo`, visible:puede('equipos','ver') },
       { tab:'planning',   icon:'📅', title:'Planning',   count:'Ocupación de flota', visible:puede('planning','ver') },
       { tab:'retiros',    icon:'🚨', title:'Pendientes de Retiro', count: puede('retiros','ver') ? `${calcularRetirosUrgentes().length} urgente(s)` : '', visible:puede('retiros','ver') },
       { tab:'remitos',    icon:'📋', title:'Remitos',    count: puede('remitos','ver') ? `${remitosCache.filter(r=>!r.fecha_retiro).length} pendiente(s) de retiro` : '', visible:puede('remitos','ver') },
     ]},
-    { titulo:'Compras', tiles:[
+    { key:'compras', titulo:'Compras', icon:'🧾', tiles:[
       { tab:'panoramaproveedores', icon:'📉', title:'Panorama de Deuda a Proveedores', count: '', visible:puede('panoramaproveedores','ver') },
       { tab:'datosbancarios', icon:'🏦', title:'Datos Bancarios de Proveedores', count:`${datosBancariosCache.length} proveedores`, visible:puede('datos_bancarios','ver') },
       { tab:'conciliacioncompras', icon:'🧾', title:'Conciliación de Compras', count: '', visible:puede('conciliacioncompras','ver') },
     ]},
-    { titulo:'Herramientas', tiles:[
+    { key:'herramientas', titulo:'Herramientas', icon:'🛠️', tiles:[
       { tab:'editorobs', icon:'✏️', title:'Editor de Observaciones', count: '', visible:puede('editorobs','ver') },
       { tab:'reportes',   icon:'📊', title:'Reportes',   count:'Mora y facturación', visible:puede('reportes','ver') },
       { tab:'enviofacturas', icon:'📧', title:'Envío de Facturas', count: puede('enviofacturas','ver') ? `${todasFacturasPdfCache.filter(f=>!f._enviada).length} sin enviar` : '', visible:puede('enviofacturas','ver') },
     ]},
-    { titulo:'Usuarios', tiles:[
+    { key:'usuarios', titulo:'Usuarios', icon:'👤', tiles:[
       { tab:'usuarios',   icon:'👤', title:'Usuarios',   count:`${usuariosCache.length} cuentas`, visible:puede('usuarios','ver') },
     ]},
-  ];
+  ].map(cat=>({ ...cat, tiles: cat.tiles.filter(t=>t.visible) }))
+   .filter(cat=>cat.tiles.length > 0);
 
   const contenedor = document.getElementById('dash-categories');
-  contenedor.innerHTML = categorias.map(cat=>{
-    const visibles = cat.tiles.filter(t=>t.visible);
-    if(visibles.length === 0) return '';
-    return `
-      <div class="dash-category">
-        <div class="dash-category-title"><span class="bar"></span>${cat.titulo}</div>
-        <div class="dash-grid">
-          ${visibles.map(t=>`
-            <div class="dash-tile" tabindex="0" role="button" onclick="irATab('${t.tab}')" onkeydown="if(event.key==='Enter')irATab('${t.tab}')">
-              <div class="glow"></div>
-              <div class="icon">${t.icon}</div>
-              <div class="title">${t.title}</div>
-              <div class="count">${t.count}</div>
-            </div>`).join('')}
-        </div>
+
+  // Si la categoría que tenía abierta ya no existe (permisos cambiaron), volvemos al inicio
+  if(dashCategoriaActual && !categorias.find(c=>c.key===dashCategoriaActual)){
+    dashCategoriaActual = null;
+  }
+
+  if(!dashCategoriaActual){
+    // ---------- Vista de categorías ----------
+    document.getElementById('dash-saludo').textContent = `Hola, ${miPerfil.nombre.split(' ')[0]}`;
+    document.querySelector('.dash-hero .sub').textContent = '¿Qué necesitás hacer hoy?';
+    contenedor.innerHTML = `
+      <div class="dash-grid">
+        ${categorias.map(cat=>`
+          <div class="dash-tile dash-tile-categoria" tabindex="0" role="button" onclick="abrirCategoriaDashboard('${cat.key}')" onkeydown="if(event.key==='Enter')abrirCategoriaDashboard('${cat.key}')">
+            <div class="glow"></div>
+            <div class="icon">${cat.icon}</div>
+            <div class="title">${cat.titulo}</div>
+            <div class="count">${cat.tiles.length} sección(es)</div>
+          </div>`).join('')}
       </div>`;
-  }).join('');
+    return;
+  }
+
+  // ---------- Vista de detalle de una categoría ----------
+  const cat = categorias.find(c=>c.key===dashCategoriaActual);
+  document.querySelector('.dash-hero .sub').innerHTML = `<a href="#" onclick="volverACategoriasDashboard();return false;" style="color:var(--accent);text-decoration:none;">← Volver</a>`;
+  contenedor.innerHTML = `
+    <div class="dash-category-title" style="margin-bottom:18px;"><span class="bar"></span>${cat.titulo}</div>
+    <div class="dash-grid">
+      ${cat.tiles.map(t=>`
+        <div class="dash-tile" tabindex="0" role="button" onclick="irATab('${t.tab}')" onkeydown="if(event.key==='Enter')irATab('${t.tab}')">
+          <div class="glow"></div>
+          <div class="icon">${t.icon}</div>
+          <div class="title">${t.title}</div>
+          <div class="count">${t.count}</div>
+        </div>`).join('')}
+    </div>`;
+}
+
+function abrirCategoriaDashboard(key){
+  dashCategoriaActual = key;
+  renderDashboard();
+}
+
+function volverACategoriasDashboard(){
+  dashCategoriaActual = null;
+  renderDashboard();
 }
 
 function irATab(tab){
