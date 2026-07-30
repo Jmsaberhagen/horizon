@@ -457,7 +457,7 @@ function descargarPDF(){
   });
   y = doc.lastAutoTable.finalY + 10;
 
-  const seccion = (titulo, colorFill, headRow, body)=>{
+  const seccion = (titulo, colorFill, headRow, body, totalMonto)=>{
     doc.addPage();
     drawHeader();
 
@@ -483,14 +483,34 @@ function descargarPDF(){
       return;
     }
 
+    // fila de totales al pie: una celda "TOTAL" que ocupa todas las columnas
+    // menos la última, y el importe sumado en la última (misma columna del monto)
+    const ultimaColIdx = headRow.length - 1;
+    const filaTotal = headRow.map((_, i)=> i === 0 ? 'TOTAL' : (i === ultimaColIdx ? fmtMoney(totalMonto) : ''));
+    const colspanTotal = ultimaColIdx; // todas menos la última
+
     doc.autoTable({
       startY: y,
       head: [headRow],
       body,
+      foot: [filaTotal],
       theme: 'grid',
       styles: { fontSize: 8, cellPadding: 1.5 },
       headStyles: { fillColor: colorFill, textColor: 255, fontStyle: 'bold' },
+      footStyles: { fillColor: [235,235,235], textColor: 0, fontStyle: 'bold', fontSize: 9 },
       margin: { left: marginX, right: marginX, top: 15 },
+      didParseCell: (data)=>{
+        if(data.section === 'foot' && data.column.index === 0){
+          data.colSpan = colspanTotal;
+          data.cell.styles.halign = 'right';
+        }
+        if(data.section === 'foot' && data.column.index > 0 && data.column.index < colspanTotal){
+          data.cell.text = [];
+        }
+        if(data.section === 'foot' && data.column.index === ultimaColIdx){
+          data.cell.styles.halign = 'right';
+        }
+      },
     });
     y = doc.lastAutoTable.finalY + 8;
   };
@@ -499,17 +519,20 @@ function descargarPDF(){
     .slice().sort((a,b)=>(b.total||0)-(a.total||0))
     .map(c=>[c.fecha, c.clase, c.denomEmisor, c.cuitEmisor, `${c.letra} ${c.pv}-${c.numero}`, fmtMoney(c.total)]);
   seccion('FALTA CARGAR EN GP (reclamar al proveedor)', [188,52,60],
-    ['Fecha','Tipo','Proveedor','CUIT','Comprobante','Importe Total'], faltaBody);
+    ['Fecha','Tipo','Proveedor','CUIT','Comprobante','Importe Total'], faltaBody,
+    resultado.falta.reduce((s,c)=>s+(c.total||0),0));
 
   const revisarBody = resultado.revisar
     .map(f=>[f.fecha, f.clase, f.proveedorNombre, f.cuit, f.comprobante, fmtMoney(f.monto)]);
   seccion('CARGADO EN GP PERO NO APARECE EN ARCA (revisar carga)', [188,132,15],
-    ['Fecha','Tipo','Proveedor','CUIT','Comprobante GP','Monto'], revisarBody);
+    ['Fecha','Tipo','Proveedor','CUIT','Comprobante GP','Monto'], revisarBody,
+    resultado.revisar.reduce((s,f)=>s+(f.monto||0),0));
 
   const noEstandarBody = resultado.noEstandar
     .map(f=>[f.fecha, f.tipoRaw, f.proveedorNombre, f.numdocRaw, fmtMoney(f.monto)]);
   seccion('NO ESTÁNDAR EN GP (no verificable automáticamente)', [95,103,115],
-    ['Fecha','Tipo','Proveedor','N° Documento crudo','Monto'], noEstandarBody);
+    ['Fecha','Tipo','Proveedor','N° Documento crudo','Monto'], noEstandarBody,
+    resultado.noEstandar.reduce((s,f)=>s+(f.monto||0),0));
 
   drawFooter();
   doc.save(`conciliacion_compras_GP_vs_ARCA_${new Date().toISOString().slice(0,10)}.pdf`);
