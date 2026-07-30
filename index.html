@@ -536,6 +536,7 @@
   <button data-tab="panoramacobranzas">Panorama de Cobranzas</button>
   <button data-tab="panoramaproveedores">Panorama de Deuda a Proveedores</button>
   <button data-tab="datosbancarios">Datos Bancarios de Proveedores</button>
+  <button data-tab="conciliacioncompras">Conciliación de Compras (GP vs ARCA)</button>
   <button data-tab="usuarios" id="nav-usuarios" style="display:none;">Usuarios</button>
 </nav>
 
@@ -1208,6 +1209,11 @@
   <section id="tab-panoramaproveedores" style="display:none;margin:-24px calc(-50vw + 50% - 0px);padding:0;">
     <iframe src="herramientas/panorama-proveedores.html" title="Panorama de Deuda a Proveedores"
       style="width:100%;height:calc(100vh - 113px);border:none;display:block;background:#090b0f;"></iframe>
+  </section>
+
+  <section id="tab-conciliacioncompras" style="display:none;margin:-24px calc(-50vw + 50% - 0px);padding:0;">
+    <iframe src="herramientas/conciliacion-compras.html" title="Conciliación de Compras GP vs ARCA"
+      style="width:100%;height:calc(100vh - 113px);border:none;display:block;background:#0a0c10;"></iframe>
   </section>
 
   <section id="tab-datosbancarios" style="display:none;">
@@ -2497,6 +2503,7 @@ const TAB_TITLES = {
   panoramacobranzas: 'Panorama de Cobranzas',
   panoramaproveedores: 'Panorama de Deuda a Proveedores',
   datosbancarios: 'Datos Bancarios de Proveedores',
+  conciliacioncompras: 'Conciliación de Compras (GP vs ARCA)',
 };
 
 function activarTab(tab){
@@ -2509,7 +2516,7 @@ function activarTab(tab){
 
   // Las herramientas embebidas (iframe a pantalla completa) manejan su propio scroll
   // interno — bloqueamos el de la página para que no aparezca un doble scrollbar.
-  const esHerramientaEmbebida = (tab === 'editorobs' || tab === 'panoramacobranzas' || tab === 'panoramaproveedores');
+  const esHerramientaEmbebida = (tab === 'editorobs' || tab === 'panoramacobranzas' || tab === 'panoramaproveedores' || tab === 'conciliacioncompras');
   document.body.style.overflow = esHerramientaEmbebida ? 'hidden' : '';
 
   const subbar = document.getElementById('subbar');
@@ -4497,6 +4504,7 @@ const SECCIONES_PERMISOS = [
   { key:'panoramacobranzas',  label:'Panorama de Cobranzas',   acciones:[['ver','Ver / usar']] },
   { key:'panoramaproveedores', label:'Panorama de Deuda a Proveedores', acciones:[['ver','Ver / usar']] },
   { key:'datos_bancarios', label:'Datos Bancarios de Proveedores', acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
+  { key:'conciliacioncompras', label:'Conciliación de Compras (GP vs ARCA)', acciones:[['ver','Ver / usar']] },
   { key:'usuarios',      label:'Usuarios',      acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar']] },
 ];
 
@@ -4838,6 +4846,7 @@ function renderDashboard(){
     { tab:'panoramacobranzas', icon:'📊', title:'Panorama de Cobranzas', count: '', visible:puede('panoramacobranzas','ver') },
     { tab:'panoramaproveedores', icon:'📉', title:'Panorama de Deuda a Proveedores', count: '', visible:puede('panoramaproveedores','ver') },
     { tab:'datosbancarios', icon:'🏦', title:'Datos Bancarios de Proveedores', count:`${datosBancariosCache.length} proveedores`, visible:puede('datos_bancarios','ver') },
+    { tab:'conciliacioncompras', icon:'🧾', title:'Conciliación de Compras (GP vs ARCA)', count: '', visible:puede('conciliacioncompras','ver') },
     { tab:'usuarios',   icon:'👤', title:'Usuarios',   count:`${usuariosCache.length} cuentas`, visible:puede('usuarios','ver') },
   ];
 

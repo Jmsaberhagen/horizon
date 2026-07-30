@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conciliación de Compras: GP vs ARCA</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#0a0c10; --surface:#12161d; --surface-2:#181d26; --surface-3:#1f2530;
+    --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.16);
+    --text:#eef2f7; --text-dim:#98a2b3; --text-faint:#5b6472;
+    --accent:#ff8a3d; --accent-dim:rgba(255,138,61,.15);
+    --blue:#4fa3ff; --blue-dim:rgba(79,163,255,.15);
+    --red:#ff4d5e; --red-dim:rgba(255,77,94,.15);
+    --green:#3ddc84; --green-dim:rgba(61,220,132,.15);
+    --amber:#ffc247; --amber-dim:rgba(255,194,71,.15);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',Arial,sans-serif;min-height:100vh;}
+  header{display:flex;align-items:center;gap:14px;padding:18px 26px;border-bottom:1px solid var(--border);position:sticky;top:0;background:rgba(10,12,16,.9);backdrop-filter:blur(10px);z-index:10;}
+  header h1{font-size:16px;margin:0;font-weight:700;}
+  header .sub{font-size:11.5px;color:var(--text-dim);}
+  .btn{font-weight:600;font-size:13px;border-radius:10px;border:1px solid var(--border-strong);background:var(--surface-2);color:var(--text);padding:9px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:.15s;}
+  .btn:hover{background:var(--surface-3);}
+  .btn-accent{background:var(--accent);color:#1c0d02;border-color:var(--accent);font-weight:700;}
+  .btn-accent:hover{background:#ff9c5c;}
+  .btn-sm{padding:6px 10px;font-size:12px;border-radius:8px;}
+  main{max-width:1500px;margin:0 auto;padding:26px;}
+
+  .upload-row{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:26px;}
+  .dropzone{border:2px dashed var(--border-strong);border-radius:18px;padding:34px 20px;text-align:center;background:linear-gradient(180deg,var(--surface-2),var(--surface));transition:.2s;}
+  .dropzone.drag{border-color:var(--accent);box-shadow:0 0 30px rgba(255,138,61,.15) inset;}
+  .dropzone.loaded{border-style:solid;border-color:var(--green);}
+  .dropzone h3{margin:0 0 8px;font-size:14.5px;}
+  .dropzone p{color:var(--text-dim);font-size:12.5px;margin:0 0 16px;}
+  .dropzone input[type=file]{display:none;}
+  .dropzone .status{margin-top:12px;font-size:12px;color:var(--text-dim);}
+  .dropzone .status.ok{color:var(--green);font-weight:600;}
+  .dropzone .status.err{color:var(--red);font-weight:600;}
+
+  .stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:22px;}
+  .stat{background:linear-gradient(155deg,var(--surface-2),var(--surface));border:1px solid var(--border);border-radius:14px;padding:16px 18px;}
+  .stat .l{font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--text-dim);font-weight:600;margin-bottom:8px;}
+  .stat .v{font-size:23px;font-weight:700;}
+  .stat.c-red{border-left:3px solid var(--red);}
+  .stat.c-amber{border-left:3px solid var(--amber);}
+  .stat.c-green{border-left:3px solid var(--green);}
+  .stat.c-blue{border-left:3px solid var(--blue);}
+  .stat.c-faint{border-left:3px solid var(--text-faint);}
+
+  .section{margin-bottom:30px;}
+  .section-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap;}
+  .section-head h2{font-size:15px;margin:0;flex:1;}
+  .section-head .count{background:var(--surface-3);border-radius:99px;padding:3px 10px;font-size:12px;color:var(--text-dim);}
+  .search-mini{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:7px 11px;color:var(--text);font-size:12.5px;min-width:220px;}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--surface);border-radius:12px;overflow:hidden;}
+  thead th{text-align:left;background:var(--surface-3);color:var(--text-dim);font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;padding:9px 10px;font-weight:700;}
+  tbody td{padding:9px 10px;border-top:1px solid rgba(255,255,255,.05);}
+  tbody tr:hover td{background:rgba(255,255,255,.02);}
+  .tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;text-transform:uppercase;}
+  .tag-fc{background:var(--blue-dim);color:var(--blue);}
+  .tag-nc{background:var(--accent-dim);color:var(--accent);}
+  .tag-nd{background:var(--amber-dim);color:var(--amber);}
+  .empty{text-align:center;color:var(--text-dim);padding:30px;background:var(--surface);border-radius:12px;}
+  .hidden{display:none;}
+  .num{font-variant-numeric:tabular-nums;}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface-3);border:1px solid var(--border-strong);padding:10px 18px;border-radius:10px;font-size:13px;opacity:0;transition:.25s;pointer-events:none;z-index:99;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<header>
+  <div style="flex:1;">
+    <h1>Conciliación de Compras: GP vs ARCA</h1>
+    <div class="sub">Detecta facturas/NC/ND que faltan cargar en GP y comprobantes cargados que no aparecen en ARCA</div>
+  </div>
+  <button class="btn btn-sm" id="btnReset">Empezar de nuevo</button>
+</header>
+
+<main>
+  <div class="upload-row" id="uploadRow">
+    <div class="dropzone" id="dzGP">
+      <h3>1) SmartList de Compras — GP</h3>
+      <p>Columnas: IdId. de proveedor, Nombre proveedor, Tipo de documento, Número de documento, Monto...</p>
+      <button class="btn btn-accent btn-sm" id="btnBrowseGP">Elegir archivo</button>
+      <input type="file" id="fileGP" accept=".xlsx,.xls">
+      <div class="status" id="statusGP"></div>
+    </div>
+    <div class="dropzone" id="dzARCA">
+      <h3>2) Mis Comprobantes Recibidos — ARCA</h3>
+      <p>Columnas: Fecha, Tipo, Punto de Venta, Número Desde/Hasta, Denominación Emisor, Imp. Total...</p>
+      <button class="btn btn-accent btn-sm" id="btnBrowseARCA">Elegir archivo</button>
+      <input type="file" id="fileARCA" accept=".xlsx,.xls">
+      <div class="status" id="statusARCA"></div>
+    </div>
+  </div>
+
+  <div id="dashboard" class="hidden">
+    <div class="stats-row" id="statsRow"></div>
+
+    <div class="section">
+      <div class="section-head">
+        <h2>🔴 Falta cargar en GP (reclamar comprobante al proveedor)</h2>
+        <span class="count" id="countFalta"></span>
+        <input class="search-mini" id="searchFalta" placeholder="Buscar proveedor, CUIT o comprobante...">
+        <button class="btn btn-sm" onclick="exportarTabla('falta')">Exportar XLSX</button>
+      </div>
+      <div id="tablaFalta"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-head">
+        <h2>🟠 Cargado en GP pero no aparece en ARCA (revisar carga)</h2>
+        <span class="count" id="countRevisar"></span>
+        <input class="search-mini" id="searchRevisar" placeholder="Buscar proveedor o comprobante...">
+        <button class="btn btn-sm" onclick="exportarTabla('revisar')">Exportar XLSX</button>
+      </div>
+      <div id="tablaRevisar"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-head">
+        <h2>⚪ No estándar en GP (formato no verificable automáticamente)</h2>
+        <span class="count" id="countNoEstandar"></span>
+        <input class="search-mini" id="searchNoEstandar" placeholder="Buscar proveedor o comprobante...">
+        <button class="btn btn-sm" onclick="exportarTabla('noestandar')">Exportar XLSX</button>
+      </div>
+      <div id="tablaNoEstandar"></div>
+    </div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+"use strict";
+
+let dataGP = null;   // array de facturas/NC/ND parseadas de GP
+let dataGPNoEstandar = null;
+let dataARCA = null; // array de comprobantes parseados de ARCA
+let resultado = null;
+
+const norm = s => (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+const fmtMoney = n => {
+  const v = Math.round((n||0)*100)/100;
+  return '$ ' + Math.abs(v).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});
+};
+const pad = (v,n) => String(parseInt(v,10)||0).padStart(n,'0');
+function excelDateToStr(v){
+  if(v instanceof Date) return v.toLocaleDateString('es-AR');
+  if(typeof v === 'string') return v;
+  return '';
+}
+
+// -------- Parseo GP --------
+const GP_TIPO_CLASE = {
+  'factura':'FC',
+  'nota de credito':'NC', 'nota de crédito':'NC',
+  'nota de debito inter':'ND', 'nota de débito inter':'ND',
+};
+function parseNumeroDocGP(numdocRaw, claseEsperada){
+  const numdoc = (numdocRaw||'').toString().trim().toUpperCase();
+  const m = numdoc.match(/^(FC|NC|ND)\s*([A-Z])\s*(\d{3,5})-(\d{6,9})$/);
+  if(!m) return null;
+  return { letra: m[2], pv: pad(m[3],4), numero: pad(m[4],8) };
+}
+function parseGP(rows, headerMap){
+  const facturas = [];
+  const noEstandar = [];
+  rows.forEach(r=>{
+    const tipoRaw = (r[headerMap.tipo]||'').toString().trim();
+    const claseKey = norm(tipoRaw);
+    const clase = GP_TIPO_CLASE[claseKey];
+    if(!clase) return; // Pago u otro tipo que no conciliamos
+    const numdocRaw = r[headerMap.numdoc];
+    const parsed = parseNumeroDocGP(numdocRaw, clase);
+    const base = {
+      proveedorId: (r[headerMap.provId]||'').toString().trim(),
+      proveedorNombre: (r[headerMap.provNombre]||'').toString().trim(),
+      clase, tipoRaw,
+      numdocRaw: (numdocRaw||'').toString().trim(),
+      comprobante: (r[headerMap.comprobante]||'').toString().trim(),
+      fecha: excelDateToStr(r[headerMap.fecha]),
+      monto: parseFloat(r[headerMap.montoOriginal])||0,
+    };
+    if(parsed){
+      base.letra = parsed.letra; base.pv = parsed.pv; base.numero = parsed.numero;
+      base.key = clase+'-'+parsed.letra+'-'+parsed.pv+'-'+parsed.numero;
+      facturas.push(base);
+    } else {
+      noEstandar.push(base);
+    }
+  });
+  return { facturas, noEstandar };
+}
+
+function findCol(headerRow, candidatos){
+  const normalized = headerRow.map(norm);
+  for(const cand of candidatos){
+    const idx = normalized.findIndex(h => h.includes(cand));
+    if(idx !== -1) return idx;
+  }
+  return -1;
+}
+
+function leerArchivoGP(file){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = e=>{
+      try{
+        const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
+        const headerRowIdx = rows.findIndex(r => r.some(c => norm(c).includes('nombre proveedor')));
+        if(headerRowIdx === -1) throw new Error('No se encontró la fila de encabezados del SmartList de GP.');
+        const header = rows[headerRowIdx];
+        const map = {
+          provId: findCol(header, ['id de proveedor','idid']),
+          provNombre: findCol(header, ['nombre proveedor']),
+          comprobante: findCol(header, ['num. comprobante','núm. comprobante','numero de comprobante']),
+          tipo: findCol(header, ['tipo de documento']),
+          fecha: findCol(header, ['fecha del documento']),
+          numdoc: findCol(header, ['numero de documento']),
+          montoOriginal: findCol(header, ['monto del documento']),
+        };
+        const dataRows = rows.slice(headerRowIdx+1).filter(r => r && r.some(c=>c!==null && c!==''));
+        resolve(parseGP(dataRows, map));
+      }catch(err){ reject(err); }
+    };
+    reader.onerror = ()=>reject(new Error('No se pudo leer el archivo.'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// -------- Parseo ARCA --------
+function claseYLetraARCA(tipoRaw){
+  const t = tipoRaw||'';
+  let m = t.match(/Factura\s+([A-Z])\b/i);
+  if(m) return { clase:'FC', letra:m[1].toUpperCase() };
+  m = t.match(/Nota\s+de\s+Cr[eé]dito\s+([A-Z])\b/i);
+  if(m) return { clase:'NC', letra:m[1].toUpperCase() };
+  m = t.match(/Nota\s+de\s+D[eé]bito\s+([A-Z])\b/i);
+  if(m) return { clase:'ND', letra:m[1].toUpperCase() };
+  return null;
+}
+function leerArchivoARCA(file){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = e=>{
+      try{
+        const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
+        const headerRowIdx = rows.findIndex(r => r.some(c => norm(c) === 'tipo'));
+        if(headerRowIdx === -1) throw new Error('No se encontró la fila de encabezados del archivo de ARCA.');
+        const header = rows[headerRowIdx];
+        const map = {
+          fecha: findCol(header, ['fecha']),
+          tipo: findCol(header, ['tipo']),
+          pv: findCol(header, ['punto de venta']),
+          numDesde: findCol(header, ['numero desde','número desde']),
+          cuitEmisor: findCol(header, ['nro. doc. emisor','nro doc emisor']),
+          denomEmisor: findCol(header, ['denominacion emisor','denominación emisor']),
+          impTotal: findCol(header, ['imp. total','imp total']),
+        };
+        const dataRows = rows.slice(headerRowIdx+1).filter(r => r && r[map.tipo]);
+        const comprobantes = [];
+        dataRows.forEach(r=>{
+          const cy = claseYLetraARCA((r[map.tipo]||'').toString());
+          if(!cy) return;
+          const pv = pad(r[map.pv],4);
+          const numero = pad(r[map.numDesde],8);
+          comprobantes.push({
+            clase: cy.clase, letra: cy.letra, pv, numero,
+            key: cy.clase+'-'+cy.letra+'-'+pv+'-'+numero,
+            fecha: excelDateToStr(r[map.fecha]),
+            cuitEmisor: (r[map.cuitEmisor]||'').toString().trim(),
+            denomEmisor: (r[map.denomEmisor]||'').toString().trim(),
+            total: parseFloat(r[map.impTotal])||0,
+            tipoRaw: (r[map.tipo]||'').toString().trim(),
+          });
+        });
+        resolve(comprobantes);
+      }catch(err){ reject(err); }
+    };
+    reader.onerror = ()=>reject(new Error('No se pudo leer el archivo.'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// -------- Conciliación --------
+function conciliar(){
+  if(!dataGP || !dataARCA) return;
+  const gpKeys = new Map();
+  dataGP.forEach(f => gpKeys.set(f.key, f));
+
+  const falta = [];      // en ARCA, no en GP
+  const enAmbos = [];
+  dataARCA.forEach(c=>{
+    if(gpKeys.has(c.key)) enAmbos.push(c);
+    else falta.push(c);
+  });
+
+  const arcaKeys = new Set(dataARCA.map(c=>c.key));
+  const revisar = dataGP.filter(f => !arcaKeys.has(f.key));
+
+  resultado = { falta, revisar, noEstandar: dataGPNoEstandar, enAmbos };
+  renderDashboard();
+}
+
+function tagClase(clase){
+  const map = { FC:['tag-fc','Factura'], NC:['tag-nc','N. Crédito'], ND:['tag-nd','N. Débito'] };
+  const [cls,label] = map[clase] || ['tag-fc',clase];
+  return `<span class="tag ${cls}">${label}</span>`;
+}
+function escapeHtml(s){ return (s||'').toString().replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m])); }
+
+function renderDashboard(){
+  document.getElementById('dashboard').classList.remove('hidden');
+
+  const stats = [
+    { l:'Comprobantes en ARCA', v: dataARCA.length, c:'blue' },
+    { l:'Coinciden OK', v: resultado.enAmbos.length, c:'green' },
+    { l:'Falta cargar en GP', v: resultado.falta.length, c:'red' },
+    { l:'Revisar carga en GP', v: resultado.revisar.length, c:'amber' },
+    { l:'No estándar (GP)', v: resultado.noEstandar.length, c:'faint' },
+  ];
+  document.getElementById('statsRow').innerHTML = stats.map(s=>`
+    <div class="stat c-${s.c}"><div class="l">${s.l}</div><div class="v num">${s.v}</div></div>
+  `).join('');
+
+  renderTablaFalta();
+  renderTablaRevisar();
+  renderTablaNoEstandar();
+}
+
+function renderTablaFalta(q){
+  q = norm(q||'');
+  let list = resultado.falta;
+  if(q) list = list.filter(c => norm(c.denomEmisor).includes(q) || c.cuitEmisor.includes(q) || (c.pv+'-'+c.numero).includes(q));
+  document.getElementById('countFalta').textContent = list.length + ' comprobante(s)';
+  const el = document.getElementById('tablaFalta');
+  if(!list.length){ el.innerHTML = '<div class="empty">No hay comprobantes pendientes de cargar 🎉</div>'; return; }
+  list.sort((a,b)=> (b.total||0)-(a.total||0));
+  el.innerHTML = `<table><thead><tr><th>Fecha</th><th>Tipo</th><th>Proveedor</th><th>CUIT</th><th>Comprobante</th><th style="text-align:right;">Importe Total</th></tr></thead><tbody>
+    ${list.map(c=>`<tr>
+      <td>${escapeHtml(c.fecha)}</td>
+      <td>${tagClase(c.clase)}</td>
+      <td>${escapeHtml(c.denomEmisor)}</td>
+      <td>${escapeHtml(c.cuitEmisor)}</td>
+      <td>${c.letra} ${c.pv}-${c.numero}</td>
+      <td class="num" style="text-align:right;font-weight:600;">${fmtMoney(c.total)}</td>
+    </tr>`).join('')}
+  </tbody></table>`;
+}
+
+function renderTablaRevisar(q){
+  q = norm(q||'');
+  let list = resultado.revisar;
+  if(q) list = list.filter(f => norm(f.proveedorNombre).includes(q) || (f.pv+'-'+f.numero).includes(q));
+  document.getElementById('countRevisar').textContent = list.length + ' comprobante(s)';
+  const el = document.getElementById('tablaRevisar');
+  if(!list.length){ el.innerHTML = '<div class="empty">Todo lo cargado en GP aparece en ARCA 🎉</div>'; return; }
+  el.innerHTML = `<table><thead><tr><th>Fecha</th><th>Tipo</th><th>Proveedor</th><th>N° comprobante GP</th><th>Comprobante parseado</th><th style="text-align:right;">Monto</th></tr></thead><tbody>
+    ${list.map(f=>`<tr>
+      <td>${escapeHtml(f.fecha)}</td>
+      <td>${tagClase(f.clase)}</td>
+      <td>${escapeHtml(f.proveedorNombre)}</td>
+      <td>${escapeHtml(f.comprobante)}</td>
+      <td>${f.letra} ${f.pv}-${f.numero}</td>
+      <td class="num" style="text-align:right;font-weight:600;">${fmtMoney(f.monto)}</td>
+    </tr>`).join('')}
+  </tbody></table>`;
+}
+
+function renderTablaNoEstandar(q){
+  q = norm(q||'');
+  let list = resultado.noEstandar;
+  if(q) list = list.filter(f => norm(f.proveedorNombre).includes(q) || norm(f.numdocRaw).includes(q));
+  document.getElementById('countNoEstandar').textContent = list.length + ' comprobante(s)';
+  const el = document.getElementById('tablaNoEstandar');
+  if(!list.length){ el.innerHTML = '<div class="empty">Sin registros no estándar.</div>'; return; }
+  el.innerHTML = `<table><thead><tr><th>Fecha</th><th>Tipo</th><th>Proveedor</th><th>N° documento (crudo)</th><th style="text-align:right;">Monto</th></tr></thead><tbody>
+    ${list.map(f=>`<tr>
+      <td>${escapeHtml(f.fecha)}</td>
+      <td>${escapeHtml(f.tipoRaw)}</td>
+      <td>${escapeHtml(f.proveedorNombre)}</td>
+      <td>${escapeHtml(f.numdocRaw)}</td>
+      <td class="num" style="text-align:right;font-weight:600;">${fmtMoney(f.monto)}</td>
+    </tr>`).join('')}
+  </tbody></table>`;
+}
+
+window.exportarTabla = function(tipo){
+  let rows, headers, filename;
+  if(tipo === 'falta'){
+    headers = ['Fecha','Tipo','Proveedor','CUIT','Comprobante','Importe Total'];
+    rows = resultado.falta.map(c => [c.fecha, c.clase, c.denomEmisor, c.cuitEmisor, `${c.letra} ${c.pv}-${c.numero}`, c.total]);
+    filename = 'falta_cargar_en_GP';
+  } else if(tipo === 'revisar'){
+    headers = ['Fecha','Tipo','Proveedor','N Comprobante GP','Comprobante parseado','Monto'];
+    rows = resultado.revisar.map(f => [f.fecha, f.clase, f.proveedorNombre, f.comprobante, `${f.letra} ${f.pv}-${f.numero}`, f.monto]);
+    filename = 'revisar_carga_GP';
+  } else {
+    headers = ['Fecha','Tipo','Proveedor','N Documento crudo','Monto'];
+    rows = resultado.noEstandar.map(f => [f.fecha, f.tipoRaw, f.proveedorNombre, f.numdocRaw, f.monto]);
+    filename = 'no_estandar_GP';
+  }
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headers, ...rows]), 'Datos');
+  XLSX.writeFile(wb, `${filename}_${new Date().toISOString().slice(0,10)}.xlsx`);
+};
+
+// -------- UI wiring --------
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2500);
+}
+
+function wireDropzone(zoneId, fileInputId, browseBtnId, onFile){
+  const zone = document.getElementById(zoneId);
+  const input = document.getElementById(fileInputId);
+  document.getElementById(browseBtnId).addEventListener('click', ()=>input.click());
+  input.addEventListener('change', e=>{ if(e.target.files[0]) onFile(e.target.files[0]); });
+  ['dragenter','dragover'].forEach(evt => zone.addEventListener(evt, e=>{ e.preventDefault(); zone.classList.add('drag'); }));
+  ['dragleave','drop'].forEach(evt => zone.addEventListener(evt, e=>{ e.preventDefault(); zone.classList.remove('drag'); }));
+  zone.addEventListener('drop', e=>{ const f = e.dataTransfer.files[0]; if(f) onFile(f); });
+}
+
+wireDropzone('dzGP','fileGP','btnBrowseGP', file=>{
+  const statusEl = document.getElementById('statusGP');
+  statusEl.textContent = 'Procesando...'; statusEl.className = 'status';
+  leerArchivoGP(file).then(({facturas, noEstandar})=>{
+    dataGP = facturas; dataGPNoEstandar = noEstandar;
+    document.getElementById('dzGP').classList.add('loaded');
+    statusEl.textContent = `✓ ${facturas.length} comprobantes estándar + ${noEstandar.length} no estándar`;
+    statusEl.className = 'status ok';
+    conciliar();
+  }).catch(err=>{
+    statusEl.textContent = '✕ ' + err.message; statusEl.className = 'status err';
+  });
+});
+
+wireDropzone('dzARCA','fileARCA','btnBrowseARCA', file=>{
+  const statusEl = document.getElementById('statusARCA');
+  statusEl.textContent = 'Procesando...'; statusEl.className = 'status';
+  leerArchivoARCA(file).then(comprobantes=>{
+    dataARCA = comprobantes;
+    document.getElementById('dzARCA').classList.add('loaded');
+    statusEl.textContent = `✓ ${comprobantes.length} comprobantes leídos`;
+    statusEl.className = 'status ok';
+    conciliar();
+  }).catch(err=>{
+    statusEl.textContent = '✕ ' + err.message; statusEl.className = 'status err';
+  });
+});
+
+document.getElementById('searchFalta').addEventListener('input', e=>renderTablaFalta(e.target.value));
+document.getElementById('searchRevisar').addEventListener('input', e=>renderTablaRevisar(e.target.value));
+document.getElementById('searchNoEstandar').addEventListener('input', e=>renderTablaNoEstandar(e.target.value));
+
+document.getElementById('btnReset').addEventListener('click', ()=>{
+  location.reload();
+});
+
+})();
+</script>
+</body>
+</html>
