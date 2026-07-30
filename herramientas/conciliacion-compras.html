@@ -87,7 +87,7 @@
   <div class="upload-row" id="uploadRow">
     <div class="dropzone" id="dzGP">
       <h3>1) SmartList de Compras — GP</h3>
-      <p>Columnas: IdId. de proveedor, Nombre proveedor, Tipo de documento, Número de documento, Monto...</p>
+      <p>Columnas: Cuit_prov, vendname, vendorid, docnumbr, DOCDATE, TotalDoc_pesos...</p>
       <button class="btn btn-accent btn-sm" id="btnBrowseGP">Elegir archivo</button>
       <input type="file" id="fileGP" accept=".xlsx,.xls">
       <div class="status" id="statusGP"></div>
@@ -162,41 +162,44 @@ function excelDateToStr(v){
 }
 
 // -------- Parseo GP --------
-const GP_TIPO_CLASE = {
-  'factura':'FC',
-  'nota de credito':'NC', 'nota de crédito':'NC',
-  'nota de debito inter':'ND', 'nota de débito inter':'ND',
-};
-function parseNumeroDocGP(numdocRaw, claseEsperada){
+// El SmartList nuevo ya no trae una columna "Tipo de documento": la clase del
+// comprobante (Factura / Nota de Crédito / Nota de Débito) se deduce directo
+// del prefijo del número de documento (FC / NC / ND).
+function parseNumeroDocGP(numdocRaw){
   const numdoc = (numdocRaw||'').toString().trim().toUpperCase();
   const m = numdoc.match(/^(FC|NC|ND)\s*([A-Z])\s*(\d{3,5})-(\d{6,9})$/);
   if(!m) return null;
-  return { letra: m[2], pv: pad(m[3],4), numero: pad(m[4],8) };
+  return { clase: m[1], letra: m[2], pv: pad(m[3],4), numero: pad(m[4],8) };
+}
+// El campo Cuit_prov viene con basura pegada al final (ej. "20106610976            80"):
+// los primeros 11 dígitos son el CUIT real, el resto es ruido del export de GP.
+function limpiarCuitGP(cuitRaw){
+  const soloDigitos = (cuitRaw||'').toString().replace(/\D/g,'');
+  return soloDigitos.slice(0,11);
 }
 function parseGP(rows, headerMap){
   const facturas = [];
   const noEstandar = [];
   rows.forEach(r=>{
-    const tipoRaw = (r[headerMap.tipo]||'').toString().trim();
-    const claseKey = norm(tipoRaw);
-    const clase = GP_TIPO_CLASE[claseKey];
-    if(!clase) return; // Pago u otro tipo que no conciliamos
     const numdocRaw = r[headerMap.numdoc];
-    const parsed = parseNumeroDocGP(numdocRaw, clase);
+    const parsed = parseNumeroDocGP(numdocRaw);
     const base = {
       proveedorId: (r[headerMap.provId]||'').toString().trim(),
       proveedorNombre: (r[headerMap.provNombre]||'').toString().trim(),
-      clase, tipoRaw,
+      cuit: limpiarCuitGP(r[headerMap.cuit]),
       numdocRaw: (numdocRaw||'').toString().trim(),
-      comprobante: (r[headerMap.comprobante]||'').toString().trim(),
+      comprobante: (numdocRaw||'').toString().trim(),
       fecha: excelDateToStr(r[headerMap.fecha]),
-      monto: parseFloat(r[headerMap.montoOriginal])||0,
+      monto: parseFloat(r[headerMap.montoTotal])||0,
     };
     if(parsed){
-      base.letra = parsed.letra; base.pv = parsed.pv; base.numero = parsed.numero;
-      base.key = clase+'-'+parsed.letra+'-'+parsed.pv+'-'+parsed.numero;
+      base.clase = parsed.clase; base.letra = parsed.letra; base.pv = parsed.pv; base.numero = parsed.numero;
+      // clave por CUIT (más confiable que la letra, que a veces se tipea distinto)
+      base.key = parsed.clase+'-'+base.cuit+'-'+base.pv+'-'+base.numero;
       facturas.push(base);
     } else {
+      base.tipoRaw = 'Sin formato estándar';
+      base.clase = '?';
       noEstandar.push(base);
     }
   });
@@ -220,17 +223,16 @@ function leerArchivoGP(file){
         const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
         const ws = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
-        const headerRowIdx = rows.findIndex(r => r.some(c => norm(c).includes('nombre proveedor')));
+        const headerRowIdx = rows.findIndex(r => r.some(c => norm(c) === 'vendname' || norm(c).includes('nombre proveedor')));
         if(headerRowIdx === -1) throw new Error('No se encontró la fila de encabezados del SmartList de GP.');
         const header = rows[headerRowIdx];
         const map = {
-          provId: findCol(header, ['id de proveedor','idid']),
-          provNombre: findCol(header, ['nombre proveedor']),
-          comprobante: findCol(header, ['num. comprobante','núm. comprobante','numero de comprobante']),
-          tipo: findCol(header, ['tipo de documento']),
-          fecha: findCol(header, ['fecha del documento']),
-          numdoc: findCol(header, ['numero de documento']),
-          montoOriginal: findCol(header, ['monto del documento']),
+          cuit: findCol(header, ['cuit_prov','cuit prov']),
+          provId: findCol(header, ['vendorid','id de proveedor','idid']),
+          provNombre: findCol(header, ['vendname','nombre proveedor']),
+          fecha: findCol(header, ['docdate','fecha del documento']),
+          numdoc: findCol(header, ['docnumbr','numero de documento']),
+          montoTotal: findCol(header, ['totaldoc_pesos','monto del documento']),
         };
         const dataRows = rows.slice(headerRowIdx+1).filter(r => r && r.some(c=>c!==null && c!==''));
         resolve(parseGP(dataRows, map));
@@ -279,11 +281,12 @@ function leerArchivoARCA(file){
           if(!cy) return;
           const pv = pad(r[map.pv],4);
           const numero = pad(r[map.numDesde],8);
+          const cuitEmisor = (r[map.cuitEmisor]||'').toString().replace(/\D/g,'');
           comprobantes.push({
             clase: cy.clase, letra: cy.letra, pv, numero,
-            key: cy.clase+'-'+cy.letra+'-'+pv+'-'+numero,
+            key: cy.clase+'-'+cuitEmisor+'-'+pv+'-'+numero,
             fecha: excelDateToStr(r[map.fecha]),
-            cuitEmisor: (r[map.cuitEmisor]||'').toString().trim(),
+            cuitEmisor,
             denomEmisor: (r[map.denomEmisor]||'').toString().trim(),
             total: parseFloat(r[map.impTotal])||0,
             tipoRaw: (r[map.tipo]||'').toString().trim(),
@@ -367,17 +370,17 @@ function renderTablaFalta(q){
 function renderTablaRevisar(q){
   q = norm(q||'');
   let list = resultado.revisar;
-  if(q) list = list.filter(f => norm(f.proveedorNombre).includes(q) || (f.pv+'-'+f.numero).includes(q));
+  if(q) list = list.filter(f => norm(f.proveedorNombre).includes(q) || f.cuit.includes(q) || (f.pv+'-'+f.numero).includes(q));
   document.getElementById('countRevisar').textContent = list.length + ' comprobante(s)';
   const el = document.getElementById('tablaRevisar');
   if(!list.length){ el.innerHTML = '<div class="empty">Todo lo cargado en GP aparece en ARCA 🎉</div>'; return; }
-  el.innerHTML = `<table><thead><tr><th>Fecha</th><th>Tipo</th><th>Proveedor</th><th>N° comprobante GP</th><th>Comprobante parseado</th><th style="text-align:right;">Monto</th></tr></thead><tbody>
+  el.innerHTML = `<table><thead><tr><th>Fecha</th><th>Tipo</th><th>Proveedor</th><th>CUIT</th><th>Comprobante GP</th><th style="text-align:right;">Monto</th></tr></thead><tbody>
     ${list.map(f=>`<tr>
       <td>${escapeHtml(f.fecha)}</td>
       <td>${tagClase(f.clase)}</td>
       <td>${escapeHtml(f.proveedorNombre)}</td>
+      <td>${escapeHtml(f.cuit)}</td>
       <td>${escapeHtml(f.comprobante)}</td>
-      <td>${f.letra} ${f.pv}-${f.numero}</td>
       <td class="num" style="text-align:right;font-weight:600;">${fmtMoney(f.monto)}</td>
     </tr>`).join('')}
   </tbody></table>`;
@@ -499,9 +502,9 @@ function descargarPDF(){
     ['Fecha','Tipo','Proveedor','CUIT','Comprobante','Importe Total'], faltaBody);
 
   const revisarBody = resultado.revisar
-    .map(f=>[f.fecha, f.clase, f.proveedorNombre, f.comprobante, `${f.letra} ${f.pv}-${f.numero}`, fmtMoney(f.monto)]);
+    .map(f=>[f.fecha, f.clase, f.proveedorNombre, f.cuit, f.comprobante, fmtMoney(f.monto)]);
   seccion('CARGADO EN GP PERO NO APARECE EN ARCA (revisar carga)', [188,132,15],
-    ['Fecha','Tipo','Proveedor','N° comprobante GP','Comprobante parseado','Monto'], revisarBody);
+    ['Fecha','Tipo','Proveedor','CUIT','Comprobante GP','Monto'], revisarBody);
 
   const noEstandarBody = resultado.noEstandar
     .map(f=>[f.fecha, f.tipoRaw, f.proveedorNombre, f.numdocRaw, fmtMoney(f.monto)]);
@@ -520,8 +523,8 @@ window.exportarTabla = function(tipo){
     rows = resultado.falta.map(c => [c.fecha, c.clase, c.denomEmisor, c.cuitEmisor, `${c.letra} ${c.pv}-${c.numero}`, c.total]);
     filename = 'falta_cargar_en_GP';
   } else if(tipo === 'revisar'){
-    headers = ['Fecha','Tipo','Proveedor','N Comprobante GP','Comprobante parseado','Monto'];
-    rows = resultado.revisar.map(f => [f.fecha, f.clase, f.proveedorNombre, f.comprobante, `${f.letra} ${f.pv}-${f.numero}`, f.monto]);
+    headers = ['Fecha','Tipo','Proveedor','CUIT','Comprobante GP','Monto'];
+    rows = resultado.revisar.map(f => [f.fecha, f.clase, f.proveedorNombre, f.cuit, f.comprobante, f.monto]);
     filename = 'revisar_carga_GP';
   } else {
     headers = ['Fecha','Tipo','Proveedor','N Documento crudo','Monto'];
