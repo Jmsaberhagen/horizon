@@ -455,13 +455,18 @@ function descargarPDF(){
   y = doc.lastAutoTable.finalY + 10;
 
   const seccion = (titulo, colorFill, headRow, body)=>{
-    if(y > pageHeight - 40){ doc.addPage(); drawHeader(); }
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
+    doc.addPage();
+    drawHeader();
+
+    // cuadradito de color en vez de emoji (la fuente helvetica no soporta emojis)
     doc.setFillColor(...colorFill);
     doc.rect(marginX, y - 4, pageWidth - marginX*2, 7, 'F');
+    doc.setFillColor(255,255,255);
+    doc.rect(marginX + 2, y - 2.6, 3.2, 3.2, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
     doc.setTextColor(255);
-    doc.text(`${titulo}  (${body.length})`, marginX + 2, y);
+    doc.text(`${titulo}  (${body.length})`, marginX + 8, y);
     doc.setTextColor(0);
     y += 5;
 
@@ -482,8 +487,7 @@ function descargarPDF(){
       theme: 'grid',
       styles: { fontSize: 8, cellPadding: 1.5 },
       headStyles: { fillColor: colorFill, textColor: 255, fontStyle: 'bold' },
-      margin: { left: marginX, right: marginX },
-      didDrawPage: ()=>{ /* jsPDF-autotable ya maneja el salto de página */ },
+      margin: { left: marginX, right: marginX, top: 15 },
     });
     y = doc.lastAutoTable.finalY + 8;
   };
@@ -491,17 +495,17 @@ function descargarPDF(){
   const faltaBody = resultado.falta
     .slice().sort((a,b)=>(b.total||0)-(a.total||0))
     .map(c=>[c.fecha, c.clase, c.denomEmisor, c.cuitEmisor, `${c.letra} ${c.pv}-${c.numero}`, fmtMoney(c.total)]);
-  seccion('🔴 Falta cargar en GP (reclamar al proveedor)', [188,52,60],
+  seccion('FALTA CARGAR EN GP (reclamar al proveedor)', [188,52,60],
     ['Fecha','Tipo','Proveedor','CUIT','Comprobante','Importe Total'], faltaBody);
 
   const revisarBody = resultado.revisar
     .map(f=>[f.fecha, f.clase, f.proveedorNombre, f.comprobante, `${f.letra} ${f.pv}-${f.numero}`, fmtMoney(f.monto)]);
-  seccion('🟠 Cargado en GP pero no aparece en ARCA (revisar carga)', [188,132,15],
+  seccion('CARGADO EN GP PERO NO APARECE EN ARCA (revisar carga)', [188,132,15],
     ['Fecha','Tipo','Proveedor','N° comprobante GP','Comprobante parseado','Monto'], revisarBody);
 
   const noEstandarBody = resultado.noEstandar
     .map(f=>[f.fecha, f.tipoRaw, f.proveedorNombre, f.numdocRaw, fmtMoney(f.monto)]);
-  seccion('⚪ No estándar en GP (no verificable automáticamente)', [95,103,115],
+  seccion('NO ESTÁNDAR EN GP (no verificable automáticamente)', [95,103,115],
     ['Fecha','Tipo','Proveedor','N° Documento crudo','Monto'], noEstandarBody);
 
   drawFooter();
