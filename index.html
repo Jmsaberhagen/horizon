@@ -7926,7 +7926,7 @@ document.addEventListener('click', (e)=>{
 });
 
 function poblarMaquinasSolicitudOC(clienteId){
-  const activos = contratosCache.filter(c => c.cliente_id === clienteId && c.estado === 'activo');
+  const activos = contratosCache.filter(c => String(c.cliente_id) === String(clienteId) && c.estado === 'activo');
   const sel = document.getElementById('soc-contrato-select');
   sel.innerHTML = '<option value="">— Elegir máquina —</option>' +
     activos.map(c => `<option value="${c.id}">${escapeHtml(c.equipos?.numero_serie||'—')} — ${escapeHtml(c.equipos?.modelo||'—')}</option>`).join('');
