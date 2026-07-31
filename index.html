@@ -3810,7 +3810,7 @@ document.getElementById('pend-filter-estado').addEventListener('change', applyPe
 // (ignora las Notas de Crédito, que no son una factura de alquiler en sí)
 function obtenerUltimaFacturaDelContrato(contratoId){
   const facturados = pendientesCache.filter(p =>
-    p.contrato_id === contratoId && p.estado === 'facturado' && !esNotaDeCredito(p.numero_factura)
+    String(p.contrato_id) === String(contratoId) && p.estado === 'facturado' && !esNotaDeCredito(p.numero_factura)
   );
   if(facturados.length === 0) return null;
   facturados.sort((a,b) => (b.periodo_hasta || '').localeCompare(a.periodo_hasta || ''));
@@ -7926,7 +7926,9 @@ document.addEventListener('click', (e)=>{
 });
 
 function poblarMaquinasSolicitudOC(clienteId){
-  const activos = contratosCache.filter(c => String(c.cliente_id) === String(clienteId) && c.estado === 'activo');
+  const activos = contratosCache
+    .filter(c => String(c.cliente_id) === String(clienteId) && c.estado === 'activo')
+    .sort((a,b) => (a.equipos?.numero_serie||'').localeCompare(b.equipos?.numero_serie||'', undefined, {numeric:true, sensitivity:'base'}));
   const sel = document.getElementById('soc-contrato-select');
   sel.innerHTML = '<option value="">— Elegir máquina —</option>' +
     activos.map(c => `<option value="${c.id}">${escapeHtml(c.equipos?.numero_serie||'—')} — ${escapeHtml(c.equipos?.modelo||'—')}</option>`).join('');
