@@ -8221,6 +8221,8 @@ function descargarSolicitudOCPDF(cliente, items, numero){
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const marginX = 18;
+  const bannerRatio = 406/2475;
+  const bannerH = pageWidth * bannerRatio;
   let y = 15;
 
   // ---------- Encabezado con logo ----------
@@ -8285,12 +8287,12 @@ function descargarSolicitudOCPDF(cliente, items, numero){
     theme: 'grid',
     styles: { fontSize: 9, cellPadding: 2.5 },
     headStyles: { fillColor: [10, 26, 58], textColor: 255, fontStyle: 'bold' },
-    margin: { left: marginX, right: marginX },
+    margin: { left: marginX, right: marginX, top: 22, bottom: bannerH + 10 },
   });
   y = doc.lastAutoTable.finalY + 14;
 
   // ---------- Cláusula de cierre ----------
-  if(y > 235){ doc.addPage(); y = 25; }
+  if(y > pageHeight - bannerH - 55){ doc.addPage(); y = 25; }
   doc.setFont('helvetica', 'italic');
   doc.setFontSize(8.5);
   doc.setTextColor(110);
@@ -8301,7 +8303,7 @@ function descargarSolicitudOCPDF(cliente, items, numero){
   doc.setTextColor(0);
 
   // ---------- Firma ----------
-  if(y > 250){ doc.addPage(); y = 30; }
+  if(y > pageHeight - bannerH - 40){ doc.addPage(); y = 30; }
   doc.setDrawColor(0);
   doc.setLineWidth(0.3);
   doc.line(marginX, y, marginX + 70, y);
@@ -8310,8 +8312,6 @@ function descargarSolicitudOCPDF(cliente, items, numero){
   doc.text('Firma y aclaración — Horizon Sudamérica', marginX, y + 5);
 
   // ---------- Pie de página con banner y numeración ----------
-  const bannerRatio = 406/2475;
-  const bannerH = pageWidth * bannerRatio;
   const totalPaginas = doc.internal.getNumberOfPages();
   for(let i=1;i<=totalPaginas;i++){
     doc.setPage(i);
