@@ -16,7 +16,9 @@
     --text-dim:#9a9a9e;
     --danger:#ff5c5c;
     --ok:#3ecf6b;
+    --warn:#ffb347;
     --radius:8px;
+    --font-mono:'Cascadia Code','SF Mono',Consolas,'Courier New',monospace;
   }
   *{box-sizing:border-box;}
   html{overflow-x:hidden;}
@@ -202,12 +204,31 @@
   }
   .overlay.open{display:flex;}
   .modal{
+    position:relative;
     background:var(--panel);
     border:1px solid var(--border);
-    border-radius:var(--radius);
+    border-radius:6px;
     width:100%;
     max-width:640px;
     padding:24px;
+    border-top:2px solid var(--accent);
+  }
+  .modal::before, .modal::after{
+    content:"";
+    position:absolute;
+    width:11px; height:11px;
+    opacity:.55;
+    pointer-events:none;
+  }
+  .modal::before{
+    top:8px; left:8px;
+    border-top:1.5px solid var(--accent);
+    border-left:1.5px solid var(--accent);
+  }
+  .modal::after{
+    bottom:8px; right:8px;
+    border-bottom:1.5px solid var(--accent);
+    border-right:1.5px solid var(--accent);
   }
   .modal.wide{
     max-width:980px;
@@ -449,9 +470,15 @@
   .dash-tile{
     position:relative;
     aspect-ratio:16/10;
-    border-radius:10px;
+    border-radius:6px;
     border:1px solid var(--border);
-    background:linear-gradient(160deg, var(--panel-2) 0%, var(--panel) 100%);
+    background:
+      linear-gradient(160deg, var(--panel-2) 0%, var(--panel) 100%);
+    background-image:
+      linear-gradient(160deg, var(--panel-2) 0%, var(--panel) 100%),
+      linear-gradient(rgba(56,189,248,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(56,189,248,0.05) 1px, transparent 1px);
+    background-size:auto, 16px 16px, 16px 16px;
     overflow:hidden;
     cursor:pointer;
     padding:18px;
@@ -459,6 +486,27 @@
     flex-direction:column;
     justify-content:flex-end;
     transition:transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  }
+  .dash-tile::before, .dash-tile::after{
+    content:"";
+    position:absolute;
+    width:9px; height:9px;
+    opacity:0.45;
+    transition:opacity .18s ease, width .18s ease, height .18s ease;
+    pointer-events:none;
+  }
+  .dash-tile::before{
+    top:7px; left:7px;
+    border-top:1.5px solid var(--accent);
+    border-left:1.5px solid var(--accent);
+  }
+  .dash-tile::after{
+    bottom:7px; right:7px;
+    border-bottom:1.5px solid var(--accent);
+    border-right:1.5px solid var(--accent);
+  }
+  .dash-tile:hover::before, .dash-tile:hover::after{
+    opacity:1; width:13px; height:13px;
   }
   .dash-tile:hover{
     transform:translateY(-4px) scale(1.015);
@@ -488,11 +536,22 @@
     letter-spacing:0.2px;
   }
   .dash-tile .count{
-    font-size:12px;
+    font-size:11.5px;
+    font-family:var(--font-mono);
     color:var(--accent);
     font-weight:600;
-    margin-top:2px;
+    margin-top:3px;
+    letter-spacing:.2px;
   }
+  .dash-tile .led{
+    position:absolute;
+    top:12px; right:12px;
+    width:8px; height:8px;
+    border-radius:50%;
+  }
+  .dash-tile .led.led-ok{ background:var(--ok); box-shadow:0 0 6px 0 var(--ok); }
+  .dash-tile .led.led-warn{ background:var(--warn); box-shadow:0 0 6px 0 var(--warn); }
+  .dash-tile .led.led-danger{ background:var(--danger); box-shadow:0 0 6px 0 var(--danger); }
   .dash-tile.disabled{
     opacity:0.35;
     cursor:not-allowed;
@@ -4863,36 +4922,57 @@ function renderDashboard(){
   const rol = miPerfil.rol;
   document.getElementById('dash-saludo').textContent = `Hola, ${miPerfil.nombre.split(' ')[0]}`;
 
+  const nContratosSinConfirmar = contratosCache.filter(c=>!c.datos_confirmados).length;
+  const nPendientesFacturar = pendientesCache.filter(p=>p.estado==='pendiente').length;
+  const nRetirosUrgentes = calcularRetirosUrgentes().length;
+  const nRemitosPendientes = remitosCache.filter(r=>!r.fecha_retiro).length;
+  const nFacturasSinEnviar = todasFacturasPdfCache.filter(f=>!f._enviada).length;
+
   const categorias = [
     { key:'ventas', titulo:'Ventas', icon:'💵', tiles:[
-      { tab:'clientes',   icon:'🏢', title:'Clientes',   count:`${clientesCache.length} cargados`, visible:puede('clientes','ver') },
-      { tab:'contratos',  icon:'📄', title:'Contratos',  count:`${contratosCache.length} totales${(() => { const n = contratosCache.filter(c=>!c.datos_confirmados).length; return n>0 ? ` — ⚠ ${n} a confirmar` : ''; })()}`, visible:puede('contratos','ver') },
-      { tab:'pendientes', icon:'💰', title:'Pendientes de Facturación', count: puede('pendientes','ver') ? `${pendientesCache.filter(p=>p.estado==='pendiente').length} sin facturar` : '', visible:puede('pendientes','ver') },
-      { tab:'presupuestos', icon:'🧾', title:'Presupuestos', count: puede('presupuestos','ver') ? `${presupuestosCache.filter(p=>p.estado==='vigente').length} vigente(s)` : '', visible:puede('presupuestos','ver') },
-      { tab:'panoramacobranzas', icon:'📊', title:'Panorama de Cobranzas', count: '', visible:puede('panoramacobranzas','ver') },
-      { tab:'cuentacliente', icon:'🧾', title:'Cuenta Cliente', count:'Historial por cliente', visible:puede('cuentacliente','ver') },
+      { tab:'clientes',   icon:'🏢', title:'Clientes',   count:`${clientesCache.length} cargados`, visible:puede('clientes','ver'), urgencia:null },
+      { tab:'contratos',  icon:'📄', title:'Contratos',  count:`${contratosCache.length} totales${nContratosSinConfirmar>0 ? ` — ⚠ ${nContratosSinConfirmar} a confirmar` : ''}`, visible:puede('contratos','ver'), urgencia: nContratosSinConfirmar>0 ? 'warn' : 'ok' },
+      { tab:'pendientes', icon:'💰', title:'Pendientes de Facturación', count: puede('pendientes','ver') ? `${nPendientesFacturar} sin facturar` : '', visible:puede('pendientes','ver'), urgencia: nPendientesFacturar>0 ? 'warn' : 'ok' },
+      { tab:'presupuestos', icon:'🧾', title:'Presupuestos', count: puede('presupuestos','ver') ? `${presupuestosCache.filter(p=>p.estado==='vigente').length} vigente(s)` : '', visible:puede('presupuestos','ver'), urgencia:null },
+      { tab:'panoramacobranzas', icon:'📊', title:'Panorama de Cobranzas', count: '', visible:puede('panoramacobranzas','ver'), urgencia:null },
+      { tab:'cuentacliente', icon:'🧾', title:'Cuenta Cliente', count:'Historial por cliente', visible:puede('cuentacliente','ver'), urgencia:null },
     ]},
     { key:'logistica', titulo:'Logística', icon:'🚜', tiles:[
-      { tab:'equipos',    icon:'🚜', title:'Equipos',    count:`${equiposCache.length} en catálogo`, visible:puede('equipos','ver') },
-      { tab:'planning',   icon:'📅', title:'Planning',   count:'Ocupación de flota', visible:puede('planning','ver') },
-      { tab:'retiros',    icon:'🚨', title:'Pendientes de Retiro', count: puede('retiros','ver') ? `${calcularRetirosUrgentes().length} urgente(s)` : '', visible:puede('retiros','ver') },
-      { tab:'remitos',    icon:'📋', title:'Remitos',    count: puede('remitos','ver') ? `${remitosCache.filter(r=>!r.fecha_retiro).length} pendiente(s) de retiro` : '', visible:puede('remitos','ver') },
+      { tab:'equipos',    icon:'🚜', title:'Equipos',    count:`${equiposCache.length} en catálogo`, visible:puede('equipos','ver'), urgencia:null },
+      { tab:'planning',   icon:'📅', title:'Planning',   count:'Ocupación de flota', visible:puede('planning','ver'), urgencia:null },
+      { tab:'retiros',    icon:'🚨', title:'Pendientes de Retiro', count: puede('retiros','ver') ? `${nRetirosUrgentes} urgente(s)` : '', visible:puede('retiros','ver'), urgencia: nRetirosUrgentes>0 ? 'danger' : 'ok' },
+      { tab:'remitos',    icon:'📋', title:'Remitos',    count: puede('remitos','ver') ? `${nRemitosPendientes} pendiente(s) de retiro` : '', visible:puede('remitos','ver'), urgencia: nRemitosPendientes>0 ? 'warn' : 'ok' },
     ]},
     { key:'compras', titulo:'Compras', icon:'🧾', tiles:[
-      { tab:'panoramaproveedores', icon:'📉', title:'Panorama de Deuda a Proveedores', count: '', visible:puede('panoramaproveedores','ver') },
-      { tab:'datosbancarios', icon:'🏦', title:'Datos Bancarios de Proveedores', count:`${datosBancariosCache.length} proveedores`, visible:puede('datos_bancarios','ver') },
-      { tab:'conciliacioncompras', icon:'🧾', title:'Conciliación de Compras', count: '', visible:puede('conciliacioncompras','ver') },
+      { tab:'panoramaproveedores', icon:'📉', title:'Panorama de Deuda a Proveedores', count: '', visible:puede('panoramaproveedores','ver'), urgencia:null },
+      { tab:'datosbancarios', icon:'🏦', title:'Datos Bancarios de Proveedores', count:`${datosBancariosCache.length} proveedores`, visible:puede('datos_bancarios','ver'), urgencia:null },
+      { tab:'conciliacioncompras', icon:'🧾', title:'Conciliación de Compras', count: '', visible:puede('conciliacioncompras','ver'), urgencia:null },
     ]},
     { key:'herramientas', titulo:'Herramientas', icon:'🛠️', tiles:[
-      { tab:'editorobs', icon:'✏️', title:'Editor de Observaciones', count: '', visible:puede('editorobs','ver') },
-      { tab:'reportes',   icon:'📊', title:'Reportes',   count:'Mora y facturación', visible:puede('reportes','ver') },
-      { tab:'enviofacturas', icon:'📧', title:'Envío de Facturas', count: puede('enviofacturas','ver') ? `${todasFacturasPdfCache.filter(f=>!f._enviada).length} sin enviar` : '', visible:puede('enviofacturas','ver') },
+      { tab:'editorobs', icon:'✏️', title:'Editor de Observaciones', count: '', visible:puede('editorobs','ver'), urgencia:null },
+      { tab:'reportes',   icon:'📊', title:'Reportes',   count:'Mora y facturación', visible:puede('reportes','ver'), urgencia:null },
+      { tab:'enviofacturas', icon:'📧', title:'Envío de Facturas', count: puede('enviofacturas','ver') ? `${nFacturasSinEnviar} sin enviar` : '', visible:puede('enviofacturas','ver'), urgencia: nFacturasSinEnviar>0 ? 'warn' : 'ok' },
     ]},
     { key:'usuarios', titulo:'Usuarios', icon:'👤', tiles:[
-      { tab:'usuarios',   icon:'👤', title:'Usuarios',   count:`${usuariosCache.length} cuentas`, visible:puede('usuarios','ver') },
+      { tab:'usuarios',   icon:'👤', title:'Usuarios',   count:`${usuariosCache.length} cuentas`, visible:puede('usuarios','ver'), urgencia:null },
     ]},
   ].map(cat=>({ ...cat, tiles: cat.tiles.filter(t=>t.visible) }))
    .filter(cat=>cat.tiles.length > 0);
+
+  // El LED de una categoría muestra el peor estado entre sus tarjetas (danger > warn > ok).
+  // Si ninguna tarjeta tiene una señal real, no se muestra LED (evita ruido decorativo sin sentido).
+  const PRIORIDAD = { danger:3, warn:2, ok:1 };
+  function peorUrgencia(tiles){
+    let peor = null;
+    tiles.forEach(t=>{
+      if(t.urgencia && (!peor || PRIORIDAD[t.urgencia] > PRIORIDAD[peor])) peor = t.urgencia;
+    });
+    return peor;
+  }
+  function ledHtml(nivel){
+    if(!nivel) return '';
+    return `<span class="led led-${nivel}"></span>`;
+  }
 
   const contenedor = document.getElementById('dash-categories');
 
@@ -4909,6 +4989,7 @@ function renderDashboard(){
       <div class="dash-grid">
         ${categorias.map(cat=>`
           <div class="dash-tile dash-tile-categoria" tabindex="0" role="button" onclick="abrirCategoriaDashboard('${cat.key}')" onkeydown="if(event.key==='Enter')abrirCategoriaDashboard('${cat.key}')">
+            ${ledHtml(peorUrgencia(cat.tiles))}
             <div class="glow"></div>
             <div class="icon">${cat.icon}</div>
             <div class="title">${cat.titulo}</div>
@@ -4926,6 +5007,7 @@ function renderDashboard(){
     <div class="dash-grid">
       ${cat.tiles.map(t=>`
         <div class="dash-tile" tabindex="0" role="button" onclick="irATab('${t.tab}')" onkeydown="if(event.key==='Enter')irATab('${t.tab}')">
+          ${ledHtml(t.urgencia && t.urgencia !== 'ok' ? t.urgencia : null)}
           <div class="glow"></div>
           <div class="icon">${t.icon}</div>
           <div class="title">${t.title}</div>
