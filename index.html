@@ -7959,8 +7959,8 @@ document.getElementById('soc-contrato-select').addEventListener('change', (e)=>{
 document.getElementById('btn-soc-agregar-maquina').addEventListener('click', ()=>{
   const contratoId = document.getElementById('soc-contrato-select').value;
   if(!contratoId){ showToast('Elegí una máquina primero', true); return; }
-  const c = contratosCache.find(x => x.id === contratoId);
-  if(!c) return;
+  const c = contratosCache.find(x => String(x.id) === String(contratoId));
+  if(!c){ showToast('No se encontró el contrato seleccionado', true); return; }
   const ultima = obtenerUltimaFacturaDelContrato(contratoId);
   const periodoTexto = ultima && ultima.periodo_hasta
     ? `Desde ${fmtDate(addDays(ultima.periodo_hasta, 1))}`
