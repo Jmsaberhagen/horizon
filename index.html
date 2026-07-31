@@ -1247,10 +1247,45 @@
   <section id="tab-solicitudoc" style="display:none;">
     <div class="dash-hero" style="margin-bottom:14px;">
       <h1 style="font-size:16px;">Solicitud de OC</h1>
-      <div class="sub">Armá el pedido formal de Orden de Compra para enviarle al cliente, con el período sugerido según la última facturación real.</div>
+      <div class="sub">Pedidos formales de Orden de Compra, numerados de forma correlativa — igual que los presupuestos.</div>
     </div>
+    <div class="toolbar" style="flex-wrap:wrap;">
+      <input type="text" id="soc-search" placeholder="Buscar por N° o cliente...">
+      <select id="soc-filter-estado">
+        <option value="">Todos los estados</option>
+        <option value="vigente">Vigente</option>
+        <option value="anulado">Anulado</option>
+      </select>
+      <div style="flex:1"></div>
+      <button class="btn" id="btn-new-solicitudoc">+ Nueva Solicitud de OC</button>
+    </div>
+    <div class="panel">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>N°</th>
+              <th>Fecha</th>
+              <th>Cliente</th>
+              <th>Máquinas</th>
+              <th>Estado</th>
+              <th style="width:190px;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="soc-tbody-lista">
+            <tr><td colspan="6" class="empty-state">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="muted" id="soc-results-count" style="margin-top:10px;font-size:12px;"></div>
+  </section>
 
-    <div style="margin-bottom:16px;">
+  <div class="overlay" id="modal-solicitudoc-overlay">
+    <div class="modal wide">
+      <h2 id="modal-solicitudoc-title">Nueva Solicitud de OC</h2>
+      <input type="hidden" id="soc-id">
+
       <div class="field-grid">
         <div class="field full" style="position:relative;">
           <label>Cliente *</label>
@@ -1259,52 +1294,56 @@
           <div class="autocomplete-list" id="soc-cliente-results"></div>
         </div>
       </div>
-    </div>
 
-    <div class="panel" id="soc-panel-maquina" style="margin-bottom:16px;display:none;">
-      <h3 style="margin-top:0;">Agregar máquina a la solicitud</h3>
-      <div class="field-grid cols-3">
-        <div class="field full">
-          <label>Máquina (contrato activo de este cliente)</label>
-          <select id="soc-contrato-select">
-            <option value="">— Elegir máquina —</option>
-          </select>
+      <div class="panel" id="soc-panel-maquina" style="margin:16px 0;display:none;">
+        <h3 style="margin-top:0;">Agregar máquina a la solicitud</h3>
+        <div class="field-grid cols-3">
+          <div class="field full">
+            <label>Máquina (contrato activo de este cliente)</label>
+            <select id="soc-contrato-select">
+              <option value="">— Elegir máquina —</option>
+            </select>
+          </div>
+          <div class="field full" id="soc-periodo-sugerido-wrap" style="display:none;">
+            <label>Período sugerido a solicitar</label>
+            <input type="text" id="soc-periodo-sugerido" readonly>
+          </div>
+          <div class="field full">
+            <label>Observación (opcional, solo para esta máquina)</label>
+            <input type="text" id="soc-observacion-maquina" placeholder="Ej: adjuntar remito N° 1234">
+          </div>
         </div>
-        <div class="field full" id="soc-periodo-sugerido-wrap" style="display:none;">
-          <label>Período sugerido a solicitar</label>
-          <input type="text" id="soc-periodo-sugerido" readonly>
-        </div>
-        <div class="field full">
-          <label>Observación (opcional, solo para esta máquina)</label>
-          <input type="text" id="soc-observacion-maquina" placeholder="Ej: adjuntar remito N° 1234">
+        <div class="toolbar" style="margin-top:10px;">
+          <button class="btn" id="btn-soc-agregar-maquina">+ Agregar a la solicitud</button>
         </div>
       </div>
-      <div class="toolbar" style="margin-top:10px;">
-        <button class="btn" id="btn-soc-agregar-maquina">+ Agregar a la solicitud</button>
-      </div>
-    </div>
 
-    <div class="panel" id="soc-panel-lista" style="display:none;">
-      <h3 style="margin-top:0;">Máquinas en esta solicitud</h3>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>N° Serie</th>
-              <th>Modelo</th>
-              <th>Período sugerido</th>
-              <th>Observación</th>
-              <th style="width:70px;">Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="soc-tbody"></tbody>
-        </table>
+      <div class="panel" id="soc-panel-lista" style="display:none;">
+        <h3 style="margin-top:0;">Máquinas en esta solicitud</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>N° Serie</th>
+                <th>Modelo</th>
+                <th>Período sugerido</th>
+                <th>Observación</th>
+                <th style="width:70px;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="soc-tbody"></tbody>
+          </table>
+        </div>
       </div>
-      <div class="toolbar" style="margin-top:14px;">
-        <button class="btn" id="btn-soc-generar-pdf">📄 Generar PDF de Solicitud</button>
-        <button class="btn secondary" id="btn-soc-limpiar">Empezar de nuevo</button>
+
+      <div class="toolbar" style="margin-top:16px;">
+        <button class="btn" id="btn-soc-guardar">Guardar</button>
+        <button class="btn secondary" id="btn-soc-cerrar">Cerrar</button>
+        <div style="flex:1"></div>
+        <button class="btn" id="btn-soc-generar-pdf">📄 Generar PDF</button>
       </div>
     </div>
+  </div>
   </section>
 
   <section id="tab-presupuestos" style="display:none;">
@@ -4655,7 +4694,7 @@ const SECCIONES_PERMISOS = [
   { key:'enviofacturas', label:'Envío de Facturas', acciones:[['ver','Ver'],['marcar_enviada','Marcar enviada']] },
   { key:'remitos',       label:'Remitos',           acciones:[['ver','Ver'],['crear','Crear / cargar entrega'],['registrar_retiro','Registrar retiro'],['eliminar','Eliminar']] },
   { key:'presupuestos',  label:'Presupuestos',      acciones:[['ver','Ver'],['crear','Crear / editar'],['anular','Anular']] },
-  { key:'solicitudoc',   label:'Solicitud de OC',   acciones:[['ver','Ver'],['crear','Crear']] },
+  { key:'solicitudoc',   label:'Solicitud de OC',   acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['anular','Anular']] },
   { key:'editorobs',          label:'Editor de Observaciones', acciones:[['ver','Ver / usar']] },
   { key:'panoramacobranzas',  label:'Panorama de Cobranzas',   acciones:[['ver','Ver / usar']] },
   { key:'panoramaproveedores', label:'Panorama de Deuda a Proveedores', acciones:[['ver','Ver / usar']] },
@@ -5000,7 +5039,7 @@ function renderDashboard(){
       { tab:'contratos',  icon:'📄', title:'Contratos',  count:`${contratosCache.length} totales${nContratosSinConfirmar>0 ? ` — ⚠ ${nContratosSinConfirmar} a confirmar` : ''}`, visible:puede('contratos','ver'), urgencia: nContratosSinConfirmar>0 ? 'warn' : 'ok' },
       { tab:'pendientes', icon:'💰', title:'Pendientes de Facturación', count: puede('pendientes','ver') ? `${nPendientesFacturar} sin facturar` : '', visible:puede('pendientes','ver'), urgencia: nPendientesFacturar>0 ? 'warn' : 'ok' },
       { tab:'presupuestos', icon:'🧾', title:'Presupuestos', count: puede('presupuestos','ver') ? `${presupuestosCache.filter(p=>p.estado==='vigente').length} vigente(s)` : '', visible:puede('presupuestos','ver'), urgencia:null },
-      { tab:'solicitudoc', icon:'📝', title:'Solicitud de OC', count: 'Pedido de orden de compra', visible:puede('solicitudoc','ver'), urgencia:null },
+      { tab:'solicitudoc', icon:'📝', title:'Solicitud de OC', count: puede('solicitudoc','ver') ? `${solicitudesOCCache.filter(s=>s.estado==='vigente').length} vigente(s)` : '', visible:puede('solicitudoc','ver'), urgencia:null },
       { tab:'panoramacobranzas', icon:'📊', title:'Panorama de Cobranzas', count: '', visible:puede('panoramacobranzas','ver'), urgencia:null },
       { tab:'cuentacliente', icon:'🧾', title:'Cuenta Cliente', count:'Historial por cliente', visible:puede('cuentacliente','ver'), urgencia:null },
     ]},
@@ -7891,10 +7930,168 @@ document.getElementById('btn-dbp-delete').addEventListener('click', async ()=>{
 });
 
 // =========================================================
-// MÓDULO: Solicitud de OC
+// MÓDULO: Solicitud de OC (numeración correlativa, nunca se borran — se anulan)
 // =========================================================
+let solicitudesOCCache = [];
 let solicitudOCItems = [];
 
+async function loadSolicitudesOC(){
+  const { data, error } = await supabaseClient
+    .from('solicitudes_oc')
+    .select('*, clientes(razon_social, cuit, numero_cliente, direccion, ciudad, provincia), solicitudes_oc_items(*)')
+    .order('numero', { ascending: false });
+  if(error){ console.error('Error cargando solicitudes de OC:', error); solicitudesOCCache = []; return; }
+  solicitudesOCCache = data;
+}
+
+function getSolicitudesOCFiltradas(){
+  const q = document.getElementById('soc-search').value.trim().toLowerCase();
+  const estado = document.getElementById('soc-filter-estado').value;
+  let list = solicitudesOCCache;
+  if(estado) list = list.filter(s => s.estado === estado);
+  if(q){
+    list = list.filter(s =>
+      String(s.numero).includes(q) ||
+      (s.clientes?.razon_social || '').toLowerCase().includes(q)
+    );
+  }
+  return list;
+}
+
+function renderSolicitudesOCLista(){
+  const list = getSolicitudesOCFiltradas();
+  const tbody = document.getElementById('soc-tbody-lista');
+  if(list.length === 0){
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No hay solicitudes de OC con este filtro.</td></tr>';
+    document.getElementById('soc-results-count').textContent = '';
+    return;
+  }
+  const estadoColor = { vigente: 'var(--accent)', anulado: 'var(--danger)' };
+  tbody.innerHTML = list.map(s=>{
+    const color = estadoColor[s.estado] || 'var(--text-dim)';
+    const cantItems = (s.solicitudes_oc_items || []).length;
+    return `
+      <tr>
+        <td style="font-weight:600;">N° ${String(s.numero).padStart(5,'0')}</td>
+        <td class="muted">${fmtDate(s.fecha_emision)}</td>
+        <td>${escapeHtml(s.clientes?.razon_social || '—')}</td>
+        <td class="muted">${cantItems} máquina(s)</td>
+        <td><span class="badge" style="color:${color};border-color:${color};">${s.estado}</span></td>
+        <td>
+          <div class="row-actions">
+            <button class="btn secondary small" onclick="abrirEditarSolicitudOC(${s.id})">${s.estado === 'anulado' || !puede('solicitudoc','editar') ? 'Ver' : 'Editar'}</button>
+            <button class="btn secondary small" onclick="generarPDFSolicitudOCGuardada(${s.id})">PDF</button>
+            ${s.estado !== 'anulado' && puede('solicitudoc','anular') ? `<button class="btn danger small" onclick="anularSolicitudOC(${s.id})">Anular</button>` : ''}
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+  document.getElementById('soc-results-count').textContent = `${list.length} solicitud(es)`;
+}
+function applySocFilters(){ renderSolicitudesOCLista(); }
+document.getElementById('soc-search').addEventListener('input', applySocFilters);
+document.getElementById('soc-filter-estado').addEventListener('change', applySocFilters);
+
+async function anularSolicitudOC(id){
+  const motivo = prompt('Motivo de anulación (opcional):') || null;
+  if(motivo === null && !confirm('¿Anular esta solicitud de OC?')) return;
+  try{
+    const { error } = await supabaseClient.from('solicitudes_oc').update({ estado:'anulado', motivo_anulacion: motivo }).eq('id', id);
+    if(error) throw error;
+    showToast('Solicitud anulada');
+    await loadSolicitudesOC();
+    renderSolicitudesOCLista();
+  } catch(err){
+    console.error(err);
+    showToast('Error al anular: ' + err.message, true);
+  }
+}
+
+document.getElementById('btn-new-solicitudoc').addEventListener('click', abrirNuevaSolicitudOC);
+
+function abrirNuevaSolicitudOC(){
+  document.getElementById('modal-solicitudoc-title').textContent = 'Nueva Solicitud de OC';
+  document.getElementById('soc-id').value = '';
+  document.getElementById('soc-cliente_id').value = '';
+  document.getElementById('soc-cliente-search').value = '';
+  document.getElementById('soc-panel-maquina').style.display = 'none';
+  document.getElementById('soc-panel-lista').style.display = 'none';
+  solicitudOCItems = [];
+  renderSolicitudOCTabla();
+  document.getElementById('modal-solicitudoc-overlay').classList.add('open');
+}
+
+function abrirEditarSolicitudOC(id){
+  const s = solicitudesOCCache.find(x => x.id === id);
+  if(!s) return;
+  document.getElementById('modal-solicitudoc-title').textContent = `Solicitud de OC N° ${String(s.numero).padStart(5,'0')}`;
+  document.getElementById('soc-id').value = s.id;
+  document.getElementById('soc-cliente_id').value = s.cliente_id || '';
+  document.getElementById('soc-cliente-search').value = s.clientes?.razon_social || '';
+  poblarMaquinasSolicitudOC(s.cliente_id);
+  solicitudOCItems = (s.solicitudes_oc_items || [])
+    .slice()
+    .sort((a,b)=>(a.orden||0)-(b.orden||0))
+    .map(it => ({
+      contratoId: it.contrato_id,
+      numeroSerie: it.numero_serie || '—',
+      modelo: it.modelo || '—',
+      periodoTexto: it.periodo_texto || '—',
+      observacion: it.observacion || '',
+    }));
+  renderSolicitudOCTabla();
+  document.getElementById('modal-solicitudoc-overlay').classList.add('open');
+}
+
+document.getElementById('btn-soc-cerrar').addEventListener('click', ()=>{
+  document.getElementById('modal-solicitudoc-overlay').classList.remove('open');
+});
+document.getElementById('modal-solicitudoc-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'modal-solicitudoc-overlay') document.getElementById('modal-solicitudoc-overlay').classList.remove('open');
+});
+
+document.getElementById('btn-soc-guardar').addEventListener('click', async ()=>{
+  const id = document.getElementById('soc-id').value;
+  const clienteId = document.getElementById('soc-cliente_id').value;
+  if(!clienteId){ showToast('Elegí un cliente', true); return; }
+  if(!solicitudOCItems.length){ showToast('Agregá al menos una máquina a la solicitud', true); return; }
+
+  try{
+    let solicitudId = id ? Number(id) : null;
+    if(solicitudId){
+      const { error } = await supabaseClient.from('solicitudes_oc').update({ cliente_id: Number(clienteId) }).eq('id', solicitudId);
+      if(error) throw error;
+      const { error: delError } = await supabaseClient.from('solicitudes_oc_items').delete().eq('solicitud_oc_id', solicitudId);
+      if(delError) throw delError;
+    } else {
+      const { data, error } = await supabaseClient.from('solicitudes_oc').insert({ cliente_id: Number(clienteId) }).select().single();
+      if(error) throw error;
+      solicitudId = data.id;
+    }
+
+    const itemsPayload = solicitudOCItems.map((it, i) => ({
+      solicitud_oc_id: solicitudId,
+      contrato_id: it.contratoId ? Number(it.contratoId) : null,
+      numero_serie: it.numeroSerie,
+      modelo: it.modelo,
+      periodo_texto: it.periodoTexto,
+      observacion: it.observacion || null,
+      orden: i,
+    }));
+    const { error: itemsError } = await supabaseClient.from('solicitudes_oc_items').insert(itemsPayload);
+    if(itemsError) throw itemsError;
+
+    showToast(id ? 'Solicitud actualizada' : 'Solicitud creada');
+    document.getElementById('modal-solicitudoc-overlay').classList.remove('open');
+    await loadSolicitudesOC();
+    renderSolicitudesOCLista();
+  } catch(err){
+    console.error(err);
+    showToast('Error al guardar la solicitud: ' + err.message, true);
+  }
+});
+
+// ---------- Autocompletar cliente dentro del modal ----------
 const socClienteSearchInput = document.getElementById('soc-cliente-search');
 const socClienteResultsBox = document.getElementById('soc-cliente-results');
 
@@ -7919,6 +8116,8 @@ socClienteResultsBox.addEventListener('click', (e)=>{
   document.getElementById('soc-cliente_id').value = item.dataset.id;
   socClienteSearchInput.value = item.dataset.nombre;
   socClienteResultsBox.classList.remove('open');
+  solicitudOCItems = [];
+  renderSolicitudOCTabla();
   poblarMaquinasSolicitudOC(item.dataset.id);
 });
 document.addEventListener('click', (e)=>{
@@ -7995,24 +8194,28 @@ function quitarItemSolicitudOC(idx){
   renderSolicitudOCTabla();
 }
 
-document.getElementById('btn-soc-limpiar').addEventListener('click', ()=>{
-  solicitudOCItems = [];
-  document.getElementById('soc-cliente_id').value = '';
-  socClienteSearchInput.value = '';
-  document.getElementById('soc-panel-maquina').style.display = 'none';
-  document.getElementById('soc-panel-lista').style.display = 'none';
-  renderSolicitudOCTabla();
-});
-
 document.getElementById('btn-soc-generar-pdf').addEventListener('click', ()=>{
   const clienteId = document.getElementById('soc-cliente_id').value;
   if(!clienteId){ showToast('Elegí un cliente', true); return; }
   if(!solicitudOCItems.length){ showToast('Agregá al menos una máquina a la solicitud', true); return; }
-  const cliente = clientesCache.find(c => c.id === clienteId);
-  descargarSolicitudOCPDF(cliente, solicitudOCItems);
+  const cliente = clientesCache.find(c => String(c.id) === String(clienteId));
+  const idActual = document.getElementById('soc-id').value;
+  const numero = idActual ? solicitudesOCCache.find(s => s.id === Number(idActual))?.numero : null;
+  descargarSolicitudOCPDF(cliente, solicitudOCItems, numero);
 });
 
-function descargarSolicitudOCPDF(cliente, items){
+function generarPDFSolicitudOCGuardada(id){
+  const s = solicitudesOCCache.find(x => x.id === id);
+  if(!s) return;
+  const cliente = s.clientes;
+  const items = (s.solicitudes_oc_items || []).slice().sort((a,b)=>(a.orden||0)-(b.orden||0)).map(it => ({
+    numeroSerie: it.numero_serie || '—', modelo: it.modelo || '—',
+    periodoTexto: it.periodo_texto || '—', observacion: it.observacion || '',
+  }));
+  descargarSolicitudOCPDF(cliente, items, s.numero);
+}
+
+function descargarSolicitudOCPDF(cliente, items, numero){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -8031,7 +8234,8 @@ function descargarSolicitudOCPDF(cliente, items){
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
   doc.setTextColor(90);
-  doc.text(`Fecha de emisión: ${fmtDate(new Date().toISOString().slice(0,10))}`, pageWidth - marginX, y + 17, { align: 'right' });
+  if(numero) doc.text(`N° ${String(numero).padStart(5,'0')}`, pageWidth - marginX, y + 16, { align: 'right' });
+  doc.text(`Fecha de emisión: ${fmtDate(new Date().toISOString().slice(0,10))}`, pageWidth - marginX, y + (numero?22:17), { align: 'right' });
   doc.setTextColor(0);
 
   y += 40;
@@ -8120,7 +8324,8 @@ function descargarSolicitudOCPDF(cliente, items){
   }
 
   const nombreSeguro = (cliente?.razon_social || 'cliente').replace(/[^a-z0-9]+/gi, '_').slice(0, 40);
-  doc.save(`Solicitud_OC_${nombreSeguro}_${new Date().toISOString().slice(0,10)}.pdf`);
+  const prefijo = numero ? `SOC_${String(numero).padStart(5,'0')}` : 'Solicitud_OC';
+  doc.save(`${prefijo}_${nombreSeguro}_${new Date().toISOString().slice(0,10)}.pdf`);
   showToast('PDF de solicitud generado');
 }
 
@@ -8796,6 +9001,13 @@ async function initApp(){
       renderPresupuestos();
     }
     document.getElementById('btn-nuevo-presupuesto').style.display = puede('presupuestos','crear') ? '' : 'none';
+
+    if(puede('solicitudoc','ver')){
+      console.log('[Horizon] cargando solicitudes de OC...');
+      await loadSolicitudesOC();
+      renderSolicitudesOCLista();
+    }
+    document.getElementById('btn-new-solicitudoc').style.display = puede('solicitudoc','crear') ? '' : 'none';
 
     if(puede('planning','ver')){
       console.log('[Horizon] cargando planning...');
