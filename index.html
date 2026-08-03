@@ -20,6 +20,41 @@
     --radius:8px;
     --font-mono:'Cascadia Code','SF Mono',Consolas,'Courier New',monospace;
   }
+  body.light-theme{
+    --bg:#f3f5f8;
+    --panel:#ffffff;
+    --panel-2:#eef1f5;
+    --border:#dde2e8;
+    --accent:#0284c7;
+    --accent-dim:#dbeefc;
+    --text:#1a1d21;
+    --text-dim:#5c6570;
+    --danger:#dc2626;
+    --ok:#15803d;
+    --warn:#b45309;
+  }
+  body.light-theme .brand-logo{
+    filter:brightness(0) saturate(100%);
+  }
+  .theme-toggle{
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    border-radius:999px;
+    width:34px;
+    height:34px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    font-size:15px;
+    line-height:1;
+    padding:0;
+    transition:background .15s ease, border-color .15s ease, transform .15s ease;
+  }
+  .theme-toggle:hover{
+    border-color:var(--accent);
+    transform:scale(1.06);
+  }
   *{box-sizing:border-box;}
   html{overflow-x:hidden;}
   body{
@@ -604,6 +639,9 @@
     <span class="status" id="conn-status">conectando...</span>
     <span class="role-pill" id="user-role-pill" style="display:none;"></span>
     <span class="muted" id="user-name" style="font-size:12px;"></span>
+    <button class="theme-toggle" id="btn-theme-toggle" title="Cambiar modo claro/oscuro" aria-label="Cambiar modo claro/oscuro">
+      <span class="theme-toggle-icon">🌙</span>
+    </button>
     <button id="btn-logout">Cerrar sesión</button>
   </div>
 </header>
@@ -9039,6 +9077,22 @@ async function initApp(){
        </td></tr>`;
   }
 }
+
+// ---------- Modo claro / oscuro ----------
+function aplicarTema(tema){
+  document.body.classList.toggle('light-theme', tema === 'light');
+  const icon = document.querySelector('#btn-theme-toggle .theme-toggle-icon');
+  if(icon) icon.textContent = tema === 'light' ? '☀️' : '🌙';
+}
+function alternarTema(){
+  const actual = localStorage.getItem('horizon_tema') === 'light' ? 'light' : 'dark';
+  const nuevo = actual === 'light' ? 'dark' : 'light';
+  localStorage.setItem('horizon_tema', nuevo);
+  aplicarTema(nuevo);
+}
+// Se aplica de entrada (antes de conectar a Supabase) para que no haya parpadeo del tema incorrecto
+aplicarTema(localStorage.getItem('horizon_tema') === 'light' ? 'light' : 'dark');
+document.getElementById('btn-theme-toggle').addEventListener('click', alternarTema);
 
 // ---------- Init ----------
 (async function init(){
