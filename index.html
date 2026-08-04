@@ -665,6 +665,7 @@
   <button data-tab="panoramaproveedores">Panorama de Deuda a Proveedores</button>
   <button data-tab="datosbancarios">Datos Bancarios de Proveedores</button>
   <button data-tab="conciliacioncompras">Conciliación de Compras (GP vs ARCA)</button>
+  <button data-tab="gastosobra">Gastos de Reforma</button>
   <button data-tab="usuarios" id="nav-usuarios" style="display:none;">Usuarios</button>
 </nav>
 
@@ -1445,6 +1446,177 @@
     <iframe src="herramientas/conciliacion-compras.html" title="Conciliación de Compras GP vs ARCA"
       style="width:100%;height:calc(100vh - 113px);border:none;display:block;background:#0a0c10;"></iframe>
   </section>
+
+  <section id="tab-gastosobra" style="display:none;">
+    <div class="dash-hero" style="margin-bottom:14px;">
+      <h1 style="font-size:16px;">Gastos de Reforma</h1>
+      <div class="sub">Contabilidad paralela de la inversión edilicia en Neuquén, Córdoba y Buenos Aires — por categoría y a valor dólar del día de carga.</div>
+    </div>
+
+    <div class="stats-row" id="go-stats-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px;"></div>
+
+    <div class="toolbar" style="flex-wrap:wrap;">
+      <input type="text" id="go-search" placeholder="Buscar por N° factura o proveedor...">
+      <select id="go-filter-sucursal">
+        <option value="">Todas las sucursales</option>
+        <option value="Neuquén">Neuquén</option>
+        <option value="Córdoba">Córdoba</option>
+        <option value="Buenos Aires">Buenos Aires</option>
+      </select>
+      <select id="go-filter-cuenta"><option value="">Todas las cuentas</option></select>
+      <div style="flex:1"></div>
+      <button class="btn secondary" id="btn-gestionar-cuentas" style="display:none;">⚙️ Cuentas Contables</button>
+      <button class="btn secondary" id="btn-exportar-reporte-obra">📄 Exportar Reporte PDF</button>
+      <button class="btn" id="btn-new-gasto-obra">+ Cargar Factura</button>
+    </div>
+
+    <div class="panel">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>N° Factura</th>
+              <th>Proveedor</th>
+              <th>Sucursal</th>
+              <th>Cuenta</th>
+              <th>Neto ARS</th>
+              <th>Neto USD</th>
+              <th>Total ARS</th>
+              <th style="width:110px;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="go-tbody-lista">
+            <tr><td colspan="9" class="empty-state">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="muted" id="go-results-count" style="margin-top:10px;font-size:12px;"></div>
+  </section>
+
+  <div class="overlay" id="modal-gastoobra-overlay">
+    <div class="modal wide">
+      <h2 id="modal-gastoobra-title">Nueva Factura de Gasto de Obra</h2>
+      <input type="hidden" id="go-id">
+
+      <div class="panel" style="margin-bottom:16px;">
+        <label>1) Subí el PDF de la factura (opcional pero recomendado — se lee automáticamente por OCR)</label>
+        <input type="file" id="go-file-input" accept="application/pdf">
+        <div class="muted" id="go-ocr-status" style="font-size:12px;margin-top:6px;"></div>
+      </div>
+
+      <div class="field-grid">
+        <div class="field">
+          <label>N° de Factura *</label>
+          <input type="text" id="go-numero_factura" placeholder="Ej: 0001-00001234">
+        </div>
+        <div class="field">
+          <label>Fecha *</label>
+          <input type="date" id="go-fecha">
+        </div>
+        <div class="field">
+          <label>CUIT Proveedor *</label>
+          <input type="text" id="go-cuit_proveedor" placeholder="Sin guiones">
+        </div>
+        <div class="field">
+          <label>Nombre Proveedor *</label>
+          <input type="text" id="go-nombre_proveedor">
+        </div>
+        <div class="field">
+          <label>Sucursal *</label>
+          <select id="go-sucursal">
+            <option value="">— Elegir —</option>
+            <option value="Neuquén">Neuquén</option>
+            <option value="Córdoba">Córdoba</option>
+            <option value="Buenos Aires">Buenos Aires</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Cuenta Contable *</label>
+          <select id="go-cuenta_contable_id"><option value="">— Elegir —</option></select>
+        </div>
+        <div class="field">
+          <label>Cotización USD del día *</label>
+          <input type="number" step="0.01" id="go-cotizacion_usd" placeholder="Ej: 1450.00">
+        </div>
+        <div class="field">
+          <label>Neto (sin impuestos) *</label>
+          <input type="number" step="0.01" id="go-neto" placeholder="0.00">
+        </div>
+        <div class="field">
+          <label>Total factura *</label>
+          <input type="number" step="0.01" id="go-total" placeholder="0.00">
+        </div>
+        <div class="field">
+          <label>Neto en USD (calculado)</label>
+          <input type="text" id="go-neto_usd" readonly style="font-weight:700;">
+        </div>
+      </div>
+
+      <div class="panel" style="margin:16px 0;">
+        <h3 style="margin-top:0;">Ítems de la factura</h3>
+        <div class="field-grid cols-3">
+          <div class="field full">
+            <label>Descripción del artículo</label>
+            <input type="text" id="go-item-descripcion" placeholder="Ej: Silla de oficina ergonómica">
+          </div>
+          <div class="field">
+            <label>Cantidad</label>
+            <input type="number" step="1" id="go-item-cantidad" value="1">
+          </div>
+        </div>
+        <div class="toolbar" style="margin-top:10px;">
+          <button class="btn" id="btn-go-agregar-item">+ Agregar ítem</button>
+        </div>
+        <div class="table-wrap" style="margin-top:10px;">
+          <table>
+            <thead><tr><th>Descripción</th><th style="width:100px;">Cantidad</th><th style="width:70px;">Acciones</th></tr></thead>
+            <tbody id="go-items-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="toolbar" style="margin-top:16px;">
+        <button class="btn" id="btn-go-guardar">Guardar</button>
+        <button class="btn secondary" id="btn-go-cerrar">Cerrar</button>
+        <div style="flex:1"></div>
+        <a id="go-ver-pdf-link" href="#" target="_blank" class="btn secondary" style="display:none;">Ver PDF adjunto</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="modal-cuentas-contables-overlay">
+    <div class="modal">
+      <h2>Cuentas Contables (categorías de gasto)</h2>
+      <div class="muted" style="font-size:12px;margin-bottom:14px;">Solo el usuario maestro puede crear, editar o desactivar cuentas. Desactivar una cuenta la saca del combo para nuevas facturas, pero no borra el historial de gastos ya cargados con ella.</div>
+
+      <div class="field-grid">
+        <div class="field">
+          <label>Nombre de la nueva cuenta</label>
+          <input type="text" id="cc-nueva-nombre" placeholder="Ej: Cerrajería">
+        </div>
+        <div class="field">
+          <label>Descripción (opcional)</label>
+          <input type="text" id="cc-nueva-descripcion" placeholder="Opcional">
+        </div>
+      </div>
+      <div class="toolbar" style="margin-top:10px;">
+        <button class="btn" id="btn-cc-agregar">+ Agregar cuenta</button>
+      </div>
+
+      <div class="table-wrap" style="margin-top:16px;">
+        <table>
+          <thead><tr><th>Nombre</th><th>Descripción</th><th style="width:90px;">Estado</th><th style="width:140px;">Acciones</th></tr></thead>
+          <tbody id="cc-tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="toolbar" style="margin-top:16px;">
+        <button class="btn secondary" id="btn-cc-cerrar">Cerrar</button>
+      </div>
+    </div>
+  </div>
 
   <section id="tab-datosbancarios" style="display:none;">
     <div class="toolbar">
@@ -2735,6 +2907,7 @@ const TAB_TITLES = {
   panoramaproveedores: 'Panorama de Deuda a Proveedores',
   datosbancarios: 'Datos Bancarios de Proveedores',
   conciliacioncompras: 'Conciliación de Compras (GP vs ARCA)',
+  gastosobra: 'Gastos de Reforma',
 };
 
 function activarTab(tab){
@@ -4738,6 +4911,7 @@ const SECCIONES_PERMISOS = [
   { key:'panoramaproveedores', label:'Panorama de Deuda a Proveedores', acciones:[['ver','Ver / usar']] },
   { key:'datos_bancarios', label:'Datos Bancarios de Proveedores', acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
   { key:'conciliacioncompras', label:'Conciliación de Compras (GP vs ARCA)', acciones:[['ver','Ver / usar']] },
+  { key:'gastos_obra', label:'Gastos de Reforma', acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar']] },
   { key:'usuarios',      label:'Usuarios',      acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar']] },
 ];
 
@@ -5091,6 +5265,7 @@ function renderDashboard(){
       { tab:'panoramaproveedores', icon:'📉', title:'Panorama de Deuda a Proveedores', count: '', visible:puede('panoramaproveedores','ver'), urgencia:null },
       { tab:'datosbancarios', icon:'🏦', title:'Datos Bancarios de Proveedores', count:`${datosBancariosCache.length} proveedores`, visible:puede('datos_bancarios','ver'), urgencia:null },
       { tab:'conciliacioncompras', icon:'🧾', title:'Conciliación de Compras', count: '', visible:puede('conciliacioncompras','ver'), urgencia:null },
+      { tab:'gastosobra', icon:'🏗️', title:'Gastos de Reforma', count: puede('gastos_obra','ver') ? `${gastosObraCache.length} factura(s)` : '', visible:puede('gastos_obra','ver'), urgencia:null },
     ]},
     { key:'herramientas', titulo:'Herramientas', icon:'🛠️', tiles:[
       { tab:'editorobs', icon:'✏️', title:'Editor de Observaciones', count: '', visible:puede('editorobs','ver'), urgencia:null },
@@ -7968,6 +8143,526 @@ document.getElementById('btn-dbp-delete').addEventListener('click', async ()=>{
 });
 
 // =========================================================
+// MÓDULO: Gastos de Reforma (contabilidad paralela de la obra edilicia)
+// =========================================================
+let gastosObraCache = [];
+let cuentasContablesCache = [];
+let gastoObraItems = [];
+let gastoObraArchivoActual = null; // File pendiente de subir al guardar
+
+async function loadCuentasContables(){
+  const { data, error } = await supabaseClient.from('cuentas_contables').select('*').order('nombre');
+  if(error){ console.error('Error cargando cuentas contables:', error); cuentasContablesCache = []; return; }
+  cuentasContablesCache = data;
+}
+
+async function loadGastosObra(){
+  const { data, error } = await supabaseClient
+    .from('gastos_obra')
+    .select('*, cuentas_contables(nombre), gastos_obra_items(*)')
+    .order('fecha', { ascending: false });
+  if(error){ console.error('Error cargando gastos de obra:', error); gastosObraCache = []; return; }
+  gastosObraCache = data;
+}
+
+function populateCuentaSelects(){
+  const activas = cuentasContablesCache.filter(c => c.activa);
+  const opciones = activas.map(c => `<option value="${c.id}">${escapeHtml(c.nombre)}</option>`).join('');
+  document.getElementById('go-cuenta_contable_id').innerHTML = '<option value="">— Elegir —</option>' + opciones;
+  document.getElementById('go-filter-cuenta').innerHTML = '<option value="">Todas las cuentas</option>' +
+    cuentasContablesCache.map(c => `<option value="${c.id}">${escapeHtml(c.nombre)}${!c.activa ? ' (inactiva)' : ''}</option>`).join('');
+}
+
+// ---------- Listado con filtros ----------
+function getFilteredGastosObra(){
+  const q = document.getElementById('go-search').value.trim().toLowerCase();
+  const sucursal = document.getElementById('go-filter-sucursal').value;
+  const cuentaId = document.getElementById('go-filter-cuenta').value;
+  let list = gastosObraCache;
+  if(sucursal) list = list.filter(g => g.sucursal === sucursal);
+  if(cuentaId) list = list.filter(g => String(g.cuenta_contable_id) === String(cuentaId));
+  if(q){
+    list = list.filter(g =>
+      (g.numero_factura||'').toLowerCase().includes(q) ||
+      (g.nombre_proveedor||'').toLowerCase().includes(q)
+    );
+  }
+  return list;
+}
+
+function renderStatsGastosObra(){
+  const list = getFilteredGastosObra();
+  const totalARS = list.reduce((s,g)=>s+(Number(g.total)||0),0);
+  const totalNetoUSD = list.reduce((s,g)=>s+(Number(g.neto_usd)||0),0);
+  const sucursales = new Set(list.map(g=>g.sucursal)).size;
+  const stats = [
+    { l:'Facturas cargadas', v: list.length },
+    { l:'Total ARS (bruto)', v: fmtMoney(totalARS, 'ARS') },
+    { l:'Neto total en USD', v: fmtMoney(totalNetoUSD, 'USD') },
+    { l:'Sucursales con gasto', v: sucursales },
+  ];
+  document.getElementById('go-stats-row').innerHTML = stats.map(s=>`
+    <div class="panel" style="padding:14px 16px;">
+      <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">${s.l}</div>
+      <div style="font-size:20px;font-weight:700;">${s.v}</div>
+    </div>`).join('');
+}
+
+function renderGastosObraLista(){
+  const list = getFilteredGastosObra();
+  const tbody = document.getElementById('go-tbody-lista');
+  if(list.length === 0){
+    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No hay facturas cargadas con este filtro.</td></tr>';
+    document.getElementById('go-results-count').textContent = '';
+    renderStatsGastosObra();
+    return;
+  }
+  tbody.innerHTML = list.map(g=>`
+    <tr>
+      <td class="muted">${fmtDate(g.fecha)}</td>
+      <td>${escapeHtml(g.numero_factura || '—')}</td>
+      <td>${escapeHtml(g.nombre_proveedor || '—')}</td>
+      <td class="muted">${escapeHtml(g.sucursal)}</td>
+      <td class="muted">${escapeHtml(g.cuentas_contables?.nombre || '—')}</td>
+      <td class="num">${fmtMoney(g.neto, 'ARS')}</td>
+      <td class="num" style="font-weight:600;">${fmtMoney(g.neto_usd, 'USD')}</td>
+      <td class="num">${fmtMoney(g.total, 'ARS')}</td>
+      <td>
+        <div class="row-actions">
+          <button class="btn secondary small" onclick="abrirEditarGastoObra(${g.id})">${puede('gastos_obra','editar') ? 'Editar' : 'Ver'}</button>
+        </div>
+      </td>
+    </tr>`).join('');
+  document.getElementById('go-results-count').textContent = `${list.length} factura(s)`;
+  renderStatsGastosObra();
+}
+function applyGoFilters(){ renderGastosObraLista(); }
+document.getElementById('go-search').addEventListener('input', applyGoFilters);
+document.getElementById('go-filter-sucursal').addEventListener('change', applyGoFilters);
+document.getElementById('go-filter-cuenta').addEventListener('change', applyGoFilters);
+
+// ---------- Modal de carga/edición ----------
+function limpiarModalGastoObra(){
+  document.getElementById('go-id').value = '';
+  document.getElementById('go-numero_factura').value = '';
+  document.getElementById('go-fecha').value = '';
+  document.getElementById('go-cuit_proveedor').value = '';
+  document.getElementById('go-nombre_proveedor').value = '';
+  document.getElementById('go-sucursal').value = '';
+  document.getElementById('go-cuenta_contable_id').value = '';
+  document.getElementById('go-cotizacion_usd').value = '';
+  document.getElementById('go-neto').value = '';
+  document.getElementById('go-total').value = '';
+  document.getElementById('go-neto_usd').value = '';
+  document.getElementById('go-file-input').value = '';
+  document.getElementById('go-ocr-status').textContent = '';
+  document.getElementById('go-ver-pdf-link').style.display = 'none';
+  gastoObraArchivoActual = null;
+  gastoObraItems = [];
+  renderItemsGastoObra();
+}
+
+document.getElementById('btn-new-gasto-obra').addEventListener('click', ()=>{
+  limpiarModalGastoObra();
+  document.getElementById('modal-gastoobra-title').textContent = 'Nueva Factura de Gasto de Obra';
+  document.getElementById('modal-gastoobra-overlay').classList.add('open');
+});
+
+function abrirEditarGastoObra(id){
+  const g = gastosObraCache.find(x => x.id === id);
+  if(!g) return;
+  limpiarModalGastoObra();
+  document.getElementById('modal-gastoobra-title').textContent = `Factura N° ${g.numero_factura || g.id}`;
+  document.getElementById('go-id').value = g.id;
+  document.getElementById('go-numero_factura').value = g.numero_factura || '';
+  document.getElementById('go-fecha').value = g.fecha || '';
+  document.getElementById('go-cuit_proveedor').value = g.cuit_proveedor || '';
+  document.getElementById('go-nombre_proveedor').value = g.nombre_proveedor || '';
+  document.getElementById('go-sucursal').value = g.sucursal || '';
+  document.getElementById('go-cuenta_contable_id').value = g.cuenta_contable_id || '';
+  document.getElementById('go-cotizacion_usd').value = g.cotizacion_usd || '';
+  document.getElementById('go-neto').value = g.neto || '';
+  document.getElementById('go-total').value = g.total || '';
+  document.getElementById('go-neto_usd').value = g.neto_usd ? fmtMoney(g.neto_usd, 'USD') : '';
+  if(g.archivo_url){
+    const link = document.getElementById('go-ver-pdf-link');
+    link.href = g.archivo_url;
+    link.style.display = 'inline-block';
+  }
+  gastoObraItems = (g.gastos_obra_items || []).slice().sort((a,b)=>(a.orden||0)-(b.orden||0)).map(it => ({
+    descripcion: it.descripcion, cantidad: it.cantidad,
+  }));
+  renderItemsGastoObra();
+  document.getElementById('modal-gastoobra-overlay').classList.add('open');
+}
+
+document.getElementById('btn-go-cerrar').addEventListener('click', ()=>{
+  document.getElementById('modal-gastoobra-overlay').classList.remove('open');
+});
+document.getElementById('modal-gastoobra-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'modal-gastoobra-overlay') document.getElementById('modal-gastoobra-overlay').classList.remove('open');
+});
+
+// Cálculo en vivo del neto en USD
+function recalcularNetoUsdGastoObra(){
+  const neto = parseFloat(document.getElementById('go-neto').value);
+  const cot = parseFloat(document.getElementById('go-cotizacion_usd').value);
+  const campo = document.getElementById('go-neto_usd');
+  if(neto > 0 && cot > 0){
+    campo.value = fmtMoney(neto / cot, 'USD');
+  } else {
+    campo.value = '';
+  }
+}
+document.getElementById('go-neto').addEventListener('input', recalcularNetoUsdGastoObra);
+document.getElementById('go-cotizacion_usd').addEventListener('input', recalcularNetoUsdGastoObra);
+
+// ---------- Ítems ----------
+document.getElementById('btn-go-agregar-item').addEventListener('click', ()=>{
+  const desc = document.getElementById('go-item-descripcion').value.trim();
+  const cant = parseFloat(document.getElementById('go-item-cantidad').value) || 1;
+  if(!desc){ showToast('Ingresá una descripción para el ítem', true); return; }
+  gastoObraItems.push({ descripcion: desc, cantidad: cant });
+  document.getElementById('go-item-descripcion').value = '';
+  document.getElementById('go-item-cantidad').value = '1';
+  renderItemsGastoObra();
+});
+function renderItemsGastoObra(){
+  document.getElementById('go-items-tbody').innerHTML = gastoObraItems.map((it, idx) => `
+    <tr>
+      <td>${escapeHtml(it.descripcion)}</td>
+      <td class="num">${it.cantidad}</td>
+      <td><button class="btn secondary small" onclick="quitarItemGastoObra(${idx})">Quitar</button></td>
+    </tr>`).join('');
+}
+function quitarItemGastoObra(idx){
+  gastoObraItems.splice(idx,1);
+  renderItemsGastoObra();
+}
+
+// ---------- OCR de la factura ----------
+document.getElementById('go-file-input').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  if(file.type !== 'application/pdf'){ showToast('El archivo debe ser un PDF', true); e.target.value=''; return; }
+  gastoObraArchivoActual = file;
+  const statusEl = document.getElementById('go-ocr-status');
+  try{
+    statusEl.textContent = 'Leyendo PDF...';
+    asegurarPdfWorker();
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 2.2 });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+
+    statusEl.textContent = 'Extrayendo texto (OCR)... esto puede tardar unos segundos';
+    const { data: { text } } = await window.Tesseract.recognize(canvas, 'spa');
+
+    const campos = extraerCamposFacturaGastoObra(text);
+    let detectados = 0;
+    if(campos.numeroFactura && !document.getElementById('go-numero_factura').value){
+      document.getElementById('go-numero_factura').value = campos.numeroFactura; detectados++;
+    }
+    if(campos.fecha && !document.getElementById('go-fecha').value){
+      document.getElementById('go-fecha').value = campos.fecha; detectados++;
+    }
+    if(campos.cuit && !document.getElementById('go-cuit_proveedor').value){
+      document.getElementById('go-cuit_proveedor').value = campos.cuit; detectados++;
+    }
+    if(campos.total && !document.getElementById('go-total').value){
+      document.getElementById('go-total').value = campos.total; detectados++;
+    }
+    if(campos.neto && !document.getElementById('go-neto').value){
+      document.getElementById('go-neto').value = campos.neto; detectados++;
+    }
+    recalcularNetoUsdGastoObra();
+    statusEl.textContent = detectados > 0
+      ? `✓ Se completaron ${detectados} campo(s) automáticamente. Revisá y completá el resto a mano (CUIT, proveedor, cuenta contable y cotización siempre hay que confirmarlos).`
+      : 'No se pudo detectar ningún dato automáticamente — completá el formulario a mano.';
+  } catch(err){
+    console.error(err);
+    statusEl.textContent = 'Error al leer el PDF: ' + err.message;
+  }
+});
+
+function extraerCamposFacturaGastoObra(text){
+  const resultado = { numeroFactura:null, fecha:null, cuit:null, total:null, neto:null };
+
+  const matchNumero =
+    text.match(/N[°ºo]\s*[:\-]?\s*(\d{3,5}[\s\-]?\d{7,9})/i) ||
+    text.match(/\b(\d{4}\s?-\s?\d{8})\b/);
+  if(matchNumero) resultado.numeroFactura = matchNumero[1].replace(/\s/g,'').toUpperCase();
+
+  const matchFecha =
+    text.match(/\bFecha\s*[:\-]?\s*(\d{2})[\/\-](\d{2})[\/\-](\d{4})/i) ||
+    text.match(/\b(\d{2})[\/\-](\d{2})[\/\-](\d{4})\b/);
+  if(matchFecha){
+    const [, dd, mm, yyyy] = matchFecha;
+    resultado.fecha = `${yyyy}-${mm}-${dd}`;
+  }
+
+  const matchCuit = text.match(/CUIT\s*[:\-]?\s*N?°?\s*(\d{2}[\-\s]?\d{8}[\-\s]?\d{1})/i);
+  if(matchCuit) resultado.cuit = matchCuit[1].replace(/[\s\-]/g,'');
+
+  const matchTotal =
+    text.match(/Total\s*[:\-]?\s*(?:U\$S|USD|\$)?\s*([\d.,]{4,})/i) ||
+    text.match(/(?:U\$S|USD|\$)\s?([\d.,]{4,})/i);
+  if(matchTotal) resultado.total = parseFloat(matchTotal[1].replace(/\./g,'').replace(',','.'));
+
+  const matchNeto =
+    text.match(/(?:Neto\s+Gravado|Subtotal|Neto)\s*[:\-]?\s*(?:U\$S|USD|\$)?\s*([\d.,]{4,})/i);
+  if(matchNeto) resultado.neto = parseFloat(matchNeto[1].replace(/\./g,'').replace(',','.'));
+
+  return resultado;
+}
+
+// ---------- Guardar ----------
+document.getElementById('btn-go-guardar').addEventListener('click', async ()=>{
+  const id = document.getElementById('go-id').value;
+  const payload = {
+    numero_factura: document.getElementById('go-numero_factura').value.trim(),
+    fecha: document.getElementById('go-fecha').value,
+    cuit_proveedor: document.getElementById('go-cuit_proveedor').value.trim(),
+    nombre_proveedor: document.getElementById('go-nombre_proveedor').value.trim(),
+    sucursal: document.getElementById('go-sucursal').value,
+    cuenta_contable_id: document.getElementById('go-cuenta_contable_id').value,
+    cotizacion_usd: parseFloat(document.getElementById('go-cotizacion_usd').value),
+    neto: parseFloat(document.getElementById('go-neto').value),
+    total: parseFloat(document.getElementById('go-total').value),
+  };
+
+  if(!payload.numero_factura || !payload.fecha || !payload.cuit_proveedor || !payload.nombre_proveedor ||
+     !payload.sucursal || !payload.cuenta_contable_id || !payload.cotizacion_usd || !payload.neto || !payload.total){
+    showToast('Completá todos los campos obligatorios (*) antes de guardar', true);
+    return;
+  }
+  if(!gastoObraItems.length){
+    showToast('Agregá al menos un ítem a la factura', true);
+    return;
+  }
+  payload.cuenta_contable_id = Number(payload.cuenta_contable_id);
+
+  try{
+    // Subida del PDF (si se cargó uno nuevo)
+    if(gastoObraArchivoActual){
+      const path = `${payload.sucursal.replace(/\s+/g,'_')}/${Date.now()}_${gastoObraArchivoActual.name.replace(/[^a-zA-Z0-9.\-_]/g,'_')}`;
+      const { error: uploadError } = await supabaseClient.storage.from('gastos-obra').upload(path, gastoObraArchivoActual);
+      if(uploadError) throw uploadError;
+      const { data: urlData } = supabaseClient.storage.from('gastos-obra').getPublicUrl(path);
+      payload.archivo_nombre = gastoObraArchivoActual.name;
+      payload.archivo_url = urlData.publicUrl;
+    }
+
+    let gastoId = id ? Number(id) : null;
+    if(gastoId){
+      const { error } = await supabaseClient.from('gastos_obra').update(payload).eq('id', gastoId);
+      if(error) throw error;
+      const { error: delError } = await supabaseClient.from('gastos_obra_items').delete().eq('gasto_obra_id', gastoId);
+      if(delError) throw delError;
+    } else {
+      payload.cargado_por = miPerfil?.nombre || null;
+      const { data, error } = await supabaseClient.from('gastos_obra').insert(payload).select().single();
+      if(error) throw error;
+      gastoId = data.id;
+    }
+
+    const itemsPayload = gastoObraItems.map((it,i) => ({
+      gasto_obra_id: gastoId, descripcion: it.descripcion, cantidad: it.cantidad, orden: i,
+    }));
+    const { error: itemsError } = await supabaseClient.from('gastos_obra_items').insert(itemsPayload);
+    if(itemsError) throw itemsError;
+
+    showToast(id ? 'Factura actualizada' : 'Factura cargada');
+    document.getElementById('modal-gastoobra-overlay').classList.remove('open');
+    await loadGastosObra();
+    renderGastosObraLista();
+  } catch(err){
+    console.error(err);
+    showToast('Error al guardar: ' + err.message, true);
+  }
+});
+
+// ---------- Cuentas Contables (solo maestro) ----------
+document.getElementById('btn-gestionar-cuentas').addEventListener('click', ()=>{
+  renderCuentasContablesTabla();
+  document.getElementById('modal-cuentas-contables-overlay').classList.add('open');
+});
+document.getElementById('btn-cc-cerrar').addEventListener('click', ()=>{
+  document.getElementById('modal-cuentas-contables-overlay').classList.remove('open');
+});
+document.getElementById('modal-cuentas-contables-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'modal-cuentas-contables-overlay') document.getElementById('modal-cuentas-contables-overlay').classList.remove('open');
+});
+
+function renderCuentasContablesTabla(){
+  const tbody = document.getElementById('cc-tbody');
+  tbody.innerHTML = cuentasContablesCache.map(c => `
+    <tr>
+      <td>${escapeHtml(c.nombre)}</td>
+      <td class="muted">${escapeHtml(c.descripcion || '—')}</td>
+      <td><span class="badge" style="color:${c.activa ? 'var(--ok)' : 'var(--text-dim)'};border-color:${c.activa ? 'var(--ok)' : 'var(--border)'};">${c.activa ? 'Activa' : 'Inactiva'}</span></td>
+      <td>
+        <div class="row-actions">
+          <button class="btn secondary small" onclick="editarCuentaContable(${c.id})">Editar</button>
+          <button class="btn secondary small" onclick="toggleActivaCuentaContable(${c.id})">${c.activa ? 'Desactivar' : 'Activar'}</button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+document.getElementById('btn-cc-agregar').addEventListener('click', async ()=>{
+  const nombre = document.getElementById('cc-nueva-nombre').value.trim();
+  const descripcion = document.getElementById('cc-nueva-descripcion').value.trim();
+  if(!nombre){ showToast('Ingresá el nombre de la cuenta', true); return; }
+  try{
+    const { error } = await supabaseClient.from('cuentas_contables').insert({ nombre, descripcion: descripcion || null });
+    if(error) throw error;
+    document.getElementById('cc-nueva-nombre').value = '';
+    document.getElementById('cc-nueva-descripcion').value = '';
+    await loadCuentasContables();
+    populateCuentaSelects();
+    renderCuentasContablesTabla();
+    showToast('Cuenta creada');
+  } catch(err){
+    console.error(err);
+    showToast('Error al crear la cuenta: ' + err.message, true);
+  }
+});
+
+async function editarCuentaContable(id){
+  const c = cuentasContablesCache.find(x => x.id === id);
+  if(!c) return;
+  const nuevoNombre = prompt('Nombre de la cuenta:', c.nombre);
+  if(nuevoNombre === null || !nuevoNombre.trim()) return;
+  const nuevaDesc = prompt('Descripción (opcional):', c.descripcion || '');
+  try{
+    const { error } = await supabaseClient.from('cuentas_contables').update({ nombre: nuevoNombre.trim(), descripcion: nuevaDesc || null }).eq('id', id);
+    if(error) throw error;
+    await loadCuentasContables();
+    populateCuentaSelects();
+    renderCuentasContablesTabla();
+    showToast('Cuenta actualizada');
+  } catch(err){
+    console.error(err);
+    showToast('Error al editar: ' + err.message, true);
+  }
+}
+
+async function toggleActivaCuentaContable(id){
+  const c = cuentasContablesCache.find(x => x.id === id);
+  if(!c) return;
+  try{
+    const { error } = await supabaseClient.from('cuentas_contables').update({ activa: !c.activa }).eq('id', id);
+    if(error) throw error;
+    await loadCuentasContables();
+    populateCuentaSelects();
+    renderCuentasContablesTabla();
+  } catch(err){
+    console.error(err);
+    showToast('Error: ' + err.message, true);
+  }
+}
+
+// ---------- Reporte PDF (agrupado por cuenta contable, ARS y USD) ----------
+document.getElementById('btn-exportar-reporte-obra').addEventListener('click', ()=>{
+  const list = getFilteredGastosObra();
+  if(!list.length){ showToast('No hay facturas para el filtro actual', true); return; }
+  descargarReporteGastosObraPDF(list);
+});
+
+function descargarReporteGastosObraPDF(list){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const marginX = 16;
+  const bannerRatio = 406/2475;
+  const bannerH = pageWidth * bannerRatio;
+  let y = 15;
+
+  try{ doc.addImage(LOGO_PDF_BASE64, 'PNG', marginX, y, 60, 12.3); } catch(e){ console.error(e); }
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(15);
+  doc.text('REPORTE DE GASTOS DE REFORMA EDILICIA', pageWidth - marginX, y + 9, { align:'right' });
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(9);
+  doc.setTextColor(90);
+  doc.text(`Generado: ${fmtDate(new Date().toISOString().slice(0,10))}`, pageWidth - marginX, y + 15, { align:'right' });
+  doc.setTextColor(0);
+  y += 26;
+  doc.setDrawColor(56,189,248);
+  doc.setLineWidth(0.8);
+  doc.line(marginX, y, pageWidth - marginX, y);
+  y += 8;
+
+  // Agrupar por cuenta contable
+  const grupos = new Map();
+  list.forEach(g=>{
+    const nombreCuenta = g.cuentas_contables?.nombre || 'Sin categoría';
+    if(!grupos.has(nombreCuenta)) grupos.set(nombreCuenta, []);
+    grupos.get(nombreCuenta).push(g);
+  });
+
+  let totalGeneralARS = 0, totalGeneralUSD = 0;
+  [...grupos.entries()].sort((a,b)=>a[0].localeCompare(b[0])).forEach(([nombreCuenta, items])=>{
+    const subtotalARS = items.reduce((s,g)=>s+(Number(g.total)||0),0);
+    const subtotalUSD = items.reduce((s,g)=>s+(Number(g.neto_usd)||0),0);
+    totalGeneralARS += subtotalARS;
+    totalGeneralUSD += subtotalUSD;
+
+    if(y > pageHeight - bannerH - 45){ doc.addPage(); y = 15; }
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(10.5);
+    doc.setFillColor(10,26,58);
+    doc.rect(marginX, y - 4, pageWidth - marginX*2, 7, 'F');
+    doc.setTextColor(255);
+    doc.text(`${nombreCuenta}  (${items.length})`, marginX + 2, y);
+    doc.setTextColor(0);
+    y += 5;
+
+    const body = items.map(g => [
+      fmtDate(g.fecha), g.numero_factura || '—', g.sucursal, g.nombre_proveedor || '—',
+      fmtMoney(g.neto, 'ARS'), fmtMoney(g.neto_usd, 'USD'), fmtMoney(g.total, 'ARS'),
+    ]);
+    doc.autoTable({
+      startY: y,
+      head: [['Fecha','N° Factura','Sucursal','Proveedor','Neto ARS','Neto USD','Total ARS']],
+      body,
+      foot: [['','','','SUBTOTAL', '', fmtMoney(subtotalUSD,'USD'), fmtMoney(subtotalARS,'ARS')]],
+      theme: 'grid',
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [235,238,242], textColor: 20, fontStyle:'bold' },
+      footStyles: { fillColor: [235,235,235], textColor: 0, fontStyle:'bold', fontSize:8.5 },
+      margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+    });
+    y = doc.lastAutoTable.finalY + 10;
+  });
+
+  if(y > pageHeight - bannerH - 25){ doc.addPage(); y = 20; }
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(12);
+  doc.text(`TOTAL GENERAL: ${fmtMoney(totalGeneralARS,'ARS')}  —  ${fmtMoney(totalGeneralUSD,'USD')} netos`, marginX, y);
+
+  const totalPaginas = doc.internal.getNumberOfPages();
+  for(let i=1;i<=totalPaginas;i++){
+    doc.setPage(i);
+    try{ doc.addImage(FOOTER_BANNER_BASE64, 'JPEG', 0, pageHeight - bannerH, pageWidth, bannerH); } catch(e){ console.error(e); }
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(120);
+    doc.text(`Página ${i} de ${totalPaginas}`, pageWidth - marginX, pageHeight - bannerH - 4, { align:'right' });
+    doc.setTextColor(0);
+  }
+
+  doc.save(`Reporte_Gastos_Reforma_${new Date().toISOString().slice(0,10)}.pdf`);
+  showToast('Reporte generado');
+}
+
+// =========================================================
 // MÓDULO: Solicitud de OC (numeración correlativa, nunca se borran — se anulan)
 // =========================================================
 let solicitudesOCCache = [];
@@ -9046,6 +9741,16 @@ async function initApp(){
       renderSolicitudesOCLista();
     }
     document.getElementById('btn-new-solicitudoc').style.display = puede('solicitudoc','crear') ? '' : 'none';
+
+    if(puede('gastos_obra','ver')){
+      console.log('[Horizon] cargando gastos de obra...');
+      await loadCuentasContables();
+      await loadGastosObra();
+      populateCuentaSelects();
+      renderGastosObraLista();
+    }
+    document.getElementById('btn-new-gasto-obra').style.display = puede('gastos_obra','crear') ? '' : 'none';
+    document.getElementById('btn-gestionar-cuentas').style.display = (miPerfil.rol === 'maestro') ? '' : 'none';
 
     if(puede('planning','ver')){
       console.log('[Horizon] cargando planning...');
