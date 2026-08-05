@@ -1484,7 +1484,7 @@
               <th>Neto ARS</th>
               <th>Neto USD</th>
               <th>Total ARS</th>
-              <th style="width:110px;">Acciones</th>
+              <th style="width:170px;">Acciones</th>
             </tr>
           </thead>
           <tbody id="go-tbody-lista">
@@ -8251,6 +8251,7 @@ function renderGastosObraLista(){
       <td>
         <div class="row-actions">
           <button class="btn secondary small" onclick="abrirEditarGastoObra(${g.id})">${puede('gastos_obra','editar') ? 'Editar' : 'Ver'}</button>
+          ${g.archivo_url ? `<a class="btn secondary small" href="${g.archivo_url}" target="_blank" rel="noopener">Ver PDF</a>` : ''}
         </div>
       </td>
     </tr>`).join('');
