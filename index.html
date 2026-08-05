@@ -1539,15 +1539,15 @@
         </div>
         <div class="field">
           <label>Cotización USD del día *</label>
-          <input type="number" step="0.01" id="go-cotizacion_usd" placeholder="Ej: 1450.00">
+          <input type="text" inputmode="decimal" id="go-cotizacion_usd" placeholder="Ej: 1450,00">
         </div>
         <div class="field">
           <label>Neto (sin impuestos) *</label>
-          <input type="number" step="0.01" id="go-neto" placeholder="0.00">
+          <input type="text" inputmode="decimal" id="go-neto" placeholder="0,00">
         </div>
         <div class="field">
           <label>Total factura *</label>
-          <input type="number" step="0.01" id="go-total" placeholder="0.00">
+          <input type="text" inputmode="decimal" id="go-total" placeholder="0,00">
         </div>
         <div class="field">
           <label>Neto en USD (calculado)</label>
@@ -8147,6 +8147,22 @@ document.getElementById('btn-dbp-delete').addEventListener('click', async ()=>{
 // MÓDULO: Gastos de Reforma (contabilidad paralela de la obra edilicia)
 // =========================================================
 let gastosObraCache = [];
+
+// Convierte un número tipeado en formato argentino (punto de miles, coma decimal —
+// ej: "863.410,86") o en formato simple (solo coma o solo punto decimal) a Number.
+// Los <input type="number"> del navegador NO entienden el formato argentino y
+// truncan silenciosamente todo lo que sigue a la coma, así que estos campos son
+// type="text" y se parsean acá.
+function parsearNumeroAR(str){
+  if(str === null || str === undefined) return NaN;
+  let s = String(str).trim();
+  if(!s) return NaN;
+  if(s.includes(',')){
+    // Formato argentino: el punto es separador de miles, la coma es el decimal
+    s = s.replace(/\./g, '').replace(',', '.');
+  }
+  return parseFloat(s);
+}
 let cuentasContablesCache = [];
 let gastoObraItems = [];
 let gastoObraArchivoActual = null; // File pendiente de subir al guardar
@@ -8306,8 +8322,8 @@ document.getElementById('modal-gastoobra-overlay').addEventListener('click', (e)
 
 // Cálculo en vivo del neto en USD
 function recalcularNetoUsdGastoObra(){
-  const neto = parseFloat(document.getElementById('go-neto').value);
-  const cot = parseFloat(document.getElementById('go-cotizacion_usd').value);
+  const neto = parsearNumeroAR(document.getElementById('go-neto').value);
+  const cot = parsearNumeroAR(document.getElementById('go-cotizacion_usd').value);
   const campo = document.getElementById('go-neto_usd');
   if(neto > 0 && cot > 0){
     campo.value = fmtMoney(neto / cot, 'USD');
@@ -8431,9 +8447,9 @@ document.getElementById('btn-go-guardar').addEventListener('click', async ()=>{
     nombre_proveedor: document.getElementById('go-nombre_proveedor').value.trim(),
     sucursal: document.getElementById('go-sucursal').value,
     cuenta_contable_id: document.getElementById('go-cuenta_contable_id').value,
-    cotizacion_usd: parseFloat(document.getElementById('go-cotizacion_usd').value),
-    neto: parseFloat(document.getElementById('go-neto').value),
-    total: parseFloat(document.getElementById('go-total').value),
+    cotizacion_usd: parsearNumeroAR(document.getElementById('go-cotizacion_usd').value),
+    neto: parsearNumeroAR(document.getElementById('go-neto').value),
+    total: parsearNumeroAR(document.getElementById('go-total').value),
   };
 
   if(!payload.numero_factura || !payload.fecha || !payload.cuit_proveedor || !payload.nombre_proveedor ||
