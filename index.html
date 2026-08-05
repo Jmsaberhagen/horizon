@@ -1539,7 +1539,11 @@
         </div>
         <div class="field">
           <label>Cotización USD del día *</label>
-          <input type="text" inputmode="decimal" id="go-cotizacion_usd" placeholder="Ej: 1450,00">
+          <div style="display:flex;gap:6px;">
+            <input type="text" inputmode="decimal" id="go-cotizacion_usd" placeholder="Ej: 1450,00" style="flex:1;">
+            <button type="button" class="btn secondary small" id="btn-buscar-tc-bna" title="Traer el TC BNA (venta) del día automáticamente">🔄 TC BNA</button>
+          </div>
+          <div class="muted" id="go-tc-bna-status" style="font-size:11px;margin-top:4px;"></div>
         </div>
         <div class="field">
           <label>Neto (sin impuestos) *</label>
@@ -8274,6 +8278,7 @@ function limpiarModalGastoObra(){
   document.getElementById('go-file-input').value = '';
   document.getElementById('go-ocr-status').textContent = '';
   document.getElementById('go-ver-pdf-link').style.display = 'none';
+  document.getElementById('go-tc-bna-status').textContent = '';
   gastoObraArchivoActual = null;
   gastoObraItems = [];
   renderItemsGastoObra();
@@ -8333,6 +8338,24 @@ function recalcularNetoUsdGastoObra(){
 }
 document.getElementById('go-neto').addEventListener('input', recalcularNetoUsdGastoObra);
 document.getElementById('go-cotizacion_usd').addEventListener('input', recalcularNetoUsdGastoObra);
+
+document.getElementById('btn-buscar-tc-bna').addEventListener('click', async ()=>{
+  const statusEl = document.getElementById('go-tc-bna-status');
+  statusEl.textContent = 'Consultando TC BNA...';
+  try{
+    const resp = await fetch('https://dolar-bna.vercel.app/api/cotizacion');
+    if(!resp.ok) throw new Error('respuesta ' + resp.status);
+    const data = await resp.json();
+    if(!data.venta) throw new Error('no vino el valor de venta');
+    document.getElementById('go-cotizacion_usd').value = String(data.venta).replace('.', ',');
+    recalcularNetoUsdGastoObra();
+    const fechaFuente = data.timestamp ? new Date(data.timestamp).toLocaleString('es-AR') : '';
+    statusEl.textContent = `✓ TC BNA venta: $${data.venta} (${data.fuente || 'BNA'}${fechaFuente ? ' · '+fechaFuente : ''}) — podés editarlo si preferís otro valor`;
+  } catch(err){
+    console.error(err);
+    statusEl.textContent = '✕ No se pudo consultar el TC BNA automáticamente — completalo a mano.';
+  }
+});
 
 // ---------- Ítems ----------
 document.getElementById('btn-go-agregar-item').addEventListener('click', ()=>{
