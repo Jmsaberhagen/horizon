@@ -1249,8 +1249,6 @@
       </select>
       <input type="date" id="rem-filter-entrega-desde" title="Entrega desde">
       <input type="date" id="rem-filter-entrega-hasta" title="Entrega hasta">
-      <input type="date" id="rem-filter-retiro-desde" title="Retiro desde">
-      <input type="date" id="rem-filter-retiro-hasta" title="Retiro hasta">
       <button class="btn secondary small" id="btn-rem-limpiar-filtros" type="button">Limpiar filtros</button>
       <div style="flex:1"></div>
       <button class="btn secondary" id="btn-export-remitos-csv">Exportar CSV</button>
@@ -5227,7 +5225,6 @@ function renderDashboard(){
   const nContratosSinConfirmar = contratosCache.filter(c=>!c.datos_confirmados).length;
   const nPendientesFacturar = pendientesCache.filter(p=>p.estado==='pendiente').length;
   const nRetirosUrgentes = calcularRetirosUrgentes().length;
-  const nRemitosPendientes = remitosCache.filter(r=>!r.fecha_retiro).length;
   const nFacturasSinEnviar = todasFacturasPdfCache.filter(f=>!f._enviada).length;
 
   const categorias = [
@@ -5244,7 +5241,7 @@ function renderDashboard(){
       { tab:'equipos',    icon:'🚜', title:'Equipos',    count:`${equiposCache.length} en catálogo`, visible:puede('equipos','ver'), urgencia:null },
       { tab:'planning',   icon:'📅', title:'Planning',   count:'Ocupación de flota', visible:puede('planning','ver'), urgencia:null },
       { tab:'retiros',    icon:'🚨', title:'Pendientes de Retiro', count: puede('retiros','ver') ? `${nRetirosUrgentes} urgente(s)` : '', visible:puede('retiros','ver'), urgencia: nRetirosUrgentes>0 ? 'danger' : 'ok' },
-      { tab:'remitos',    icon:'📋', title:'Remitos',    count: puede('remitos','ver') ? `${nRemitosPendientes} pendiente(s) de retiro` : '', visible:puede('remitos','ver'), urgencia: nRemitosPendientes>0 ? 'warn' : 'ok' },
+      { tab:'remitos',    icon:'📋', title:'Remitos',    count: puede('remitos','ver') ? `${remitosCache.length} cargado(s)` : '', visible:puede('remitos','ver'), urgencia: null },
     ]},
     { key:'compras', titulo:'Compras', icon:'🧾', tiles:[
       { tab:'panoramaproveedores', icon:'📉', title:'Panorama de Deuda a Proveedores', count: '', visible:puede('panoramaproveedores','ver'), urgencia:null },
@@ -7174,16 +7171,12 @@ function getRemitosFiltrados(){
   const estado = document.getElementById('rem-filter-estado').value;
   const entregaDesde = document.getElementById('rem-filter-entrega-desde').value;
   const entregaHasta = document.getElementById('rem-filter-entrega-hasta').value;
-  const retiroDesde = document.getElementById('rem-filter-retiro-desde').value;
-  const retiroHasta = document.getElementById('rem-filter-retiro-hasta').value;
   let list = remitosCache;
   if(sucursalId) list = list.filter(r => String(r.sucursal_id) === sucursalId);
   if(estado === 'pendiente') list = list.filter(r => !r.fecha_retiro);
   if(estado === 'retirado') list = list.filter(r => !!r.fecha_retiro);
   if(entregaDesde) list = list.filter(r => r.fecha_entrega && r.fecha_entrega >= entregaDesde);
   if(entregaHasta) list = list.filter(r => r.fecha_entrega && r.fecha_entrega <= entregaHasta);
-  if(retiroDesde) list = list.filter(r => r.fecha_retiro && r.fecha_retiro >= retiroDesde);
-  if(retiroHasta) list = list.filter(r => r.fecha_retiro && r.fecha_retiro <= retiroHasta);
   if(q){
     list = list.filter(r =>
       (r.clientes?.razon_social || '').toLowerCase().includes(q) ||
@@ -7218,11 +7211,7 @@ function renderRemitos(){
         <div class="muted" style="font-size:12px;margin-bottom:4px;">N° Remito: <span style="color:var(--text);">${escapeHtml(r.numero_remito || '—')}</span></div>
         <div class="muted" style="font-size:12px;margin-bottom:4px;">Entrega: <span style="color:var(--text);">${r.fecha_entrega ? fmtDate(r.fecha_entrega) : '—'}</span></div>
         ${retirado ? `<div class="muted" style="font-size:12px;margin-bottom:4px;">Retiro: <span style="color:var(--text);">${fmtDate(r.fecha_retiro)}</span></div>` : ''}
-        <div style="display:flex;gap:8px;margin:8px 0;flex-wrap:wrap;">
-          ${r.archivo_entrega_url ? `<a href="${r.archivo_entrega_url}" target="_blank" class="btn secondary small" style="text-decoration:none;">📎 Entrega</a>` : ''}
-          ${r.archivo_retiro_url ? `<a href="${r.archivo_retiro_url}" target="_blank" class="btn secondary small" style="text-decoration:none;">📎 Retiro</a>` : ''}
-        </div>
-        <div class="row-actions" style="border-top:1px solid var(--border);padding-top:10px;">
+        <div class="row-actions" style="border-top:1px solid var(--border);padding-top:10px;margin-top:8px;">
           <button class="btn secondary small" onclick="verRemito(${r.id})" ${tienePdf ? '' : 'disabled title="Sin PDF adjunto"'}>Ver</button>
           <button class="btn secondary small" onclick="abrirEditarRemito(${r.id})">Editar</button>
           ${puede('remitos','eliminar') ? `<button class="btn danger small" onclick="eliminarRemitoDirecto(${r.id})">Eliminar</button>` : ''}
@@ -7260,16 +7249,12 @@ document.getElementById('rem-filter-sucursal').addEventListener('change', applyR
 document.getElementById('rem-filter-estado').addEventListener('change', applyRemitoFilters);
 document.getElementById('rem-filter-entrega-desde').addEventListener('change', applyRemitoFilters);
 document.getElementById('rem-filter-entrega-hasta').addEventListener('change', applyRemitoFilters);
-document.getElementById('rem-filter-retiro-desde').addEventListener('change', applyRemitoFilters);
-document.getElementById('rem-filter-retiro-hasta').addEventListener('change', applyRemitoFilters);
 document.getElementById('btn-rem-limpiar-filtros').addEventListener('click', ()=>{
   document.getElementById('rem-search').value = '';
   document.getElementById('rem-filter-sucursal').value = '';
   document.getElementById('rem-filter-estado').value = '';
   document.getElementById('rem-filter-entrega-desde').value = '';
   document.getElementById('rem-filter-entrega-hasta').value = '';
-  document.getElementById('rem-filter-retiro-desde').value = '';
-  document.getElementById('rem-filter-retiro-hasta').value = '';
   renderRemitos();
 });
 
