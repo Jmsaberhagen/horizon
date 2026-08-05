@@ -1467,6 +1467,7 @@
       <div style="flex:1"></div>
       <button class="btn secondary" id="btn-gestionar-cuentas" style="display:none;">⚙️ Cuentas Contables</button>
       <button class="btn secondary" id="btn-exportar-reporte-obra">📄 Exportar Reporte PDF</button>
+      <button class="btn secondary" id="btn-exportar-excel-obra">Exportar Excel</button>
       <button class="btn" id="btn-new-gasto-obra">+ Cargar Factura</button>
     </div>
 
@@ -8568,6 +8569,26 @@ async function toggleActivaCuentaContable(id){
 }
 
 // ---------- Reporte PDF (agrupado por cuenta contable, ARS y USD) ----------
+function gastosObraToRows(list){
+  const headers = ['Fecha','N Factura','CUIT Proveedor','Proveedor','Sucursal','Cuenta Contable','Cotizacion USD','Neto ARS','Neto USD','Total ARS','Items'];
+  const rows = list.map(g => {
+    const items = (g.gastos_obra_items || [])
+      .slice().sort((a,b)=>(a.orden||0)-(b.orden||0))
+      .map(it => `${it.cantidad}x ${it.descripcion}`)
+      .join('; ');
+    return [
+      fmtDate(g.fecha), g.numero_factura || '', g.cuit_proveedor || '', g.nombre_proveedor || '',
+      g.sucursal || '', g.cuentas_contables?.nombre || '', g.cotizacion_usd ?? '',
+      g.neto ?? '', g.neto_usd ?? '', g.total ?? '', items,
+    ];
+  });
+  return { headers, rows };
+}
+document.getElementById('btn-exportar-excel-obra').addEventListener('click', ()=>{
+  const { headers, rows } = gastosObraToRows(getFilteredGastosObra());
+  exportXLS(`gastos_reforma_${new Date().toISOString().slice(0,10)}`, headers, rows);
+});
+
 document.getElementById('btn-exportar-reporte-obra').addEventListener('click', ()=>{
   const list = getFilteredGastosObra();
   if(!list.length){ showToast('No hay facturas para el filtro actual', true); return; }
