@@ -1259,27 +1259,7 @@
       <button class="btn" id="btn-nuevo-remito">+ Nuevo remito</button>
     </div>
 
-    <div class="panel">
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Cliente</th>
-              <th>Equipo (N° Serie)</th>
-              <th>N° Remito</th>
-              <th>Sucursal</th>
-              <th>Fecha entrega</th>
-              <th>Fecha retiro</th>
-              <th>Estado</th>
-              <th style="width:190px;">Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="rem-tbody">
-            <tr><td colspan="8" class="empty-state">Cargando...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <div id="rem-cards-grid" class="dash-grid" style="grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));"></div>
     <div class="muted" id="rem-results-count" style="margin-top:10px;font-size:12px;"></div>
   </section>
 
@@ -7217,38 +7197,61 @@ function getRemitosFiltrados(){
 
 function renderRemitos(){
   const list = getRemitosFiltrados();
-  const tbody = document.getElementById('rem-tbody');
-  if(!tbody) return;
+  const grid = document.getElementById('rem-cards-grid');
+  if(!grid) return;
   if(list.length === 0){
-    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No hay remitos con este filtro.</td></tr>';
+    grid.innerHTML = '<div class="muted" style="padding:20px;text-align:center;grid-column:1/-1;">No hay remitos con este filtro.</div>';
     document.getElementById('rem-results-count').textContent = '';
     return;
   }
-  tbody.innerHTML = list.map(r=>{
+  grid.innerHTML = list.map(r=>{
     const retirado = !!r.fecha_retiro;
-    const estadoBadge = retirado
-      ? `<span class="badge" style="color:var(--ok);border-color:var(--ok);">Retirado</span>`
-      : `<span class="badge" style="color:#ff9f43;border-color:#ff9f43;">Pendiente de retiro</span>`;
+    const color = retirado ? 'var(--ok)' : 'var(--accent)';
+    const tienePdf = r.archivo_entrega_url || r.archivo_retiro_url;
     return `
-      <tr>
-        <td>${escapeHtml(r.clientes?.razon_social || '—')}</td>
-        <td class="muted">${escapeHtml(r.equipos?.numero_serie || '—')}${r.equipos?.modelo ? ' — '+escapeHtml(r.equipos.modelo) : ''}</td>
-        <td class="muted">${escapeHtml(r.numero_remito || '—')}</td>
-        <td>${r.sucursales?.nombre ? `<span class="badge">${escapeHtml(r.sucursales.nombre)}</span>` : '—'}</td>
-        <td class="muted">${r.fecha_entrega ? fmtDate(r.fecha_entrega) : '—'}</td>
-        <td class="muted">${r.fecha_retiro ? fmtDate(r.fecha_retiro) : '—'}</td>
-        <td>${estadoBadge}</td>
-        <td>
-          <div class="row-actions">
-            ${r.archivo_entrega_url ? `<a href="${r.archivo_entrega_url}" target="_blank" class="btn secondary small" style="text-decoration:none;">Entrega</a>` : ''}
-            ${r.archivo_retiro_url ? `<a href="${r.archivo_retiro_url}" target="_blank" class="btn secondary small" style="text-decoration:none;">Retiro</a>` : ''}
-            <button class="btn secondary small" onclick="abrirEditarRemito(${r.id})">Editar</button>
-            ${!retirado && puede('remitos','registrar_retiro') ? `<button class="btn small" onclick="abrirRegistrarRetiro(${r.id})">Registrar retiro</button>` : ''}
-          </div>
-        </td>
-      </tr>`;
+      <div class="panel" style="padding:14px;border-left:3px solid ${color};background:var(--panel-2);">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;">
+          <div style="font-weight:700;font-size:14px;">${escapeHtml(r.clientes?.razon_social || '—')}</div>
+          ${r.sucursales?.nombre ? `<span class="badge" style="font-size:10px;flex:none;">${escapeHtml(r.sucursales.nombre)}</span>` : ''}
+        </div>
+        <div class="muted" style="font-size:12px;margin-bottom:4px;">${escapeHtml(r.equipos?.numero_serie || '—')}${r.equipos?.modelo ? ' — '+escapeHtml(r.equipos.modelo) : ''}</div>
+        <div class="muted" style="font-size:12px;margin-bottom:4px;">N° Remito: <span style="color:var(--text);">${escapeHtml(r.numero_remito || '—')}</span></div>
+        <div class="muted" style="font-size:12px;margin-bottom:4px;">Entrega: <span style="color:var(--text);">${r.fecha_entrega ? fmtDate(r.fecha_entrega) : '—'}</span></div>
+        ${retirado ? `<div class="muted" style="font-size:12px;margin-bottom:4px;">Retiro: <span style="color:var(--text);">${fmtDate(r.fecha_retiro)}</span></div>` : ''}
+        <div style="display:flex;gap:8px;margin:8px 0;flex-wrap:wrap;">
+          ${r.archivo_entrega_url ? `<a href="${r.archivo_entrega_url}" target="_blank" class="btn secondary small" style="text-decoration:none;">📎 Entrega</a>` : ''}
+          ${r.archivo_retiro_url ? `<a href="${r.archivo_retiro_url}" target="_blank" class="btn secondary small" style="text-decoration:none;">📎 Retiro</a>` : ''}
+        </div>
+        <div class="row-actions" style="border-top:1px solid var(--border);padding-top:10px;">
+          <button class="btn secondary small" onclick="verRemito(${r.id})" ${tienePdf ? '' : 'disabled title="Sin PDF adjunto"'}>Ver</button>
+          <button class="btn secondary small" onclick="abrirEditarRemito(${r.id})">Editar</button>
+          ${puede('remitos','eliminar') ? `<button class="btn danger small" onclick="eliminarRemitoDirecto(${r.id})">Eliminar</button>` : ''}
+        </div>
+      </div>`;
   }).join('');
   document.getElementById('rem-results-count').textContent = `${list.length} remito(s)`;
+}
+
+function verRemito(id){
+  const r = remitosCache.find(x=>x.id === id);
+  if(!r) return;
+  const url = r.archivo_entrega_url || r.archivo_retiro_url;
+  if(!url){ showToast('Este remito no tiene PDF adjunto', true); return; }
+  window.open(url, '_blank');
+}
+
+async function eliminarRemitoDirecto(id){
+  if(!confirm('¿Eliminar este remito? Esta acción no se puede deshacer.')) return;
+  try{
+    const { error } = await supabaseClient.from('remitos').delete().eq('id', id);
+    if(error) throw error;
+    await loadRemitos();
+    renderRemitos();
+    showToast('Remito eliminado');
+  } catch(err){
+    console.error(err);
+    showToast('Error al eliminar: ' + err.message, true);
+  }
 }
 
 function applyRemitoFilters(){ renderRemitos(); }
