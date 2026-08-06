@@ -1160,11 +1160,16 @@
 
       <div class="panel" style="margin-bottom:14px;padding:14px;">
         <h3 style="margin-top:0;">🚗 Patentamiento</h3>
-        <div class="field-grid cols-4">
-          <div class="field"><label>Fecha de emisión</label><input type="date" id="venc-eq-patentamiento-fecha"></div>
-          <div class="field"><label>Renovación cada</label><input type="number" id="venc-eq-patentamiento-valor"></div>
-          <div class="field"><label>Unidad</label><select id="venc-eq-patentamiento-unidad"><option value="meses">Meses</option><option value="dias">Días</option></select></div>
-          <div class="field"><label>Avisar (días antes)</label><input type="number" id="venc-eq-patentamiento-alerta" value="30"></div>
+        <div class="muted" style="font-size:11.5px;margin-bottom:10px;">Trámite único — no se renueva, solo se registra si ya se hizo.</div>
+        <div class="field-grid cols-3">
+          <div class="field">
+            <label>¿Realizado?</label>
+            <select id="venc-eq-patentamiento-realizado">
+              <option value="false">No</option>
+              <option value="true">Sí</option>
+            </select>
+          </div>
+          <div class="field"><label>Fecha</label><input type="date" id="venc-eq-patentamiento-fecha"></div>
         </div>
       </div>
       <div class="panel" style="margin-bottom:14px;padding:14px;">
@@ -9132,9 +9137,10 @@ function badgeEstadoVencimiento(estado, fechaVencimiento){
   return `<span class="badge" style="color:${color};border-color:${color};" title="Vence: ${fechaVencimiento ? fmtDate(fechaVencimiento) : '—'}">${label}${fechaVencimiento ? ' · '+fmtDate(fechaVencimiento) : ''}</span>`;
 }
 
-// Documentos de una máquina, con estado calculado
+// Documentos de una máquina, con estado calculado.
+// El patentamiento es un trámite único (no vence): se maneja aparte como Sí/No + fecha.
 function documentosEquipo(e){
-  const docs = ['patentamiento','certificacion','seguro_tecnico'].map(prefijo=>{
+  const docsRecurrentes = ['certificacion','seguro_tecnico'].map(prefijo=>{
     const fecha = e[`${prefijo}_fecha`];
     const valor = e[`${prefijo}_periodicidad_valor`];
     const unidad = e[`${prefijo}_periodicidad_unidad`] || 'meses';
@@ -9143,7 +9149,13 @@ function documentosEquipo(e){
     const estado = calcularEstadoVencimiento(vencimiento, alerta);
     return { prefijo, fecha, vencimiento, estado };
   });
-  return docs;
+  const patentamiento = { prefijo:'patentamiento', fecha: e.patentamiento_fecha, realizado: !!e.patentamiento_realizado };
+  return [patentamiento, ...docsRecurrentes];
+}
+function badgePatentamiento(p){
+  return p.realizado
+    ? `<span class="badge" style="color:var(--ok);border-color:var(--ok);">Realizado${p.fecha ? ' · '+fmtDate(p.fecha) : ''}</span>`
+    : `<span class="badge" style="color:var(--text-dim);border-color:var(--border);">Pendiente</span>`;
 }
 // Documentos de una persona (licencia + apto + cursos), con estado calculado
 function documentosPersonal(p){
@@ -9457,7 +9469,7 @@ function renderVencEquipos(){
     return `<tr>
       <td>${escapeHtml(e.numero_serie||'—')}</td>
       <td class="muted">${escapeHtml(e.modelo||'—')}</td>
-      <td>${badgeEstadoVencimiento(pat.estado, pat.vencimiento)}</td>
+      <td>${badgePatentamiento(pat)}</td>
       <td>${badgeEstadoVencimiento(cert.estado, cert.vencimiento)}</td>
       <td>${badgeEstadoVencimiento(seg.estado, seg.vencimiento)}</td>
       <td><button class="btn secondary small" onclick="abrirVencEquipo(${e.id})">${puede('vencimientos','editar') ? 'Editar' : 'Ver'}</button></td>
@@ -9475,9 +9487,7 @@ function abrirVencEquipo(id){
   document.getElementById('modal-venc-equipo-title').textContent = `${e.numero_serie} — ${e.modelo||''}`;
   document.getElementById('venc-eq-id').value = e.id;
   document.getElementById('venc-eq-patentamiento-fecha').value = e.patentamiento_fecha || '';
-  document.getElementById('venc-eq-patentamiento-valor').value = e.patentamiento_periodicidad_valor || '';
-  document.getElementById('venc-eq-patentamiento-unidad').value = e.patentamiento_periodicidad_unidad || 'meses';
-  document.getElementById('venc-eq-patentamiento-alerta').value = e.patentamiento_alerta_dias ?? 30;
+  document.getElementById('venc-eq-patentamiento-realizado').value = String(!!e.patentamiento_realizado);
   document.getElementById('venc-eq-certificacion-fecha').value = e.certificacion_fecha || '';
   document.getElementById('venc-eq-certificacion-valor').value = e.certificacion_periodicidad_valor || '';
   document.getElementById('venc-eq-certificacion-unidad').value = e.certificacion_periodicidad_unidad || 'meses';
@@ -9498,9 +9508,7 @@ document.getElementById('btn-venc-eq-guardar').addEventListener('click', async (
   const id = document.getElementById('venc-eq-id').value;
   const payload = {
     patentamiento_fecha: document.getElementById('venc-eq-patentamiento-fecha').value || null,
-    patentamiento_periodicidad_valor: parseInt(document.getElementById('venc-eq-patentamiento-valor').value) || null,
-    patentamiento_periodicidad_unidad: document.getElementById('venc-eq-patentamiento-unidad').value,
-    patentamiento_alerta_dias: parseInt(document.getElementById('venc-eq-patentamiento-alerta').value) || 30,
+    patentamiento_realizado: document.getElementById('venc-eq-patentamiento-realizado').value === 'true',
     certificacion_fecha: document.getElementById('venc-eq-certificacion-fecha').value || null,
     certificacion_periodicidad_valor: parseInt(document.getElementById('venc-eq-certificacion-valor').value) || null,
     certificacion_periodicidad_unidad: document.getElementById('venc-eq-certificacion-unidad').value,
@@ -9570,10 +9578,10 @@ function renderControlVencimientos(){
 
 // ---------- Exportar Excel ----------
 document.getElementById('btn-venc-eq-excel').addEventListener('click', ()=>{
-  const headers = ['N Serie','Modelo','Patentamiento Fecha','Patentamiento Vence','Patentamiento Estado','Certificacion Fecha','Certificacion Vence','Certificacion Estado','Seguro Fecha','Seguro Vence','Seguro Estado'];
+  const headers = ['N Serie','Modelo','Patentamiento Realizado','Patentamiento Fecha','Certificacion Fecha','Certificacion Vence','Certificacion Estado','Seguro Fecha','Seguro Vence','Seguro Estado'];
   const rows = getFilteredEquiposVenc().map(e=>{
     const [pat, cert, seg] = documentosEquipo(e);
-    return [e.numero_serie, e.modelo, pat.fecha, pat.vencimiento, pat.estado, cert.fecha, cert.vencimiento, cert.estado, seg.fecha, seg.vencimiento, seg.estado];
+    return [e.numero_serie, e.modelo, pat.realizado ? 'Sí' : 'No', pat.fecha, cert.fecha, cert.vencimiento, cert.estado, seg.fecha, seg.vencimiento, seg.estado];
   });
   exportXLS(`vencimientos_maquinas_${new Date().toISOString().slice(0,10)}`, headers, rows);
 });
@@ -9635,7 +9643,7 @@ document.getElementById('btn-venc-eq-pdf').addEventListener('click', ()=>{
     const [pat, cert, seg] = documentosEquipo(e);
     return [
       e.numero_serie, e.modelo||'—',
-      `${pat.estado||'sin datos'}${pat.vencimiento?' ('+fmtDate(pat.vencimiento)+')':''}`,
+      `${pat.realizado ? 'Realizado' : 'Pendiente'}${pat.fecha?' ('+fmtDate(pat.fecha)+')':''}`,
       `${cert.estado||'sin datos'}${cert.vencimiento?' ('+fmtDate(cert.vencimiento)+')':''}`,
       `${seg.estado||'sin datos'}${seg.vencimiento?' ('+fmtDate(seg.vencimiento)+')':''}`,
     ];
