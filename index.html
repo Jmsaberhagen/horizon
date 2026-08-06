@@ -5034,6 +5034,13 @@ function aplicarPermisosUI(){
 }
 
 document.getElementById('btn-login').addEventListener('click', async ()=>{
+  const btnLogin = document.getElementById('btn-login');
+  if(btnLogin.disabled) return; // evita clics repetidos disparando varias inicializaciones en paralelo
+  btnLogin.disabled = true;
+  const textoOriginalBtn = btnLogin.textContent;
+  btnLogin.textContent = 'Ingresando...';
+  try{
+
   const email = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
   const err = document.getElementById('login-error');
@@ -5064,6 +5071,11 @@ document.getElementById('btn-login').addEventListener('click', async ()=>{
   showApp();
   aplicarPermisosUI();
   await initApp();
+
+  } finally {
+    btnLogin.disabled = false;
+    btnLogin.textContent = textoOriginalBtn;
+  }
 });
 
 document.getElementById('login-password').addEventListener('keydown', (e)=>{
@@ -10003,6 +10015,7 @@ async function loadChatContactos(){
 
 // ---------- Presencia (quién está conectado ahora) ----------
 function suscribirChatPresence(){
+  if(chatPresenceCanal){ supabaseClient.removeChannel(chatPresenceCanal); chatPresenceCanal = null; }
   chatPresenceCanal = supabaseClient.channel('chat-presencia', {
     config: { presence: { key: miPerfil.id } }
   });
@@ -10022,6 +10035,7 @@ function suscribirChatPresence(){
 
 // ---------- Mensajes en tiempo real ----------
 function suscribirChatRealtime(){
+  if(chatCanal){ supabaseClient.removeChannel(chatCanal); chatCanal = null; }
   chatCanal = supabaseClient.channel('chat-mensajes-canal')
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_mensajes' }, (payload)=>{
       const m = payload.new;
