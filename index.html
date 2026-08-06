@@ -2471,7 +2471,7 @@
       </div>
       <div class="field">
         <label>N° de Remito</label>
-        <input type="text" id="rem-numero_remito" placeholder="Se autocompleta con el OCR">
+        <input type="text" id="rem-numero_remito" placeholder="Ej: 16-3813 (se completa solo)">
       </div>
 
       <div class="field">
@@ -7148,6 +7148,20 @@ function descargarContratoPDF(contratoId){
 // =========================================================
 let remitosCache = [];
 
+// Completa los ceros del N° de remito al formato estándar PPPP-NNNNNNNN.
+// Así alcanza con tipear "16-3813" y el sistema lo deja como "0016-00003813".
+function formatearNumeroRemito(valor){
+  const v = (valor || '').trim();
+  if(!v) return v;
+  const m = v.match(/^(\d{1,5})-(\d{1,9})$/);
+  if(!m) return v; // formato no reconocido: lo dejamos tal cual lo escribió
+  const [, pv, numero] = m;
+  return `${pv.padStart(4,'0')}-${numero.padStart(8,'0')}`;
+}
+document.getElementById('rem-numero_remito').addEventListener('blur', (e)=>{
+  e.target.value = formatearNumeroRemito(e.target.value);
+});
+
 async function loadRemitos(){
   const { data, error } = await supabaseClient
     .from('remitos')
@@ -7570,7 +7584,7 @@ document.getElementById('btn-remito-save').addEventListener('click', async ()=>{
     cliente_id: Number(clienteId),
     equipo_id: document.getElementById('rem-equipo_id').value ? Number(document.getElementById('rem-equipo_id').value) : null,
     sucursal_id: document.getElementById('rem-sucursal_id').value ? Number(document.getElementById('rem-sucursal_id').value) : null,
-    numero_remito: document.getElementById('rem-numero_remito').value || null,
+    numero_remito: formatearNumeroRemito(document.getElementById('rem-numero_remito').value) || null,
     fecha_entrega: document.getElementById('rem-fecha_entrega').value || null,
     firma_entrega_aclaracion: document.getElementById('rem-firma_entrega_aclaracion').value || null,
     obra: document.getElementById('rem-obra').value || null,
