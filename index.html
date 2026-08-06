@@ -1340,6 +1340,17 @@
     <div class="muted" id="ret-results-count" style="margin-top:10px;font-size:12px;"></div>
   </section>
 
+  <div class="overlay" id="modal-ver-pdf-overlay">
+    <div class="modal wide" style="height:88vh;display:flex;flex-direction:column;padding:16px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <h2 id="modal-ver-pdf-titulo" style="margin:0;flex:1;font-size:15px;">Documento</h2>
+        <a id="btn-descargar-pdf-visor" class="btn secondary" href="#" download target="_blank">⬇ Descargar</a>
+        <button class="btn secondary" id="btn-cerrar-pdf-visor">Cerrar</button>
+      </div>
+      <iframe id="iframe-pdf-visor" src="" style="flex:1;width:100%;border:1px solid var(--border);border-radius:8px;background:#fff;"></iframe>
+    </div>
+  </div>
+
   <section id="tab-remitos" style="display:none;">
     <div class="dash-hero" style="margin-bottom:14px;">
       <h1 style="font-size:16px;">Remitos</h1>
@@ -7360,8 +7371,23 @@ function verRemito(id){
   if(!r) return;
   const url = r.archivo_entrega_url || r.archivo_retiro_url;
   if(!url){ showToast('Este remito no tiene PDF adjunto', true); return; }
-  window.open(url, '_blank');
+  abrirVisorPDF(url, `Remito ${r.numero_remito || ''} — ${r.clientes?.razon_social || ''}`);
 }
+
+function abrirVisorPDF(url, titulo){
+  document.getElementById('modal-ver-pdf-titulo').textContent = titulo || 'Documento';
+  document.getElementById('iframe-pdf-visor').src = url;
+  document.getElementById('btn-descargar-pdf-visor').href = url;
+  document.getElementById('modal-ver-pdf-overlay').classList.add('open');
+}
+function cerrarVisorPDF(){
+  document.getElementById('modal-ver-pdf-overlay').classList.remove('open');
+  document.getElementById('iframe-pdf-visor').src = ''; // corta la carga/reproducción al cerrar
+}
+document.getElementById('btn-cerrar-pdf-visor').addEventListener('click', cerrarVisorPDF);
+document.getElementById('modal-ver-pdf-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'modal-ver-pdf-overlay') cerrarVisorPDF();
+});
 
 async function eliminarRemitoDirecto(id){
   if(!confirm('¿Eliminar este remito? Esta acción no se puede deshacer.')) return;
