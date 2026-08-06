@@ -596,6 +596,77 @@
     border-color:var(--border);
     box-shadow:none;
   }
+
+  /* ===================== Chat Interno ===================== */
+  #chat-bubble{
+    position:fixed; bottom:22px; right:22px; z-index:200;
+    width:56px; height:56px; border-radius:50%;
+    background:var(--accent); color:#04202e; border:none;
+    font-size:24px; cursor:pointer;
+    box-shadow:0 6px 20px rgba(0,0,0,.4);
+    display:flex; align-items:center; justify-content:center;
+  }
+  #chat-bubble:hover{ transform:scale(1.06); }
+  #chat-bubble-badge{
+    position:absolute; top:-4px; right:-4px;
+    background:var(--danger); color:#fff; font-size:11px; font-weight:700;
+    border-radius:99px; min-width:19px; height:19px; padding:0 4px;
+    display:flex; align-items:center; justify-content:center;
+    border:2px solid var(--bg);
+  }
+  #chat-panel{
+    position:fixed; bottom:90px; right:22px; z-index:199;
+    width:340px; height:480px;
+    background:var(--panel); border:1px solid var(--border-strong, var(--border));
+    border-radius:14px; overflow:hidden;
+    box-shadow:0 16px 48px rgba(0,0,0,.5);
+    display:flex; flex-direction:column;
+  }
+  .chat-panel-header{
+    display:flex; align-items:center; gap:8px;
+    padding:12px; background:var(--panel-2); border-bottom:1px solid var(--border);
+  }
+  .chat-icon-btn{
+    background:transparent; border:none; color:var(--text-dim); cursor:pointer;
+    font-size:15px; padding:4px 6px; border-radius:6px;
+  }
+  .chat-icon-btn:hover{ background:var(--border); color:var(--text); }
+  #chat-buscar-usuario{ font-size:12.5px; }
+  .chat-user-item{
+    display:flex; align-items:center; gap:10px;
+    padding:9px 12px; cursor:pointer; border-bottom:1px solid var(--border);
+  }
+  .chat-user-item:hover{ background:var(--panel-2); }
+  .chat-user-dot{ width:8px; height:8px; border-radius:50%; flex:none; background:var(--text-dim); }
+  .chat-user-dot.online{ background:var(--ok); box-shadow:0 0 5px var(--ok); }
+  .chat-user-name{ font-size:12.5px; font-weight:600; flex:1; }
+  .chat-unread-badge{
+    background:var(--accent); color:#04202e; font-size:10px; font-weight:700;
+    border-radius:99px; min-width:17px; height:17px; padding:0 4px;
+    display:flex; align-items:center; justify-content:center; flex:none;
+  }
+  .chat-msg-row{ display:flex; margin-bottom:8px; }
+  .chat-msg-row.mine{ justify-content:flex-end; }
+  .chat-msg-bubble{
+    max-width:75%; padding:8px 11px; border-radius:12px; font-size:12.5px; line-height:1.4;
+    background:var(--panel-2); color:var(--text);
+  }
+  .chat-msg-row.mine .chat-msg-bubble{ background:var(--accent); color:#04202e; }
+  .chat-msg-time{ font-size:9.5px; opacity:.6; margin-top:3px; display:block; }
+  .chat-msg-pdf{
+    display:flex; align-items:center; gap:6px; text-decoration:none; color:inherit;
+    font-weight:600; font-size:12px;
+  }
+  .chat-input-row{
+    display:flex; align-items:center; gap:6px; padding:10px; border-top:1px solid var(--border);
+    background:var(--panel-2);
+  }
+  .chat-input-row input[type=text]{ flex:1; font-size:12.5px; }
+  .chat-send-btn{ background:var(--accent); color:#04202e; }
+  @media (max-width:480px){
+    #chat-panel{ width:calc(100vw - 20px); right:10px; height:70vh; }
+    #chat-bubble{ right:16px; bottom:16px; }
+  }
 </style>
 </head>
 <body>
@@ -9833,6 +9904,7 @@ async function initApp(){
     document.getElementById('btn-new-dbp').style.display = puede('datos_bancarios','crear') ? '' : 'none';
 
     console.log('[Horizon] listo.');
+    await initChatInterno();
     renderDashboard();
   } catch(err){
     console.error('[Horizon] fallo la inicialización:', err);
@@ -9862,6 +9934,280 @@ function alternarTema(){
 aplicarTema(localStorage.getItem('horizon_tema') === 'light' ? 'light' : 'dark');
 document.getElementById('btn-theme-toggle').addEventListener('click', alternarTema);
 
+// =========================================================
+// MÓDULO: Chat Interno (burbuja flotante)
+// =========================================================
+let chatContactosCache = [];
+let chatUsuariosOnline = new Set();
+let chatConversacionActual = null; // id del perfil con el que se está chateando
+let chatMensajesCache = [];
+let chatCanal = null;
+let chatPresenceCanal = null;
+
+async function initChatInterno(){
+  document.getElementById('chat-bubble').style.display = 'flex';
+  await loadChatContactos();
+  renderChatListaUsuarios();
+  suscribirChatRealtime();
+  suscribirChatPresence();
+  await refrescarBadgeChat();
+}
+
+async function loadChatContactos(){
+  const { data, error } = await supabaseClient
+    .from('perfiles')
+    .select('id, nombre, activo')
+    .eq('activo', true)
+    .neq('id', miPerfil.id)
+    .order('nombre');
+  if(error){ console.error('Error cargando contactos de chat:', error); chatContactosCache = []; return; }
+  chatContactosCache = data;
+}
+
+// ---------- Presencia (quién está conectado ahora) ----------
+function suscribirChatPresence(){
+  chatPresenceCanal = supabaseClient.channel('chat-presencia', {
+    config: { presence: { key: miPerfil.id } }
+  });
+  chatPresenceCanal
+    .on('presence', { event: 'sync' }, ()=>{
+      const state = chatPresenceCanal.presenceState();
+      chatUsuariosOnline = new Set(Object.keys(state));
+      renderChatListaUsuarios();
+      actualizarEstadoConversacionAbierta();
+    })
+    .subscribe(async (status)=>{
+      if(status === 'SUBSCRIBED'){
+        await chatPresenceCanal.track({ nombre: miPerfil.nombre, online_at: new Date().toISOString() });
+      }
+    });
+}
+
+// ---------- Mensajes en tiempo real ----------
+function suscribirChatRealtime(){
+  chatCanal = supabaseClient.channel('chat-mensajes-canal')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_mensajes' }, (payload)=>{
+      const m = payload.new;
+      if(m.remitente_id !== miPerfil.id && m.destinatario_id !== miPerfil.id) return;
+      const otroId = m.remitente_id === miPerfil.id ? m.destinatario_id : m.remitente_id;
+      if(chatConversacionActual === otroId){
+        chatMensajesCache.push(m);
+        renderChatMensajes();
+        if(m.destinatario_id === miPerfil.id) marcarMensajesLeidos(otroId);
+      } else {
+        refrescarBadgeChat();
+        renderChatListaUsuarios();
+      }
+    })
+    .subscribe();
+}
+
+async function refrescarBadgeChat(){
+  const { count, error } = await supabaseClient
+    .from('chat_mensajes')
+    .select('id', { count: 'exact', head: true })
+    .eq('destinatario_id', miPerfil.id)
+    .eq('leido', false);
+  if(error){ console.error(error); return; }
+  const badge = document.getElementById('chat-bubble-badge');
+  if(count > 0){ badge.textContent = count > 99 ? '99+' : count; badge.style.display = 'flex'; }
+  else { badge.style.display = 'none'; }
+}
+
+// ---------- UI: lista de contactos ----------
+async function renderChatListaUsuarios(){
+  const q = document.getElementById('chat-buscar-usuario').value.trim().toLowerCase();
+  const cont = document.getElementById('chat-lista-usuarios');
+  const lista = q ? chatContactosCache.filter(c => c.nombre.toLowerCase().includes(q)) : chatContactosCache;
+
+  // Traer no-leídos por remitente para mostrar el numerito en cada contacto
+  const { data: noLeidos } = await supabaseClient
+    .from('chat_mensajes')
+    .select('remitente_id')
+    .eq('destinatario_id', miPerfil.id)
+    .eq('leido', false);
+  const conteoPorRemitente = {};
+  (noLeidos||[]).forEach(m => { conteoPorRemitente[m.remitente_id] = (conteoPorRemitente[m.remitente_id]||0) + 1; });
+
+  cont.innerHTML = lista.map(u => `
+    <div class="chat-user-item" onclick="abrirConversacionChat('${u.id}','${escapeHtml(u.nombre)}')">
+      <span class="chat-user-dot ${chatUsuariosOnline.has(u.id) ? 'online' : ''}"></span>
+      <span class="chat-user-name">${escapeHtml(u.nombre)}</span>
+      ${conteoPorRemitente[u.id] ? `<span class="chat-unread-badge">${conteoPorRemitente[u.id]}</span>` : ''}
+    </div>`).join('') || '<div class="muted" style="padding:16px;text-align:center;font-size:12px;">Sin usuarios.</div>';
+}
+document.getElementById('chat-buscar-usuario').addEventListener('input', renderChatListaUsuarios);
+
+function actualizarEstadoConversacionAbierta(){
+  if(!chatConversacionActual) return;
+  const el = document.getElementById('chat-conv-estado');
+  el.textContent = chatUsuariosOnline.has(chatConversacionActual) ? 'En línea' : 'Desconectado';
+}
+
+// ---------- UI: abrir/cerrar panel ----------
+document.getElementById('chat-bubble').addEventListener('click', ()=>{
+  const panel = document.getElementById('chat-panel');
+  const abierto = panel.style.display === 'flex';
+  panel.style.display = abierto ? 'none' : 'flex';
+  if(!abierto) renderChatListaUsuarios();
+});
+function cerrarChatPanel(){ document.getElementById('chat-panel').style.display = 'none'; }
+document.getElementById('btn-chat-cerrar').addEventListener('click', cerrarChatPanel);
+document.getElementById('btn-chat-cerrar-2').addEventListener('click', cerrarChatPanel);
+document.getElementById('btn-chat-volver').addEventListener('click', ()=>{
+  chatConversacionActual = null;
+  document.getElementById('chat-panel-conversacion').style.display = 'none';
+  document.getElementById('chat-panel-lista').style.display = 'flex';
+  renderChatListaUsuarios();
+});
+
+// ---------- Conversación ----------
+async function abrirConversacionChat(userId, nombre){
+  chatConversacionActual = userId;
+  document.getElementById('chat-conv-nombre').textContent = nombre;
+  actualizarEstadoConversacionAbierta();
+  document.getElementById('chat-panel-lista').style.display = 'none';
+  document.getElementById('chat-panel-conversacion').style.display = 'flex';
+  document.getElementById('chat-mensajes').innerHTML = '<div class="muted" style="text-align:center;padding:16px;font-size:12px;">Cargando...</div>';
+
+  const { data, error } = await supabaseClient
+    .from('chat_mensajes')
+    .select('*')
+    .or(`and(remitente_id.eq.${miPerfil.id},destinatario_id.eq.${userId}),and(remitente_id.eq.${userId},destinatario_id.eq.${miPerfil.id})`)
+    .order('created_at', { ascending: true });
+  if(error){ console.error(error); chatMensajesCache = []; }
+  else chatMensajesCache = data;
+
+  renderChatMensajes();
+  await marcarMensajesLeidos(userId);
+  await refrescarBadgeChat();
+}
+
+async function marcarMensajesLeidos(remitenteId){
+  await supabaseClient.from('chat_mensajes').update({ leido: true })
+    .eq('remitente_id', remitenteId).eq('destinatario_id', miPerfil.id).eq('leido', false);
+}
+
+function renderChatMensajes(){
+  const cont = document.getElementById('chat-mensajes');
+  if(!chatMensajesCache.length){
+    cont.innerHTML = '<div class="muted" style="text-align:center;padding:16px;font-size:12px;">Todavía no hay mensajes. Escribí el primero.</div>';
+    return;
+  }
+  cont.innerHTML = chatMensajesCache.map(m=>{
+    const mia = m.remitente_id === miPerfil.id;
+    const hora = new Date(m.created_at).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+    let contenido = '';
+    if(m.texto) contenido += `<div>${escapeHtml(m.texto)}</div>`;
+    if(m.archivo_url){
+      contenido += `<a class="chat-msg-pdf" href="${m.archivo_url}" target="_blank" rel="noopener">📄 ${escapeHtml(m.archivo_nombre||'Adjunto.pdf')}</a>`;
+    }
+    return `<div class="chat-msg-row ${mia?'mine':''}">
+      <div class="chat-msg-bubble">${contenido}<span class="chat-msg-time">${hora}</span></div>
+    </div>`;
+  }).join('');
+  cont.scrollTop = cont.scrollHeight;
+}
+
+// ---------- Enviar texto ----------
+let chatArchivoAdjuntoPendiente = null;
+
+async function enviarMensajeChat(){
+  if(!chatConversacionActual) return;
+  const texto = document.getElementById('chat-input-texto').value.trim();
+  if(!texto && !chatArchivoAdjuntoPendiente){ return; }
+
+  const payload = {
+    remitente_id: miPerfil.id,
+    destinatario_id: chatConversacionActual,
+    texto: texto || null,
+  };
+
+  if(chatArchivoAdjuntoPendiente){
+    document.getElementById('chat-adjunto-preview').innerHTML = '<div class="muted" style="font-size:11px;padding:6px 0;">Comprimiendo y enviando PDF...</div>';
+    try{
+      const comprimido = await comprimirPdfParaChat(chatArchivoAdjuntoPendiente);
+      const path = `${miPerfil.id}/${Date.now()}_${chatArchivoAdjuntoPendiente.name.replace(/[^a-zA-Z0-9.\-_]/g,'_')}`;
+      const { error: upErr } = await supabaseClient.storage.from('chat-adjuntos').upload(path, comprimido, { contentType:'application/pdf' });
+      if(upErr) throw upErr;
+      const { data: urlData } = supabaseClient.storage.from('chat-adjuntos').getPublicUrl(path);
+      payload.archivo_url = urlData.publicUrl;
+      payload.archivo_nombre = chatArchivoAdjuntoPendiente.name;
+      payload.archivo_tipo = 'application/pdf';
+    } catch(err){
+      console.error(err);
+      showToast('No se pudo adjuntar el PDF: ' + err.message, true);
+      document.getElementById('chat-adjunto-preview').style.display = 'none';
+      return;
+    }
+  }
+
+  const { data, error } = await supabaseClient.from('chat_mensajes').insert(payload).select().single();
+  if(error){ console.error(error); showToast('No se pudo enviar el mensaje', true); return; }
+
+  chatMensajesCache.push(data);
+  renderChatMensajes();
+  document.getElementById('chat-input-texto').value = '';
+  chatArchivoAdjuntoPendiente = null;
+  document.getElementById('chat-adjunto-preview').style.display = 'none';
+  document.getElementById('chat-adjunto-preview').innerHTML = '';
+  document.getElementById('chat-file-input').value = '';
+}
+document.getElementById('btn-chat-enviar').addEventListener('click', enviarMensajeChat);
+document.getElementById('chat-input-texto').addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter') enviarMensajeChat();
+});
+
+// ---------- Adjuntar PDF ----------
+document.getElementById('btn-chat-adjuntar').addEventListener('click', ()=>{
+  document.getElementById('chat-file-input').click();
+});
+document.getElementById('chat-file-input').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  if(file.type !== 'application/pdf'){ showToast('Solo se pueden adjuntar archivos PDF', true); return; }
+  chatArchivoAdjuntoPendiente = file;
+  const preview = document.getElementById('chat-adjunto-preview');
+  preview.style.display = 'block';
+  preview.innerHTML = `<div class="muted" style="font-size:11.5px;display:flex;align-items:center;gap:6px;padding:6px 0;">📎 ${escapeHtml(file.name)} <button class="chat-icon-btn" onclick="quitarAdjuntoChat()" style="margin-left:auto;">✕</button></div>`;
+});
+function quitarAdjuntoChat(){
+  chatArchivoAdjuntoPendiente = null;
+  document.getElementById('chat-adjunto-preview').style.display = 'none';
+  document.getElementById('chat-file-input').value = '';
+}
+
+// Comprime el PDF renderizando cada página como imagen JPEG de baja resolución
+// y armando un PDF nuevo solo con esas imágenes. Se pierde el texto seleccionable,
+// pero el tamaño baja drásticamente — ideal para chats que se borran en 48hs.
+async function comprimirPdfParaChat(file){
+  asegurarPdfWorker();
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const { jsPDF } = window.jspdf;
+  let doc = null;
+
+  for(let i = 1; i <= pdf.numPages; i++){
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale: 1.0 });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    const jpegData = canvas.toDataURL('image/jpeg', 0.55);
+
+    const orient = viewport.width > viewport.height ? 'l' : 'p';
+    if(!doc){
+      doc = new jsPDF({ orientation: orient, unit: 'pt', format: [viewport.width, viewport.height] });
+    } else {
+      doc.addPage([viewport.width, viewport.height], orient);
+    }
+    doc.addImage(jpegData, 'JPEG', 0, 0, viewport.width, viewport.height);
+  }
+  return doc.output('blob');
+}
+
+
 // ---------- Init ----------
 (async function init(){
   console.log('[Horizon] iniciando...');
@@ -9884,5 +10230,43 @@ document.getElementById('btn-theme-toggle').addEventListener('click', alternarTe
   showLogin();
 })();
 </script>
+
+<!-- ===================== Chat Interno (burbuja flotante) ===================== -->
+<button id="chat-bubble" style="display:none;">
+  💬
+  <span id="chat-bubble-badge" style="display:none;">0</span>
+</button>
+
+<div id="chat-panel" style="display:none;">
+  <div id="chat-panel-lista" style="display:flex;flex-direction:column;height:100%;">
+    <div class="chat-panel-header">
+      <strong>Chat interno</strong>
+      <button id="btn-chat-cerrar" class="chat-icon-btn">✕</button>
+    </div>
+    <input type="text" id="chat-buscar-usuario" placeholder="Buscar usuario..." style="margin:10px 12px;">
+    <div id="chat-lista-usuarios" style="flex:1;overflow-y:auto;"></div>
+    <div class="muted" style="font-size:10.5px;text-align:center;padding:8px;">Los mensajes y adjuntos se borran automáticamente a las 48hs.</div>
+  </div>
+
+  <div id="chat-panel-conversacion" style="display:none;flex-direction:column;height:100%;">
+    <div class="chat-panel-header">
+      <button id="btn-chat-volver" class="chat-icon-btn">←</button>
+      <div style="flex:1;">
+        <div id="chat-conv-nombre" style="font-weight:700;font-size:13.5px;"></div>
+        <div id="chat-conv-estado" style="font-size:10.5px;color:var(--text-dim);"></div>
+      </div>
+      <button id="btn-chat-cerrar-2" class="chat-icon-btn">✕</button>
+    </div>
+    <div id="chat-mensajes" style="flex:1;overflow-y:auto;padding:12px;"></div>
+    <div id="chat-adjunto-preview" style="display:none;padding:0 12px;"></div>
+    <div class="chat-input-row">
+      <button id="btn-chat-adjuntar" class="chat-icon-btn" title="Adjuntar PDF">📎</button>
+      <input type="file" id="chat-file-input" accept="application/pdf" style="display:none;">
+      <input type="text" id="chat-input-texto" placeholder="Escribí un mensaje...">
+      <button id="btn-chat-enviar" class="chat-icon-btn chat-send-btn" title="Enviar">➤</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
