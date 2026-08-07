@@ -684,6 +684,18 @@
     #chat-panel{ width:calc(100vw - 20px); right:10px; height:70vh; }
     #chat-bubble{ right:16px; bottom:16px; }
   }
+
+  /* Scrollbars oscuras en todo el sistema (por defecto el navegador las pinta blancas) */
+  ::-webkit-scrollbar{ width:10px; height:10px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+  ::-webkit-scrollbar-thumb{ background:var(--panel-2); border-radius:99px; border:2px solid var(--panel); }
+  ::-webkit-scrollbar-thumb:hover{ background:var(--border); }
+  * { scrollbar-width:thin; scrollbar-color:var(--panel-2) transparent; }
+
+  .board-column-scroll{
+    -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
+    mask-image:linear-gradient(to bottom, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
+  }
 </style>
 </head>
 <body>
@@ -4990,12 +5002,14 @@ function renderEquipos(list){
     const tarjetas = items.map(e=>{
       const suc = sucursales.find(s => s.id === e.sucursal_id);
       const tieneFicha = !!buscarFichaTecnica(e.modelo);
+      const cliente = col.estado === 'alquilada' ? clienteActualDeEquipo(e.id) : null;
       return `
         <div class="panel" style="padding:10px 12px;margin-bottom:8px;border-left:3px solid ${col.color};background:var(--panel-2);">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">
             <div>
               <div style="font-weight:700;font-size:13px;">${escapeHtml(e.numero_serie)}</div>
               <div class="muted" style="font-size:11px;margin-top:1px;">${escapeHtml(e.modelo || '—')}</div>
+              ${cliente ? `<div style="font-size:11px;color:var(--accent);margin-top:3px;">🏢 ${escapeHtml(cliente)}</div>` : ''}
             </div>
             ${e.tipo === 'tercero' ? `<span class="badge" style="color:#ff9f43;border-color:#ff9f43;font-size:9.5px;flex:none;" title="${e.proveedor_tercero ? 'Proveedor: '+escapeHtml(e.proveedor_tercero) : ''}">Terceros</span>` : ''}
           </div>
@@ -5016,7 +5030,7 @@ function renderEquipos(list){
           <span style="font-weight:700;font-size:12.5px;letter-spacing:.3px;text-transform:uppercase;">${col.titulo}</span>
           <span class="muted" style="font-size:11.5px;margin-left:auto;">${items.length}</span>
         </div>
-        <div style="max-height:calc(100vh - 320px);overflow-y:auto;padding:10px;background:var(--panel);border-radius:0 0 8px 8px;">
+        <div class="board-column-scroll" style="max-height:calc(100vh - 320px);overflow-y:auto;padding:10px;background:var(--panel);border-radius:0 0 8px 8px;">
           ${tarjetas}
         </div>
       </div>`;
@@ -5046,12 +5060,22 @@ document.getElementById('equipo-search-input').addEventListener('input', applyEq
 document.getElementById('equipo-filter-sucursal').addEventListener('change', applyEquipoFilters);
 document.getElementById('equipo-filter-tipo').addEventListener('change', applyEquipoFilters);
 
+// Cliente actual de un equipo alquilado (busca el contrato activo asociado)
+function clienteActualDeEquipo(equipoId){
+  const contrato = contratosCache.find(c => c.equipo_id === equipoId && c.estado === 'activo');
+  return contrato?.clientes?.razon_social || null;
+}
+
 function equiposToRows(list){
-  const headers = ['N Serie','Modelo','Sucursal','Estado','Tipo','Proveedor Tercero'];
-  const rows = list.map(e => [
-    e.numero_serie, e.modelo, sucursales.find(s=>s.id===e.sucursal_id)?.nombre || '', estadoActualEquipo(e),
-    e.tipo === 'tercero' ? 'De terceros' : 'Propio', e.proveedor_tercero || '',
-  ]);
+  const headers = ['N Serie','Modelo','Sucursal','Estado','Cliente','Tipo','Proveedor Tercero'];
+  const rows = list.map(e => {
+    const estado = estadoActualEquipo(e);
+    return [
+      e.numero_serie, e.modelo, sucursales.find(s=>s.id===e.sucursal_id)?.nombre || '', estado,
+      estado === 'alquilada' ? (clienteActualDeEquipo(e.id) || '') : '',
+      e.tipo === 'tercero' ? 'De terceros' : 'Propio', e.proveedor_tercero || '',
+    ];
+  });
   return { headers, rows };
 }
 document.getElementById('btn-export-equipos-csv').addEventListener('click', ()=>{
