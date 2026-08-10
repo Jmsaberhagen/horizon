@@ -8658,12 +8658,18 @@ function renderGastosObraLista(){
       <td>
         <div class="row-actions">
           <button class="btn secondary small" onclick="abrirEditarGastoObra(${g.id})">${puede('gastos_obra','editar') ? 'Editar' : 'Ver'}</button>
-          ${g.archivo_url ? `<a class="btn secondary small" href="${g.archivo_url}" target="_blank" rel="noopener">Ver PDF</a>` : ''}
+          ${g.archivo_url ? `<button class="btn secondary small" onclick="verPdfGastoObra(${g.id})">Ver PDF</button>` : ''}
         </div>
       </td>
     </tr>`).join('');
   document.getElementById('go-results-count').textContent = `${list.length} factura(s)`;
   renderStatsGastosObra();
+}
+
+function verPdfGastoObra(id){
+  const g = gastosObraCache.find(x=>x.id === id);
+  if(!g || !g.archivo_url){ showToast('Esta factura no tiene PDF adjunto', true); return; }
+  abrirVisorPDF(g.archivo_url, `Factura ${g.numero_factura || ''} — ${g.nombre_proveedor || ''}`);
 }
 function applyGoFilters(){ renderGastosObraLista(); }
 document.getElementById('go-search').addEventListener('input', applyGoFilters);
