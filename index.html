@@ -3347,6 +3347,14 @@ function escapeHtml(str){
   return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
+// Limpia un string para usarlo como carpeta/nombre de archivo en Supabase Storage:
+// saca tildes/diacríticos y reemplaza cualquier caracter no seguro por "_".
+function sanitizeStorageKey(str){
+  return String(str||'')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // saca tildes (á->a, ñ->n, etc.)
+    .replace(/[^a-zA-Z0-9.\-_]+/g, '_');
+}
+
 // ---------- Filtro / búsqueda ----------
 function getFilteredClientes(){
   const q = document.getElementById('search-input').value.trim().toLowerCase();
@@ -8889,7 +8897,7 @@ document.getElementById('btn-go-guardar').addEventListener('click', async ()=>{
   try{
     // Subida del PDF (si se cargó uno nuevo)
     if(gastoObraArchivoActual){
-      const path = `${payload.sucursal.replace(/\s+/g,'_')}/${Date.now()}_${gastoObraArchivoActual.name.replace(/[^a-zA-Z0-9.\-_]/g,'_')}`;
+      const path = `${sanitizeStorageKey(payload.sucursal)}/${Date.now()}_${sanitizeStorageKey(gastoObraArchivoActual.name)}`;
       const { error: uploadError } = await supabaseClient.storage.from('gastos-obra').upload(path, gastoObraArchivoActual);
       if(uploadError) throw uploadError;
       const { data: urlData } = supabaseClient.storage.from('gastos-obra').getPublicUrl(path);
