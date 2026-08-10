@@ -9529,7 +9529,10 @@ function renderVencEquipos(){
       <td>${badgeEstadoVencimiento(cert.estado, cert.vencimiento)}</td>
       <td>${badgeEstadoVencimiento(seg.estado, seg.vencimiento)}</td>
       <td>${badgeEstadoVencimiento(segRC.estado, segRC.vencimiento)}</td>
-      <td><button class="btn secondary small" onclick="abrirVencEquipo(${e.id})">${puede('vencimientos','editar') ? 'Editar' : 'Ver'}</button></td>
+      <td style="display:flex;gap:6px;">
+        <button class="btn secondary small" onclick="abrirVencEquipo(${e.id})">${puede('vencimientos','editar') ? 'Editar' : 'Ver'}</button>
+        <button class="btn secondary small" onclick="verCertPdfVigenteEquipo(${e.id})">Ver PDF</button>
+      </td>
     </tr>`;
   }).join('');
   document.getElementById('venc-eq-count').textContent = `${list.length} equipo(s)`;
@@ -9595,6 +9598,23 @@ async function verCertPdf(certId){
   document.getElementById('modal-cert-pdf-meta').textContent = data.fecha_emision ? `Emitido: ${fmtDate(data.fecha_emision)}` : '';
   document.getElementById('modal-cert-pdf-frame').src = data.archivo_url;
   document.getElementById('modal-cert-pdf-download').href = data.archivo_url;
+  document.getElementById('modal-cert-pdf-overlay').classList.add('open');
+}
+
+async function verCertPdfVigenteEquipo(equipoId){
+  const { data, error } = await supabaseClient
+    .from('equipo_certificaciones')
+    .select('*')
+    .eq('equipo_id', equipoId)
+    .order('created_at', { ascending: false })
+    .limit(1);
+  if(error){ showToast('No se pudo cargar el certificado', true); return; }
+  if(!data || data.length === 0){ showToast('Este equipo no tiene certificado cargado todavía', true); return; }
+  const c = data[0];
+  document.getElementById('modal-cert-pdf-title').textContent = c.archivo_nombre || 'Certificado';
+  document.getElementById('modal-cert-pdf-meta').textContent = c.fecha_emision ? `Emitido: ${fmtDate(c.fecha_emision)}` : '';
+  document.getElementById('modal-cert-pdf-frame').src = c.archivo_url;
+  document.getElementById('modal-cert-pdf-download').href = c.archivo_url;
   document.getElementById('modal-cert-pdf-overlay').classList.add('open');
 }
 document.getElementById('btn-cert-pdf-cerrar').addEventListener('click', ()=>{
