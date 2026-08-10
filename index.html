@@ -1078,7 +1078,7 @@
   <section id="tab-vencimientos" style="display:none;">
     <div class="dash-hero" style="margin-bottom:14px;">
       <h1 style="font-size:16px;">Control de Vencimientos</h1>
-      <div class="sub">Patentamiento, Certificación y Seguro Técnico de las máquinas — Licencia, Apto Médico y Cursos del personal.</div>
+      <div class="sub">Patentamiento, Certificación, Seguro Técnico y Seguro de Responsabilidad Civil de las máquinas — Licencia, Apto Médico y Cursos del personal.</div>
     </div>
 
     <div class="stats-row" id="venc-stats-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px;"></div>
@@ -1105,9 +1105,9 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>N° Serie</th><th>Modelo</th><th>Patentamiento</th><th>Certificación</th><th>Seguro Técnico</th><th style="width:80px;">Acciones</th></tr>
+              <tr><th>N° Serie</th><th>Modelo</th><th>Patentamiento</th><th>Certificación</th><th>Seguro Técnico</th><th>Seguro RC</th><th style="width:80px;">Acciones</th></tr>
             </thead>
-            <tbody id="venc-eq-tbody"><tr><td colspan="6" class="empty-state">Cargando...</td></tr></tbody>
+            <tbody id="venc-eq-tbody"><tr><td colspan="7" class="empty-state">Cargando...</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -1176,6 +1176,15 @@
           <div class="field"><label>Renovación cada</label><input type="number" id="venc-eq-seguro-valor"></div>
           <div class="field"><label>Unidad</label><select id="venc-eq-seguro-unidad"><option value="meses">Meses</option><option value="dias">Días</option></select></div>
           <div class="field"><label>Avisar (días antes)</label><input type="number" id="venc-eq-seguro-alerta" value="30"></div>
+        </div>
+      </div>
+      <div class="panel" style="margin-bottom:14px;padding:14px;">
+        <h3 style="margin-top:0;">🚨 Seguro Responsabilidad Civil</h3>
+        <div class="field-grid cols-4">
+          <div class="field"><label>Fecha de emisión</label><input type="date" id="venc-eq-segrc-fecha"></div>
+          <div class="field"><label>Renovación cada</label><input type="number" id="venc-eq-segrc-valor"></div>
+          <div class="field"><label>Unidad</label><select id="venc-eq-segrc-unidad"><option value="meses">Meses</option><option value="dias">Días</option></select></div>
+          <div class="field"><label>Avisar (días antes)</label><input type="number" id="venc-eq-segrc-alerta" value="30"></div>
         </div>
       </div>
 
@@ -9152,7 +9161,7 @@ function badgeEstadoVencimiento(estado, fechaVencimiento){
 // Documentos de una máquina, con estado calculado.
 // El patentamiento es un trámite único (no vence): se maneja aparte como Sí/No + fecha.
 function documentosEquipo(e){
-  const docsRecurrentes = ['certificacion','seguro_tecnico'].map(prefijo=>{
+  const docsRecurrentes = ['certificacion','seguro_tecnico','seguro_rc'].map(prefijo=>{
     const fecha = e[`${prefijo}_fecha`];
     const valor = e[`${prefijo}_periodicidad_valor`];
     const unidad = e[`${prefijo}_periodicidad_unidad`] || 'meses';
@@ -9472,18 +9481,19 @@ function renderVencEquipos(){
   const list = getFilteredEquiposVenc();
   const tbody = document.getElementById('venc-eq-tbody');
   if(!list.length){
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Sin resultados.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Sin resultados.</td></tr>';
     document.getElementById('venc-eq-count').textContent = '';
     return;
   }
   tbody.innerHTML = list.map(e=>{
-    const [pat, cert, seg] = documentosEquipo(e);
+    const [pat, cert, seg, segRC] = documentosEquipo(e);
     return `<tr>
       <td>${escapeHtml(e.numero_serie||'—')}</td>
       <td class="muted">${escapeHtml(e.modelo||'—')}</td>
       <td>${badgePatentamiento(pat)}</td>
       <td>${badgeEstadoVencimiento(cert.estado, cert.vencimiento)}</td>
       <td>${badgeEstadoVencimiento(seg.estado, seg.vencimiento)}</td>
+      <td>${badgeEstadoVencimiento(segRC.estado, segRC.vencimiento)}</td>
       <td><button class="btn secondary small" onclick="abrirVencEquipo(${e.id})">${puede('vencimientos','editar') ? 'Editar' : 'Ver'}</button></td>
     </tr>`;
   }).join('');
@@ -9508,6 +9518,10 @@ function abrirVencEquipo(id){
   document.getElementById('venc-eq-seguro-valor').value = e.seguro_tecnico_periodicidad_valor || '';
   document.getElementById('venc-eq-seguro-unidad').value = e.seguro_tecnico_periodicidad_unidad || 'meses';
   document.getElementById('venc-eq-seguro-alerta').value = e.seguro_tecnico_alerta_dias ?? 30;
+  document.getElementById('venc-eq-segrc-fecha').value = e.seguro_rc_fecha || '';
+  document.getElementById('venc-eq-segrc-valor').value = e.seguro_rc_periodicidad_valor || '';
+  document.getElementById('venc-eq-segrc-unidad').value = e.seguro_rc_periodicidad_unidad || 'meses';
+  document.getElementById('venc-eq-segrc-alerta').value = e.seguro_rc_alerta_dias ?? 30;
   document.getElementById('modal-venc-equipo-overlay').classList.add('open');
 }
 document.getElementById('btn-venc-eq-cerrar').addEventListener('click', ()=>{
@@ -9529,6 +9543,10 @@ document.getElementById('btn-venc-eq-guardar').addEventListener('click', async (
     seguro_tecnico_periodicidad_valor: parseInt(document.getElementById('venc-eq-seguro-valor').value) || null,
     seguro_tecnico_periodicidad_unidad: document.getElementById('venc-eq-seguro-unidad').value,
     seguro_tecnico_alerta_dias: parseInt(document.getElementById('venc-eq-seguro-alerta').value) || 30,
+    seguro_rc_fecha: document.getElementById('venc-eq-segrc-fecha').value || null,
+    seguro_rc_periodicidad_valor: parseInt(document.getElementById('venc-eq-segrc-valor').value) || null,
+    seguro_rc_periodicidad_unidad: document.getElementById('venc-eq-segrc-unidad').value,
+    seguro_rc_alerta_dias: parseInt(document.getElementById('venc-eq-segrc-alerta').value) || 30,
   };
   try{
     const { error } = await supabaseClient.from('equipos').update(payload).eq('id', id);
@@ -9590,10 +9608,10 @@ function renderControlVencimientos(){
 
 // ---------- Exportar Excel ----------
 document.getElementById('btn-venc-eq-excel').addEventListener('click', ()=>{
-  const headers = ['N Serie','Modelo','Patentamiento Realizado','Patentamiento Fecha','Certificacion Fecha','Certificacion Vence','Certificacion Estado','Seguro Fecha','Seguro Vence','Seguro Estado'];
+  const headers = ['N Serie','Modelo','Patentamiento Realizado','Patentamiento Fecha','Certificacion Fecha','Certificacion Vence','Certificacion Estado','Seguro Tecnico Fecha','Seguro Tecnico Vence','Seguro Tecnico Estado','Seguro RC Fecha','Seguro RC Vence','Seguro RC Estado'];
   const rows = getFilteredEquiposVenc().map(e=>{
-    const [pat, cert, seg] = documentosEquipo(e);
-    return [e.numero_serie, e.modelo, pat.realizado ? 'Sí' : 'No', pat.fecha, cert.fecha, cert.vencimiento, cert.estado, seg.fecha, seg.vencimiento, seg.estado];
+    const [pat, cert, seg, segRC] = documentosEquipo(e);
+    return [e.numero_serie, e.modelo, pat.realizado ? 'Sí' : 'No', pat.fecha, cert.fecha, cert.vencimiento, cert.estado, seg.fecha, seg.vencimiento, seg.estado, segRC.fecha, segRC.vencimiento, segRC.estado];
   });
   exportXLS(`vencimientos_maquinas_${new Date().toISOString().slice(0,10)}`, headers, rows);
 });
@@ -9652,15 +9670,16 @@ function descargarPDFVencimientos(titulo, headers, rows){
 }
 document.getElementById('btn-venc-eq-pdf').addEventListener('click', ()=>{
   const rows = getFilteredEquiposVenc().map(e=>{
-    const [pat, cert, seg] = documentosEquipo(e);
+    const [pat, cert, seg, segRC] = documentosEquipo(e);
     return [
       e.numero_serie, e.modelo||'—',
       `${pat.realizado ? 'Realizado' : 'Pendiente'}${pat.fecha?' ('+fmtDate(pat.fecha)+')':''}`,
       `${cert.estado||'sin datos'}${cert.vencimiento?' ('+fmtDate(cert.vencimiento)+')':''}`,
       `${seg.estado||'sin datos'}${seg.vencimiento?' ('+fmtDate(seg.vencimiento)+')':''}`,
+      `${segRC.estado||'sin datos'}${segRC.vencimiento?' ('+fmtDate(segRC.vencimiento)+')':''}`,
     ];
   });
-  descargarPDFVencimientos('CONTROL DE VENCIMIENTOS — MAQUINAS', ['N Serie','Modelo','Patentamiento','Certificación','Seguro Técnico'], rows);
+  descargarPDFVencimientos('CONTROL DE VENCIMIENTOS — MAQUINAS', ['N Serie','Modelo','Patentamiento','Certificación','Seguro Técnico','Seguro RC'], rows);
 });
 document.getElementById('btn-venc-per-pdf').addEventListener('click', ()=>{
   const rows = getFilteredPersonalVenc().map(p=>{
