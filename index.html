@@ -1168,6 +1168,15 @@
           <div class="field"><label>Unidad</label><select id="venc-eq-certificacion-unidad"><option value="meses">Meses</option><option value="dias">Días</option></select></div>
           <div class="field"><label>Avisar (días antes)</label><input type="number" id="venc-eq-certificacion-alerta" value="30"></div>
         </div>
+        <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px;">
+          <label style="display:block;margin-bottom:6px;font-size:12px;color:var(--muted);">Certificado (PDF)</label>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <input type="file" id="venc-eq-cert-archivo" accept="application/pdf">
+            <button class="btn secondary small" id="btn-venc-eq-cert-subir" type="button">Subir PDF</button>
+            <span class="muted" id="venc-eq-cert-upload-status" style="font-size:12px;"></span>
+          </div>
+          <div id="venc-eq-cert-historial" style="margin-top:10px;display:flex;flex-direction:column;gap:6px;"></div>
+        </div>
       </div>
       <div class="panel" style="margin-bottom:14px;padding:14px;">
         <h3 style="margin-top:0;">🛡️ Seguro Técnico</h3>
@@ -1191,6 +1200,18 @@
       <div class="toolbar" style="margin-top:16px;">
         <button class="btn" id="btn-venc-eq-guardar">Guardar</button>
         <button class="btn secondary" id="btn-venc-eq-cerrar">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="modal-cert-pdf-overlay">
+    <div class="modal" style="max-width:900px;width:95%;height:85vh;display:flex;flex-direction:column;">
+      <h2 id="modal-cert-pdf-title" style="margin-bottom:10px;">Certificado</h2>
+      <div class="muted" id="modal-cert-pdf-meta" style="font-size:12px;margin-bottom:10px;"></div>
+      <iframe id="modal-cert-pdf-frame" src="" style="flex:1;width:100%;border:1px solid var(--border);border-radius:8px;background:#fff;"></iframe>
+      <div class="toolbar" style="margin-top:12px;">
+        <a id="modal-cert-pdf-download" href="#" target="_blank" class="btn secondary" style="text-decoration:none;">Abrir en pestaña nueva</a>
+        <button class="btn secondary" id="btn-cert-pdf-cerrar">Cerrar</button>
       </div>
     </div>
   </div>
@@ -9536,8 +9557,102 @@ function abrirVencEquipo(id){
   document.getElementById('venc-eq-segrc-valor').value = e.seguro_rc_periodicidad_valor || '';
   document.getElementById('venc-eq-segrc-unidad').value = e.seguro_rc_periodicidad_unidad || 'meses';
   document.getElementById('venc-eq-segrc-alerta').value = e.seguro_rc_alerta_dias ?? 30;
+  document.getElementById('venc-eq-cert-archivo').value = '';
+  document.getElementById('venc-eq-cert-upload-status').textContent = '';
+  loadCertHistorial(e.id);
   document.getElementById('modal-venc-equipo-overlay').classList.add('open');
 }
+
+async function loadCertHistorial(equipoId){
+  const box = document.getElementById('venc-eq-cert-historial');
+  box.innerHTML = '<div class="muted" style="font-size:12px;">Cargando historial...</div>';
+  const { data, error } = await supabaseClient
+    .from('equipo_certificaciones')
+    .select('*')
+    .eq('equipo_id', equipoId)
+    .order('created_at', { ascending: false });
+  if(error){ console.error(error); box.innerHTML = '<div class="muted" style="font-size:12px;">No se pudo cargar el historial.</div>'; return; }
+  if(!data || data.length === 0){ box.innerHTML = '<div class="muted" style="font-size:12px;">Sin certificados cargados todavía.</div>'; return; }
+  box.innerHTML = data.map((c, i)=>`
+    <div class="req-item" style="justify-content:space-between;">
+      <div style="font-size:12px;">
+        ${i === 0 ? '<span class="badge" style="color:var(--ok);border-color:var(--ok);margin-right:6px;">Vigente</span>' : '<span class="muted">Histórico</span>'}
+        <span style="margin-left:6px;">${escapeHtml(c.archivo_nombre || 'certificado.pdf')}</span>
+        <span class="muted" style="margin-left:6px;">— subido ${fmtDate(c.created_at.slice(0,10))}${c.fecha_emision ? ', emitido '+fmtDate(c.fecha_emision) : ''}</span>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn secondary small" type="button" onclick="verCertPdf(${c.id})">Ver PDF</button>
+        ${(miPerfil?.rol==='maestro'||miPerfil?.rol==='admin') ? `<button class="btn danger small" type="button" onclick="eliminarCertHistorial(${c.id}, ${equipoId})">Eliminar</button>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+let certHistorialCache = [];
+async function verCertPdf(certId){
+  const { data, error } = await supabaseClient.from('equipo_certificaciones').select('*').eq('id', certId).single();
+  if(error || !data){ showToast('No se pudo abrir el PDF', true); return; }
+  document.getElementById('modal-cert-pdf-title').textContent = data.archivo_nombre || 'Certificado';
+  document.getElementById('modal-cert-pdf-meta').textContent = data.fecha_emision ? `Emitido: ${fmtDate(data.fecha_emision)}` : '';
+  document.getElementById('modal-cert-pdf-frame').src = data.archivo_url;
+  document.getElementById('modal-cert-pdf-download').href = data.archivo_url;
+  document.getElementById('modal-cert-pdf-overlay').classList.add('open');
+}
+document.getElementById('btn-cert-pdf-cerrar').addEventListener('click', ()=>{
+  document.getElementById('modal-cert-pdf-frame').src = '';
+  document.getElementById('modal-cert-pdf-overlay').classList.remove('open');
+});
+document.getElementById('modal-cert-pdf-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'modal-cert-pdf-overlay'){
+    document.getElementById('modal-cert-pdf-frame').src = '';
+    document.getElementById('modal-cert-pdf-overlay').classList.remove('open');
+  }
+});
+
+async function eliminarCertHistorial(certId, equipoId){
+  if(!confirm('¿Eliminar este PDF del historial? Esta acción no se puede deshacer.')) return;
+  try{
+    const { error } = await supabaseClient.from('equipo_certificaciones').delete().eq('id', certId);
+    if(error) throw error;
+    showToast('Certificado eliminado del historial');
+    await loadCertHistorial(equipoId);
+  } catch(err){
+    console.error(err);
+    showToast('Error al eliminar: ' + err.message, true);
+  }
+}
+
+document.getElementById('btn-venc-eq-cert-subir').addEventListener('click', async ()=>{
+  const equipoId = document.getElementById('venc-eq-id').value;
+  if(!equipoId){ showToast('Guardá el equipo primero', true); return; }
+  const fileInput = document.getElementById('venc-eq-cert-archivo');
+  const file = fileInput.files[0];
+  if(!file){ showToast('Seleccioná un archivo PDF', true); return; }
+  if(file.type !== 'application/pdf'){ showToast('El archivo debe ser un PDF', true); return; }
+  const statusEl = document.getElementById('venc-eq-cert-upload-status');
+  statusEl.textContent = 'Subiendo...';
+  try{
+    const path = `equipo_${equipoId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_')}`;
+    const { error: uploadError } = await supabaseClient.storage.from('certificaciones-equipos').upload(path, file);
+    if(uploadError) throw uploadError;
+    const { data: urlData } = supabaseClient.storage.from('certificaciones-equipos').getPublicUrl(path);
+    const fechaEmision = document.getElementById('venc-eq-certificacion-fecha').value || null;
+    const { error: insertError } = await supabaseClient.from('equipo_certificaciones').insert({
+      equipo_id: Number(equipoId),
+      archivo_nombre: file.name,
+      archivo_url: urlData.publicUrl,
+      fecha_emision: fechaEmision,
+    });
+    if(insertError) throw insertError;
+    statusEl.textContent = '';
+    fileInput.value = '';
+    showToast('Certificado subido correctamente');
+    await loadCertHistorial(equipoId);
+  } catch(err){
+    console.error(err);
+    statusEl.textContent = '';
+    showToast('Error al subir: ' + err.message, true);
+  }
+});
 document.getElementById('btn-venc-eq-cerrar').addEventListener('click', ()=>{
   document.getElementById('modal-venc-equipo-overlay').classList.remove('open');
 });
