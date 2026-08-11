@@ -154,6 +154,10 @@ const fmtMoney = n => {
   const v = Math.round((n||0)*100)/100;
   return '$ ' + Math.abs(v).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});
 };
+// Las Notas de Crédito restan (van en negativo); Facturas y Notas de Débito suman.
+const valorConSigno = (clase, monto) => clase === 'NC' ? -Math.abs(monto||0) : (monto||0);
+// Igual que fmtMoney pero antepone el signo "−" cuando el comprobante es una NC.
+const fmtMoneyFirmado = (clase, monto) => (clase === 'NC' ? '− ' : '') + fmtMoney(monto);
 const pad = (v,n) => String(parseInt(v,10)||0).padStart(n,'0');
 function excelDateToStr(v){
   if(v instanceof Date) return v.toLocaleDateString('es-AR');
@@ -355,6 +359,7 @@ function renderTablaFalta(q){
   const el = document.getElementById('tablaFalta');
   if(!list.length){ el.innerHTML = '<div class="empty">No hay comprobantes pendientes de cargar 🎉</div>'; return; }
   list.sort((a,b)=> (b.total||0)-(a.total||0));
+  const totalFalta = list.reduce((s,c)=>s+valorConSigno(c.clase, c.total),0);
   el.innerHTML = `<table><thead><tr><th>Fecha</th><th>Tipo</th><th>Proveedor</th><th>CUIT</th><th>Comprobante</th><th style="text-align:right;">Importe Total</th></tr></thead><tbody>
     ${list.map(c=>`<tr>
       <td>${escapeHtml(c.fecha)}</td>
@@ -362,9 +367,10 @@ function renderTablaFalta(q){
       <td>${escapeHtml(c.denomEmisor)}</td>
       <td>${escapeHtml(c.cuitEmisor)}</td>
       <td>${c.letra} ${c.pv}-${c.numero}</td>
-      <td class="num" style="text-align:right;font-weight:600;">${fmtMoney(c.total)}</td>
+      <td class="num" style="text-align:right;font-weight:600;${c.clase==='NC'?'color:#c084fc;':''}">${fmtMoneyFirmado(c.clase, c.total)}</td>
     </tr>`).join('')}
-  </tbody></table>`;
+  </tbody></table>
+  <div style="text-align:right;font-weight:700;margin-top:8px;padding-top:8px;border-top:1px solid #e2e2e2;">Total neto: ${totalFalta<0?'− ':''}${fmtMoney(totalFalta)}</div>`;
 }
 
 function renderTablaRevisar(q){
@@ -374,6 +380,7 @@ function renderTablaRevisar(q){
   document.getElementById('countRevisar').textContent = list.length + ' comprobante(s)';
   const el = document.getElementById('tablaRevisar');
   if(!list.length){ el.innerHTML = '<div class="empty">Todo lo cargado en GP aparece en ARCA 🎉</div>'; return; }
+  const totalRevisar = list.reduce((s,f)=>s+valorConSigno(f.clase, f.monto),0);
   el.innerHTML = `<table><thead><tr><th>Fecha</th><th>Tipo</th><th>Proveedor</th><th>CUIT</th><th>Comprobante GP</th><th style="text-align:right;">Monto</th></tr></thead><tbody>
     ${list.map(f=>`<tr>
       <td>${escapeHtml(f.fecha)}</td>
@@ -381,9 +388,10 @@ function renderTablaRevisar(q){
       <td>${escapeHtml(f.proveedorNombre)}</td>
       <td>${escapeHtml(f.cuit)}</td>
       <td>${escapeHtml(f.comprobante)}</td>
-      <td class="num" style="text-align:right;font-weight:600;">${fmtMoney(f.monto)}</td>
+      <td class="num" style="text-align:right;font-weight:600;${f.clase==='NC'?'color:#c084fc;':''}">${fmtMoneyFirmado(f.clase, f.monto)}</td>
     </tr>`).join('')}
-  </tbody></table>`;
+  </tbody></table>
+  <div style="text-align:right;font-weight:700;margin-top:8px;padding-top:8px;border-top:1px solid #e2e2e2;">Total neto: ${totalRevisar<0?'− ':''}${fmtMoney(totalRevisar)}</div>`;
 }
 
 function renderTablaNoEstandar(q){
@@ -486,7 +494,8 @@ function descargarPDF(){
     // fila de totales al pie: una celda "TOTAL" que ocupa todas las columnas
     // menos la última, y el importe sumado en la última (misma columna del monto)
     const ultimaColIdx = headRow.length - 1;
-    const filaTotal = headRow.map((_, i)=> i === 0 ? 'TOTAL' : (i === ultimaColIdx ? fmtMoney(totalMonto) : ''));
+    const totalTexto = (totalMonto<0?'− ':'') + fmtMoney(totalMonto);
+    const filaTotal = headRow.map((_, i)=> i === 0 ? 'TOTAL' : (i === ultimaColIdx ? totalTexto : ''));
     const colspanTotal = ultimaColIdx; // todas menos la última
 
     doc.autoTable({
@@ -517,16 +526,16 @@ function descargarPDF(){
 
   const faltaBody = resultado.falta
     .slice().sort((a,b)=>(b.total||0)-(a.total||0))
-    .map(c=>[c.fecha, c.clase, c.denomEmisor, c.cuitEmisor, `${c.letra} ${c.pv}-${c.numero}`, fmtMoney(c.total)]);
+    .map(c=>[c.fecha, c.clase, c.denomEmisor, c.cuitEmisor, `${c.letra} ${c.pv}-${c.numero}`, fmtMoneyFirmado(c.clase, c.total)]);
   seccion('FALTA CARGAR EN GP (reclamar al proveedor)', [188,52,60],
     ['Fecha','Tipo','Proveedor','CUIT','Comprobante','Importe Total'], faltaBody,
-    resultado.falta.reduce((s,c)=>s+(c.total||0),0));
+    resultado.falta.reduce((s,c)=>s+valorConSigno(c.clase, c.total),0));
 
   const revisarBody = resultado.revisar
-    .map(f=>[f.fecha, f.clase, f.proveedorNombre, f.cuit, f.comprobante, fmtMoney(f.monto)]);
+    .map(f=>[f.fecha, f.clase, f.proveedorNombre, f.cuit, f.comprobante, fmtMoneyFirmado(f.clase, f.monto)]);
   seccion('CARGADO EN GP PERO NO APARECE EN ARCA (revisar carga)', [188,132,15],
     ['Fecha','Tipo','Proveedor','CUIT','Comprobante GP','Monto'], revisarBody,
-    resultado.revisar.reduce((s,f)=>s+(f.monto||0),0));
+    resultado.revisar.reduce((s,f)=>s+valorConSigno(f.clase, f.monto),0));
 
   const noEstandarBody = resultado.noEstandar
     .map(f=>[f.fecha, f.tipoRaw, f.proveedorNombre, f.numdocRaw, fmtMoney(f.monto)]);
@@ -543,11 +552,11 @@ window.exportarTabla = function(tipo){
   let rows, headers, filename;
   if(tipo === 'falta'){
     headers = ['Fecha','Tipo','Proveedor','CUIT','Comprobante','Importe Total'];
-    rows = resultado.falta.map(c => [c.fecha, c.clase, c.denomEmisor, c.cuitEmisor, `${c.letra} ${c.pv}-${c.numero}`, c.total]);
+    rows = resultado.falta.map(c => [c.fecha, c.clase, c.denomEmisor, c.cuitEmisor, `${c.letra} ${c.pv}-${c.numero}`, valorConSigno(c.clase, c.total)]);
     filename = 'falta_cargar_en_GP';
   } else if(tipo === 'revisar'){
     headers = ['Fecha','Tipo','Proveedor','CUIT','Comprobante GP','Monto'];
-    rows = resultado.revisar.map(f => [f.fecha, f.clase, f.proveedorNombre, f.cuit, f.comprobante, f.monto]);
+    rows = resultado.revisar.map(f => [f.fecha, f.clase, f.proveedorNombre, f.cuit, f.comprobante, valorConSigno(f.clase, f.monto)]);
     filename = 'revisar_carga_GP';
   } else {
     headers = ['Fecha','Tipo','Proveedor','N Documento crudo','Monto'];
