@@ -1371,6 +1371,8 @@
             <div class="muted" style="font-size:12px;margin-top:2px;" id="cc-subtitulo"></div>
           </div>
           <button class="btn secondary small" id="btn-cargar-recibo">+ Cargar recibo</button>
+          <button class="btn secondary small" id="btn-cc-exportar-excel">📊 Exportar Excel</button>
+          <button class="btn secondary small" id="btn-cc-exportar-pdf">📄 Exportar PDF</button>
           <button class="btn secondary small" id="btn-cerrar-cuenta">✕ Cerrar</button>
         </div>
 
@@ -6134,8 +6136,329 @@ function toggleGrupoEquipo(groupId){
 document.getElementById('cc-filter-estado').addEventListener('change', renderCuentaClienteCards);
 
 // =========================================================
-// MÓDULO REPORTES
+// MÓDULO: Exportación de resumen de Cuenta Cliente (Excel / PDF)
 // =========================================================
+
+// Arma toda la data agrupada por equipo + facturas/NC asociadas, reutilizable por Excel y PDF
+function armarResumenClienteData(clienteId){
+  const cliente = clientesCache.find(c => c.id === clienteId);
+  if(!cliente) return null;
+
+  const pendientesDelCliente = pendientesCache.filter(p => p.contratos?.clientes?.id === clienteId);
+  const contratosDelCliente = contratosCache.filter(c => c.cliente_id === clienteId && c.equipos?.numero_serie);
+
+  const facturados = pendientesDelCliente.filter(p => p.estado === 'facturado');
+  const pendientes = pendientesDelCliente.filter(p => p.estado === 'pendiente');
+  const totalFacturado = facturados.reduce((a,p)=> a + valorConSigno(p), 0);
+  const totalPendiente = pendientes.reduce((a,p)=> a + (Number(p.valor_alquiler_usd)||0), 0);
+  const totalCobrado = recibosClienteCache.reduce((a,r)=> a + (Number(r.monto_usd)||0), 0);
+  const saldo = totalFacturado - totalCobrado;
+  const contratosActivos = contratosDelCliente.filter(c => c.estado === 'activo').length;
+  const mesesConFactura = new Set(facturados.map(p => (p.periodo_hasta||'').slice(0,7)));
+  const promedio = mesesConFactura.size > 0 ? totalFacturado / mesesConFactura.size : 0;
+
+  // agrupar por equipo (mismo criterio que las cards)
+  const grupos = {};
+  pendientesDelCliente.forEach(p=>{
+    const serie = p.contratos?.equipos?.numero_serie || 'Sin equipo';
+    const modelo = p.contratos?.equipos?.modelo || '';
+    if(!grupos[serie]) grupos[serie] = { modelo, items: [], totalFacturado: 0, totalPendiente: 0 };
+    grupos[serie].items.push(p);
+    if(p.estado === 'facturado') grupos[serie].totalFacturado += valorConSigno(p);
+    else grupos[serie].totalPendiente += (Number(p.valor_alquiler_usd) || 0);
+  });
+  contratosDelCliente.forEach(c=>{
+    const serie = c.equipos.numero_serie;
+    if(!grupos[serie]) grupos[serie] = { modelo: c.equipos.modelo || '', items: [], totalFacturado: 0, totalPendiente: 0 };
+  });
+  const seriesOrdenadas = Object.keys(grupos).sort((a,b)=>{
+    const maxA = grupos[a].items.reduce((m,p)=> p.periodo_desde > m ? p.periodo_desde : m, '');
+    const maxB = grupos[b].items.reduce((m,p)=> p.periodo_desde > m ? p.periodo_desde : m, '');
+    return maxB.localeCompare(maxA);
+  });
+
+  // evolución mes a mes
+  const porMes = {};
+  pendientesDelCliente.forEach(p=>{
+    const key = (p.periodo_hasta || p.periodo_desde || '').slice(0,7);
+    if(!key) return;
+    if(!porMes[key]) porMes[key] = { facturadoUsd:0, pendienteUsd:0, cantFacturas:0, cantPendientes:0 };
+    if(p.estado === 'facturado'){ porMes[key].facturadoUsd += valorConSigno(p); porMes[key].cantFacturas += 1; }
+    else { porMes[key].pendienteUsd += (Number(p.valor_alquiler_usd) || 0); porMes[key].cantPendientes += 1; }
+  });
+  const mesesOrdenados = Object.keys(porMes).sort();
+
+  // facturas PDF de todos los contratos de este cliente
+  const idsContratosCliente = contratosDelCliente.map(c => c.id);
+  const facturasPdfCliente = facturasPdfCache.filter(f => idsContratosCliente.includes(f.contrato_id));
+
+  return {
+    cliente, pendientesDelCliente, contratosDelCliente, grupos, seriesOrdenadas,
+    totalFacturado, totalPendiente, totalCobrado, saldo, contratosActivos, promedio,
+    porMes, mesesOrdenados, facturasPdfCliente,
+  };
+}
+
+document.getElementById('btn-cc-exportar-excel').addEventListener('click', ()=>{
+  if(!cuentaClienteActivaId){ showToast('Buscá un cliente primero', true); return; }
+  exportarResumenClienteExcel(cuentaClienteActivaId);
+});
+document.getElementById('btn-cc-exportar-pdf').addEventListener('click', ()=>{
+  if(!cuentaClienteActivaId){ showToast('Buscá un cliente primero', true); return; }
+  descargarResumenClientePDF(cuentaClienteActivaId);
+});
+
+function exportarResumenClienteExcel(clienteId){
+  const d = armarResumenClienteData(clienteId);
+  if(!d) return;
+  const wb = XLSX.utils.book_new();
+
+  // Hoja 1: Resumen general
+  const resumenAoa = [
+    ['Cuenta del cliente', d.cliente.razon_social],
+    ['N° Cliente', d.cliente.numero_cliente || ''],
+    ['CUIT', d.cliente.cuit || ''],
+    ['Provincia', d.cliente.provincia || ''],
+    ['Generado', fmtDate(new Date().toISOString().slice(0,10))],
+    [],
+    ['Facturado histórico (USD)', d.totalFacturado],
+    ['Cobrado (USD)', d.totalCobrado],
+    ['Saldo (Facturado - Cobrado) (USD)', d.saldo],
+    ['Pendiente actual (USD)', d.totalPendiente],
+    ['Promedio mensual (USD)', Math.round(d.promedio*100)/100],
+    ['Contratos activos', d.contratosActivos],
+    ['Cantidad de equipos con movimientos', d.seriesOrdenadas.length],
+  ];
+  const wsResumen = XLSX.utils.aoa_to_sheet(resumenAoa);
+  wsResumen['!cols'] = [{wch:32},{wch:22}];
+  XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
+
+  // Hoja 2: Evolución mes a mes
+  const mesesHeaders = ['Mes','Facturado (USD)','Pendiente (USD)','Cant. Facturas','Cant. Pendientes'];
+  const mesesRows = d.mesesOrdenados.map(key=>{
+    const [y,m] = key.split('-');
+    const dm = d.porMes[key];
+    return [`${MESES_NOMBRES[Number(m)-1]} ${y}`, dm.facturadoUsd, dm.pendienteUsd || 0, dm.cantFacturas || 0, dm.cantPendientes || 0];
+  });
+  const wsMeses = XLSX.utils.aoa_to_sheet([mesesHeaders, ...mesesRows]);
+  wsMeses['!cols'] = mesesHeaders.map(h=>({wch: Math.max(h.length+2, 16)}));
+  XLSX.utils.book_append_sheet(wb, wsMeses, 'Evolución mensual');
+
+  // Hoja 3: Detalle de máquinas (una fila por equipo, con totales)
+  const eqHeaders = ['N° Serie','Modelo','Total Facturado (USD)','Total Pendiente (USD)','Cant. Registros'];
+  const eqRows = d.seriesOrdenadas.map(serie=>{
+    const g = d.grupos[serie];
+    return [serie, g.modelo || '', g.totalFacturado, g.totalPendiente, g.items.length];
+  });
+  const wsEquipos = XLSX.utils.aoa_to_sheet([eqHeaders, ...eqRows]);
+  wsEquipos['!cols'] = eqHeaders.map(h=>({wch: Math.max(h.length+2, 16)}));
+  XLSX.utils.book_append_sheet(wb, wsEquipos, 'Máquinas');
+
+  // Hoja 4: Detalle de períodos (facturados + pendientes), uno por fila
+  const detHeaders = ['N° Serie','Modelo','Estado','N° Factura/NC','Período Desde','Período Hasta','Monto (USD)','Fecha Facturación','NC N°','NC Fecha','NC Motivo'];
+  const detRows = [];
+  d.seriesOrdenadas.forEach(serie=>{
+    const g = d.grupos[serie];
+    [...g.items].sort((a,b)=> (a.periodo_desde||'').localeCompare(b.periodo_desde||'')).forEach(p=>{
+      const esFacturado = p.estado === 'facturado';
+      const esNC = esFacturado && esNotaDeCredito(p.numero_factura);
+      detRows.push([
+        serie, g.modelo || '',
+        esNC ? 'Nota de Crédito' : (esFacturado ? 'Facturado' : 'Pendiente'),
+        p.numero_factura || '',
+        p.periodo_desde ? fmtDate(p.periodo_desde) : '',
+        p.periodo_hasta ? fmtDate(p.periodo_hasta) : '',
+        esNC ? -Math.abs(Number(p.valor_alquiler_usd)||0) : (Number(p.valor_alquiler_usd)||0),
+        p.fecha_facturacion ? fmtDate(p.fecha_facturacion) : '',
+        p.nc_numero || '', p.nc_fecha ? fmtDate(p.nc_fecha) : '', p.nc_motivo || '',
+      ]);
+    });
+  });
+  const wsDetalle = XLSX.utils.aoa_to_sheet([detHeaders, ...detRows]);
+  wsDetalle['!cols'] = detHeaders.map(h=>({wch: Math.max(h.length+2, 14)}));
+  XLSX.utils.book_append_sheet(wb, wsDetalle, 'Detalle de períodos');
+
+  // Hoja 5: Facturas PDF adjuntas (link + metadatos)
+  const pdfHeaders = ['N° Factura','Fecha Emisión','Monto (USD)','Archivo','Link'];
+  const pdfRows = d.facturasPdfCliente.map(f=>[
+    f.numero_factura || '', f.fecha_emision ? fmtDate(f.fecha_emision) : '', f.monto ?? '', f.archivo_nombre || '', f.archivo_url || '',
+  ]);
+  const wsPdfs = XLSX.utils.aoa_to_sheet([pdfHeaders, ...pdfRows]);
+  wsPdfs['!cols'] = pdfHeaders.map(h=>({wch: Math.max(h.length+2, 16)})); wsPdfs['!cols'][4] = {wch:50};
+  XLSX.utils.book_append_sheet(wb, wsPdfs, 'Facturas PDF');
+
+  // Hoja 6: Recibos de cobro
+  const recHeaders = ['Fecha','N° Recibo','Monto (USD)','Observación'];
+  const recRows = [...recibosClienteCache].sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||'')).map(r=>[
+    r.fecha ? fmtDate(r.fecha) : '', r.numero_recibo || '', Number(r.monto_usd)||0, r.observacion || '',
+  ]);
+  const wsRecibos = XLSX.utils.aoa_to_sheet([recHeaders, ...recRows]);
+  wsRecibos['!cols'] = recHeaders.map(h=>({wch: Math.max(h.length+2, 16)}));
+  XLSX.utils.book_append_sheet(wb, wsRecibos, 'Recibos de cobro');
+
+  const nombreArchivo = `cuenta_${(d.cliente.razon_social||'cliente').replace(/[^a-z0-9]+/gi,'_')}_${new Date().toISOString().slice(0,10)}`;
+  XLSX.writeFile(wb, `${nombreArchivo}.xlsx`);
+  showToast('Excel generado');
+}
+
+function descargarResumenClientePDF(clienteId){
+  const d = armarResumenClienteData(clienteId);
+  if(!d) return;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const marginX = 16;
+  const bannerRatio = 406/2475;
+  const bannerH = pageWidth * bannerRatio;
+  let y = 15;
+
+  const nuevaPaginaSiNecesario = (alturaNecesaria)=>{
+    if(y > pageHeight - bannerH - alturaNecesaria){ doc.addPage(); y = 15; return true; }
+    return false;
+  };
+
+  // ---------- Encabezado ----------
+  try{ doc.addImage(LOGO_PDF_BASE64, 'PNG', marginX, y, 55, 11.3); } catch(e){ console.error(e); }
+  doc.setFont('helvetica','bold'); doc.setFontSize(14);
+  doc.text('RESUMEN DE CUENTA CLIENTE', pageWidth - marginX, y + 8, { align:'right' });
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90);
+  doc.text(`Generado: ${fmtDate(new Date().toISOString().slice(0,10))}`, pageWidth - marginX, y + 14, { align:'right' });
+  doc.setTextColor(0);
+  y += 24;
+  doc.setDrawColor(56,189,248); doc.setLineWidth(0.8);
+  doc.line(marginX, y, pageWidth - marginX, y);
+  y += 9;
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(13);
+  doc.text(d.cliente.razon_social || '—', marginX, y);
+  y += 6;
+  doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(90);
+  doc.text(`${d.cliente.numero_cliente ? 'N° '+d.cliente.numero_cliente+'  —  ' : ''}${d.cliente.cuit || 'sin CUIT'}${d.cliente.provincia ? '  —  '+d.cliente.provincia : ''}`, marginX, y);
+  doc.setTextColor(0);
+  y += 10;
+
+  // ---------- Tabla resumen ----------
+  doc.autoTable({
+    startY: y,
+    body: [
+      ['Facturado histórico', fmtMoney(d.totalFacturado,'USD'), 'Cobrado', fmtMoney(d.totalCobrado,'USD')],
+      ['Saldo (Fact. - Cobrado)', fmtMoney(d.saldo,'USD'), 'Pendiente actual', fmtMoney(d.totalPendiente,'USD')],
+      ['Promedio mensual', fmtMoney(d.promedio,'USD'), 'Contratos activos', String(d.contratosActivos)],
+    ],
+    theme: 'grid',
+    styles: { fontSize: 9.5, cellPadding: 3 },
+    columnStyles: { 0:{fontStyle:'bold'}, 2:{fontStyle:'bold'} },
+    margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+  });
+  y = doc.lastAutoTable.finalY + 10;
+
+  // ---------- Evolución mes a mes ----------
+  nuevaPaginaSiNecesario(35);
+  doc.setFont('helvetica','bold'); doc.setFontSize(11.5);
+  doc.text('Evolución mes a mes', marginX, y);
+  y += 5;
+  const mesesBody = d.mesesOrdenados.map(key=>{
+    const [yy,mm] = key.split('-');
+    const dm = d.porMes[key];
+    return [`${MESES_NOMBRES[Number(mm)-1]} ${yy}`, fmtMoney(dm.facturadoUsd,'USD'), dm.pendienteUsd>0?fmtMoney(dm.pendienteUsd,'USD'):'—', dm.cantFacturas||'—', dm.cantPendientes||'—'];
+  });
+  doc.autoTable({
+    startY: y,
+    head: [['Mes','Facturado','Pendiente','Cant. Facturas','Cant. Pendientes']],
+    body: mesesBody.length ? mesesBody : [['Sin historial','—','—','—','—']],
+    theme: 'grid',
+    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: [10,26,58], textColor: 255, fontStyle: 'bold' },
+    margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+  });
+  y = doc.lastAutoTable.finalY + 10;
+
+  // ---------- Detalle por máquina ----------
+  nuevaPaginaSiNecesario(30);
+  doc.setFont('helvetica','bold'); doc.setFontSize(11.5);
+  doc.text('Detalle de máquinas y períodos facturados / pendientes', marginX, y);
+  y += 2;
+
+  d.seriesOrdenadas.forEach(serie=>{
+    const g = d.grupos[serie];
+    nuevaPaginaSiNecesario(38);
+    y += 6;
+    doc.setFont('helvetica','bold'); doc.setFontSize(10);
+    doc.setFillColor(235,238,242);
+    doc.rect(marginX, y-4.5, pageWidth-marginX*2, 7, 'F');
+    doc.text(`${serie}  —  ${g.modelo || 'sin modelo'}`, marginX+2, y);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+    doc.text(`Facturado: ${fmtMoney(g.totalFacturado,'USD')}   Pendiente: ${fmtMoney(g.totalPendiente,'USD')}`, pageWidth-marginX-2, y, { align:'right' });
+    y += 4;
+
+    const items = [...g.items].sort((a,b)=> (a.periodo_desde||'').localeCompare(b.periodo_desde||''));
+    const body = items.map(p=>{
+      const esFacturado = p.estado === 'facturado';
+      const esNC = esFacturado && esNotaDeCredito(p.numero_factura);
+      const monto = esNC ? `− ${fmtMoney(p.valor_alquiler_usd,'USD')}` : fmtMoney(p.valor_alquiler_usd,'USD');
+      const traza = p.nc_numero ? ` (NC ${p.nc_numero})` : '';
+      return [
+        esNC ? 'Nota de Crédito' : (esFacturado ? 'Facturado' : 'Pendiente'),
+        p.numero_factura ? p.numero_factura + traza : '—',
+        p.periodo_desde ? fmtDate(p.periodo_desde) : '—',
+        p.periodo_hasta ? fmtDate(p.periodo_hasta) : '—',
+        monto,
+        p.fecha_facturacion ? fmtDate(p.fecha_facturacion) : '—',
+      ];
+    });
+    if(body.length === 0) body.push(['Sin movimientos','—','—','—','—','—']);
+
+    doc.autoTable({
+      startY: y,
+      head: [['Estado','N° Factura/NC','Desde','Hasta','Monto','Emitida']],
+      body,
+      theme: 'grid',
+      styles: { fontSize: 7.6, cellPadding: 1.8 },
+      headStyles: { fillColor: [56,189,248], textColor: 20, fontStyle: 'bold', fontSize: 7.8 },
+      margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+    });
+    y = doc.lastAutoTable.finalY + 4;
+  });
+
+  // ---------- Recibos de cobro ----------
+  if(recibosClienteCache.length > 0){
+    nuevaPaginaSiNecesario(35);
+    y += 6;
+    doc.setFont('helvetica','bold'); doc.setFontSize(11.5);
+    doc.text('Recibos de cobro', marginX, y);
+    y += 5;
+    const recBody = [...recibosClienteCache].sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||'')).map(r=>[
+      r.fecha ? fmtDate(r.fecha) : '—', r.numero_recibo || '—', fmtMoney(r.monto_usd,'USD'), r.observacion || '—',
+    ]);
+    doc.autoTable({
+      startY: y,
+      head: [['Fecha','N° Recibo','Monto','Observación']],
+      body: recBody,
+      theme: 'grid',
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [10,26,58], textColor: 255, fontStyle: 'bold' },
+      margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+    });
+    y = doc.lastAutoTable.finalY + 10;
+  }
+
+  // ---------- Pie de página en todas las páginas ----------
+  const totalPaginas = doc.internal.getNumberOfPages();
+  for(let i=1;i<=totalPaginas;i++){
+    doc.setPage(i);
+    try{ doc.addImage(FOOTER_BANNER_BASE64, 'JPEG', 0, pageHeight - bannerH, pageWidth, bannerH); } catch(e){ console.error(e); }
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(120);
+    doc.text(`Página ${i} de ${totalPaginas}`, pageWidth - marginX, pageHeight - bannerH - 4, { align:'right' });
+    doc.setTextColor(0);
+  }
+
+  const nombreArchivo = `cuenta_${(d.cliente.razon_social||'cliente').replace(/[^a-z0-9]+/gi,'_')}_${new Date().toISOString().slice(0,10)}`;
+  doc.save(`${nombreArchivo}.pdf`);
+  showToast('PDF generado');
+}
+
+
 
 function populateReportesFiltros(){
   const selSuc = document.getElementById('rep-filter-sucursal');
