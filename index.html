@@ -952,6 +952,7 @@
       <select id="pend-filter-estado">
         <option value="pendiente">Pendientes</option>
         <option value="facturado">Facturados</option>
+        <option value="facturado_sin_pdf">Facturados sin PDF adjunto</option>
         <option value="">Todos</option>
       </select>
       <div style="flex:1"></div>
@@ -4444,7 +4445,7 @@ function renderPendientes(list){
     const sucursal = p.contratos?.sucursales?.nombre || '—';
     const reqCount = clienteRequisitosCache[p.contratos?.clientes?.id]?.length || 0;
     const estadoBadge = p.estado === 'facturado'
-      ? `<span class="badge" style="color:var(--ok);border-color:var(--ok);">Facturado — ${escapeHtml(p.numero_factura||'')}</span>`
+      ? `<span class="badge" style="color:var(--ok);border-color:var(--ok);">Facturado — ${escapeHtml(p.numero_factura||'')}</span>${(!esNotaDeCredito(p.numero_factura) && !todasFacturasPdfCache.some(f=>f.pendiente_id===p.id)) ? ' <span class="badge" style="color:var(--warn);border-color:var(--warn);" title="No tiene el PDF de la factura adjunto">⚠ sin PDF</span>' : ''}`
       : `<span class="badge" style="color:var(--accent);border-color:var(--accent-dim);">Pendiente</span>`;
     return `
       <tr>
@@ -4474,7 +4475,12 @@ function getFilteredPendientesLista(){
   let list = pendientesCache;
   if(sucursalId) list = list.filter(p => String(p.contratos?.sucursales?.id) === sucursalId);
   if(provincia) list = list.filter(p => p.contratos?.clientes?.provincia === provincia);
-  if(estado) list = list.filter(p => p.estado === estado);
+  if(estado === 'facturado_sin_pdf'){
+    const idsConPdf = new Set(todasFacturasPdfCache.map(f => f.pendiente_id).filter(Boolean));
+    list = list.filter(p => p.estado === 'facturado' && !esNotaDeCredito(p.numero_factura) && !idsConPdf.has(p.id));
+  } else if(estado){
+    list = list.filter(p => p.estado === estado);
+  }
   if(q){
     list = list.filter(p =>
       (p.contratos?.clientes?.razon_social || '').toLowerCase().includes(q) ||
