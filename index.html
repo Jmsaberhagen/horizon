@@ -175,6 +175,7 @@
   }
   button.btn.danger:hover{background:rgba(255,92,92,0.1);}
   button.btn.small{padding:5px 10px;font-size:12px;}
+  button.btn.icon-btn{padding:5px 7px;font-size:13px;min-width:28px;line-height:1;}
 
   .panel{
     background:var(--panel);
@@ -1086,6 +1087,8 @@
     <div class="mode-toggle" style="margin-bottom:14px;">
       <button class="secondary on" id="venc-tab-maquinas">Máquinas</button>
       <button class="secondary" id="venc-tab-personal">Personal</button>
+      <div style="flex:1"></div>
+      <button class="btn secondary" id="btn-abrir-polizas-globales">📁 Pólizas globales (Seg. Técnico / RC)</button>
     </div>
 
     <div id="venc-panel-maquinas">
@@ -2533,6 +2536,40 @@
     <div class="modal-actions">
       <button class="btn secondary" id="btn-det-eq-editar-datos">Editar datos del equipo</button>
       <button class="btn secondary" id="btn-det-eq-cerrar">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PÓLIZAS GLOBALES (Seguro Técnico / RC — un único archivo compartido por toda la flota) -->
+<div class="overlay" id="modal-polizas-globales-overlay">
+  <div class="modal" style="max-width:600px;">
+    <h2>Pólizas globales de la flota</h2>
+    <div class="muted" style="font-size:12.5px;margin-top:-8px;margin-bottom:14px;">
+      Estos dos PDF son los mismos para todas las máquinas (una única póliza anual). Se renuevan una vez por año — cada carga nueva queda en el historial, sin perder las anteriores.
+    </div>
+
+    <div class="panel" style="padding:14px;margin-bottom:14px;">
+      <h3 style="margin-top:0;font-size:13.5px;">🛡️ Seguro Técnico</h3>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+        <input type="file" id="poliza-seguro_tecnico-archivo" accept="application/pdf">
+        <button class="btn secondary small" type="button" onclick="subirPolizaGlobal('seguro_tecnico')">Subir PDF</button>
+        <span class="muted" id="poliza-seguro_tecnico-status" style="font-size:12px;"></span>
+      </div>
+      <div id="poliza-seguro_tecnico-historial" style="display:flex;flex-direction:column;gap:6px;"></div>
+    </div>
+
+    <div class="panel" style="padding:14px;margin-bottom:14px;">
+      <h3 style="margin-top:0;font-size:13.5px;">⚖️ Responsabilidad Civil</h3>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+        <input type="file" id="poliza-seguro_rc-archivo" accept="application/pdf">
+        <button class="btn secondary small" type="button" onclick="subirPolizaGlobal('seguro_rc')">Subir PDF</button>
+        <span class="muted" id="poliza-seguro_rc-status" style="font-size:12px;"></span>
+      </div>
+      <div id="poliza-seguro_rc-historial" style="display:flex;flex-direction:column;gap:6px;"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn secondary" id="btn-polizas-globales-cerrar">Cerrar</button>
     </div>
   </div>
 </div>
@@ -5120,12 +5157,16 @@ function renderEquipos(list){
           <div style="display:flex;align-items:center;gap:5px;margin-top:8px;" title="Estado de vencimientos">
             ${semaforo}
           </div>
+          <div style="display:flex;gap:4px;margin-top:8px;flex-wrap:wrap;">
+            <button class="btn secondary small icon-btn" title="Ver título" onclick="verTituloPdfVigenteEquipo(${e.id})">🚗</button>
+            <button class="btn secondary small icon-btn" title="Ver certificación" onclick="verCertPdfVigenteEquipo(${e.id})">📄</button>
+            <button class="btn secondary small icon-btn" title="Ver seguro técnico" onclick="verPolizaGlobalVigente('seguro_tecnico')">🛡️</button>
+            <button class="btn secondary small icon-btn" title="Ver responsabilidad civil" onclick="verPolizaGlobalVigente('seguro_rc')">⚖️</button>
+            <button class="btn secondary small icon-btn" title="Ver especificaciones técnicas" onclick="${tieneFicha ? `abrirFichaTecnica(${e.id})` : `showToast('No hay ficha técnica cargada para este modelo todavía', true)`}">🔧</button>
+          </div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
             ${suc ? `<span class="badge" style="font-size:10px;">${suc.nombre}</span>` : '<span class="muted" style="font-size:10px;">—</span>'}
-            <div class="row-actions">
-              ${tieneFicha ? `<button class="btn secondary small" onclick="abrirFichaTecnica(${e.id})" title="Ficha técnica">📋</button>` : ''}
-              <button class="btn small" onclick="abrirDetalleEquipo(${e.id})">Detalle</button>
-            </div>
+            <button class="btn small" onclick="abrirDetalleEquipo(${e.id})">Editar</button>
           </div>
         </div>`;
     }).join('') || '<div class="muted" style="text-align:center;padding:20px 0;font-size:12px;">Sin equipos en este estado.</div>';
@@ -10224,6 +10265,114 @@ document.getElementById('btn-det-eq-titulo-subir').addEventListener('click', asy
     statusEl.textContent = '';
     showToast('Error al subir: ' + err.message, true);
   }
+});
+
+// =========================================================
+// PÓLIZAS GLOBALES (Seguro Técnico / RC) — un único archivo por tipo, compartido por toda la flota
+// =========================================================
+const NOMBRES_POLIZAS = { seguro_tecnico: 'Seguro Técnico', seguro_rc: 'Responsabilidad Civil' };
+
+async function verPolizaGlobalVigente(tipo){
+  const { data, error } = await supabaseClient
+    .from('polizas_globales')
+    .select('*')
+    .eq('tipo', tipo)
+    .order('created_at', { ascending: false })
+    .limit(1);
+  if(error){ showToast('No se pudo cargar la póliza', true); return; }
+  if(!data || data.length === 0){ showToast(`Todavía no se cargó el PDF de ${NOMBRES_POLIZAS[tipo]}`, true); return; }
+  const p = data[0];
+  document.getElementById('modal-cert-pdf-title').textContent = `${NOMBRES_POLIZAS[tipo]} — ${p.archivo_nombre || 'póliza.pdf'}`;
+  document.getElementById('modal-cert-pdf-meta').textContent = 'Póliza vigente para toda la flota';
+  document.getElementById('modal-cert-pdf-frame').src = p.archivo_url;
+  document.getElementById('modal-cert-pdf-download').href = p.archivo_url;
+  document.getElementById('modal-cert-pdf-overlay').classList.add('open');
+}
+
+async function loadPolizaHistorial(tipo){
+  const box = document.getElementById(`poliza-${tipo}-historial`);
+  box.innerHTML = '<div class="muted" style="font-size:12px;">Cargando...</div>';
+  const { data, error } = await supabaseClient
+    .from('polizas_globales')
+    .select('*')
+    .eq('tipo', tipo)
+    .order('created_at', { ascending: false });
+  if(error){ console.error(error); box.innerHTML = '<div class="muted" style="font-size:12px;">No se pudo cargar el historial.</div>'; return; }
+  if(!data || data.length === 0){ box.innerHTML = '<div class="muted" style="font-size:12px;">Sin PDF cargado todavía.</div>'; return; }
+  box.innerHTML = data.map((p, i)=>`
+    <div class="req-item" style="justify-content:space-between;">
+      <div style="font-size:12px;">
+        ${i === 0 ? '<span class="badge" style="color:var(--ok);border-color:var(--ok);margin-right:6px;">Vigente</span>' : '<span class="muted">Histórico</span>'}
+        <span style="margin-left:6px;">${escapeHtml(p.archivo_nombre || 'poliza.pdf')}</span>
+        <span class="muted" style="margin-left:6px;">— subido ${fmtDate(p.created_at.slice(0,10))}</span>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn secondary small" type="button" onclick="verPolizaPdf(${p.id})">Ver PDF</button>
+        ${(miPerfil?.rol==='maestro'||miPerfil?.rol==='admin') ? `<button class="btn danger small" type="button" onclick="eliminarPolizaHistorial(${p.id}, '${tipo}')">Eliminar</button>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+async function verPolizaPdf(polizaId){
+  const { data, error } = await supabaseClient.from('polizas_globales').select('*').eq('id', polizaId).single();
+  if(error || !data){ showToast('No se pudo abrir el PDF', true); return; }
+  document.getElementById('modal-cert-pdf-title').textContent = `${NOMBRES_POLIZAS[data.tipo]} — ${data.archivo_nombre || 'poliza.pdf'}`;
+  document.getElementById('modal-cert-pdf-meta').textContent = '';
+  document.getElementById('modal-cert-pdf-frame').src = data.archivo_url;
+  document.getElementById('modal-cert-pdf-download').href = data.archivo_url;
+  document.getElementById('modal-cert-pdf-overlay').classList.add('open');
+}
+
+async function eliminarPolizaHistorial(polizaId, tipo){
+  if(!confirm('¿Eliminar este PDF del historial? Esta acción no se puede deshacer.')) return;
+  try{
+    const { error } = await supabaseClient.from('polizas_globales').delete().eq('id', polizaId);
+    if(error) throw error;
+    showToast('PDF eliminado del historial');
+    await loadPolizaHistorial(tipo);
+  } catch(err){
+    console.error(err);
+    showToast('Error al eliminar: ' + err.message, true);
+  }
+}
+
+async function subirPolizaGlobal(tipo){
+  const fileInput = document.getElementById(`poliza-${tipo}-archivo`);
+  const file = fileInput.files[0];
+  if(!file){ showToast('Seleccioná un archivo PDF', true); return; }
+  if(file.type !== 'application/pdf'){ showToast('El archivo debe ser un PDF', true); return; }
+  const statusEl = document.getElementById(`poliza-${tipo}-status`);
+  statusEl.textContent = 'Subiendo...';
+  try{
+    const path = `${tipo}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_')}`;
+    const { error: uploadError } = await supabaseClient.storage.from('polizas-globales').upload(path, file);
+    if(uploadError) throw uploadError;
+    const { data: urlData } = supabaseClient.storage.from('polizas-globales').getPublicUrl(path);
+    const { error: insertError } = await supabaseClient.from('polizas_globales').insert({
+      tipo, archivo_nombre: file.name, archivo_url: urlData.publicUrl,
+    });
+    if(insertError) throw insertError;
+    statusEl.textContent = '';
+    fileInput.value = '';
+    showToast(`${NOMBRES_POLIZAS[tipo]} actualizado correctamente`);
+    await loadPolizaHistorial(tipo);
+  } catch(err){
+    console.error(err);
+    statusEl.textContent = '';
+    showToast('Error al subir: ' + err.message, true);
+  }
+}
+
+document.getElementById('btn-abrir-polizas-globales').addEventListener('click', async ()=>{
+  document.getElementById('modal-polizas-globales-overlay').classList.add('open');
+  await loadPolizaHistorial('seguro_tecnico');
+  await loadPolizaHistorial('seguro_rc');
+});
+document.getElementById('btn-polizas-globales-cerrar').addEventListener('click', ()=>{
+  document.getElementById('modal-polizas-globales-overlay').classList.remove('open');
+});
+document.getElementById('modal-polizas-globales-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'modal-polizas-globales-overlay') document.getElementById('modal-polizas-globales-overlay').classList.remove('open');
 });
 
 document.getElementById('btn-venc-eq-cerrar').addEventListener('click', ()=>{
