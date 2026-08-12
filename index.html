@@ -2490,6 +2490,51 @@
   </div>
 </div>
 
+<!-- MODAL DETALLE DE EQUIPO (hub: info + vencimientos + documentos) -->
+<div class="overlay" id="modal-detalle-equipo-overlay">
+  <div class="modal" style="max-width:640px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+      <div>
+        <h2 id="det-eq-titulo" style="margin-bottom:2px;">—</h2>
+        <div class="muted" id="det-eq-subtitulo" style="font-size:12.5px;"></div>
+      </div>
+      <span id="det-eq-badge-terceros" class="badge" style="color:#ff9f43;border-color:#ff9f43;display:none;">Terceros</span>
+    </div>
+
+    <div class="panel" style="margin-top:16px;padding:14px;">
+      <h3 style="margin-top:0;font-size:13.5px;">📋 Estado de vencimientos</h3>
+      <div id="det-eq-vencimientos" style="display:flex;flex-direction:column;gap:8px;"></div>
+      <div style="margin-top:10px;">
+        <button class="btn secondary small" id="btn-det-eq-editar-vencimientos">Editar vencimientos</button>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:14px;padding:14px;">
+      <h3 style="margin-top:0;font-size:13.5px;">🛡️ Certificado</h3>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button class="btn secondary small" onclick="verCertPdfVigenteEquipo(document.getElementById('det-eq-id').value)">Ver PDF vigente</button>
+        <span class="muted" id="det-eq-cert-resumen" style="font-size:11.5px;"></span>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:14px;padding:14px;">
+      <h3 style="margin-top:0;font-size:13.5px;">🚗 Título de la máquina</h3>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+        <input type="file" id="det-eq-titulo-archivo" accept="application/pdf">
+        <button class="btn secondary small" id="btn-det-eq-titulo-subir" type="button">Subir título (PDF)</button>
+        <span class="muted" id="det-eq-titulo-status" style="font-size:12px;"></span>
+      </div>
+      <div id="det-eq-titulo-historial" style="display:flex;flex-direction:column;gap:6px;"></div>
+    </div>
+
+    <input type="hidden" id="det-eq-id">
+    <div class="modal-actions">
+      <button class="btn secondary" id="btn-det-eq-editar-datos">Editar datos del equipo</button>
+      <button class="btn secondary" id="btn-det-eq-cerrar">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL PENDIENTE (manual / editar / facturar) -->
 <div class="overlay" id="modal-pendiente-overlay">
   <div class="modal wide">
@@ -5037,12 +5082,29 @@ function renderEquipos(list){
     { estado:'alquilada',  titulo:'Alquilada',  color:'var(--accent)' },
     { estado:'baja',       titulo:'De baja',    color:'var(--danger)' },
   ];
+  const colorEstadoDoc = { vencido:'var(--danger)', por_vencer:'var(--warn)', vigente:'var(--ok)' };
   board.innerHTML = columnas.map(col=>{
     const items = list.filter(e => estadoActualEquipo(e) === col.estado);
     const tarjetas = items.map(e=>{
       const suc = sucursales.find(s => s.id === e.sucursal_id);
       const tieneFicha = !!buscarFichaTecnica(e.modelo);
       const cliente = col.estado === 'alquilada' ? clienteActualDeEquipo(e.id) : null;
+
+      // Semáforo de vencimientos: 4 puntitos (Patentamiento, Certificación, Seg. Técnico, Seg. RC)
+      const docs = documentosEquipo(e);
+      const semaforo = docs.map(d=>{
+        let color, label;
+        if(d.prefijo === 'patentamiento'){
+          color = d.realizado ? 'var(--ok)' : 'var(--text-dim)';
+          label = 'Patentamiento: ' + (d.realizado ? 'Realizado' : 'Pendiente');
+        } else {
+          color = d.estado ? colorEstadoDoc[d.estado] : 'var(--text-dim)';
+          const nombres = { certificacion:'Certificación', seguro_tecnico:'Seguro Técnico', seguro_rc:'Seguro RC' };
+          label = `${nombres[d.prefijo]}: ${d.estado ? (d.estado==='vencido'?'Vencido':d.estado==='por_vencer'?'Por vencer':'Vigente') : 'Sin datos'}${d.vencimiento ? ' · '+fmtDate(d.vencimiento) : ''}`;
+        }
+        return `<span title="${escapeHtml(label)}" style="width:8px;height:8px;border-radius:50%;background:${color};display:inline-block;"></span>`;
+      }).join('');
+
       return `
         <div class="panel" style="padding:10px 12px;margin-bottom:8px;border-left:3px solid ${col.color};background:var(--panel-2);">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">
@@ -5053,11 +5115,14 @@ function renderEquipos(list){
             </div>
             ${e.tipo === 'tercero' ? `<span class="badge" style="color:#ff9f43;border-color:#ff9f43;font-size:9.5px;flex:none;" title="${e.proveedor_tercero ? 'Proveedor: '+escapeHtml(e.proveedor_tercero) : ''}">Terceros</span>` : ''}
           </div>
+          <div style="display:flex;align-items:center;gap:5px;margin-top:8px;" title="Estado de vencimientos">
+            ${semaforo}
+          </div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
             ${suc ? `<span class="badge" style="font-size:10px;">${suc.nombre}</span>` : '<span class="muted" style="font-size:10px;">—</span>'}
             <div class="row-actions">
-              <button class="btn secondary small" onclick="openEditEquipo(${e.id})">Editar</button>
-              ${tieneFicha ? `<button class="btn secondary small" onclick="abrirFichaTecnica(${e.id})">📋</button>` : ''}
+              ${tieneFicha ? `<button class="btn secondary small" onclick="abrirFichaTecnica(${e.id})" title="Ficha técnica">📋</button>` : ''}
+              <button class="btn small" onclick="abrirDetalleEquipo(${e.id})">Detalle</button>
             </div>
           </div>
         </div>`;
@@ -9996,6 +10061,145 @@ document.getElementById('btn-venc-eq-cert-subir').addEventListener('click', asyn
     showToast('Error al subir: ' + err.message, true);
   }
 });
+
+// =========================================================
+// MODAL DETALLE DE EQUIPO (hub): info + vencimientos + documentos
+// =========================================================
+async function abrirDetalleEquipo(equipoId){
+  const e = equiposCache.find(x => x.id === equipoId);
+  if(!e) return;
+  const suc = sucursales.find(s => s.id === e.sucursal_id);
+  document.getElementById('det-eq-id').value = e.id;
+  document.getElementById('det-eq-titulo').textContent = e.numero_serie;
+  document.getElementById('det-eq-subtitulo').textContent = `${e.modelo || 'sin modelo'}${suc ? ' — '+suc.nombre : ''} — ${estadoActualEquipo(e)==='baja'?'De baja':estadoActualEquipo(e)==='alquilada'?'Alquilada':'Disponible'}`;
+  const badgeTerceros = document.getElementById('det-eq-badge-terceros');
+  if(e.tipo === 'tercero'){ badgeTerceros.style.display = ''; badgeTerceros.title = e.proveedor_tercero ? 'Proveedor: '+e.proveedor_tercero : ''; }
+  else badgeTerceros.style.display = 'none';
+
+  const docs = documentosEquipo(e);
+  const nombres = { patentamiento:'Patentamiento', certificacion:'Certificación', seguro_tecnico:'Seguro Técnico', seguro_rc:'Seguro Responsabilidad Civil' };
+  document.getElementById('det-eq-vencimientos').innerHTML = docs.map(d=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:12.5px;">${nombres[d.prefijo]}</span>
+      ${d.prefijo==='patentamiento' ? badgePatentamiento(d) : badgeEstadoVencimiento(d.estado, d.vencimiento)}
+    </div>`).join('');
+
+  const certDoc = docs.find(d => d.prefijo === 'certificacion');
+  document.getElementById('det-eq-cert-resumen').textContent = certDoc && certDoc.fecha
+    ? `Emitido: ${fmtDate(certDoc.fecha)}` : 'Sin certificado cargado';
+
+  document.getElementById('det-eq-titulo-archivo').value = '';
+  document.getElementById('det-eq-titulo-status').textContent = '';
+  await loadTituloHistorial(equipoId);
+
+  document.getElementById('modal-detalle-equipo-overlay').classList.add('open');
+}
+document.getElementById('btn-det-eq-cerrar').addEventListener('click', ()=>{
+  document.getElementById('modal-detalle-equipo-overlay').classList.remove('open');
+});
+document.getElementById('modal-detalle-equipo-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'modal-detalle-equipo-overlay') document.getElementById('modal-detalle-equipo-overlay').classList.remove('open');
+});
+document.getElementById('btn-det-eq-editar-vencimientos').addEventListener('click', ()=>{
+  const id = Number(document.getElementById('det-eq-id').value);
+  document.getElementById('modal-detalle-equipo-overlay').classList.remove('open');
+  abrirVencEquipo(id);
+});
+document.getElementById('btn-det-eq-editar-datos').addEventListener('click', ()=>{
+  const id = Number(document.getElementById('det-eq-id').value);
+  document.getElementById('modal-detalle-equipo-overlay').classList.remove('open');
+  openEditEquipo(id);
+});
+
+async function loadTituloHistorial(equipoId){
+  const box = document.getElementById('det-eq-titulo-historial');
+  box.innerHTML = '<div class="muted" style="font-size:12px;">Cargando...</div>';
+  const { data, error } = await supabaseClient
+    .from('equipo_titulos')
+    .select('*')
+    .eq('equipo_id', equipoId)
+    .order('created_at', { ascending: false });
+  if(error){ console.error(error); box.innerHTML = '<div class="muted" style="font-size:12px;">No se pudo cargar el historial.</div>'; return; }
+  if(!data || data.length === 0){ box.innerHTML = '<div class="muted" style="font-size:12px;">Sin título cargado todavía.</div>'; return; }
+  box.innerHTML = data.map((t, i)=>`
+    <div class="req-item" style="justify-content:space-between;">
+      <div style="font-size:12px;">
+        ${i === 0 ? '<span class="badge" style="color:var(--ok);border-color:var(--ok);margin-right:6px;">Vigente</span>' : '<span class="muted">Histórico</span>'}
+        <span style="margin-left:6px;">${escapeHtml(t.archivo_nombre || 'titulo.pdf')}</span>
+        <span class="muted" style="margin-left:6px;">— subido ${fmtDate(t.created_at.slice(0,10))}${t.dominio ? ', dominio '+escapeHtml(t.dominio) : ''}</span>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn secondary small" type="button" onclick="verTituloPdf(${t.id})">Ver PDF</button>
+        ${(miPerfil?.rol==='maestro'||miPerfil?.rol==='admin') ? `<button class="btn danger small" type="button" onclick="eliminarTituloHistorial(${t.id}, ${equipoId})">Eliminar</button>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+async function verTituloPdf(tituloId){
+  const { data, error } = await supabaseClient.from('equipo_titulos').select('*').eq('id', tituloId).single();
+  if(error || !data){ showToast('No se pudo abrir el PDF', true); return; }
+  document.getElementById('modal-cert-pdf-title').textContent = data.archivo_nombre || 'Título de la máquina';
+  document.getElementById('modal-cert-pdf-meta').textContent = data.dominio ? `Dominio: ${data.dominio}` : '';
+  document.getElementById('modal-cert-pdf-frame').src = data.archivo_url;
+  document.getElementById('modal-cert-pdf-download').href = data.archivo_url;
+  document.getElementById('modal-cert-pdf-overlay').classList.add('open');
+}
+
+async function verTituloPdfVigenteEquipo(equipoId){
+  const { data, error } = await supabaseClient
+    .from('equipo_titulos')
+    .select('*')
+    .eq('equipo_id', equipoId)
+    .order('created_at', { ascending: false })
+    .limit(1);
+  if(error){ showToast('No se pudo cargar el título', true); return; }
+  if(!data || data.length === 0){ showToast('Este equipo no tiene título cargado todavía', true); return; }
+  await verTituloPdf(data[0].id);
+}
+
+async function eliminarTituloHistorial(tituloId, equipoId){
+  if(!confirm('¿Eliminar este título del historial? Esta acción no se puede deshacer.')) return;
+  try{
+    const { error } = await supabaseClient.from('equipo_titulos').delete().eq('id', tituloId);
+    if(error) throw error;
+    showToast('Título eliminado del historial');
+    await loadTituloHistorial(equipoId);
+  } catch(err){
+    console.error(err);
+    showToast('Error al eliminar: ' + err.message, true);
+  }
+}
+
+document.getElementById('btn-det-eq-titulo-subir').addEventListener('click', async ()=>{
+  const equipoId = document.getElementById('det-eq-id').value;
+  const fileInput = document.getElementById('det-eq-titulo-archivo');
+  const file = fileInput.files[0];
+  if(!file){ showToast('Seleccioná un archivo PDF', true); return; }
+  if(file.type !== 'application/pdf'){ showToast('El archivo debe ser un PDF', true); return; }
+  const statusEl = document.getElementById('det-eq-titulo-status');
+  statusEl.textContent = 'Subiendo...';
+  try{
+    const path = `equipo_${equipoId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_')}`;
+    const { error: uploadError } = await supabaseClient.storage.from('titulos-equipos').upload(path, file);
+    if(uploadError) throw uploadError;
+    const { data: urlData } = supabaseClient.storage.from('titulos-equipos').getPublicUrl(path);
+    const { error: insertError } = await supabaseClient.from('equipo_titulos').insert({
+      equipo_id: Number(equipoId),
+      archivo_nombre: file.name,
+      archivo_url: urlData.publicUrl,
+    });
+    if(insertError) throw insertError;
+    statusEl.textContent = '';
+    fileInput.value = '';
+    showToast('Título subido correctamente');
+    await loadTituloHistorial(equipoId);
+  } catch(err){
+    console.error(err);
+    statusEl.textContent = '';
+    showToast('Error al subir: ' + err.message, true);
+  }
+});
+
 document.getElementById('btn-venc-eq-cerrar').addEventListener('click', ()=>{
   document.getElementById('modal-venc-equipo-overlay').classList.remove('open');
 });
