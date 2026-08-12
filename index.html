@@ -3366,7 +3366,8 @@ document.querySelectorAll('nav button[data-tab]').forEach(btn=>{
 });
 
 document.getElementById('btn-volver-inicio').addEventListener('click', ()=>{
-  dashCategoriaActual = null; // al volver al inicio explícitamente, arrancamos desde las categorías
+  // Al volver desde una sección, respetamos la categoría en la que estaba parado
+  // (si había una abierta) en lugar de mandarlo siempre a la vista de categorías.
   activarTab('inicio');
   renderDashboard(); // refresca contadores al volver
 });
