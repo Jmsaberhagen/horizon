@@ -2519,7 +2519,9 @@
 
     <div class="panel" style="margin-top:14px;padding:14px;">
       <h3 style="margin-top:0;font-size:13.5px;">🚗 Título de la máquina</h3>
+      <div class="muted" id="det-eq-dominio-actual" style="font-size:12px;margin-bottom:8px;"></div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+        <input type="text" id="det-eq-titulo-dominio" placeholder="Dominio (ej. EWS97)" style="width:140px;text-transform:uppercase;">
         <input type="file" id="det-eq-titulo-archivo" accept="application/pdf">
         <button class="btn secondary small" id="btn-det-eq-titulo-subir" type="button">Subir título (PDF)</button>
         <span class="muted" id="det-eq-titulo-status" style="font-size:12px;"></span>
@@ -10090,6 +10092,8 @@ async function abrirDetalleEquipo(equipoId){
 
   document.getElementById('det-eq-titulo-archivo').value = '';
   document.getElementById('det-eq-titulo-status').textContent = '';
+  document.getElementById('det-eq-titulo-dominio').value = e.dominio || '';
+  document.getElementById('det-eq-dominio-actual').textContent = e.dominio ? `Dominio registrado: ${e.dominio}` : 'Sin dominio registrado todavía.';
   await loadTituloHistorial(equipoId);
 
   document.getElementById('modal-detalle-equipo-overlay').classList.add('open');
@@ -10174,6 +10178,9 @@ document.getElementById('btn-det-eq-titulo-subir').addEventListener('click', asy
   const equipoId = document.getElementById('det-eq-id').value;
   const fileInput = document.getElementById('det-eq-titulo-archivo');
   const file = fileInput.files[0];
+  const dominioInput = document.getElementById('det-eq-titulo-dominio');
+  const dominio = dominioInput.value.trim().toUpperCase();
+  if(!dominio){ showToast('Ingresá el dominio de la máquina', true); dominioInput.focus(); return; }
   if(!file){ showToast('Seleccioná un archivo PDF', true); return; }
   if(file.type !== 'application/pdf'){ showToast('El archivo debe ser un PDF', true); return; }
   const statusEl = document.getElementById('det-eq-titulo-status');
@@ -10187,12 +10194,31 @@ document.getElementById('btn-det-eq-titulo-subir').addEventListener('click', asy
       equipo_id: Number(equipoId),
       archivo_nombre: file.name,
       archivo_url: urlData.publicUrl,
+      dominio,
     });
     if(insertError) throw insertError;
+
+    // Al cargar el título, el patentamiento queda registrado como realizado y se guarda el dominio en el equipo
+    const { error: updateError } = await supabaseClient.from('equipos').update({
+      dominio,
+      patentamiento_realizado: true,
+      patentamiento_fecha: (equiposCache.find(x=>x.id===Number(equipoId))?.patentamiento_fecha) || new Date().toISOString().slice(0,10),
+    }).eq('id', equipoId);
+    if(updateError) throw updateError;
+
+    // refrescar cache local del equipo
+    const idx = equiposCache.findIndex(x=>x.id===Number(equipoId));
+    if(idx !== -1){
+      equiposCache[idx].dominio = dominio;
+      equiposCache[idx].patentamiento_realizado = true;
+      if(!equiposCache[idx].patentamiento_fecha) equiposCache[idx].patentamiento_fecha = new Date().toISOString().slice(0,10);
+    }
+
     statusEl.textContent = '';
     fileInput.value = '';
-    showToast('Título subido correctamente');
-    await loadTituloHistorial(equipoId);
+    showToast('Título subido — patentamiento marcado como realizado');
+    await abrirDetalleEquipo(Number(equipoId));
+    renderEquipos(getFilteredEquipos());
   } catch(err){
     console.error(err);
     statusEl.textContent = '';
