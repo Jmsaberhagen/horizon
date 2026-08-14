@@ -1282,6 +1282,9 @@
       <button class="btn secondary" id="btn-rep-limpiar">Limpiar filtros</button>
       <button class="btn" id="btn-rep-exportar">Exportar CSV</button>
       <button class="btn secondary" id="btn-rep-exportar-xls">Exportar XLSX</button>
+      <span style="width:1px;background:var(--border);align-self:stretch;margin:0 4px;"></span>
+      <button class="btn secondary" id="btn-rep-sucursal-pdf">📄 Reporte por Sucursal (PDF)</button>
+      <button class="btn secondary" id="btn-rep-sucursal-xls">📊 Reporte por Sucursal (Excel)</button>
     </div>
 
     <div class="dash-grid" style="grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); margin-bottom:24px;">
@@ -6719,6 +6722,218 @@ document.getElementById('btn-rep-exportar').addEventListener('click', ()=>{
 document.getElementById('btn-rep-exportar-xls').addEventListener('click', ()=>{
   const { headers, rows } = reportesToRows();
   exportXLS(`reporte_horizon_${new Date().toISOString().slice(0,10)}`, headers, rows);
+});
+
+// ---------- Reporte de Facturación por Sucursal (mensual) ----------
+
+function armarDatosReporteSucursal(){
+  const filtrados = getPendientesFiltrados();
+  const sucursalIdFiltro = document.getElementById('rep-filter-sucursal').value;
+
+  // Estructura: sucursales[nombre] = { meses:{ 'YYYY-MM': {facturadoUsd,pendienteUsd,cantFacturas,cantPendientes} }, totalFacturado, totalPendiente, cantFacturas, cantPendientes }
+  const porSucursal = {};
+  filtrados.forEach(p=>{
+    const nombreSuc = p.contratos?.sucursales?.nombre || 'Sin sucursal';
+    if(!porSucursal[nombreSuc]) porSucursal[nombreSuc] = { meses:{}, totalFacturado:0, totalPendiente:0, cantFacturas:0, cantPendientes:0 };
+    const s = porSucursal[nombreSuc];
+    // El mes de referencia es el período (desde), que es como se agrupa en el resto del sistema
+    const fechaRef = p.periodo_desde || p.fecha_facturacion;
+    const key = fechaRef ? fechaRef.slice(0,7) : 'sin-fecha';
+    if(!s.meses[key]) s.meses[key] = { facturadoUsd:0, pendienteUsd:0, cantFacturas:0, cantPendientes:0 };
+    if(p.estado === 'facturado'){
+      const monto = valorConSigno(p);
+      s.meses[key].facturadoUsd += monto;
+      s.meses[key].cantFacturas += 1;
+      s.totalFacturado += monto;
+      s.cantFacturas += 1;
+    } else {
+      const monto = Number(p.valor_alquiler_usd) || 0;
+      s.meses[key].pendienteUsd += monto;
+      s.meses[key].cantPendientes += 1;
+      s.totalPendiente += monto;
+      s.cantPendientes += 1;
+    }
+  });
+
+  const sucursalesOrdenadas = Object.keys(porSucursal).sort();
+  const todosLosMeses = [...new Set(sucursalesOrdenadas.flatMap(s=>Object.keys(porSucursal[s].meses)))]
+    .filter(m=>m!=='sin-fecha').sort();
+
+  const totalGeneralFacturado = sucursalesOrdenadas.reduce((acc,s)=>acc+porSucursal[s].totalFacturado,0);
+  const totalGeneralPendiente = sucursalesOrdenadas.reduce((acc,s)=>acc+porSucursal[s].totalPendiente,0);
+
+  const suc = sucursales.find(x=>String(x.id)===sucursalIdFiltro);
+  const tituloAlcance = suc ? suc.nombre : 'Todas las sucursales';
+
+  return { porSucursal, sucursalesOrdenadas, todosLosMeses, totalGeneralFacturado, totalGeneralPendiente, tituloAlcance };
+}
+
+function mesLabel(key){
+  if(key === 'sin-fecha') return 'Sin fecha';
+  const [y,m] = key.split('-');
+  return `${MESES_NOMBRES[Number(m)-1]} ${y}`;
+}
+
+document.getElementById('btn-rep-sucursal-xls').addEventListener('click', ()=>{
+  const d = armarDatosReporteSucursal();
+  if(d.sucursalesOrdenadas.length === 0){ showToast('No hay datos con estos filtros', true); return; }
+  const wb = XLSX.utils.book_new();
+
+  // Hoja 1: Resumen por sucursal
+  const resumenHeaders = ['Sucursal','Facturado (USD)','Pendiente (USD)','Cant. Facturas','Cant. Pendientes'];
+  const resumenRows = d.sucursalesOrdenadas.map(s=>{
+    const x = d.porSucursal[s];
+    return [s, x.totalFacturado, x.totalPendiente, x.cantFacturas, x.cantPendientes];
+  });
+  resumenRows.push(['TOTAL', d.totalGeneralFacturado, d.totalGeneralPendiente,
+    d.sucursalesOrdenadas.reduce((a,s)=>a+d.porSucursal[s].cantFacturas,0),
+    d.sucursalesOrdenadas.reduce((a,s)=>a+d.porSucursal[s].cantPendientes,0)]);
+  const wsResumen = XLSX.utils.aoa_to_sheet([resumenHeaders, ...resumenRows]);
+  wsResumen['!cols'] = resumenHeaders.map(h=>({wch: Math.max(h.length+2, 18)}));
+  XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
+
+  // Hoja 2: Evolución mensual - pivot (meses en filas, sucursales en columnas) - Facturado
+  const pivotHeaders = ['Mes', ...d.sucursalesOrdenadas, 'Total'];
+  const pivotRows = d.todosLosMeses.map(mes=>{
+    const vals = d.sucursalesOrdenadas.map(s=> d.porSucursal[s].meses[mes]?.facturadoUsd || 0);
+    const total = vals.reduce((a,b)=>a+b,0);
+    return [mesLabel(mes), ...vals, total];
+  });
+  const wsPivot = XLSX.utils.aoa_to_sheet([pivotHeaders, ...pivotRows]);
+  wsPivot['!cols'] = pivotHeaders.map(h=>({wch: Math.max(h.length+2, 14)}));
+  XLSX.utils.book_append_sheet(wb, wsPivot, 'Evolución mensual (Facturado)');
+
+  // Hoja 3: Detalle mensual en formato largo (para tablas dinámicas propias)
+  const detHeaders = ['Sucursal','Mes','Facturado (USD)','Pendiente (USD)','Cant. Facturas','Cant. Pendientes'];
+  const detRows = [];
+  d.sucursalesOrdenadas.forEach(s=>{
+    const mesesDeLaSuc = Object.keys(d.porSucursal[s].meses).sort();
+    mesesDeLaSuc.forEach(mes=>{
+      const m = d.porSucursal[s].meses[mes];
+      detRows.push([s, mesLabel(mes), m.facturadoUsd, m.pendienteUsd, m.cantFacturas, m.cantPendientes]);
+    });
+  });
+  const wsDetalle = XLSX.utils.aoa_to_sheet([detHeaders, ...detRows]);
+  wsDetalle['!cols'] = detHeaders.map(h=>({wch: Math.max(h.length+2, 16)}));
+  XLSX.utils.book_append_sheet(wb, wsDetalle, 'Detalle mensual');
+
+  const nombreArchivo = `reporte_sucursal_${d.tituloAlcance.replace(/[^a-z0-9]+/gi,'_')}_${new Date().toISOString().slice(0,10)}`;
+  XLSX.writeFile(wb, `${nombreArchivo}.xlsx`);
+  showToast('Excel generado');
+});
+
+document.getElementById('btn-rep-sucursal-pdf').addEventListener('click', ()=>{
+  const d = armarDatosReporteSucursal();
+  if(d.sucursalesOrdenadas.length === 0){ showToast('No hay datos con estos filtros', true); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const marginX = 16;
+  const bannerRatio = 406/2475;
+  const bannerH = pageWidth * bannerRatio;
+  let y = 15;
+
+  const nuevaPaginaSiNecesario = (alturaNecesaria)=>{
+    if(y > pageHeight - bannerH - alturaNecesaria){ doc.addPage(); y = 15; return true; }
+    return false;
+  };
+
+  // ---------- Encabezado ----------
+  try{ doc.addImage(LOGO_PDF_BASE64, 'PNG', marginX, y, 55, 11.3); } catch(e){ console.error(e); }
+  doc.setFont('helvetica','bold'); doc.setFontSize(14);
+  doc.text('REPORTE DE FACTURACIÓN POR SUCURSAL', pageWidth - marginX, y + 8, { align:'right' });
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90);
+  doc.text(`Generado: ${fmtDate(new Date().toISOString().slice(0,10))}`, pageWidth - marginX, y + 14, { align:'right' });
+  doc.setTextColor(0);
+  y += 24;
+  doc.setDrawColor(56,189,248); doc.setLineWidth(0.8);
+  doc.line(marginX, y, pageWidth - marginX, y);
+  y += 9;
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(13);
+  doc.text(d.tituloAlcance, marginX, y);
+  y += 10;
+
+  // ---------- Tabla resumen general ----------
+  doc.autoTable({
+    startY: y,
+    body: [
+      ['Facturado total', fmtMoney(d.totalGeneralFacturado,'USD'), 'Pendiente total', fmtMoney(d.totalGeneralPendiente,'USD')],
+      ['Sucursales incluidas', String(d.sucursalesOrdenadas.length), 'Meses cubiertos', String(d.todosLosMeses.length)],
+    ],
+    theme: 'grid',
+    styles: { fontSize: 9.5, cellPadding: 3 },
+    columnStyles: { 0:{fontStyle:'bold'}, 2:{fontStyle:'bold'} },
+    margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+  });
+  y = doc.lastAutoTable.finalY + 10;
+
+  // ---------- Comparativo por sucursal ----------
+  nuevaPaginaSiNecesario(30);
+  doc.setFont('helvetica','bold'); doc.setFontSize(11.5);
+  doc.text('Resumen por sucursal', marginX, y);
+  y += 5;
+  doc.autoTable({
+    startY: y,
+    head: [['Sucursal','Facturado','Pendiente','Cant. Facturas','Cant. Pendientes']],
+    body: d.sucursalesOrdenadas.map(s=>{
+      const x = d.porSucursal[s];
+      return [s, fmtMoney(x.totalFacturado,'USD'), fmtMoney(x.totalPendiente,'USD'), x.cantFacturas, x.cantPendientes];
+    }),
+    theme: 'grid',
+    styles: { fontSize: 8.5, cellPadding: 2 },
+    headStyles: { fillColor: [10,26,58], textColor: 255, fontStyle: 'bold' },
+    margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+  });
+  y = doc.lastAutoTable.finalY + 10;
+
+  // ---------- Detalle mensual por sucursal ----------
+  d.sucursalesOrdenadas.forEach(s=>{
+    const x = d.porSucursal[s];
+    nuevaPaginaSiNecesario(38);
+    y += 4;
+    doc.setFont('helvetica','bold'); doc.setFontSize(10.5);
+    doc.setFillColor(235,238,242);
+    doc.rect(marginX, y-4.5, pageWidth-marginX*2, 7, 'F');
+    doc.text(s, marginX+2, y);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+    doc.text(`Facturado: ${fmtMoney(x.totalFacturado,'USD')}   Pendiente: ${fmtMoney(x.totalPendiente,'USD')}`, pageWidth-marginX-2, y, { align:'right' });
+    y += 4;
+
+    const mesesDeLaSuc = Object.keys(x.meses).sort();
+    const body = mesesDeLaSuc.map(mes=>{
+      const m = x.meses[mes];
+      return [mesLabel(mes), fmtMoney(m.facturadoUsd,'USD'), m.pendienteUsd>0?fmtMoney(m.pendienteUsd,'USD'):'—', m.cantFacturas||'—', m.cantPendientes||'—'];
+    });
+    if(body.length === 0) body.push(['Sin movimientos','—','—','—','—']);
+
+    doc.autoTable({
+      startY: y,
+      head: [['Mes','Facturado','Pendiente','Cant. Facturas','Cant. Pendientes']],
+      body,
+      theme: 'grid',
+      styles: { fontSize: 7.8, cellPadding: 1.8 },
+      headStyles: { fillColor: [56,189,248], textColor: 20, fontStyle: 'bold', fontSize: 8 },
+      margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+    });
+    y = doc.lastAutoTable.finalY + 4;
+  });
+
+  // ---------- Pie de página en todas las páginas ----------
+  const totalPaginas = doc.internal.getNumberOfPages();
+  for(let i=1;i<=totalPaginas;i++){
+    doc.setPage(i);
+    try{ doc.addImage(FOOTER_BANNER_BASE64, 'JPEG', 0, pageHeight - bannerH, pageWidth, bannerH); } catch(e){ console.error(e); }
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(120);
+    doc.text(`Página ${i} de ${totalPaginas}`, pageWidth - marginX, pageHeight - bannerH - 4, { align:'right' });
+    doc.setTextColor(0);
+  }
+
+  const nombreArchivo = `reporte_sucursal_${d.tituloAlcance.replace(/[^a-z0-9]+/gi,'_')}_${new Date().toISOString().slice(0,10)}`;
+  doc.save(`${nombreArchivo}.pdf`);
+  showToast('PDF generado');
 });
 
 // =========================================================
