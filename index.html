@@ -6726,46 +6726,96 @@ document.getElementById('btn-rep-exportar-xls').addEventListener('click', ()=>{
 
 // ---------- Reporte de Facturación por Sucursal (mensual) ----------
 
+// Determina la moneda real del contrato y el monto correspondiente en ESA moneda,
+// sin mezclar nunca ARS con USD. NUNCA sumar montoEnSuMoneda de filas con distinta moneda.
+function monedaYMontoPendiente(p){
+  const moneda = p.contratos?.moneda === 'ARS' ? 'ARS' : 'USD'; // default USD si falta el dato
+  if(moneda === 'ARS'){
+    const base = Number(p.potencial_facturacion) || 0;
+    const monto = (p.estado === 'facturado') ? base * signoFactura(p.numero_factura) : base;
+    return { moneda:'ARS', monto };
+  } else {
+    const base = Number(p.valor_alquiler_usd) || 0;
+    const monto = (p.estado === 'facturado') ? base * signoFactura(p.numero_factura) : base;
+    return { moneda:'USD', monto };
+  }
+}
+
 function armarDatosReporteSucursal(){
   const filtrados = getPendientesFiltrados();
   const sucursalIdFiltro = document.getElementById('rep-filter-sucursal').value;
 
-  // Estructura: sucursales[nombre] = { meses:{ 'YYYY-MM': {facturadoUsd,pendienteUsd,cantFacturas,cantPendientes} }, totalFacturado, totalPendiente, cantFacturas, cantPendientes }
+  // Estructura por sucursal: meses{key}={facturadoUsd,pendienteUsd,facturadoArs,pendienteArs,cantFacturas,cantPendientes}
+  // Los acumuladores USD y ARS SIEMPRE se mantienen separados — nunca se suman entre sí.
   const porSucursal = {};
+  const detalleFacturas = []; // detalle factura x factura, con cliente, para hoja separada
+
   filtrados.forEach(p=>{
     const nombreSuc = p.contratos?.sucursales?.nombre || 'Sin sucursal';
-    if(!porSucursal[nombreSuc]) porSucursal[nombreSuc] = { meses:{}, totalFacturado:0, totalPendiente:0, cantFacturas:0, cantPendientes:0 };
+    if(!porSucursal[nombreSuc]) porSucursal[nombreSuc] = {
+      meses:{}, totalFacturadoUsd:0, totalPendienteUsd:0, totalFacturadoArs:0, totalPendienteArs:0,
+      cantFacturas:0, cantPendientes:0
+    };
     const s = porSucursal[nombreSuc];
-    // El mes de referencia es el período (desde), que es como se agrupa en el resto del sistema
     const fechaRef = p.periodo_desde || p.fecha_facturacion;
     const key = fechaRef ? fechaRef.slice(0,7) : 'sin-fecha';
-    if(!s.meses[key]) s.meses[key] = { facturadoUsd:0, pendienteUsd:0, cantFacturas:0, cantPendientes:0 };
-    if(p.estado === 'facturado'){
-      const monto = valorConSigno(p);
-      s.meses[key].facturadoUsd += monto;
+    if(!s.meses[key]) s.meses[key] = { facturadoUsd:0, pendienteUsd:0, facturadoArs:0, pendienteArs:0, cantFacturas:0, cantPendientes:0 };
+
+    const { moneda, monto } = monedaYMontoPendiente(p);
+    const esFacturado = p.estado === 'facturado';
+
+    if(esFacturado){
       s.meses[key].cantFacturas += 1;
-      s.totalFacturado += monto;
       s.cantFacturas += 1;
+      if(moneda === 'USD'){ s.meses[key].facturadoUsd += monto; s.totalFacturadoUsd += monto; }
+      else { s.meses[key].facturadoArs += monto; s.totalFacturadoArs += monto; }
     } else {
-      const monto = Number(p.valor_alquiler_usd) || 0;
-      s.meses[key].pendienteUsd += monto;
       s.meses[key].cantPendientes += 1;
-      s.totalPendiente += monto;
       s.cantPendientes += 1;
+      if(moneda === 'USD'){ s.meses[key].pendienteUsd += monto; s.totalPendienteUsd += monto; }
+      else { s.meses[key].pendienteArs += monto; s.totalPendienteArs += monto; }
     }
+
+    const esNC = esFacturado && esNotaDeCredito(p.numero_factura);
+    detalleFacturas.push({
+      sucursal: nombreSuc,
+      cliente: p.contratos?.clientes?.razon_social || '—',
+      numeroCliente: p.contratos?.clientes?.numero_cliente || '',
+      cuit: p.contratos?.clientes?.cuit || '',
+      provincia: p.contratos?.clientes?.provincia || '',
+      equipo: p.contratos?.equipos?.numero_serie || '—',
+      modelo: p.contratos?.equipos?.modelo || '',
+      periodoDesde: p.periodo_desde || '',
+      periodoHasta: p.periodo_hasta || '',
+      estado: esNC ? 'Nota de Crédito' : (esFacturado ? 'Facturado' : 'Pendiente'),
+      numeroFactura: p.numero_factura || '',
+      fechaFacturacion: p.fecha_facturacion || '',
+      moneda,
+      montoUsd: moneda === 'USD' ? monto : '',
+      montoArs: moneda === 'ARS' ? monto : '',
+    });
   });
 
   const sucursalesOrdenadas = Object.keys(porSucursal).sort();
   const todosLosMeses = [...new Set(sucursalesOrdenadas.flatMap(s=>Object.keys(porSucursal[s].meses)))]
     .filter(m=>m!=='sin-fecha').sort();
 
-  const totalGeneralFacturado = sucursalesOrdenadas.reduce((acc,s)=>acc+porSucursal[s].totalFacturado,0);
-  const totalGeneralPendiente = sucursalesOrdenadas.reduce((acc,s)=>acc+porSucursal[s].totalPendiente,0);
+  const totalGeneralFacturadoUsd = sucursalesOrdenadas.reduce((acc,s)=>acc+porSucursal[s].totalFacturadoUsd,0);
+  const totalGeneralPendienteUsd = sucursalesOrdenadas.reduce((acc,s)=>acc+porSucursal[s].totalPendienteUsd,0);
+  const totalGeneralFacturadoArs = sucursalesOrdenadas.reduce((acc,s)=>acc+porSucursal[s].totalFacturadoArs,0);
+  const totalGeneralPendienteArs = sucursalesOrdenadas.reduce((acc,s)=>acc+porSucursal[s].totalPendienteArs,0);
 
   const suc = sucursales.find(x=>String(x.id)===sucursalIdFiltro);
   const tituloAlcance = suc ? suc.nombre : 'Todas las sucursales';
 
-  return { porSucursal, sucursalesOrdenadas, todosLosMeses, totalGeneralFacturado, totalGeneralPendiente, tituloAlcance };
+  // orden cronológico para el detalle
+  detalleFacturas.sort((a,b)=> (a.periodoDesde||'').localeCompare(b.periodoDesde||''));
+
+  return {
+    porSucursal, sucursalesOrdenadas, todosLosMeses, detalleFacturas,
+    totalGeneralFacturadoUsd, totalGeneralPendienteUsd, totalGeneralFacturadoArs, totalGeneralPendienteArs,
+    tituloAlcance,
+  };
 }
 
 function mesLabel(key){
@@ -6779,43 +6829,69 @@ document.getElementById('btn-rep-sucursal-xls').addEventListener('click', ()=>{
   if(d.sucursalesOrdenadas.length === 0){ showToast('No hay datos con estos filtros', true); return; }
   const wb = XLSX.utils.book_new();
 
-  // Hoja 1: Resumen por sucursal
-  const resumenHeaders = ['Sucursal','Facturado (USD)','Pendiente (USD)','Cant. Facturas','Cant. Pendientes'];
+  // Hoja 1: Resumen por sucursal — USD y ARS SIEMPRE en columnas separadas, nunca sumados entre sí
+  const resumenHeaders = ['Sucursal','Facturado (USD)','Pendiente (USD)','Facturado (ARS)','Pendiente (ARS)','Cant. Facturas','Cant. Pendientes'];
   const resumenRows = d.sucursalesOrdenadas.map(s=>{
     const x = d.porSucursal[s];
-    return [s, x.totalFacturado, x.totalPendiente, x.cantFacturas, x.cantPendientes];
+    return [s, x.totalFacturadoUsd, x.totalPendienteUsd, x.totalFacturadoArs, x.totalPendienteArs, x.cantFacturas, x.cantPendientes];
   });
-  resumenRows.push(['TOTAL', d.totalGeneralFacturado, d.totalGeneralPendiente,
+  resumenRows.push(['TOTAL', d.totalGeneralFacturadoUsd, d.totalGeneralPendienteUsd, d.totalGeneralFacturadoArs, d.totalGeneralPendienteArs,
     d.sucursalesOrdenadas.reduce((a,s)=>a+d.porSucursal[s].cantFacturas,0),
     d.sucursalesOrdenadas.reduce((a,s)=>a+d.porSucursal[s].cantPendientes,0)]);
   const wsResumen = XLSX.utils.aoa_to_sheet([resumenHeaders, ...resumenRows]);
-  wsResumen['!cols'] = resumenHeaders.map(h=>({wch: Math.max(h.length+2, 18)}));
+  wsResumen['!cols'] = resumenHeaders.map(h=>({wch: Math.max(h.length+2, 16)}));
   XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
 
-  // Hoja 2: Evolución mensual - pivot (meses en filas, sucursales en columnas) - Facturado
-  const pivotHeaders = ['Mes', ...d.sucursalesOrdenadas, 'Total'];
-  const pivotRows = d.todosLosMeses.map(mes=>{
+  // Hoja 2: Evolución mensual — Facturado en USD (pivot: meses en filas, sucursales en columnas)
+  const pivotHeadersUsd = ['Mes', ...d.sucursalesOrdenadas, 'Total USD'];
+  const pivotRowsUsd = d.todosLosMeses.map(mes=>{
     const vals = d.sucursalesOrdenadas.map(s=> d.porSucursal[s].meses[mes]?.facturadoUsd || 0);
     const total = vals.reduce((a,b)=>a+b,0);
     return [mesLabel(mes), ...vals, total];
   });
-  const wsPivot = XLSX.utils.aoa_to_sheet([pivotHeaders, ...pivotRows]);
-  wsPivot['!cols'] = pivotHeaders.map(h=>({wch: Math.max(h.length+2, 14)}));
-  XLSX.utils.book_append_sheet(wb, wsPivot, 'Evolución mensual (Facturado)');
+  const wsPivotUsd = XLSX.utils.aoa_to_sheet([pivotHeadersUsd, ...pivotRowsUsd]);
+  wsPivotUsd['!cols'] = pivotHeadersUsd.map(h=>({wch: Math.max(h.length+2, 14)}));
+  XLSX.utils.book_append_sheet(wb, wsPivotUsd, 'Evolución mensual USD');
 
-  // Hoja 3: Detalle mensual en formato largo (para tablas dinámicas propias)
-  const detHeaders = ['Sucursal','Mes','Facturado (USD)','Pendiente (USD)','Cant. Facturas','Cant. Pendientes'];
+  // Hoja 3: Evolución mensual — Facturado en ARS (pivot), separada para no mezclar monedas
+  const pivotHeadersArs = ['Mes', ...d.sucursalesOrdenadas, 'Total ARS'];
+  const pivotRowsArs = d.todosLosMeses.map(mes=>{
+    const vals = d.sucursalesOrdenadas.map(s=> d.porSucursal[s].meses[mes]?.facturadoArs || 0);
+    const total = vals.reduce((a,b)=>a+b,0);
+    return [mesLabel(mes), ...vals, total];
+  });
+  const wsPivotArs = XLSX.utils.aoa_to_sheet([pivotHeadersArs, ...pivotRowsArs]);
+  wsPivotArs['!cols'] = pivotHeadersArs.map(h=>({wch: Math.max(h.length+2, 14)}));
+  XLSX.utils.book_append_sheet(wb, wsPivotArs, 'Evolución mensual ARS');
+
+  // Hoja 4: Detalle mensual en formato largo (para tablas dinámicas propias) — columnas USD/ARS separadas
+  const detHeaders = ['Sucursal','Mes','Facturado (USD)','Pendiente (USD)','Facturado (ARS)','Pendiente (ARS)','Cant. Facturas','Cant. Pendientes'];
   const detRows = [];
   d.sucursalesOrdenadas.forEach(s=>{
     const mesesDeLaSuc = Object.keys(d.porSucursal[s].meses).sort();
     mesesDeLaSuc.forEach(mes=>{
       const m = d.porSucursal[s].meses[mes];
-      detRows.push([s, mesLabel(mes), m.facturadoUsd, m.pendienteUsd, m.cantFacturas, m.cantPendientes]);
+      detRows.push([s, mesLabel(mes), m.facturadoUsd, m.pendienteUsd, m.facturadoArs, m.pendienteArs, m.cantFacturas, m.cantPendientes]);
     });
   });
   const wsDetalle = XLSX.utils.aoa_to_sheet([detHeaders, ...detRows]);
   wsDetalle['!cols'] = detHeaders.map(h=>({wch: Math.max(h.length+2, 16)}));
   XLSX.utils.book_append_sheet(wb, wsDetalle, 'Detalle mensual');
+
+  // Hoja 5: Detalle factura x factura, con cliente — Monto USD y Monto ARS en columnas separadas
+  // (cada fila tiene UNA sola columna de monto completa, según su moneda real; la otra queda vacía)
+  const facHeaders = ['Sucursal','Cliente','N° Cliente','CUIT','Provincia','N° Serie','Modelo',
+    'Período Desde','Período Hasta','Estado','N° Factura/NC','Fecha Facturación','Moneda','Monto (USD)','Monto (ARS)'];
+  const facRows = d.detalleFacturas.map(f=>[
+    f.sucursal, f.cliente, f.numeroCliente, f.cuit, f.provincia, f.equipo, f.modelo,
+    f.periodoDesde ? fmtDate(f.periodoDesde) : '', f.periodoHasta ? fmtDate(f.periodoHasta) : '',
+    f.estado, f.numeroFactura, f.fechaFacturacion ? fmtDate(f.fechaFacturacion) : '',
+    f.moneda, f.montoUsd, f.montoArs,
+  ]);
+  const wsFacturas = XLSX.utils.aoa_to_sheet([facHeaders, ...facRows]);
+  wsFacturas['!cols'] = facHeaders.map(h=>({wch: Math.max(h.length+2, 14)}));
+  wsFacturas['!cols'][1] = {wch:32}; // Cliente más ancho
+  XLSX.utils.book_append_sheet(wb, wsFacturas, 'Detalle Facturas');
 
   const nombreArchivo = `reporte_sucursal_${d.tituloAlcance.replace(/[^a-z0-9]+/gi,'_')}_${new Date().toISOString().slice(0,10)}`;
   XLSX.writeFile(wb, `${nombreArchivo}.xlsx`);
@@ -6856,11 +6932,12 @@ document.getElementById('btn-rep-sucursal-pdf').addEventListener('click', ()=>{
   doc.text(d.tituloAlcance, marginX, y);
   y += 10;
 
-  // ---------- Tabla resumen general ----------
+  // ---------- Tabla resumen general (USD y ARS SIEMPRE separados, nunca sumados) ----------
   doc.autoTable({
     startY: y,
     body: [
-      ['Facturado total', fmtMoney(d.totalGeneralFacturado,'USD'), 'Pendiente total', fmtMoney(d.totalGeneralPendiente,'USD')],
+      ['Facturado (USD)', fmtMoney(d.totalGeneralFacturadoUsd,'USD'), 'Pendiente (USD)', fmtMoney(d.totalGeneralPendienteUsd,'USD')],
+      ['Facturado (ARS)', fmtMoney(d.totalGeneralFacturadoArs,'ARS'), 'Pendiente (ARS)', fmtMoney(d.totalGeneralPendienteArs,'ARS')],
       ['Sucursales incluidas', String(d.sucursalesOrdenadas.length), 'Meses cubiertos', String(d.todosLosMeses.length)],
     ],
     theme: 'grid',
@@ -6868,7 +6945,11 @@ document.getElementById('btn-rep-sucursal-pdf').addEventListener('click', ()=>{
     columnStyles: { 0:{fontStyle:'bold'}, 2:{fontStyle:'bold'} },
     margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
   });
-  y = doc.lastAutoTable.finalY + 10;
+  y = doc.lastAutoTable.finalY + 3;
+  doc.setFont('helvetica','italic'); doc.setFontSize(7.5); doc.setTextColor(120);
+  doc.text('Los montos en USD y ARS se muestran siempre por separado — no se suman entre sí.', marginX, y+3);
+  doc.setTextColor(0);
+  y += 9;
 
   // ---------- Comparativo por sucursal ----------
   nuevaPaginaSiNecesario(30);
@@ -6877,14 +6958,15 @@ document.getElementById('btn-rep-sucursal-pdf').addEventListener('click', ()=>{
   y += 5;
   doc.autoTable({
     startY: y,
-    head: [['Sucursal','Facturado','Pendiente','Cant. Facturas','Cant. Pendientes']],
+    head: [['Sucursal','Fact. USD','Pend. USD','Fact. ARS','Pend. ARS','Facturas','Pendientes']],
     body: d.sucursalesOrdenadas.map(s=>{
       const x = d.porSucursal[s];
-      return [s, fmtMoney(x.totalFacturado,'USD'), fmtMoney(x.totalPendiente,'USD'), x.cantFacturas, x.cantPendientes];
+      return [s, fmtMoney(x.totalFacturadoUsd,'USD'), fmtMoney(x.totalPendienteUsd,'USD'),
+        fmtMoney(x.totalFacturadoArs,'ARS'), fmtMoney(x.totalPendienteArs,'ARS'), x.cantFacturas, x.cantPendientes];
     }),
     theme: 'grid',
-    styles: { fontSize: 8.5, cellPadding: 2 },
-    headStyles: { fillColor: [10,26,58], textColor: 255, fontStyle: 'bold' },
+    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: [10,26,58], textColor: 255, fontStyle: 'bold', fontSize: 8 },
     margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
   });
   y = doc.lastAutoTable.finalY + 10;
@@ -6898,24 +6980,31 @@ document.getElementById('btn-rep-sucursal-pdf').addEventListener('click', ()=>{
     doc.setFillColor(235,238,242);
     doc.rect(marginX, y-4.5, pageWidth-marginX*2, 7, 'F');
     doc.text(s, marginX+2, y);
-    doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
-    doc.text(`Facturado: ${fmtMoney(x.totalFacturado,'USD')}   Pendiente: ${fmtMoney(x.totalPendiente,'USD')}`, pageWidth-marginX-2, y, { align:'right' });
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.8);
+    doc.text(`USD: ${fmtMoney(x.totalFacturadoUsd,'USD')}   ARS: ${fmtMoney(x.totalFacturadoArs,'ARS')}`, pageWidth-marginX-2, y, { align:'right' });
     y += 4;
 
     const mesesDeLaSuc = Object.keys(x.meses).sort();
     const body = mesesDeLaSuc.map(mes=>{
       const m = x.meses[mes];
-      return [mesLabel(mes), fmtMoney(m.facturadoUsd,'USD'), m.pendienteUsd>0?fmtMoney(m.pendienteUsd,'USD'):'—', m.cantFacturas||'—', m.cantPendientes||'—'];
+      return [
+        mesLabel(mes),
+        m.facturadoUsd ? fmtMoney(m.facturadoUsd,'USD') : '—',
+        m.pendienteUsd ? fmtMoney(m.pendienteUsd,'USD') : '—',
+        m.facturadoArs ? fmtMoney(m.facturadoArs,'ARS') : '—',
+        m.pendienteArs ? fmtMoney(m.pendienteArs,'ARS') : '—',
+        m.cantFacturas||'—', m.cantPendientes||'—',
+      ];
     });
-    if(body.length === 0) body.push(['Sin movimientos','—','—','—','—']);
+    if(body.length === 0) body.push(['Sin movimientos','—','—','—','—','—','—']);
 
     doc.autoTable({
       startY: y,
-      head: [['Mes','Facturado','Pendiente','Cant. Facturas','Cant. Pendientes']],
+      head: [['Mes','Fact. USD','Pend. USD','Fact. ARS','Pend. ARS','Fact.','Pend.']],
       body,
       theme: 'grid',
-      styles: { fontSize: 7.8, cellPadding: 1.8 },
-      headStyles: { fillColor: [56,189,248], textColor: 20, fontStyle: 'bold', fontSize: 8 },
+      styles: { fontSize: 7.3, cellPadding: 1.6 },
+      headStyles: { fillColor: [56,189,248], textColor: 20, fontStyle: 'bold', fontSize: 7.5 },
       margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
     });
     y = doc.lastAutoTable.finalY + 4;
