@@ -1819,6 +1819,8 @@
           <select id="rerp-cmp-mes-a"></select>
           <span class="muted">vs.</span>
           <select id="rerp-cmp-mes-b"></select>
+          <div style="flex:1"></div>
+          <button type="button" class="btn secondary" id="btn-rerp-cmp-pdf">📄 Descargar PDF del comparativo</button>
         </div>
         <div id="rerp-cmp-resultado"></div>
       </div>
@@ -7238,7 +7240,10 @@ function rerpRenderResultados(){
         <div class="rerp-mes-header" data-mes-key="${key}" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
           <div style="font-weight:600;min-width:130px;">${escapeHtml(label)}</div>
           <div class="muted" style="font-size:11px;">${m.cant} comprobante(s) — ${m.cantFC} FC · ${m.cantNC} NC · ${m.cantND} ND — ${clientesOrdenados.length} cliente(s)</div>
-          <div style="font-size:11px;" class="rerp-toggle-hint muted">▸ ver detalle</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <button type="button" class="btn secondary rerp-btn-pdf-mes" data-mes-key-pdf="${key}" style="padding:3px 10px;font-size:11px;">📄 PDF</button>
+            <div style="font-size:11px;" class="rerp-toggle-hint muted">▸ ver detalle</div>
+          </div>
         </div>
         <div style="display:grid;grid-template-columns:60px 1fr 130px;align-items:center;gap:8px;margin-top:8px;">
           <div class="muted" style="font-size:11px;">ARS</div>
@@ -7300,6 +7305,12 @@ function rerpRenderResultados(){
       const abierto = det.style.display !== 'none';
       det.style.display = abierto ? 'none' : 'block';
       if(hint) hint.textContent = abierto ? '▸ ver detalle' : '▾ ocultar detalle';
+    });
+  });
+  cont.querySelectorAll('.rerp-btn-pdf-mes').forEach(btn=>{
+    btn.addEventListener('click', (ev)=>{
+      ev.stopPropagation();
+      rerpExportarMesPDF(btn.dataset.mesKeyPdf);
     });
   });
   cont.querySelectorAll('.rerp-cliente-header').forEach(row=>{
@@ -7438,6 +7449,259 @@ function rerpMostrarError(msg){
   el.textContent = msg;
   el.style.display = 'block';
 }
+
+// ---------- PDF por mes (agrupado por cliente, mismo estilo que el resto de Horizon) ----------
+function rerpExportarMesPDF(key){
+  const d = rerpDataCache;
+  if(!d || !d.porMes[key]) return;
+  const m = d.porMes[key];
+  const label = rerpMesLabelSafe(key);
+  const clientesOrdenados = Object.keys(m.porCliente).sort((a,b)=> m.porCliente[b].total - m.porCliente[a].total);
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const marginX = 16;
+  const bannerRatio = 406/2475;
+  const bannerH = pageWidth * bannerRatio;
+  let y = 15;
+
+  const nuevaPaginaSiNecesario = (alturaNecesaria)=>{
+    if(y > pageHeight - bannerH - alturaNecesaria){ doc.addPage(); y = 15; return true; }
+    return false;
+  };
+
+  // ---------- Encabezado ----------
+  try{ doc.addImage(LOGO_PDF_BASE64, 'PNG', marginX, y, 55, 11.3); } catch(e){ console.error(e); }
+  doc.setFont('helvetica','bold'); doc.setFontSize(14);
+  doc.text('RESUMEN DE ALQUILERES FACTURADOS', pageWidth - marginX, y + 8, { align:'right' });
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90);
+  doc.text(`Generado: ${fmtDate(new Date().toISOString().slice(0,10))}`, pageWidth - marginX, y + 14, { align:'right' });
+  doc.setTextColor(0);
+  y += 24;
+  doc.setDrawColor(56,189,248); doc.setLineWidth(0.8);
+  doc.line(marginX, y, pageWidth - marginX, y);
+  y += 9;
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(13);
+  doc.text(label, marginX, y);
+  y += 10;
+
+  // ---------- Resumen del mes ----------
+  doc.autoTable({
+    startY: y,
+    body: [
+      ['Total facturado (ARS)', fmtMoney(m.total,'ARS'), 'Comprobantes', String(m.cant)],
+      ['Facturas (FC)', String(m.cantFC), 'Notas de Crédito (NC)', String(m.cantNC)],
+      ['Notas de Débito (ND)', String(m.cantND), 'Clientes', String(clientesOrdenados.length)],
+    ],
+    theme: 'grid',
+    styles: { fontSize: 9.5, cellPadding: 3 },
+    columnStyles: { 0:{fontStyle:'bold'}, 2:{fontStyle:'bold'} },
+    margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+  });
+  y = doc.lastAutoTable.finalY + 10;
+
+  // ---------- Detalle por cliente ----------
+  doc.setFont('helvetica','bold'); doc.setFontSize(11.5);
+  doc.text('Detalle por cliente', marginX, y);
+  y += 2;
+
+  clientesOrdenados.forEach(cliente=>{
+    const c = m.porCliente[cliente];
+    nuevaPaginaSiNecesario(38);
+    y += 6;
+    doc.setFont('helvetica','bold'); doc.setFontSize(10);
+    doc.setFillColor(235,238,242);
+    doc.rect(marginX, y-4.5, pageWidth-marginX*2, 7, 'F');
+    doc.text(cliente, marginX+2, y);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+    doc.text(`${c.cant} comprobante(s)  —  ${fmtMoney(c.total,'ARS')}`, pageWidth-marginX-2, y, { align:'right' });
+    y += 4;
+
+    const body = [...c.filas].sort((a,b)=>(a.comprobante||'').localeCompare(b.comprobante||'')).map(f=>[
+      f.clase, f.comprobante || '—', f.items || f.modelo || '—',
+      f.fechaFactura ? fmtDate(f.fechaFactura.toISOString().slice(0,10)) : '—',
+      fmtMoney(f.monto,'ARS'),
+    ]);
+
+    doc.autoTable({
+      startY: y,
+      head: [['Tipo','Comprobante','Equipo/Ítem','Fecha','Monto']],
+      body,
+      theme: 'grid',
+      styles: { fontSize: 7.6, cellPadding: 1.8 },
+      headStyles: { fillColor: [56,189,248], textColor: 20, fontStyle: 'bold', fontSize: 7.8 },
+      margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+    });
+    y = doc.lastAutoTable.finalY + 4;
+  });
+
+  // ---------- Pie de página en todas las páginas ----------
+  const totalPaginas = doc.internal.getNumberOfPages();
+  for(let i=1;i<=totalPaginas;i++){
+    doc.setPage(i);
+    try{ doc.addImage(FOOTER_BANNER_BASE64, 'JPEG', 0, pageHeight - bannerH, pageWidth, bannerH); } catch(e){ console.error(e); }
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(120);
+    doc.text(`Página ${i} de ${totalPaginas}`, pageWidth - marginX, pageHeight - bannerH - 4, { align:'right' });
+    doc.setTextColor(0);
+  }
+
+  doc.save(`alquileres_${key}.pdf`);
+  showToast('PDF generado');
+}
+
+// ---------- PDF del comparador mes vs. mes ----------
+function rerpExportarComparadorPDF(){
+  const d = rerpDataCache;
+  if(!d) return;
+  const selA = document.getElementById('rerp-cmp-mes-a');
+  const selB = document.getElementById('rerp-cmp-mes-b');
+  const keyA = selA.value, keyB = selB.value;
+  if(!keyA || !keyB || keyA === keyB){ showToast('Elegí dos meses distintos para comparar', true); return; }
+
+  const mA = d.porMes[keyA];
+  const mB = d.porMes[keyB];
+  const clientesA = new Set(Object.keys(mA.porCliente));
+  const clientesB = new Set(Object.keys(mB.porCliente));
+  const todosClientes = new Set([...clientesA, ...clientesB]);
+
+  const filas = [...todosClientes].map(cliente=>{
+    const totalA = mA.porCliente[cliente]?.total || 0;
+    const totalB = mB.porCliente[cliente]?.total || 0;
+    const diff = totalB - totalA;
+    const pctDiff = totalA !== 0 ? (diff/Math.abs(totalA))*100 : (totalB!==0 ? 100 : 0);
+    let estado;
+    if(!clientesA.has(cliente)) estado = 'Nuevo';
+    else if(!clientesB.has(cliente)) estado = 'Dejó de alquilar';
+    else estado = 'Continúa';
+    return { cliente, totalA, totalB, diff, pctDiff, estado };
+  }).sort((a,b)=> Math.abs(b.diff) - Math.abs(a.diff));
+
+  const perdidos = filas.filter(f=>f.estado==='Dejó de alquilar');
+  const nuevos = filas.filter(f=>f.estado==='Nuevo');
+  const diffTotal = mB.total - mA.total;
+  const labelA = rerpMesLabelSafe(keyA), labelB = rerpMesLabelSafe(keyB);
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const marginX = 16;
+  const bannerRatio = 406/2475;
+  const bannerH = pageWidth * bannerRatio;
+  let y = 15;
+
+  const nuevaPaginaSiNecesario = (alturaNecesaria)=>{
+    if(y > pageHeight - bannerH - alturaNecesaria){ doc.addPage(); y = 15; return true; }
+    return false;
+  };
+
+  // ---------- Encabezado ----------
+  try{ doc.addImage(LOGO_PDF_BASE64, 'PNG', marginX, y, 55, 11.3); } catch(e){ console.error(e); }
+  doc.setFont('helvetica','bold'); doc.setFontSize(14);
+  doc.text('COMPARATIVO DE FACTURACIÓN', pageWidth - marginX, y + 8, { align:'right' });
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90);
+  doc.text(`Generado: ${fmtDate(new Date().toISOString().slice(0,10))}`, pageWidth - marginX, y + 14, { align:'right' });
+  doc.setTextColor(0);
+  y += 24;
+  doc.setDrawColor(56,189,248); doc.setLineWidth(0.8);
+  doc.line(marginX, y, pageWidth - marginX, y);
+  y += 9;
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(13);
+  doc.text(`${labelA}  vs.  ${labelB}`, marginX, y);
+  y += 10;
+
+  // ---------- Resumen ----------
+  doc.autoTable({
+    startY: y,
+    body: [
+      [labelA, fmtMoney(mA.total,'ARS'), labelB, fmtMoney(mB.total,'ARS')],
+      ['Diferencia', `${diffTotal>=0?'▲ ':'▼ '}${fmtMoney(Math.abs(diffTotal),'ARS')}`,
+       'Clientes dejaron / nuevos', `${perdidos.length} / ${nuevos.length}`],
+    ],
+    theme: 'grid',
+    styles: { fontSize: 9.5, cellPadding: 3 },
+    columnStyles: { 0:{fontStyle:'bold'}, 2:{fontStyle:'bold'} },
+    margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+  });
+  y = doc.lastAutoTable.finalY + 10;
+
+  if(perdidos.length > 0){
+    nuevaPaginaSiNecesario(25);
+    doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(200,60,60);
+    doc.text(`⚠ Clientes que facturaban en ${labelA} y no en ${labelB}`, marginX, y);
+    doc.setTextColor(0);
+    y += 5;
+    doc.autoTable({
+      startY: y,
+      head: [['Cliente', `Facturaba en ${labelA}`]],
+      body: perdidos.map(f=>[f.cliente, fmtMoney(f.totalA,'ARS')]),
+      theme: 'grid',
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [200,60,60], textColor: 255, fontStyle: 'bold' },
+      margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+    });
+    y = doc.lastAutoTable.finalY + 8;
+  }
+
+  if(nuevos.length > 0){
+    nuevaPaginaSiNecesario(25);
+    doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(40,150,90);
+    doc.text(`✓ Clientes nuevos en ${labelB}`, marginX, y);
+    doc.setTextColor(0);
+    y += 5;
+    doc.autoTable({
+      startY: y,
+      head: [['Cliente', `Facturado en ${labelB}`]],
+      body: nuevos.map(f=>[f.cliente, fmtMoney(f.totalB,'ARS')]),
+      theme: 'grid',
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [40,150,90], textColor: 255, fontStyle: 'bold' },
+      margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+    });
+    y = doc.lastAutoTable.finalY + 8;
+  }
+
+  // ---------- Tabla completa comparativa ----------
+  nuevaPaginaSiNecesario(30);
+  doc.setFont('helvetica','bold'); doc.setFontSize(11.5);
+  doc.text('Detalle por cliente', marginX, y);
+  y += 5;
+  doc.autoTable({
+    startY: y,
+    head: [['Cliente','Estado',labelA,labelB,'Diferencia','%']],
+    body: filas.map(f=>[
+      f.cliente, f.estado,
+      f.totalA ? fmtMoney(f.totalA,'ARS') : '—',
+      f.totalB ? fmtMoney(f.totalB,'ARS') : '—',
+      `${f.diff>=0?'+':''}${fmtMoney(f.diff,'ARS')}`,
+      f.totalA!==0 ? `${f.pctDiff>=0?'+':''}${f.pctDiff.toFixed(1)}%` : '—',
+    ]),
+    theme: 'grid',
+    styles: { fontSize: 7.6, cellPadding: 1.8 },
+    headStyles: { fillColor: [10,26,58], textColor: 255, fontStyle: 'bold', fontSize: 7.8 },
+    margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+  });
+  y = doc.lastAutoTable.finalY + 4;
+
+  // ---------- Pie de página en todas las páginas ----------
+  const totalPaginas = doc.internal.getNumberOfPages();
+  for(let i=1;i<=totalPaginas;i++){
+    doc.setPage(i);
+    try{ doc.addImage(FOOTER_BANNER_BASE64, 'JPEG', 0, pageHeight - bannerH, pageWidth, bannerH); } catch(e){ console.error(e); }
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(120);
+    doc.text(`Página ${i} de ${totalPaginas}`, pageWidth - marginX, pageHeight - bannerH - 4, { align:'right' });
+    doc.setTextColor(0);
+  }
+
+  doc.save(`comparativo_${keyA}_vs_${keyB}.pdf`);
+  showToast('PDF generado');
+}
+
+document.getElementById('btn-rerp-cmp-pdf').addEventListener('click', rerpExportarComparadorPDF);
 
 async function rerpProcesarArchivo(file){
   document.getElementById('rerp-error').style.display = 'none';
