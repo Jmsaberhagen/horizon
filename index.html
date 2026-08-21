@@ -7115,6 +7115,25 @@ function rerpDetectarClase(tipoRaw){
   return 'FC'; // por defecto tratamos como factura si no matchea un prefijo conocido
 }
 
+// La sucursal se infiere del texto de "Tipo" (ej: "FCA BSAS. ALQ", "FCA CBA", "FCA NEU")
+// y, como respaldo, del punto de venta del comprobante (0006=BSAS, 0009=CBA, 0018=NEU).
+// Los comprobantes de venta web/PyME (puntos de venta 0029/0030/0031) no tienen sucursal
+// física asociada en el ERP, así que se agrupan aparte para no asignarlos mal.
+function rerpDetectarSucursal(tipoRaw, comprobante){
+  const t = (tipoRaw || '').toString().trim().toUpperCase();
+  if(t.includes('BSAS')) return 'Buenos Aires';
+  if(t.includes('CBA')) return 'Córdoba';
+  if(t.includes('NEU')) return 'Neuquén';
+
+  const match = (comprobante || '').toString().match(/-(\d{4})-/);
+  const puntoVenta = match ? match[1] : null;
+  if(puntoVenta === '0006') return 'Buenos Aires';
+  if(puntoVenta === '0009') return 'Córdoba';
+  if(puntoVenta === '0018') return 'Neuquén';
+
+  return 'Venta Web / PyME';
+}
+
 function rerpParsearWorkbook(wb){
   const nombreHoja = wb.SheetNames[0];
   const ws = wb.Sheets[nombreHoja];
@@ -7153,6 +7172,8 @@ function rerpParsearWorkbook(wb){
 
     const montoRaw = fila[colIdx['Monto']];
     const clase = rerpDetectarClase(tipoRaw);
+    const comprobante = colIdx['Comprobante']!==undefined ? (fila[colIdx['Comprobante']]||'') : '';
+    const sucursal = rerpDetectarSucursal(tipoRaw, comprobante);
 
     // Forzamos el signo según la clase de comprobante — no confiamos ciegamente
     // en el signo que traiga el Excel, para blindarnos de exports con otro criterio.
@@ -7165,7 +7186,8 @@ function rerpParsearWorkbook(wb){
     filas.push({
       tipo: String(tipoRaw).trim(),
       clase,
-      comprobante: colIdx['Comprobante']!==undefined ? (fila[colIdx['Comprobante']]||'') : '',
+      sucursal,
+      comprobante,
       cliente: colIdx['Cliente']!==undefined ? (fila[colIdx['Cliente']]||'—') : '—',
       modelo: colIdx['Modelo']!==undefined ? (fila[colIdx['Modelo']]||'') : '',
       items: colIdx['Items']!==undefined ? (fila[colIdx['Items']]||'') : '',
@@ -7177,14 +7199,17 @@ function rerpParsearWorkbook(wb){
 }
 
 function rerpArmarResumen(filas){
-  const porMes = {}; // key 'YYYY-MM' -> { total, cantFC, cantNC, cantND, cant, filas, porCliente:{nombre:{total,cant,filas}} }
+  // porMes[key] = { total, cantFC, cantNC, cantND, cant, filas,
+  //                 porCliente:{nombre:{total,cant,filas}} (para el comparador, sin distinguir sucursal),
+  //                 porSucursal:{nombre:{total,cant,porCliente:{nombre:{total,cant,filas}}}} }
+  const porMes = {};
   let totalArs = 0;
   const clientesSet = new Set();
   let fechaMin = null, fechaMax = null;
 
   filas.forEach(f=>{
     const key = f.fechaFactura ? f.fechaFactura.toISOString().slice(0,7) : 'sin-fecha';
-    if(!porMes[key]) porMes[key] = { total:0, cantFC:0, cantNC:0, cantND:0, cant:0, filas:[], porCliente:{} };
+    if(!porMes[key]) porMes[key] = { total:0, cantFC:0, cantNC:0, cantND:0, cant:0, filas:[], porCliente:{}, porSucursal:{} };
     const m = porMes[key];
     m.total += f.monto;
     totalArs += f.monto;
@@ -7198,6 +7223,15 @@ function rerpArmarResumen(filas){
     m.porCliente[f.cliente].total += f.monto;
     m.porCliente[f.cliente].cant += 1;
     m.porCliente[f.cliente].filas.push(f);
+
+    if(!m.porSucursal[f.sucursal]) m.porSucursal[f.sucursal] = { total:0, cant:0, porCliente:{} };
+    const s = m.porSucursal[f.sucursal];
+    s.total += f.monto;
+    s.cant += 1;
+    if(!s.porCliente[f.cliente]) s.porCliente[f.cliente] = { total:0, cant:0, filas:[] };
+    s.porCliente[f.cliente].total += f.monto;
+    s.porCliente[f.cliente].cant += 1;
+    s.porCliente[f.cliente].filas.push(f);
 
     clientesSet.add(f.cliente);
     if(f.fechaFactura){
@@ -7260,43 +7294,61 @@ function rerpRenderResultados(){
           <div style="font-size:13px;font-weight:700;text-align:right;color:var(--ok);">${fmtMoney(m.total,'ARS')}</div>
         </div>
         <div class="rerp-mes-detalle" id="rerp-detalle-${key}" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:10px;">
-          ${clientesOrdenados.map(cliente=>{
-            const c = m.porCliente[cliente];
-            const clienteId = `${key}__${cliente}`.replace(/[^a-z0-9_]+/gi,'_');
+          ${Object.keys(m.porSucursal).sort((a,b)=> m.porSucursal[b].total - m.porSucursal[a].total).map(sucursal=>{
+            const suc = m.porSucursal[sucursal];
+            const sucId = `${key}__${sucursal}`.replace(/[^a-z0-9_]+/gi,'_');
+            const clientesDeLaSucursal = Object.keys(suc.porCliente).sort((a,b)=> suc.porCliente[b].total - suc.porCliente[a].total);
             return `
-            <div class="rerp-cliente-block" style="margin-bottom:6px;border:1px solid var(--border);border-radius:8px;overflow:hidden;">
-              <div class="rerp-cliente-header" data-cliente-id="${clienteId}" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--bg2, rgba(255,255,255,0.03));">
+            <div class="rerp-sucursal-block" style="margin-bottom:10px;border:1px solid var(--accent-dim, var(--border));border-radius:8px;overflow:hidden;">
+              <div class="rerp-sucursal-header" data-sucursal-id="${sucId}" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:rgba(56,189,248,0.07);">
                 <div style="display:flex;align-items:center;gap:8px;">
-                  <span class="rerp-cliente-hint" style="font-size:11px;color:var(--muted);">▸</span>
-                  <span style="font-weight:600;font-size:13px;">${escapeHtml(cliente)}</span>
-                  <span class="muted" style="font-size:11px;">(${c.cant} comprobante${c.cant===1?'':'s'})</span>
+                  <span class="rerp-sucursal-hint" style="font-size:11px;color:var(--accent);">▸</span>
+                  <span style="font-weight:700;font-size:13.5px;color:var(--accent);">📍 ${escapeHtml(sucursal)}</span>
+                  <span class="muted" style="font-size:11px;">${suc.cant} comprobante(s) — ${clientesDeLaSucursal.length} cliente(s)</span>
                 </div>
-                <div style="font-weight:700;font-size:13px;color:var(--ok);">${fmtMoney(c.total,'ARS')}</div>
+                <div style="font-weight:700;font-size:14px;color:var(--ok);">${fmtMoney(suc.total,'ARS')}</div>
               </div>
-              <div class="rerp-cliente-detalle" id="rerp-cliente-${clienteId}" style="display:none;overflow-x:auto;">
-                <table style="width:100%;font-size:11.5px;border-collapse:collapse;">
-                  <thead>
-                    <tr style="text-align:left;color:var(--muted);">
-                      <th style="padding:4px 8px;">Comprobante</th>
-                      <th style="padding:4px 8px;">Tipo</th>
-                      <th style="padding:4px 8px;">Equipo/Ítem</th>
-                      <th style="padding:4px 8px;">Fecha</th>
-                      <th style="padding:4px 8px;text-align:right;">Monto</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${[...c.filas].sort((a,b)=>(a.comprobante||'').localeCompare(b.comprobante||'')).map(f=>`
-                      <tr style="border-top:1px solid var(--border);">
-                        <td style="padding:4px 8px;" class="muted">${escapeHtml(f.comprobante)}</td>
-                        <td style="padding:4px 8px;">
-                          <span class="badge" style="${f.clase==='NC'?'color:#c084fc;border-color:#c084fc;':(f.clase==='ND'?'color:var(--accent);border-color:var(--accent-dim);':'color:var(--ok);border-color:var(--ok);')}">${f.clase}</span>
-                        </td>
-                        <td style="padding:4px 8px;" class="muted">${escapeHtml(f.items || f.modelo || '—')}</td>
-                        <td style="padding:4px 8px;" class="muted">${f.fechaFactura ? fmtDate(f.fechaFactura.toISOString().slice(0,10)) : '—'}</td>
-                        <td style="padding:4px 8px;text-align:right;font-weight:600;${f.clase==='NC'?'color:#c084fc;':''}">${fmtMoney(f.monto,'ARS')}</td>
-                      </tr>`).join('')}
-                  </tbody>
-                </table>
+              <div class="rerp-sucursal-detalle" id="rerp-sucursal-${sucId}" style="display:none;padding:8px 10px 10px 10px;">
+                ${clientesDeLaSucursal.map(cliente=>{
+                  const c = suc.porCliente[cliente];
+                  const clienteId = `${sucId}__${cliente}`.replace(/[^a-z0-9_]+/gi,'_');
+                  return `
+                  <div class="rerp-cliente-block" style="margin-bottom:6px;border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+                    <div class="rerp-cliente-header" data-cliente-id="${clienteId}" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--bg2, rgba(255,255,255,0.03));">
+                      <div style="display:flex;align-items:center;gap:8px;">
+                        <span class="rerp-cliente-hint" style="font-size:11px;color:var(--muted);">▸</span>
+                        <span style="font-weight:600;font-size:13px;">${escapeHtml(cliente)}</span>
+                        <span class="muted" style="font-size:11px;">(${c.cant} comprobante${c.cant===1?'':'s'})</span>
+                      </div>
+                      <div style="font-weight:700;font-size:13px;color:var(--ok);">${fmtMoney(c.total,'ARS')}</div>
+                    </div>
+                    <div class="rerp-cliente-detalle" id="rerp-cliente-${clienteId}" style="display:none;overflow-x:auto;">
+                      <table style="width:100%;font-size:11.5px;border-collapse:collapse;">
+                        <thead>
+                          <tr style="text-align:left;color:var(--muted);">
+                            <th style="padding:4px 8px;">Comprobante</th>
+                            <th style="padding:4px 8px;">Tipo</th>
+                            <th style="padding:4px 8px;">Equipo/Ítem</th>
+                            <th style="padding:4px 8px;">Fecha</th>
+                            <th style="padding:4px 8px;text-align:right;">Monto</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          ${[...c.filas].sort((a,b)=>(a.comprobante||'').localeCompare(b.comprobante||'')).map(f=>`
+                            <tr style="border-top:1px solid var(--border);">
+                              <td style="padding:4px 8px;" class="muted">${escapeHtml(f.comprobante)}</td>
+                              <td style="padding:4px 8px;">
+                                <span class="badge" style="${f.clase==='NC'?'color:#c084fc;border-color:#c084fc;':(f.clase==='ND'?'color:var(--accent);border-color:var(--accent-dim);':'color:var(--ok);border-color:var(--ok);')}">${f.clase}</span>
+                              </td>
+                              <td style="padding:4px 8px;" class="muted">${escapeHtml(f.items || f.modelo || '—')}</td>
+                              <td style="padding:4px 8px;" class="muted">${f.fechaFactura ? fmtDate(f.fechaFactura.toISOString().slice(0,10)) : '—'}</td>
+                              <td style="padding:4px 8px;text-align:right;font-weight:600;${f.clase==='NC'?'color:#c084fc;':''}">${fmtMoney(f.monto,'ARS')}</td>
+                            </tr>`).join('')}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>`;
+                }).join('')}
               </div>
             </div>`;
           }).join('')}
@@ -7318,6 +7370,17 @@ function rerpRenderResultados(){
     btn.addEventListener('click', (ev)=>{
       ev.stopPropagation();
       rerpExportarMesPDF(btn.dataset.mesKeyPdf);
+    });
+  });
+  cont.querySelectorAll('.rerp-sucursal-header').forEach(row=>{
+    row.addEventListener('click', (ev)=>{
+      ev.stopPropagation();
+      const id = row.dataset.sucursalId;
+      const det = document.getElementById(`rerp-sucursal-${id}`);
+      const hint = row.querySelector('.rerp-sucursal-hint');
+      const abierto = det.style.display !== 'none';
+      det.style.display = abierto ? 'none' : 'block';
+      if(hint) hint.textContent = abierto ? '▾' : '▸';
     });
   });
   cont.querySelectorAll('.rerp-cliente-header').forEach(row=>{
@@ -7510,39 +7573,69 @@ function rerpExportarMesPDF(key){
   });
   y = doc.lastAutoTable.finalY + 10;
 
-  // ---------- Detalle por cliente ----------
+  // ---------- Resumen por sucursal ----------
+  const sucursalesOrdenadas = Object.keys(m.porSucursal).sort((a,b)=> m.porSucursal[b].total - m.porSucursal[a].total);
   doc.setFont('helvetica','bold'); doc.setFontSize(11.5);
-  doc.text('Detalle por cliente', marginX, y);
-  y += 2;
+  doc.text('Resumen por sucursal', marginX, y);
+  y += 5;
+  doc.autoTable({
+    startY: y,
+    head: [['Sucursal','Facturado (ARS)','Comprobantes','Clientes']],
+    body: sucursalesOrdenadas.map(s=>{
+      const suc = m.porSucursal[s];
+      return [s, fmtMoney(suc.total,'ARS'), suc.cant, Object.keys(suc.porCliente).length];
+    }),
+    theme: 'grid',
+    styles: { fontSize: 8.5, cellPadding: 2 },
+    headStyles: { fillColor: [10,26,58], textColor: 255, fontStyle: 'bold' },
+    margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+  });
+  y = doc.lastAutoTable.finalY + 10;
 
-  clientesOrdenados.forEach(cliente=>{
-    const c = m.porCliente[cliente];
-    nuevaPaginaSiNecesario(38);
-    y += 6;
-    doc.setFont('helvetica','bold'); doc.setFontSize(10);
-    doc.setFillColor(235,238,242);
-    doc.rect(marginX, y-4.5, pageWidth-marginX*2, 7, 'F');
-    doc.text(cliente, marginX+2, y);
-    doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
-    doc.text(`${c.cant} comprobante(s)  —  ${fmtMoney(c.total,'ARS')}`, pageWidth-marginX-2, y, { align:'right' });
+  // ---------- Detalle por sucursal y cliente ----------
+  sucursalesOrdenadas.forEach(sucursal=>{
+    const suc = m.porSucursal[sucursal];
+    const clientesDeLaSucursal = Object.keys(suc.porCliente).sort((a,b)=> suc.porCliente[b].total - suc.porCliente[a].total);
+
+    nuevaPaginaSiNecesario(30);
     y += 4;
+    doc.setFont('helvetica','bold'); doc.setFontSize(12);
+    doc.setFillColor(210,235,250);
+    doc.rect(marginX, y-5, pageWidth-marginX*2, 8, 'F');
+    doc.text(`📍 ${sucursal}`, marginX+2, y);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    doc.text(fmtMoney(suc.total,'ARS'), pageWidth-marginX-2, y, { align:'right' });
+    y += 8;
 
-    const body = [...c.filas].sort((a,b)=>(a.comprobante||'').localeCompare(b.comprobante||'')).map(f=>[
-      f.clase, f.comprobante || '—', f.items || f.modelo || '—',
-      f.fechaFactura ? fmtDate(f.fechaFactura.toISOString().slice(0,10)) : '—',
-      fmtMoney(f.monto,'ARS'),
-    ]);
+    clientesDeLaSucursal.forEach(cliente=>{
+      const c = suc.porCliente[cliente];
+      nuevaPaginaSiNecesario(38);
+      y += 5;
+      doc.setFont('helvetica','bold'); doc.setFontSize(10);
+      doc.setFillColor(235,238,242);
+      doc.rect(marginX, y-4.5, pageWidth-marginX*2, 7, 'F');
+      doc.text(cliente, marginX+2, y);
+      doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+      doc.text(`${c.cant} comprobante(s)  —  ${fmtMoney(c.total,'ARS')}`, pageWidth-marginX-2, y, { align:'right' });
+      y += 4;
 
-    doc.autoTable({
-      startY: y,
-      head: [['Tipo','Comprobante','Equipo/Ítem','Fecha','Monto']],
-      body,
-      theme: 'grid',
-      styles: { fontSize: 7.6, cellPadding: 1.8 },
-      headStyles: { fillColor: [56,189,248], textColor: 20, fontStyle: 'bold', fontSize: 7.8 },
-      margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+      const body = [...c.filas].sort((a,b)=>(a.comprobante||'').localeCompare(b.comprobante||'')).map(f=>[
+        f.clase, f.comprobante || '—', f.items || f.modelo || '—',
+        f.fechaFactura ? fmtDate(f.fechaFactura.toISOString().slice(0,10)) : '—',
+        fmtMoney(f.monto,'ARS'),
+      ]);
+
+      doc.autoTable({
+        startY: y,
+        head: [['Tipo','Comprobante','Equipo/Ítem','Fecha','Monto']],
+        body,
+        theme: 'grid',
+        styles: { fontSize: 7.6, cellPadding: 1.8 },
+        headStyles: { fillColor: [56,189,248], textColor: 20, fontStyle: 'bold', fontSize: 7.8 },
+        margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+      });
+      y = doc.lastAutoTable.finalY + 4;
     });
-    y = doc.lastAutoTable.finalY + 4;
   });
 
   // ---------- Pie de página en todas las páginas ----------
@@ -7802,7 +7895,21 @@ document.getElementById('btn-rerp-exportar').addEventListener('click', ()=>{
   wsRes['!cols'] = resHeaders.map(h=>({wch: Math.max(h.length+2, 16)}));
   XLSX.utils.book_append_sheet(wb, wsRes, 'Resumen mensual');
 
-  // Hoja 2: Resumen por cliente y mes (formato largo)
+  // Hoja 2: Resumen por sucursal y mes (formato largo)
+  const sucHeaders = ['Mes','Sucursal','Monto (ARS)','Cant. Comprobantes','Cant. Clientes'];
+  const sucRows = [];
+  d.mesesOrdenados.forEach(key=>{
+    const m = d.porMes[key];
+    Object.keys(m.porSucursal).sort((a,b)=> m.porSucursal[b].total - m.porSucursal[a].total).forEach(sucursal=>{
+      const s = m.porSucursal[sucursal];
+      sucRows.push([rerpMesLabelSafe(key), sucursal, s.total, s.cant, Object.keys(s.porCliente).length]);
+    });
+  });
+  const wsSuc = XLSX.utils.aoa_to_sheet([sucHeaders, ...sucRows]);
+  wsSuc['!cols'] = sucHeaders.map(h=>({wch: Math.max(h.length+2, 16)}));
+  XLSX.utils.book_append_sheet(wb, wsSuc, 'Por sucursal y mes');
+
+  // Hoja 3: Resumen por cliente y mes (formato largo)
   const clHeaders = ['Mes','Cliente','Monto (ARS)','Cant. Comprobantes'];
   const clRows = [];
   d.mesesOrdenados.forEach(key=>{
@@ -7816,18 +7923,18 @@ document.getElementById('btn-rerp-exportar').addEventListener('click', ()=>{
   wsCl['!cols'] = [{wch:16},{wch:32},{wch:16},{wch:16}];
   XLSX.utils.book_append_sheet(wb, wsCl, 'Por cliente y mes');
 
-  // Hoja 3: Detalle factura x factura
-  const detHeaders = ['Mes','Cliente','Comprobante','Tipo','Equipo/Ítem','Modelo','Fecha Factura','Monto (ARS)'];
+  // Hoja 4: Detalle factura x factura (con sucursal)
+  const detHeaders = ['Mes','Sucursal','Cliente','Comprobante','Tipo','Equipo/Ítem','Modelo','Fecha Factura','Monto (ARS)'];
   const detRows = [];
   d.mesesOrdenados.forEach(key=>{
     d.porMes[key].filas.forEach(f=>{
-      detRows.push([rerpMesLabelSafe(key), f.cliente, f.comprobante, f.clase, f.items || '', f.modelo || '',
+      detRows.push([rerpMesLabelSafe(key), f.sucursal, f.cliente, f.comprobante, f.clase, f.items || '', f.modelo || '',
         f.fechaFactura ? fmtDate(f.fechaFactura.toISOString().slice(0,10)) : '', f.monto]);
     });
   });
   const wsDet = XLSX.utils.aoa_to_sheet([detHeaders, ...detRows]);
   wsDet['!cols'] = detHeaders.map(h=>({wch: Math.max(h.length+2, 14)}));
-  wsDet['!cols'][1] = {wch:32};
+  wsDet['!cols'][2] = {wch:32};
   XLSX.utils.book_append_sheet(wb, wsDet, 'Detalle');
 
   XLSX.writeFile(wb, `resumen_alquileres_erp_${new Date().toISOString().slice(0,10)}.xlsx`);
