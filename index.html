@@ -791,6 +791,7 @@
   <button data-tab="equipos">Equipos</button>
   <button data-tab="pendientes">Pendientes de Facturación</button>
   <button data-tab="reportes">Reportes</button>
+  <button data-tab="resumenerp">Resumen ERP</button>
   <button data-tab="cuentacliente">Cuenta Cliente</button>
   <button data-tab="enviofacturas">Envío de Facturas</button>
   <button data-tab="planning">Planning</button>
@@ -1769,6 +1770,58 @@
       </div>
     </div>
     <div class="muted" id="pres-results-count" style="margin-top:10px;font-size:12px;"></div>
+  </section>
+
+  <section id="tab-resumenerp" style="display:none;">
+
+    <div id="rerp-dropzone" style="border:2px dashed var(--border);border-radius:12px;padding:36px 20px;text-align:center;cursor:pointer;transition:border-color .15s, background .15s;margin-bottom:20px;">
+      <div style="font-size:34px;line-height:1;margin-bottom:10px;">📥</div>
+      <div style="font-weight:600;font-size:15px;">Arrastrá acá el Excel exportado del ERP</div>
+      <div class="muted" style="font-size:12px;margin-top:6px;">"Detalle de Alquileres por máquinas" (.xls / .xlsx) — o hacé clic para elegir el archivo</div>
+      <input type="file" id="rerp-file-input" accept=".xls,.xlsx" style="display:none;">
+    </div>
+    <div id="rerp-error" class="muted" style="display:none;color:var(--danger, #ef4444);margin:-12px 0 16px 0;font-size:13px;"></div>
+
+    <div id="rerp-resultados" style="display:none;">
+
+      <div class="toolbar" style="justify-content:space-between;">
+        <div class="muted" id="rerp-archivo-info" style="font-size:12px;"></div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn secondary" id="btn-rerp-nuevo">🔄 Cargar otro archivo</button>
+          <button class="btn secondary" id="btn-rerp-exportar">📊 Exportar resumen (Excel)</button>
+        </div>
+      </div>
+
+      <div class="dash-grid" style="grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); margin-bottom:24px;">
+        <div class="panel" style="padding:16px;">
+          <div class="muted" style="font-size:11px;text-transform:uppercase;">Facturado (USD)</div>
+          <div id="rerp-total-usd" style="font-size:22px;font-weight:700;color:var(--accent);margin-top:4px;">U$D 0</div>
+        </div>
+        <div class="panel" style="padding:16px;">
+          <div class="muted" style="font-size:11px;text-transform:uppercase;">Facturado (ARS)</div>
+          <div id="rerp-total-ars" style="font-size:22px;font-weight:700;color:var(--ok);margin-top:4px;">$ 0</div>
+        </div>
+        <div class="panel" style="padding:16px;">
+          <div class="muted" style="font-size:11px;text-transform:uppercase;">Comprobantes</div>
+          <div id="rerp-cant-comprobantes" style="font-size:22px;font-weight:700;margin-top:4px;">0</div>
+          <div class="muted" id="rerp-cant-detalle" style="font-size:11px;margin-top:2px;"></div>
+        </div>
+        <div class="panel" style="padding:16px;">
+          <div class="muted" style="font-size:11px;text-transform:uppercase;">Clientes</div>
+          <div id="rerp-cant-clientes" style="font-size:22px;font-weight:700;margin-top:4px;">0</div>
+        </div>
+        <div class="panel" style="padding:16px;">
+          <div class="muted" style="font-size:11px;text-transform:uppercase;">Período cubierto</div>
+          <div id="rerp-periodo" style="font-size:15px;font-weight:600;margin-top:6px;">—</div>
+        </div>
+      </div>
+
+      <div class="muted" style="font-size:11px;margin-bottom:8px;">
+        Facturado mes a mes — USD y ARS <b>siempre separados</b> (nunca se suman entre sí). Hacé clic en un mes para ver el detalle factura por factura.
+      </div>
+      <div id="rerp-meses-container"></div>
+
+    </div>
   </section>
 
   <section id="tab-editorobs" style="display:none;margin:-24px calc(-50vw + 50% - 0px);padding:0;">
@@ -3327,6 +3380,7 @@ const TAB_TITLES = {
   personal: 'Personal',
   usuarios: 'Usuarios',
   reportes: 'Reportes',
+  resumenerp: 'Resumen de Alquileres (ERP)',
   cuentacliente: 'Cuenta Cliente',
   enviofacturas: 'Envío de Facturas',
   planning: 'Planning',
@@ -5401,6 +5455,7 @@ const SECCIONES_PERMISOS = [
   { key:'presupuestos',  label:'Presupuestos',      acciones:[['ver','Ver'],['crear','Crear / editar'],['anular','Anular']] },
   { key:'solicitudoc',   label:'Solicitud de OC',   acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['anular','Anular']] },
   { key:'editorobs',          label:'Editor de Observaciones', acciones:[['ver','Ver / usar']] },
+  { key:'resumenerp',         label:'Resumen de Alquileres (ERP)', acciones:[['ver','Ver / usar']] },
   { key:'panoramacobranzas',  label:'Panorama de Cobranzas',   acciones:[['ver','Ver / usar']] },
   { key:'panoramaproveedores', label:'Panorama de Deuda a Proveedores', acciones:[['ver','Ver / usar']] },
   { key:'datos_bancarios', label:'Datos Bancarios de Proveedores', acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
@@ -5778,6 +5833,7 @@ function renderDashboard(){
     ]},
     { key:'herramientas', titulo:'Herramientas', icon:'🛠️', tiles:[
       { tab:'editorobs', icon:'✏️', title:'Editor de Observaciones', count: '', visible:puede('editorobs','ver'), urgencia:null },
+      { tab:'resumenerp', icon:'📥', title:'Resumen de Alquileres (ERP)', count:'Importar Excel de GP', visible:puede('resumenerp','ver'), urgencia:null },
       { tab:'reportes',   icon:'📊', title:'Reportes',   count:'Mora y facturación', visible:puede('reportes','ver'), urgencia:null },
       { tab:'enviofacturas', icon:'📧', title:'Envío de Facturas', count: puede('enviofacturas','ver') ? `${nFacturasSinEnviar} sin enviar` : '', visible:puede('enviofacturas','ver'), urgencia: nFacturasSinEnviar>0 ? 'warn' : 'ok' },
     ]},
@@ -7023,6 +7079,330 @@ document.getElementById('btn-rep-sucursal-pdf').addEventListener('click', ()=>{
   const nombreArchivo = `reporte_sucursal_${d.tituloAlcance.replace(/[^a-z0-9]+/gi,'_')}_${new Date().toISOString().slice(0,10)}`;
   doc.save(`${nombreArchivo}.pdf`);
   showToast('PDF generado');
+});
+
+// =========================================================
+// MÓDULO RESUMEN DE ALQUILERES DESDE EXCEL DEL ERP (GP)
+// =========================================================
+// Reglas de negocio (mismo criterio usado en el resto de Horizon):
+//  - Se usa SIEMPRE la columna "Monto" (moneda original del comprobante).
+//    La columna "Monto O" mezcla ARS y USD según el comprobante y NO se usa para calcular totales.
+//  - FC (Factura) y ND (Nota de Débito) suman. NC (Nota de Crédito) resta.
+//  - La moneda de cada fila se infiere comparando Monto vs Monto O: si son
+//    prácticamente iguales, el comprobante ya está en USD; si no, está en ARS
+//    (Monto O es, en ese caso, una referencia en USD calculada por el ERP a otro tipo de cambio).
+//  - USD y ARS jamás se sumar entre sí, en ningún total ni gráfico.
+
+let rerpDataCache = null; // { filas: [...], porMes: {...}, mesesOrdenados: [...], totales:{...} }
+
+function rerpDetectarClase(tipoRaw){
+  const t = (tipoRaw || '').toString().trim().toUpperCase();
+  if(t.startsWith('NC')) return 'NC';
+  if(t.startsWith('ND')) return 'ND';
+  if(t.startsWith('FC') || t.startsWith('FB')) return 'FC';
+  return 'FC'; // por defecto tratamos como factura si no matchea un prefijo conocido
+}
+
+function rerpDetectarMoneda(monto, montoO){
+  const m = Number(monto) || 0;
+  const mo = Number(montoO) || 0;
+  if(mo === 0) return 'ARS'; // sin referencia, asumimos pesos (caso más común)
+  const ratio = Math.abs(m / mo);
+  // Cuando Monto y Monto O son prácticamente iguales, el comprobante ya está en USD.
+  return (ratio > 0.97 && ratio < 1.03) ? 'USD' : 'ARS';
+}
+
+function rerpParsearWorkbook(wb){
+  const nombreHoja = wb.SheetNames[0];
+  const ws = wb.Sheets[nombreHoja];
+  const filasCrudo = XLSX.utils.sheet_to_json(ws, { header:1, raw:true, defval:null });
+
+  // Buscamos la fila de encabezado real (la que contiene "Tipo" y "Comprobante" y "Monto"),
+  // porque las primeras filas del export del ERP son metadata (título, rango de fechas).
+  let idxHeader = -1;
+  for(let i=0;i<Math.min(filasCrudo.length, 10);i++){
+    const fila = (filasCrudo[i]||[]).map(c=> (c==null?'':String(c).trim()));
+    if(fila.includes('Tipo') && fila.includes('Comprobante') && fila.includes('Monto')){
+      idxHeader = i;
+      break;
+    }
+  }
+  if(idxHeader === -1){
+    throw new Error('No se encontró la fila de encabezados esperada (Tipo, Comprobante, Monto...). ¿Es el archivo correcto?');
+  }
+
+  const headers = filasCrudo[idxHeader].map(c=> (c==null?'':String(c).trim()));
+  const colIdx = {};
+  headers.forEach((h,i)=>{ if(h) colIdx[h] = i; });
+
+  const requeridas = ['Tipo','Comprobante','Cliente','Monto','Monto O'];
+  const faltantes = requeridas.filter(r=> !(r in colIdx));
+  if(faltantes.length > 0){
+    throw new Error(`Faltan columnas esperadas en el archivo: ${faltantes.join(', ')}`);
+  }
+
+  const filas = [];
+  for(let i=idxHeader+1; i<filasCrudo.length; i++){
+    const fila = filasCrudo[i];
+    if(!fila || fila.every(c=>c===null || c==='')) continue; // fila vacía
+    const tipoRaw = fila[colIdx['Tipo']];
+    if(!tipoRaw) continue;
+
+    const montoRaw = fila[colIdx['Monto']];
+    const montoORaw = fila[colIdx['Monto O']];
+    const clase = rerpDetectarClase(tipoRaw);
+    const moneda = rerpDetectarMoneda(montoRaw, montoORaw);
+
+    // Forzamos el signo según la clase de comprobante — no confiamos ciegamente
+    // en el signo que traiga el Excel, para blindarnos de exports con otro criterio.
+    const montoAbs = Math.abs(Number(montoRaw) || 0);
+    const montoFinal = clase === 'NC' ? -montoAbs : montoAbs;
+
+    const fechaFactura = colIdx['Factura']!==undefined ? fila[colIdx['Factura']] : null;
+    const fechaEntrega = colIdx['Entrega']!==undefined ? fila[colIdx['Entrega']] : null;
+
+    filas.push({
+      tipo: String(tipoRaw).trim(),
+      clase,
+      comprobante: colIdx['Comprobante']!==undefined ? (fila[colIdx['Comprobante']]||'') : '',
+      cliente: colIdx['Cliente']!==undefined ? (fila[colIdx['Cliente']]||'—') : '—',
+      modelo: colIdx['Modelo']!==undefined ? (fila[colIdx['Modelo']]||'') : '',
+      items: colIdx['Items']!==undefined ? (fila[colIdx['Items']]||'') : '',
+      moneda,
+      monto: montoFinal,
+      fechaFactura: fechaFactura instanceof Date ? fechaFactura : (fechaEntrega instanceof Date ? fechaEntrega : null),
+    });
+  }
+  return filas;
+}
+
+function rerpArmarResumen(filas){
+  const porMes = {}; // key 'YYYY-MM' -> { usd, ars, cantFC, cantNC, cantND, cant }
+  let totalUsd = 0, totalArs = 0;
+  const clientesSet = new Set();
+  let fechaMin = null, fechaMax = null;
+
+  filas.forEach(f=>{
+    const key = f.fechaFactura ? f.fechaFactura.toISOString().slice(0,7) : 'sin-fecha';
+    if(!porMes[key]) porMes[key] = { usd:0, ars:0, cantFC:0, cantNC:0, cantND:0, cant:0, filas:[] };
+    const m = porMes[key];
+    if(f.moneda === 'USD'){ m.usd += f.monto; totalUsd += f.monto; }
+    else { m.ars += f.monto; totalArs += f.monto; }
+    m.cant += 1;
+    if(f.clase === 'FC') m.cantFC += 1;
+    else if(f.clase === 'NC') m.cantNC += 1;
+    else if(f.clase === 'ND') m.cantND += 1;
+    m.filas.push(f);
+
+    clientesSet.add(f.cliente);
+    if(f.fechaFactura){
+      if(!fechaMin || f.fechaFactura < fechaMin) fechaMin = f.fechaFactura;
+      if(!fechaMax || f.fechaFactura > fechaMax) fechaMax = f.fechaFactura;
+    }
+  });
+
+  const mesesOrdenados = Object.keys(porMes).sort();
+  return {
+    filas, porMes, mesesOrdenados, totalUsd, totalArs,
+    cantComprobantes: filas.length,
+    cantClientes: clientesSet.size,
+    fechaMin, fechaMax,
+  };
+}
+
+function rerpRenderResultados(){
+  const d = rerpDataCache;
+  if(!d) return;
+
+  document.getElementById('rerp-total-usd').textContent = fmtMoney(d.totalUsd, 'USD');
+  document.getElementById('rerp-total-ars').textContent = fmtMoney(d.totalArs, 'ARS');
+  document.getElementById('rerp-cant-comprobantes').textContent = String(d.cantComprobantes);
+  const cantNC = d.filas.filter(f=>f.clase==='NC').length;
+  const cantND = d.filas.filter(f=>f.clase==='ND').length;
+  document.getElementById('rerp-cant-detalle').textContent = `${d.cantComprobantes - cantNC - cantND} FC · ${cantNC} NC · ${cantND} ND`;
+  document.getElementById('rerp-cant-clientes').textContent = String(d.cantClientes);
+  document.getElementById('rerp-periodo').textContent = (d.fechaMin && d.fechaMax)
+    ? `${fmtDate(d.fechaMin.toISOString().slice(0,10))} → ${fmtDate(d.fechaMax.toISOString().slice(0,10))}`
+    : '—';
+
+  const maxUsd = Math.max(1, ...d.mesesOrdenados.map(k=> Math.abs(d.porMes[k].usd)));
+  const maxArs = Math.max(1, ...d.mesesOrdenados.map(k=> Math.abs(d.porMes[k].ars)));
+
+  const cont = document.getElementById('rerp-meses-container');
+  cont.innerHTML = d.mesesOrdenados.map(key=>{
+    const m = d.porMes[key];
+    const label = key === 'sin-fecha' ? 'Sin fecha de factura' : mesLabel(key);
+    const pctUsd = Math.round(Math.abs(m.usd) / maxUsd * 100);
+    const pctArs = Math.round(Math.abs(m.ars) / maxArs * 100);
+    return `
+      <div class="panel rerp-mes-row" data-mes-key="${key}" style="padding:12px 16px;margin-bottom:8px;cursor:pointer;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+          <div style="font-weight:600;min-width:130px;">${escapeHtml(label)}</div>
+          <div class="muted" style="font-size:11px;">${m.cant} comprobante(s) — ${m.cantFC} FC · ${m.cantNC} NC · ${m.cantND} ND</div>
+          <div style="font-size:11px;" class="rerp-toggle-hint muted">▸ ver detalle</div>
+        </div>
+        <div style="display:grid;grid-template-columns:60px 1fr 110px;align-items:center;gap:8px;margin-top:8px;">
+          <div class="muted" style="font-size:11px;">USD</div>
+          <div style="background:var(--bg2, rgba(255,255,255,0.05));border-radius:4px;height:16px;overflow:hidden;">
+            <div style="height:100%;width:${pctUsd}%;background:var(--accent);border-radius:4px;"></div>
+          </div>
+          <div style="font-size:12px;font-weight:600;text-align:right;color:var(--accent);">${fmtMoney(m.usd,'USD')}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:60px 1fr 110px;align-items:center;gap:8px;margin-top:4px;">
+          <div class="muted" style="font-size:11px;">ARS</div>
+          <div style="background:var(--bg2, rgba(255,255,255,0.05));border-radius:4px;height:16px;overflow:hidden;">
+            <div style="height:100%;width:${pctArs}%;background:var(--ok);border-radius:4px;"></div>
+          </div>
+          <div style="font-size:12px;font-weight:600;text-align:right;color:var(--ok);">${fmtMoney(m.ars,'ARS')}</div>
+        </div>
+        <div class="rerp-mes-detalle" id="rerp-detalle-${key}" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:10px;overflow-x:auto;">
+          <table style="width:100%;font-size:11.5px;border-collapse:collapse;">
+            <thead>
+              <tr style="text-align:left;color:var(--muted);">
+                <th style="padding:4px 6px;">Cliente</th>
+                <th style="padding:4px 6px;">Comprobante</th>
+                <th style="padding:4px 6px;">Tipo</th>
+                <th style="padding:4px 6px;">Equipo/Ítem</th>
+                <th style="padding:4px 6px;">Fecha</th>
+                <th style="padding:4px 6px;text-align:right;">Monto</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${[...m.filas].sort((a,b)=>(a.cliente||'').localeCompare(b.cliente||'')).map(f=>`
+                <tr style="border-top:1px solid var(--border);">
+                  <td style="padding:4px 6px;">${escapeHtml(f.cliente)}</td>
+                  <td style="padding:4px 6px;" class="muted">${escapeHtml(f.comprobante)}</td>
+                  <td style="padding:4px 6px;">
+                    <span class="badge" style="${f.clase==='NC'?'color:#c084fc;border-color:#c084fc;':(f.clase==='ND'?'color:var(--accent);border-color:var(--accent-dim);':'color:var(--ok);border-color:var(--ok);')}">${f.clase}</span>
+                  </td>
+                  <td style="padding:4px 6px;" class="muted">${escapeHtml(f.items || f.modelo || '—')}</td>
+                  <td style="padding:4px 6px;" class="muted">${f.fechaFactura ? fmtDate(f.fechaFactura.toISOString().slice(0,10)) : '—'}</td>
+                  <td style="padding:4px 6px;text-align:right;font-weight:600;${f.clase==='NC'?'color:#c084fc;':''}">${fmtMoney(f.monto, f.moneda)}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  }).join('');
+
+  cont.querySelectorAll('.rerp-mes-row').forEach(row=>{
+    row.addEventListener('click', (ev)=>{
+      const key = row.dataset.mesKey;
+      const det = document.getElementById(`rerp-detalle-${key}`);
+      const hint = row.querySelector('.rerp-toggle-hint');
+      const abierto = det.style.display !== 'none';
+      det.style.display = abierto ? 'none' : 'block';
+      if(hint) hint.textContent = abierto ? '▸ ver detalle' : '▾ ocultar detalle';
+    });
+  });
+}
+
+function rerpMostrarError(msg){
+  const el = document.getElementById('rerp-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+async function rerpProcesarArchivo(file){
+  document.getElementById('rerp-error').style.display = 'none';
+  if(!file){ return; }
+  const nombreLower = file.name.toLowerCase();
+  if(!nombreLower.endsWith('.xls') && !nombreLower.endsWith('.xlsx')){
+    rerpMostrarError('El archivo debe ser .xls o .xlsx');
+    return;
+  }
+  try{
+    const buffer = await file.arrayBuffer();
+    const wb = XLSX.read(buffer, { type:'array', cellDates:true });
+    const filas = rerpParsearWorkbook(wb);
+    if(filas.length === 0){
+      rerpMostrarError('No se encontraron filas de datos en el archivo.');
+      return;
+    }
+    rerpDataCache = rerpArmarResumen(filas);
+    document.getElementById('rerp-archivo-info').textContent = `Archivo: ${file.name} — ${filas.length} línea(s) procesada(s)`;
+    document.getElementById('rerp-resultados').style.display = 'block';
+    rerpRenderResultados();
+    showToast('Excel procesado correctamente');
+  } catch(e){
+    console.error('Error procesando Excel ERP:', e);
+    rerpMostrarError('No se pudo procesar el archivo: ' + e.message);
+  }
+}
+
+(function initRerpDropzone(){
+  const dz = document.getElementById('rerp-dropzone');
+  const input = document.getElementById('rerp-file-input');
+  if(!dz || !input) return;
+
+  dz.addEventListener('click', ()=> input.click());
+  input.addEventListener('change', ()=>{
+    if(input.files && input.files[0]) rerpProcesarArchivo(input.files[0]);
+    input.value = '';
+  });
+  ['dragenter','dragover'].forEach(evt=>{
+    dz.addEventListener(evt, (e)=>{
+      e.preventDefault(); e.stopPropagation();
+      dz.style.borderColor = 'var(--accent)';
+      dz.style.background = 'rgba(56,189,248,0.06)';
+    });
+  });
+  ['dragleave','drop'].forEach(evt=>{
+    dz.addEventListener(evt, (e)=>{
+      e.preventDefault(); e.stopPropagation();
+      dz.style.borderColor = 'var(--border)';
+      dz.style.background = 'transparent';
+    });
+  });
+  dz.addEventListener('drop', (e)=>{
+    const file = e.dataTransfer?.files?.[0];
+    if(file) rerpProcesarArchivo(file);
+  });
+})();
+
+document.getElementById('btn-rerp-nuevo').addEventListener('click', ()=>{
+  rerpDataCache = null;
+  document.getElementById('rerp-resultados').style.display = 'none';
+  document.getElementById('rerp-error').style.display = 'none';
+  document.getElementById('rerp-file-input').value = '';
+});
+
+document.getElementById('btn-rerp-exportar').addEventListener('click', ()=>{
+  const d = rerpDataCache;
+  if(!d){ showToast('Cargá un archivo primero', true); return; }
+  const wb = XLSX.utils.book_new();
+
+  // Hoja 1: Resumen mensual — USD y ARS en columnas separadas, nunca sumadas
+  const resHeaders = ['Mes','Facturado (USD)','Facturado (ARS)','Cant. FC','Cant. NC','Cant. ND','Total comprobantes'];
+  const resRows = d.mesesOrdenados.map(key=>{
+    const m = d.porMes[key];
+    const label = key === 'sin-fecha' ? 'Sin fecha' : mesLabel(key);
+    return [label, m.usd, m.ars, m.cantFC, m.cantNC, m.cantND, m.cant];
+  });
+  resRows.push(['TOTAL', d.totalUsd, d.totalArs,
+    d.filas.filter(f=>f.clase==='FC').length, d.filas.filter(f=>f.clase==='NC').length, d.filas.filter(f=>f.clase==='ND').length,
+    d.cantComprobantes]);
+  const wsRes = XLSX.utils.aoa_to_sheet([resHeaders, ...resRows]);
+  wsRes['!cols'] = resHeaders.map(h=>({wch: Math.max(h.length+2, 16)}));
+  XLSX.utils.book_append_sheet(wb, wsRes, 'Resumen mensual');
+
+  // Hoja 2: Detalle factura x factura
+  const detHeaders = ['Mes','Cliente','Comprobante','Tipo','Equipo/Ítem','Modelo','Fecha Factura','Moneda','Monto'];
+  const detRows = [];
+  d.mesesOrdenados.forEach(key=>{
+    const label = key === 'sin-fecha' ? 'Sin fecha' : mesLabel(key);
+    d.porMes[key].filas.forEach(f=>{
+      detRows.push([label, f.cliente, f.comprobante, f.clase, f.items || '', f.modelo || '',
+        f.fechaFactura ? fmtDate(f.fechaFactura.toISOString().slice(0,10)) : '', f.moneda, f.monto]);
+    });
+  });
+  const wsDet = XLSX.utils.aoa_to_sheet([detHeaders, ...detRows]);
+  wsDet['!cols'] = detHeaders.map(h=>({wch: Math.max(h.length+2, 14)}));
+  wsDet['!cols'][1] = {wch:32};
+  XLSX.utils.book_append_sheet(wb, wsDet, 'Detalle');
+
+  XLSX.writeFile(wb, `resumen_alquileres_erp_${new Date().toISOString().slice(0,10)}.xlsx`);
+  showToast('Excel generado');
 });
 
 // =========================================================
