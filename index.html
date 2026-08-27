@@ -6817,38 +6817,32 @@ function armarDatosReporteSucursal(){
   const filtrados = getPendientesFiltrados();
   const sucursalIdFiltro = document.getElementById('rep-filter-sucursal').value;
 
-  // Estructura por sucursal: meses{key}={facturadoUsd,pendienteUsd,facturadoArs,pendienteArs,cantFacturas,cantPendientes}
+  // Este reporte muestra SOLO lo facturado (no lo pendiente por facturar).
+  // Estructura por sucursal: meses{key}={facturadoUsd,facturadoArs,cantFacturas}
   // Los acumuladores USD y ARS SIEMPRE se mantienen separados — nunca se suman entre sí.
   const porSucursal = {};
   const detalleFacturas = []; // detalle factura x factura, con cliente, para hoja separada
 
   filtrados.forEach(p=>{
+    if(p.estado !== 'facturado') return; // solo facturado, se excluye lo pendiente
+
     const nombreSuc = p.contratos?.sucursales?.nombre || 'Sin sucursal';
     if(!porSucursal[nombreSuc]) porSucursal[nombreSuc] = {
-      meses:{}, totalFacturadoUsd:0, totalPendienteUsd:0, totalFacturadoArs:0, totalPendienteArs:0,
-      cantFacturas:0, cantPendientes:0
+      meses:{}, totalFacturadoUsd:0, totalFacturadoArs:0, cantFacturas:0,
     };
     const s = porSucursal[nombreSuc];
     const fechaRef = p.periodo_desde || p.fecha_facturacion;
     const key = fechaRef ? fechaRef.slice(0,7) : 'sin-fecha';
-    if(!s.meses[key]) s.meses[key] = { facturadoUsd:0, pendienteUsd:0, facturadoArs:0, pendienteArs:0, cantFacturas:0, cantPendientes:0 };
+    if(!s.meses[key]) s.meses[key] = { facturadoUsd:0, facturadoArs:0, cantFacturas:0 };
 
     const { moneda, monto } = monedaYMontoPendiente(p);
-    const esFacturado = p.estado === 'facturado';
 
-    if(esFacturado){
-      s.meses[key].cantFacturas += 1;
-      s.cantFacturas += 1;
-      if(moneda === 'USD'){ s.meses[key].facturadoUsd += monto; s.totalFacturadoUsd += monto; }
-      else { s.meses[key].facturadoArs += monto; s.totalFacturadoArs += monto; }
-    } else {
-      s.meses[key].cantPendientes += 1;
-      s.cantPendientes += 1;
-      if(moneda === 'USD'){ s.meses[key].pendienteUsd += monto; s.totalPendienteUsd += monto; }
-      else { s.meses[key].pendienteArs += monto; s.totalPendienteArs += monto; }
-    }
+    s.meses[key].cantFacturas += 1;
+    s.cantFacturas += 1;
+    if(moneda === 'USD'){ s.meses[key].facturadoUsd += monto; s.totalFacturadoUsd += monto; }
+    else { s.meses[key].facturadoArs += monto; s.totalFacturadoArs += monto; }
 
-    const esNC = esFacturado && esNotaDeCredito(p.numero_factura);
+    const esNC = esNotaDeCredito(p.numero_factura);
     detalleFacturas.push({
       sucursal: nombreSuc,
       cliente: p.contratos?.clientes?.razon_social || '—',
@@ -6859,7 +6853,7 @@ function armarDatosReporteSucursal(){
       modelo: p.contratos?.equipos?.modelo || '',
       periodoDesde: p.periodo_desde || '',
       periodoHasta: p.periodo_hasta || '',
-      estado: esNC ? 'Nota de Crédito' : (esFacturado ? 'Facturado' : 'Pendiente'),
+      estado: esNC ? 'Nota de Crédito' : 'Facturado',
       numeroFactura: p.numero_factura || '',
       fechaFacturacion: p.fecha_facturacion || '',
       moneda,
@@ -6873,9 +6867,7 @@ function armarDatosReporteSucursal(){
     .filter(m=>m!=='sin-fecha').sort();
 
   const totalGeneralFacturadoUsd = sucursalesOrdenadas.reduce((acc,s)=>acc+porSucursal[s].totalFacturadoUsd,0);
-  const totalGeneralPendienteUsd = sucursalesOrdenadas.reduce((acc,s)=>acc+porSucursal[s].totalPendienteUsd,0);
   const totalGeneralFacturadoArs = sucursalesOrdenadas.reduce((acc,s)=>acc+porSucursal[s].totalFacturadoArs,0);
-  const totalGeneralPendienteArs = sucursalesOrdenadas.reduce((acc,s)=>acc+porSucursal[s].totalPendienteArs,0);
 
   const suc = sucursales.find(x=>String(x.id)===sucursalIdFiltro);
   const tituloAlcance = suc ? suc.nombre : 'Todas las sucursales';
@@ -6885,7 +6877,7 @@ function armarDatosReporteSucursal(){
 
   return {
     porSucursal, sucursalesOrdenadas, todosLosMeses, detalleFacturas,
-    totalGeneralFacturadoUsd, totalGeneralPendienteUsd, totalGeneralFacturadoArs, totalGeneralPendienteArs,
+    totalGeneralFacturadoUsd, totalGeneralFacturadoArs,
     tituloAlcance,
   };
 }
@@ -6902,14 +6894,13 @@ document.getElementById('btn-rep-sucursal-xls').addEventListener('click', ()=>{
   const wb = XLSX.utils.book_new();
 
   // Hoja 1: Resumen por sucursal — USD y ARS SIEMPRE en columnas separadas, nunca sumados entre sí
-  const resumenHeaders = ['Sucursal','Facturado (USD)','Pendiente (USD)','Facturado (ARS)','Pendiente (ARS)','Cant. Facturas','Cant. Pendientes'];
+  const resumenHeaders = ['Sucursal','Facturado (USD)','Facturado (ARS)','Cant. Facturas'];
   const resumenRows = d.sucursalesOrdenadas.map(s=>{
     const x = d.porSucursal[s];
-    return [s, x.totalFacturadoUsd, x.totalPendienteUsd, x.totalFacturadoArs, x.totalPendienteArs, x.cantFacturas, x.cantPendientes];
+    return [s, x.totalFacturadoUsd, x.totalFacturadoArs, x.cantFacturas];
   });
-  resumenRows.push(['TOTAL', d.totalGeneralFacturadoUsd, d.totalGeneralPendienteUsd, d.totalGeneralFacturadoArs, d.totalGeneralPendienteArs,
-    d.sucursalesOrdenadas.reduce((a,s)=>a+d.porSucursal[s].cantFacturas,0),
-    d.sucursalesOrdenadas.reduce((a,s)=>a+d.porSucursal[s].cantPendientes,0)]);
+  resumenRows.push(['TOTAL', d.totalGeneralFacturadoUsd, d.totalGeneralFacturadoArs,
+    d.sucursalesOrdenadas.reduce((a,s)=>a+d.porSucursal[s].cantFacturas,0)]);
   const wsResumen = XLSX.utils.aoa_to_sheet([resumenHeaders, ...resumenRows]);
   wsResumen['!cols'] = resumenHeaders.map(h=>({wch: Math.max(h.length+2, 16)}));
   XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
@@ -6937,13 +6928,13 @@ document.getElementById('btn-rep-sucursal-xls').addEventListener('click', ()=>{
   XLSX.utils.book_append_sheet(wb, wsPivotArs, 'Evolución mensual ARS');
 
   // Hoja 4: Detalle mensual en formato largo (para tablas dinámicas propias) — columnas USD/ARS separadas
-  const detHeaders = ['Sucursal','Mes','Facturado (USD)','Pendiente (USD)','Facturado (ARS)','Pendiente (ARS)','Cant. Facturas','Cant. Pendientes'];
+  const detHeaders = ['Sucursal','Mes','Facturado (USD)','Facturado (ARS)','Cant. Facturas'];
   const detRows = [];
   d.sucursalesOrdenadas.forEach(s=>{
     const mesesDeLaSuc = Object.keys(d.porSucursal[s].meses).sort();
     mesesDeLaSuc.forEach(mes=>{
       const m = d.porSucursal[s].meses[mes];
-      detRows.push([s, mesLabel(mes), m.facturadoUsd, m.pendienteUsd, m.facturadoArs, m.pendienteArs, m.cantFacturas, m.cantPendientes]);
+      detRows.push([s, mesLabel(mes), m.facturadoUsd, m.facturadoArs, m.cantFacturas]);
     });
   });
   const wsDetalle = XLSX.utils.aoa_to_sheet([detHeaders, ...detRows]);
@@ -7008,8 +6999,7 @@ document.getElementById('btn-rep-sucursal-pdf').addEventListener('click', ()=>{
   doc.autoTable({
     startY: y,
     body: [
-      ['Facturado (USD)', fmtMoney(d.totalGeneralFacturadoUsd,'USD'), 'Pendiente (USD)', fmtMoney(d.totalGeneralPendienteUsd,'USD')],
-      ['Facturado (ARS)', fmtMoney(d.totalGeneralFacturadoArs,'ARS'), 'Pendiente (ARS)', fmtMoney(d.totalGeneralPendienteArs,'ARS')],
+      ['Facturado (USD)', fmtMoney(d.totalGeneralFacturadoUsd,'USD'), 'Facturado (ARS)', fmtMoney(d.totalGeneralFacturadoArs,'ARS')],
       ['Sucursales incluidas', String(d.sucursalesOrdenadas.length), 'Meses cubiertos', String(d.todosLosMeses.length)],
     ],
     theme: 'grid',
@@ -7030,11 +7020,10 @@ document.getElementById('btn-rep-sucursal-pdf').addEventListener('click', ()=>{
   y += 5;
   doc.autoTable({
     startY: y,
-    head: [['Sucursal','Fact. USD','Pend. USD','Fact. ARS','Pend. ARS','Facturas','Pendientes']],
+    head: [['Sucursal','Facturado (USD)','Facturado (ARS)','Cant. Facturas']],
     body: d.sucursalesOrdenadas.map(s=>{
       const x = d.porSucursal[s];
-      return [s, fmtMoney(x.totalFacturadoUsd,'USD'), fmtMoney(x.totalPendienteUsd,'USD'),
-        fmtMoney(x.totalFacturadoArs,'ARS'), fmtMoney(x.totalPendienteArs,'ARS'), x.cantFacturas, x.cantPendientes];
+      return [s, fmtMoney(x.totalFacturadoUsd,'USD'), fmtMoney(x.totalFacturadoArs,'ARS'), x.cantFacturas];
     }),
     theme: 'grid',
     styles: { fontSize: 8, cellPadding: 2 },
@@ -7062,17 +7051,15 @@ document.getElementById('btn-rep-sucursal-pdf').addEventListener('click', ()=>{
       return [
         mesLabel(mes),
         m.facturadoUsd ? fmtMoney(m.facturadoUsd,'USD') : '—',
-        m.pendienteUsd ? fmtMoney(m.pendienteUsd,'USD') : '—',
         m.facturadoArs ? fmtMoney(m.facturadoArs,'ARS') : '—',
-        m.pendienteArs ? fmtMoney(m.pendienteArs,'ARS') : '—',
-        m.cantFacturas||'—', m.cantPendientes||'—',
+        m.cantFacturas||'—',
       ];
     });
-    if(body.length === 0) body.push(['Sin movimientos','—','—','—','—','—','—']);
+    if(body.length === 0) body.push(['Sin movimientos','—','—','—']);
 
     doc.autoTable({
       startY: y,
-      head: [['Mes','Fact. USD','Pend. USD','Fact. ARS','Pend. ARS','Fact.','Pend.']],
+      head: [['Mes','Facturado (USD)','Facturado (ARS)','Cant. Facturas']],
       body,
       theme: 'grid',
       styles: { fontSize: 7.3, cellPadding: 1.6 },
