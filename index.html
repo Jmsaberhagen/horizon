@@ -789,6 +789,7 @@
   <button data-tab="clientes">Clientes</button>
   <button data-tab="contratos">Contratos</button>
   <button data-tab="equipos">Equipos</button>
+  <button data-tab="pizarra">Pizarra de Flota</button>
   <button data-tab="pendientes">Pendientes de Facturación</button>
   <button data-tab="reportes">Reportes</button>
   <button data-tab="resumenerp">Resumen ERP</button>
@@ -1488,6 +1489,27 @@
       </div>
     </div>
     <div class="muted" id="ef-results-count" style="margin-top:10px;font-size:12px;"></div>
+  </section>
+
+  <section id="tab-pizarra" style="display:none;">
+    <div class="toolbar" style="justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;" id="pizarra-tabs-sucursal"></div>
+      <div class="muted" id="pizarra-conteo" style="font-size:12px;"></div>
+    </div>
+
+    <div style="display:flex;gap:14px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin:12px 0 16px 0;">
+      <div class="muted" style="font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;margin-right:4px;">Tipo de equipo</div>
+      <div style="display:flex;align-items:center;gap:5px;font-size:11.5px;"><span style="width:10px;height:10px;border-radius:2px;background:#7DD3E8;display:inline-block;"></span>Tijera eléctrica</div>
+      <div style="display:flex;align-items:center;gap:5px;font-size:11.5px;"><span style="width:10px;height:10px;border-radius:2px;background:#2563EB;display:inline-block;"></span>Brazo eléctrico</div>
+      <div style="display:flex;align-items:center;gap:5px;font-size:11.5px;"><span style="width:10px;height:10px;border-radius:2px;background:#86D06B;display:inline-block;"></span>Brazo art. diésel</div>
+      <div style="display:flex;align-items:center;gap:5px;font-size:11.5px;"><span style="width:10px;height:10px;border-radius:2px;background:#2F8F3E;display:inline-block;"></span>Tijera diésel</div>
+      <div style="display:flex;align-items:center;gap:5px;font-size:11.5px;"><span style="width:10px;height:10px;border-radius:2px;background:#F5D30A;display:inline-block;"></span>Brazo telescóp. diésel</div>
+      <div style="display:flex;align-items:center;gap:5px;font-size:11.5px;"><span style="width:10px;height:10px;border-radius:2px;background:#F4F4F2;border:1px solid var(--border);display:inline-block;"></span>Accesorio</div>
+      <div style="display:flex;align-items:center;gap:5px;font-size:11.5px;"><span style="width:10px;height:10px;border-radius:2px;background:#A9432B;display:inline-block;"></span>Manipulador</div>
+      <div class="muted" style="font-size:10.5px;margin-left:auto;">Arrastrá una tarjeta para cambiar su estado</div>
+    </div>
+
+    <div id="pizarra-board" style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;"></div>
   </section>
 
   <section id="tab-planning" style="display:none;">
@@ -2538,11 +2560,26 @@
         <label>Estado</label>
         <select id="e-estado">
           <option value="disponible">Disponible</option>
+          <option value="vor">VOR</option>
+          <option value="pdi">PDI</option>
+          <option value="demo">Demo</option>
           <option value="baja">De baja</option>
         </select>
         <div class="muted" style="font-size:11px;margin-top:4px;">
           "Alquilada" no se elige acá — se calcula solo según si el equipo tiene un contrato activo.
         </div>
+      </div>
+      <div class="field">
+        <label>Tipo de equipo (color en Pizarra de Flota)</label>
+        <select id="e-categoria_color">
+          <option value="tijera_electrica">Tijera eléctrica (celeste)</option>
+          <option value="brazo_electrico">Brazo eléctrico (azul)</option>
+          <option value="brazo_articulado_diesel">Brazo articulado diésel (verde claro)</option>
+          <option value="tijera_diesel">Tijera diésel (verde fuerte)</option>
+          <option value="brazo_telescopico_diesel">Brazo telescópico diésel (amarillo)</option>
+          <option value="manipulador">Manipulador (marrón)</option>
+          <option value="accesorio">Accesorio (blanco)</option>
+        </select>
       </div>
 
       <div class="field">
@@ -3391,6 +3428,7 @@ const TAB_TITLES = {
   clientes: 'Clientes',
   contratos: 'Contratos',
   equipos: 'Equipos',
+  pizarra: 'Pizarra de Flota',
   pendientes: 'Pendientes de Facturación',
   vencimientos: 'Control de Vencimientos',
   personal: 'Personal',
@@ -3436,6 +3474,11 @@ function activarTab(tab){
 
 document.querySelectorAll('nav button[data-tab]').forEach(btn=>{
   btn.addEventListener('click', ()=> activarTab(btn.dataset.tab));
+});
+
+document.querySelector('nav button[data-tab="pizarra"]')?.addEventListener('click', ()=>{
+  initPizarraTabs();
+  renderPizarra();
 });
 
 document.getElementById('btn-volver-inicio').addEventListener('click', ()=>{
@@ -5191,7 +5234,10 @@ document.getElementById('modal-ficha-tecnica-overlay').addEventListener('click',
 function estadoActualEquipo(equipo){
   if(equipo.estado === 'baja') return 'baja';
   const tieneContratoActivo = contratosCache.some(c => c.equipo_id === equipo.id && c.estado === 'activo');
-  return tieneContratoActivo ? 'alquilada' : 'disponible';
+  if(tieneContratoActivo) return 'alquilada';
+  // vor/pdi/demo son estados manuales que se cargan desde la Pizarra de Flota
+  if(equipo.estado === 'vor' || equipo.estado === 'pdi' || equipo.estado === 'demo') return equipo.estado;
+  return 'disponible';
 }
 
 function renderEquipos(list){
@@ -5199,6 +5245,9 @@ function renderEquipos(list){
   const columnas = [
     { estado:'disponible', titulo:'Disponible', color:'var(--ok)' },
     { estado:'alquilada',  titulo:'Alquilada',  color:'var(--accent)' },
+    { estado:'vor',        titulo:'VOR',        color:'#EF9F27' },
+    { estado:'pdi',        titulo:'PDI',        color:'#7F77DD' },
+    { estado:'demo',       titulo:'Demo',       color:'#D4537E' },
     { estado:'baja',       titulo:'De baja',    color:'var(--danger)' },
   ];
   const colorEstadoDoc = { vencido:'var(--danger)', por_vencer:'var(--warn)', vigente:'var(--ok)' };
@@ -5288,6 +5337,148 @@ document.getElementById('equipo-search-input').addEventListener('input', applyEq
 document.getElementById('equipo-filter-sucursal').addEventListener('change', applyEquipoFilters);
 document.getElementById('equipo-filter-tipo').addEventListener('change', applyEquipoFilters);
 
+// =========================================================
+// MÓDULO PIZARRA DE FLOTA
+// =========================================================
+// Réplica digital de la pizarra magnética física de cada sucursal.
+// "Alquilada" es 100% automático (viene de estadoActualEquipo() según contratos activos)
+// y no se puede arrastrar hacia/desde esa columna: para liberar una máquina hay que
+// cerrar el contrato en Contratos, como siempre. Disponible/VOR/PDI/Demo son manuales
+// y se guardan en equipos.estado — se cambian arrastrando la tarjeta entre columnas.
+
+const PIZARRA_COLUMNAS = [
+  { estado:'disponible', titulo:'Disponible', color:'var(--ok)',        arrastrable:true  },
+  { estado:'alquilada',  titulo:'Alquilada',  color:'var(--accent)',    arrastrable:false },
+  { estado:'vor',        titulo:'VOR',        color:'#EF9F27',          arrastrable:true  },
+  { estado:'pdi',        titulo:'PDI',        color:'#7F77DD',          arrastrable:true  },
+  { estado:'demo',       titulo:'Demo',       color:'#D4537E',          arrastrable:true  },
+];
+
+const PIZARRA_CATEGORIAS = {
+  tijera_electrica:         { color:'#7DD3E8', label:'Tijera eléctrica' },
+  brazo_electrico:          { color:'#2563EB', label:'Brazo eléctrico' },
+  brazo_articulado_diesel:  { color:'#86D06B', label:'Brazo articulado diésel' },
+  tijera_diesel:            { color:'#2F8F3E', label:'Tijera diésel' },
+  brazo_telescopico_diesel: { color:'#F5D30A', label:'Brazo telescópico diésel' },
+  accesorio:                { color:'#F4F4F2', label:'Accesorio' },
+  manipulador:              { color:'#A9432B', label:'Manipulador' },
+};
+
+let pizarraSucursalActual = null;
+
+function initPizarraTabs(){
+  const cont = document.getElementById('pizarra-tabs-sucursal');
+  cont.innerHTML = sucursales.map(s=>`
+    <button type="button" class="btn ${String(s.id)===String(pizarraSucursalActual)?'':'secondary'}" data-pizarra-suc="${s.id}">${escapeHtml(s.nombre)}</button>
+  `).join('');
+  cont.querySelectorAll('[data-pizarra-suc]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      pizarraSucursalActual = btn.dataset.pizarraSuc;
+      initPizarraTabs();
+      renderPizarra();
+    });
+  });
+}
+
+function renderPizarra(){
+  if(!pizarraSucursalActual && sucursales.length > 0) pizarraSucursalActual = String(sucursales[0].id);
+  const equiposDeLaSucursal = equiposCache.filter(e => String(e.sucursal_id) === String(pizarraSucursalActual) && e.estado !== 'baja');
+  document.getElementById('pizarra-conteo').textContent = `${equiposDeLaSucursal.length} equipo(s) en esta sucursal`;
+
+  const puedeEditar = puede('pizarra','editar');
+  const board = document.getElementById('pizarra-board');
+
+  board.innerHTML = PIZARRA_COLUMNAS.map(col=>{
+    const items = equiposDeLaSucursal.filter(e => estadoActualEquipo(e) === col.estado)
+      .sort((a,b)=> (a.modelo||'').localeCompare(b.modelo||''));
+
+    const tarjetas = items.map(e=>{
+      const cat = PIZARRA_CATEGORIAS[e.categoria_color] || PIZARRA_CATEGORIAS.accesorio;
+      const draggable = col.arrastrable && puedeEditar;
+      return `
+        <div class="pizarra-card" data-equipo-id="${e.id}" ${draggable?'draggable="true"':''}
+             style="background:var(--panel);border:1px solid var(--border);border-left:3px solid ${cat.color};border-radius:6px;padding:7px 9px;margin-bottom:6px;${draggable?'cursor:grab;':'cursor:default;opacity:0.92;'}"
+             title="${escapeHtml(cat.label)}">
+          <div style="font-size:12px;font-weight:700;">${escapeHtml(e.modelo || '—')}</div>
+          <div class="muted" style="font-size:10.5px;font-family:var(--font-mono);margin-top:1px;">${escapeHtml(e.numero_serie || '')}</div>
+        </div>`;
+    }).join('') || '<div class="muted" style="text-align:center;padding:18px 0;font-size:11.5px;">Sin equipos</div>';
+
+    return `
+      <div class="pizarra-columna" data-pizarra-col="${col.estado}" style="display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;gap:6px;padding:8px 10px;background:var(--panel-2);border-radius:8px 8px 0 0;border-bottom:2px solid ${col.color};">
+          <span style="width:8px;height:8px;border-radius:50%;background:${col.color};flex:none;"></span>
+          <span style="font-weight:700;font-size:12px;letter-spacing:.3px;text-transform:uppercase;">${col.titulo}</span>
+          <span class="muted" style="font-size:11px;margin-left:auto;">${items.length}</span>
+        </div>
+        <div class="pizarra-dropzone" data-pizarra-col="${col.estado}" style="flex:1;min-height:200px;max-height:calc(100vh - 380px);overflow-y:auto;padding:10px;background:var(--panel);border:1px dashed transparent;border-radius:0 0 8px 8px;">
+          ${tarjetas}
+        </div>
+      </div>`;
+  }).join('');
+
+  initPizarraDragAndDrop();
+}
+
+function initPizarraDragAndDrop(){
+  const puedeEditar = puede('pizarra','editar');
+  document.querySelectorAll('.pizarra-card[draggable="true"]').forEach(card=>{
+    card.addEventListener('dragstart', (ev)=>{
+      ev.dataTransfer.setData('text/plain', card.dataset.equipoId);
+      ev.dataTransfer.effectAllowed = 'move';
+      card.style.opacity = '0.4';
+    });
+    card.addEventListener('dragend', ()=>{ card.style.opacity = ''; });
+  });
+
+  document.querySelectorAll('.pizarra-dropzone').forEach(zone=>{
+    const colInfo = PIZARRA_COLUMNAS.find(c=>c.estado === zone.dataset.pizarraCol);
+    zone.addEventListener('dragover', (ev)=>{
+      if(!colInfo.arrastrable || !puedeEditar) return;
+      ev.preventDefault();
+      zone.style.borderColor = 'var(--accent)';
+      zone.style.background = 'var(--panel-2)';
+    });
+    zone.addEventListener('dragleave', ()=>{
+      zone.style.borderColor = 'transparent';
+      zone.style.background = 'var(--panel)';
+    });
+    zone.addEventListener('drop', async (ev)=>{
+      ev.preventDefault();
+      zone.style.borderColor = 'transparent';
+      zone.style.background = 'var(--panel)';
+      if(!puedeEditar){ showToast('No tenés permiso para mover equipos en la pizarra', true); return; }
+      if(!colInfo.arrastrable){ showToast('"Alquilada" es automático según contratos — no se puede mover manualmente', true); return; }
+
+      const equipoId = Number(ev.dataTransfer.getData('text/plain'));
+      const equipo = equiposCache.find(e=>e.id === equipoId);
+      if(!equipo) return;
+
+      const estadoActual = estadoActualEquipo(equipo);
+      if(estadoActual === colInfo.estado) return; // soltó en la misma columna
+      if(estadoActual === 'alquilada'){
+        showToast('Este equipo está alquilado. Para liberarlo, cerrá el contrato en Contratos.', true);
+        return;
+      }
+
+      // Actualización optimista + persistencia en Supabase
+      const estadoAnterior = equipo.estado;
+      equipo.estado = colInfo.estado;
+      renderPizarra();
+      try{
+        const { error } = await supabaseClient.from('equipos').update({ estado: colInfo.estado }).eq('id', equipoId);
+        if(error) throw error;
+        showToast(`${equipo.modelo} → ${colInfo.titulo}`);
+      } catch(e){
+        console.error('Error moviendo equipo en pizarra:', e);
+        equipo.estado = estadoAnterior;
+        renderPizarra();
+        showToast('No se pudo guardar el cambio. Reintentá.', true);
+      }
+    });
+  });
+}
+
 // Cliente actual de un equipo alquilado (busca el contrato activo asociado)
 function clienteActualDeEquipo(equipoId){
   const contrato = contratosCache.find(c => c.equipo_id === equipoId && c.estado === 'activo');
@@ -5330,6 +5521,7 @@ function resetEquipoForm(){
   document.getElementById('e-modelo').value = '';
   document.getElementById('e-sucursal_id').value = '';
   document.getElementById('e-estado').value = 'disponible';
+  document.getElementById('e-categoria_color').value = 'accesorio';
   document.getElementById('e-tipo').value = 'propio';
   document.getElementById('e-proveedor_tercero').value = '';
   document.getElementById('e-proveedor-field').style.display = 'none';
@@ -5360,7 +5552,8 @@ function openEditEquipo(id){
   document.getElementById('e-numero_serie').value = e.numero_serie || '';
   document.getElementById('e-modelo').value = e.modelo || '';
   document.getElementById('e-sucursal_id').value = e.sucursal_id || '';
-  document.getElementById('e-estado').value = (e.estado === 'baja') ? 'baja' : 'disponible';
+  document.getElementById('e-estado').value = ['vor','pdi','demo','baja'].includes(e.estado) ? e.estado : 'disponible';
+  document.getElementById('e-categoria_color').value = e.categoria_color || 'accesorio';
   document.getElementById('e-tipo').value = e.tipo || 'propio';
   document.getElementById('e-proveedor_tercero').value = e.proveedor_tercero || '';
   document.getElementById('e-proveedor-field').style.display = (e.tipo === 'tercero') ? 'block' : 'none';
@@ -5380,6 +5573,7 @@ document.getElementById('btn-equipo-save').addEventListener('click', async ()=>{
     modelo: modelo,
     sucursal_id: document.getElementById('e-sucursal_id').value || null,
     estado: document.getElementById('e-estado').value,
+    categoria_color: document.getElementById('e-categoria_color').value,
     tipo: tipo,
     proveedor_tercero: tipo === 'tercero' ? (document.getElementById('e-proveedor_tercero').value.trim() || null) : null,
   };
@@ -5461,6 +5655,7 @@ const SECCIONES_PERMISOS = [
   { key:'clientes',      label:'Clientes',      acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
   { key:'contratos',     label:'Contratos',     acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar'],['editar_precio','Editar precio ya guardado']] },
   { key:'equipos',       label:'Equipos',       acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
+  { key:'pizarra',       label:'Pizarra de Flota', acciones:[['ver','Ver'],['editar','Mover equipos']] },
   { key:'pendientes',    label:'Pendientes de Facturación', acciones:[['ver','Ver'],['facturar','Facturar'],['eliminar','Eliminar']] },
   { key:'reportes',      label:'Reportes',      acciones:[['ver','Ver']] },
   { key:'cuentacliente', label:'Cuenta Cliente', acciones:[['ver','Ver'],['cargar_recibo','Cargar recibo'],['subir_pdf','Subir PDF']] },
@@ -5837,6 +6032,7 @@ function renderDashboard(){
     ]},
     { key:'logistica', titulo:'Logística', icon:'🚜', tiles:[
       { tab:'equipos',    icon:'🚜', title:'Equipos',    count:`${equiposCache.length} en catálogo`, visible:puede('equipos','ver'), urgencia:null },
+      { tab:'pizarra',    icon:'🗂️', title:'Pizarra de Flota', count:'Disponible / Alquilada / VOR / PDI / Demo', visible:puede('pizarra','ver'), urgencia:null },
       { tab:'planning',   icon:'📅', title:'Planning',   count:'Ocupación de flota', visible:puede('planning','ver'), urgencia:null },
       { tab:'retiros',    icon:'🚨', title:'Pendientes de Retiro', count: puede('retiros','ver') ? `${nRetirosUrgentes} urgente(s)` : '', visible:puede('retiros','ver'), urgencia: nRetirosUrgentes>0 ? 'danger' : 'ok' },
       { tab:'remitos',    icon:'📋', title:'Remitos',    count: puede('remitos','ver') ? `${remitosCache.length} cargado(s)` : '', visible:puede('remitos','ver'), urgencia: null },
