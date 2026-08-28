@@ -7785,7 +7785,7 @@ function rerpExportarMesPDF(key){
     doc.setFont('helvetica','bold'); doc.setFontSize(12);
     doc.setFillColor(210,235,250);
     doc.rect(marginX, y-5, pageWidth-marginX*2, 8, 'F');
-    doc.text(`📍 ${sucursal}`, marginX+2, y);
+    doc.text(sucursal, marginX+2, y);
     doc.setFont('helvetica','normal'); doc.setFontSize(9);
     doc.text(fmtMoney(suc.total,'ARS'), pageWidth-marginX-2, y, { align:'right' });
     y += 8;
@@ -7902,7 +7902,7 @@ function rerpExportarComparadorPDF(){
     startY: y,
     body: [
       [labelA, fmtMoney(mA.total,'ARS'), labelB, fmtMoney(mB.total,'ARS')],
-      ['Diferencia', `${diffTotal>=0?'▲ ':'▼ '}${fmtMoney(Math.abs(diffTotal),'ARS')}`,
+      ['Diferencia', `${diffTotal>=0?'+ ':'- '}${fmtMoney(Math.abs(diffTotal),'ARS')}`,
        'Clientes dejaron / nuevos', `${perdidos.length} / ${nuevos.length}`],
     ],
     theme: 'grid',
@@ -7915,7 +7915,7 @@ function rerpExportarComparadorPDF(){
   if(perdidos.length > 0){
     nuevaPaginaSiNecesario(25);
     doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(200,60,60);
-    doc.text(`⚠ Clientes que facturaban en ${labelA} y no en ${labelB}`, marginX, y);
+    doc.text(`Clientes que facturaban en ${labelA} y no en ${labelB}`, marginX, y);
     doc.setTextColor(0);
     y += 5;
     doc.autoTable({
@@ -7933,7 +7933,7 @@ function rerpExportarComparadorPDF(){
   if(nuevos.length > 0){
     nuevaPaginaSiNecesario(25);
     doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(40,150,90);
-    doc.text(`✓ Clientes nuevos en ${labelB}`, marginX, y);
+    doc.text(`Clientes nuevos en ${labelB}`, marginX, y);
     doc.setTextColor(0);
     y += 5;
     doc.autoTable({
