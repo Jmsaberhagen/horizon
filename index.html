@@ -205,6 +205,9 @@
     vertical-align:top;
   }
   tbody tr:hover{background:var(--panel-2);}
+  .venc-sortable{ cursor:pointer; user-select:none; white-space:nowrap; }
+  .venc-sortable:hover{ color:var(--accent); }
+  .venc-sort-arrow{ font-size:10px; margin-left:2px; opacity:0.7; }
   .table-wrap{
     max-height:65vh;
     overflow:auto;
@@ -1112,9 +1115,18 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>N° Serie</th><th>Modelo</th><th>Patentamiento</th><th>Certificación</th><th>Seguro Técnico</th><th>Seguro RC</th><th style="width:80px;">Acciones</th></tr>
+              <tr>
+                <th class="venc-sortable" data-sort="serie">N° Serie <span class="venc-sort-arrow"></span></th>
+                <th class="venc-sortable" data-sort="modelo">Modelo <span class="venc-sort-arrow"></span></th>
+                <th class="venc-sortable" data-sort="sucursal">Sucursal <span class="venc-sort-arrow"></span></th>
+                <th class="venc-sortable" data-sort="patentamiento">Patentamiento <span class="venc-sort-arrow"></span></th>
+                <th class="venc-sortable" data-sort="certificacion">Certificación <span class="venc-sort-arrow"></span></th>
+                <th class="venc-sortable" data-sort="seguro_tecnico">Seguro Técnico <span class="venc-sort-arrow"></span></th>
+                <th class="venc-sortable" data-sort="seguro_rc">Seguro RC <span class="venc-sort-arrow"></span></th>
+                <th style="width:80px;">Acciones</th>
+              </tr>
             </thead>
-            <tbody id="venc-eq-tbody"><tr><td colspan="7" class="empty-state">Cargando...</td></tr></tbody>
+            <tbody id="venc-eq-tbody"><tr><td colspan="8" class="empty-state">Cargando...</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -11769,19 +11781,71 @@ function renderVencStats(){
     </div>`;
 }
 
+function nombreSucursalPorId(sucursalId){
+  const s = sucursales.find(x=>String(x.id) === String(sucursalId));
+  return s ? s.nombre : 'Sin sucursal';
+}
+
+let vencEqSortCol = null;
+let vencEqSortDir = 'asc';
+
+function vencEqValorSort(e, col){
+  const [pat, cert, seg, segRC] = documentosEquipo(e);
+  switch(col){
+    case 'serie': return (e.numero_serie||'').toLowerCase();
+    case 'modelo': return (e.modelo||'').toLowerCase();
+    case 'sucursal': return nombreSucursalPorId(e.sucursal_id).toLowerCase();
+    case 'patentamiento': return pat.realizado ? 1 : 0;
+    case 'certificacion': return cert.vencimiento || null;
+    case 'seguro_tecnico': return seg.vencimiento || null;
+    case 'seguro_rc': return segRC.vencimiento || null;
+    default: return null;
+  }
+}
+
+function compararVencEq(a, b, col, dir){
+  const va = vencEqValorSort(a, col);
+  const vb = vencEqValorSort(b, col);
+  const aVacio = (va === null || va === undefined || va === '');
+  const bVacio = (vb === null || vb === undefined || vb === '');
+  // Los que no tienen dato cargado ("Sin datos") van siempre al final, sin importar la dirección elegida.
+  if(aVacio && bVacio) return 0;
+  if(aVacio) return 1;
+  if(bVacio) return -1;
+  if(va < vb) return dir === 'asc' ? -1 : 1;
+  if(va > vb) return dir === 'asc' ? 1 : -1;
+  return 0;
+}
+
 function getFilteredEquiposVenc(){
   const q = document.getElementById('venc-eq-search').value.trim().toLowerCase();
   const estadoFiltro = document.getElementById('venc-eq-filter-estado').value;
   let list = equiposCache;
   if(q) list = list.filter(e => (e.numero_serie||'').toLowerCase().includes(q) || (e.modelo||'').toLowerCase().includes(q));
   if(estadoFiltro) list = list.filter(e => documentosEquipo(e).some(d => d.estado === estadoFiltro));
+  if(vencEqSortCol){
+    list = [...list].sort((a,b)=> compararVencEq(a, b, vencEqSortCol, vencEqSortDir));
+  }
   return list;
 }
 function renderVencEquipos(){
   const list = getFilteredEquiposVenc();
   const tbody = document.getElementById('venc-eq-tbody');
+
+  // Actualizar flechas de orden en los encabezados
+  document.querySelectorAll('#tab-vencimientos .venc-sortable').forEach(th=>{
+    const arrow = th.querySelector('.venc-sort-arrow');
+    if(th.dataset.sort === vencEqSortCol){
+      arrow.textContent = vencEqSortDir === 'asc' ? '▲' : '▼';
+      th.style.color = 'var(--accent)';
+    } else {
+      arrow.textContent = '';
+      th.style.color = '';
+    }
+  });
+
   if(!list.length){
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Sin resultados.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Sin resultados.</td></tr>';
     document.getElementById('venc-eq-count').textContent = '';
     return;
   }
@@ -11790,6 +11854,7 @@ function renderVencEquipos(){
     return `<tr>
       <td>${escapeHtml(e.numero_serie||'—')}</td>
       <td class="muted">${escapeHtml(e.modelo||'—')}</td>
+      <td class="muted">${escapeHtml(nombreSucursalPorId(e.sucursal_id))}</td>
       <td>${badgePatentamiento(pat)}</td>
       <td>${badgeEstadoVencimiento(cert.estado, cert.vencimiento)}</td>
       <td>${badgeEstadoVencimiento(seg.estado, seg.vencimiento)}</td>
@@ -11805,6 +11870,20 @@ function renderVencEquipos(){
 function applyVencEqFilters(){ renderVencEquipos(); }
 document.getElementById('venc-eq-search').addEventListener('input', applyVencEqFilters);
 document.getElementById('venc-eq-filter-estado').addEventListener('change', applyVencEqFilters);
+document.querySelectorAll('#tab-vencimientos .venc-sortable').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    const col = th.dataset.sort;
+    if(vencEqSortCol === col){
+      vencEqSortDir = vencEqSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      vencEqSortCol = col;
+      // Fechas de vencimiento: por defecto la más próxima primero (ascendente).
+      // Texto (serie/modelo/sucursal): por defecto A→Z (ascendente también).
+      vencEqSortDir = 'asc';
+    }
+    renderVencEquipos();
+  });
+});
 
 function abrirVencEquipo(id){
   const e = equiposCache.find(x=>x.id === id);
@@ -12293,10 +12372,10 @@ function renderControlVencimientos(){
 
 // ---------- Exportar Excel ----------
 document.getElementById('btn-venc-eq-excel').addEventListener('click', ()=>{
-  const headers = ['N Serie','Modelo','Patentamiento Realizado','Patentamiento Fecha','Certificacion Fecha','Certificacion Vence','Certificacion Estado','Seguro Tecnico Fecha','Seguro Tecnico Vence','Seguro Tecnico Estado','Seguro RC Fecha','Seguro RC Vence','Seguro RC Estado'];
+  const headers = ['N Serie','Modelo','Sucursal','Patentamiento Realizado','Patentamiento Fecha','Certificacion Fecha','Certificacion Vence','Certificacion Estado','Seguro Tecnico Fecha','Seguro Tecnico Vence','Seguro Tecnico Estado','Seguro RC Fecha','Seguro RC Vence','Seguro RC Estado'];
   const rows = getFilteredEquiposVenc().map(e=>{
     const [pat, cert, seg, segRC] = documentosEquipo(e);
-    return [e.numero_serie, e.modelo, pat.realizado ? 'Sí' : 'No', pat.fecha, cert.fecha, cert.vencimiento, cert.estado, seg.fecha, seg.vencimiento, seg.estado, segRC.fecha, segRC.vencimiento, segRC.estado];
+    return [e.numero_serie, e.modelo, nombreSucursalPorId(e.sucursal_id), pat.realizado ? 'Sí' : 'No', pat.fecha, cert.fecha, cert.vencimiento, cert.estado, seg.fecha, seg.vencimiento, seg.estado, segRC.fecha, segRC.vencimiento, segRC.estado];
   });
   exportXLS(`vencimientos_maquinas_${new Date().toISOString().slice(0,10)}`, headers, rows);
 });
@@ -12357,14 +12436,14 @@ document.getElementById('btn-venc-eq-pdf').addEventListener('click', ()=>{
   const rows = getFilteredEquiposVenc().map(e=>{
     const [pat, cert, seg, segRC] = documentosEquipo(e);
     return [
-      e.numero_serie, e.modelo||'—',
+      e.numero_serie, e.modelo||'—', nombreSucursalPorId(e.sucursal_id),
       `${pat.realizado ? 'Realizado' : 'Pendiente'}${pat.fecha?' ('+fmtDate(pat.fecha)+')':''}`,
       `${cert.estado||'sin datos'}${cert.vencimiento?' ('+fmtDate(cert.vencimiento)+')':''}`,
       `${seg.estado||'sin datos'}${seg.vencimiento?' ('+fmtDate(seg.vencimiento)+')':''}`,
       `${segRC.estado||'sin datos'}${segRC.vencimiento?' ('+fmtDate(segRC.vencimiento)+')':''}`,
     ];
   });
-  descargarPDFVencimientos('CONTROL DE VENCIMIENTOS — MAQUINAS', ['N Serie','Modelo','Patentamiento','Certificación','Seguro Técnico','Seguro RC'], rows);
+  descargarPDFVencimientos('CONTROL DE VENCIMIENTOS — MAQUINAS', ['N Serie','Modelo','Sucursal','Patentamiento','Certificación','Seguro Técnico','Seguro RC'], rows);
 });
 document.getElementById('btn-venc-per-pdf').addEventListener('click', ()=>{
   const rows = getFilteredPersonalVenc().map(p=>{
