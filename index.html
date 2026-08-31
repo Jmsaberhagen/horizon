@@ -1091,6 +1091,14 @@
 
     <div class="stats-row" id="venc-stats-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px;"></div>
 
+    <div class="panel" style="padding:14px 16px;margin-bottom:16px;">
+      <div id="email-dest-vencimientos-header" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-weight:700;font-size:13.5px;">📧 Destinatarios del reporte diario por mail</div>
+        <div class="muted" id="email-dest-vencimientos-hint" style="font-size:12px;">▸ desplegar</div>
+      </div>
+      <div id="email-dest-vencimientos-body" style="display:none;margin-top:10px;"></div>
+    </div>
+
     <div class="mode-toggle" style="margin-bottom:14px;">
       <button class="secondary on" id="venc-tab-maquinas">Máquinas</button>
       <button class="secondary" id="venc-tab-personal">Personal</button>
@@ -1658,6 +1666,15 @@
       <h1 style="font-size:16px;">Pendientes de Retiro</h1>
       <div class="sub">La "fecha de vencimiento" del contrato es el día que hay que retirar la máquina del cliente</div>
     </div>
+
+    <div class="panel" style="padding:14px 16px;margin-bottom:16px;">
+      <div id="email-dest-retiros-header" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-weight:700;font-size:13.5px;">📧 Destinatarios del reporte diario por mail</div>
+        <div class="muted" id="email-dest-retiros-hint" style="font-size:12px;">▸ desplegar</div>
+      </div>
+      <div id="email-dest-retiros-body" style="display:none;margin-top:10px;"></div>
+    </div>
+
     <div class="toolbar" style="flex-wrap:wrap;">
       <input type="text" id="ret-search" placeholder="Buscar por cliente o N° de serie...">
       <select id="ret-filter-sucursal">
@@ -8561,7 +8578,137 @@ document.getElementById('btn-tz-exportar-pdf').addEventListener('click', ()=>{
   showToast('PDF generado');
 });
 
-// MÓDULO PLANNING / UTILIZACIÓN DE FLOTA
+// =========================================================
+// MÓDULO DESTINATARIOS DE REPORTES DIARIOS POR MAIL
+// =========================================================
+// Panel reutilizable (uno en Pendientes de Retiro, otro en Control de Vencimientos)
+// para administrar quién recibe cada reporte automático (se envía todos los días a las 21:00).
+
+const EMAIL_DEST_CONFIG = {
+  retiros: { headerId: 'email-dest-retiros-header', bodyId: 'email-dest-retiros-body', hintId: 'email-dest-retiros-hint' },
+  vencimientos: { headerId: 'email-dest-vencimientos-header', bodyId: 'email-dest-vencimientos-body', hintId: 'email-dest-vencimientos-hint' },
+};
+
+async function renderDestinatariosReporte(tipoReporte){
+  const cfg = EMAIL_DEST_CONFIG[tipoReporte];
+  const body = document.getElementById(cfg.bodyId);
+  body.innerHTML = '<div class="muted" style="font-size:12px;">Cargando...</div>';
+
+  const { data, error } = await supabaseClient
+    .from('reportes_email_destinatarios')
+    .select('*')
+    .eq('tipo_reporte', tipoReporte)
+    .order('email', { ascending: true });
+
+  if(error){
+    body.innerHTML = `<div class="muted" style="color:var(--danger);font-size:12px;">Error al cargar: ${escapeHtml(error.message)}</div>`;
+    return;
+  }
+
+  body.innerHTML = `
+    <div class="muted" style="font-size:11.5px;margin-bottom:10px;">
+      Todos los días a las 21:00 se envía un mail con este reporte (resumen en el cuerpo + PDF adjunto) a las direcciones activas de abajo.
+      Solo se incluye lo vencido y lo próximo a vencer.
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <input type="email" id="email-dest-input-${tipoReporte}" placeholder="nombre@empresa.com" style="flex:1;">
+      <button class="btn secondary small" id="btn-email-dest-agregar-${tipoReporte}">+ Agregar</button>
+    </div>
+    <div id="email-dest-lista-${tipoReporte}">
+      ${(data||[]).length === 0
+        ? '<div class="muted" style="font-size:12px;">Todavía no hay destinatarios cargados para este reporte.</div>'
+        : data.map(d => `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:13px;${d.activo?'':'color:var(--muted);text-decoration:line-through;'}">${escapeHtml(d.email)}</span>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <label style="display:flex;align-items:center;gap:4px;font-size:11px;" class="muted">
+                <input type="checkbox" ${d.activo?'checked':''} onchange="toggleDestinatarioReporte(${d.id}, this.checked, '${tipoReporte}')"> activo
+              </label>
+              <button class="btn secondary small" onclick="eliminarDestinatarioReporte(${d.id}, '${tipoReporte}')">Quitar</button>
+            </div>
+          </div>`).join('')}
+    </div>
+  `;
+
+  document.getElementById(`btn-email-dest-agregar-${tipoReporte}`).addEventListener('click', ()=> agregarDestinatarioReporte(tipoReporte));
+  document.getElementById(`email-dest-input-${tipoReporte}`).addEventListener('keydown', (ev)=>{
+    if(ev.key === 'Enter') agregarDestinatarioReporte(tipoReporte);
+  });
+}
+
+async function agregarDestinatarioReporte(tipoReporte){
+  const input = document.getElementById(`email-dest-input-${tipoReporte}`);
+  const email = input.value.trim().toLowerCase();
+  if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+    showToast('Ingresá un mail válido', true);
+    return;
+  }
+  try{
+    const { error } = await supabaseClient.from('reportes_email_destinatarios')
+      .insert({ tipo_reporte: tipoReporte, email, activo: true });
+    if(error){
+      if(error.code === '23505') showToast('Ese mail ya está en la lista', true);
+      else throw error;
+      return;
+    }
+    input.value = '';
+    showToast('Destinatario agregado');
+    renderDestinatariosReporte(tipoReporte);
+  } catch(e){
+    console.error(e);
+    showToast('Error al agregar: ' + e.message, true);
+  }
+}
+
+async function toggleDestinatarioReporte(id, activo, tipoReporte){
+  try{
+    const { error } = await supabaseClient.from('reportes_email_destinatarios').update({ activo }).eq('id', id);
+    if(error) throw error;
+    showToast(activo ? 'Destinatario activado' : 'Destinatario desactivado (no recibirá el reporte)');
+  } catch(e){
+    console.error(e);
+    showToast('Error: ' + e.message, true);
+    renderDestinatariosReporte(tipoReporte);
+  }
+}
+
+async function eliminarDestinatarioReporte(id, tipoReporte){
+  if(!confirm('¿Quitar este destinatario del reporte diario?')) return;
+  try{
+    const { error } = await supabaseClient.from('reportes_email_destinatarios').delete().eq('id', id);
+    if(error) throw error;
+    showToast('Destinatario eliminado');
+    renderDestinatariosReporte(tipoReporte);
+  } catch(e){
+    console.error(e);
+    showToast('Error: ' + e.message, true);
+  }
+}
+
+function initPanelDestinatarios(tipoReporte){
+  const cfg = EMAIL_DEST_CONFIG[tipoReporte];
+  const header = document.getElementById(cfg.headerId);
+  if(!header) return;
+  header.addEventListener('click', ()=>{
+    const body = document.getElementById(cfg.bodyId);
+    const hint = document.getElementById(cfg.hintId);
+    const abierto = body.style.display !== 'none';
+    if(abierto){
+      body.style.display = 'none';
+      hint.textContent = '▸ desplegar';
+    } else {
+      body.style.display = 'block';
+      hint.textContent = '▾ contraer';
+      renderDestinatariosReporte(tipoReporte);
+    }
+  });
+}
+initPanelDestinatarios('retiros');
+initPanelDestinatarios('vencimientos');
+
+
 // =========================================================
 
 let catalogoModelosCache = {}; // modelo -> familia
