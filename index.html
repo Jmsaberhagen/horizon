@@ -1585,8 +1585,9 @@
 
   <section id="tab-trazabilidad" style="display:none;">
 
-    <div class="panel" style="padding:16px;margin-bottom:18px;">
-      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;">
+    <div style="padding:16px;margin-bottom:18px;position:relative;">
+      <div class="panel" style="position:absolute;inset:0;z-index:0;"></div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;position:relative;z-index:1;">
         <div class="field" style="flex:1;min-width:240px;position:relative;">
           <label>Máquina (N° de serie o modelo)</label>
           <input type="text" id="tz-equipo-search" placeholder="Buscar máquina...">
