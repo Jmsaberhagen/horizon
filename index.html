@@ -1055,7 +1055,19 @@
       <div class="panel" style="margin:16px 0;padding:14px;">
         <h3 style="margin-top:0;">🎓 Cursos Profesionales</h3>
         <div class="field-grid cols-4">
-          <div class="field full"><label>Nombre del curso</label><input type="text" id="curso-nombre" placeholder="Ej: Manejo defensivo"></div>
+          <div class="field full">
+            <label>Curso</label>
+            <select id="curso-nombre">
+              <option value="">Seleccionar curso...</option>
+              <option value="MANEJO DEFENSIVO">Manejo Defensivo</option>
+              <option value="ALTURA">Altura</option>
+              <option value="PLATAFORMA">Plataforma</option>
+              <option value="MANIPULADOR">Manipulador</option>
+              <option value="SEÑALERO">Señalero</option>
+              <option value="ESLINGADOR">Eslingador</option>
+              <option value="PASE (REGLAS QUE SALVAN VIDAS)">PASE (Reglas que Salvan Vidas)</option>
+            </select>
+          </div>
           <div class="field"><label>Fecha</label><input type="date" id="curso-fecha"></div>
           <div class="field"><label>Renovación cada</label><input type="number" id="curso-valor" placeholder="Ej: 12"></div>
         </div>
@@ -1154,11 +1166,12 @@
         <button class="btn secondary" id="btn-venc-per-excel">Exportar Excel</button>
         <button class="btn secondary" id="btn-venc-per-pdf">📄 Exportar PDF</button>
       </div>
+      <div class="panel" id="venc-per-leyenda-cursos" style="padding:10px 14px;margin-bottom:12px;"></div>
       <div class="panel">
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>Nombre</th><th>Cargo</th><th>Licencia Conducir</th><th>Apto Médico</th><th>Cursos</th><th style="width:80px;">Acciones</th></tr>
+              <tr><th>Nombre</th><th>Cargo</th><th>Licencia Conducir</th><th>Apto Médico</th><th style="text-align:center;">Cursos</th><th style="width:80px;">Acciones</th></tr>
             </thead>
             <tbody id="venc-per-tbody"><tr><td colspan="6" class="empty-state">Cargando...</td></tr></tbody>
           </table>
@@ -11658,6 +11671,36 @@ function peorEstado(estados){
   return peor;
 }
 
+// Matriz de 7 puntos (uno por curso fijo, siempre en el mismo orden) para no usar 7 columnas enteras.
+const CURSOS_ABREV = { 'MANEJO DEFENSIVO':'MD', 'ALTURA':'ALT', 'PLATAFORMA':'PLAT', 'MANIPULADOR':'MANIP', 'SEÑALERO':'SEÑ', 'ESLINGADOR':'ESL', 'PASE (REGLAS QUE SALVAN VIDAS)':'PASE' };
+const CURSOS_COLOR = { vencido:'var(--danger)', por_vencer:'var(--warn)', vigente:'var(--ok)' };
+function matrizCursosHtml(cursos){
+  const porNombre = {};
+  cursos.forEach(c=>{ porNombre[c.nombre_curso] = c; });
+  return `<div style="display:flex;gap:5px;justify-content:center;" title="${CURSOS_FIJOS.map(n=>{
+      const c = porNombre[n];
+      return `${n}: ${c ? (c.estado==='vencido'?'Vencido':c.estado==='por_vencer'?'Por vencer':'Vigente') + ' - ' + fmtDate(c.vencimiento) : 'No tiene'}`;
+    }).join(' | ')}">
+    ${CURSOS_FIJOS.map(n=>{
+      const c = porNombre[n];
+      const color = c ? CURSOS_COLOR[c.estado] : 'transparent';
+      const border = c ? color : 'var(--border)';
+      return `<span style="width:11px;height:11px;border-radius:50%;display:inline-block;background:${color};border:1.5px solid ${border};" title="${CURSOS_ABREV[n]}: ${c ? (c.estado==='vencido'?'Vencido':c.estado==='por_vencer'?'Por vencer':'Vigente') : 'No tiene'}"></span>`;
+    }).join('')}
+  </div>`;
+}
+function leyendaCursosHtml(){
+  return `<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:11px;" class="muted">
+    ${CURSOS_FIJOS.map(n=>`<span>${CURSOS_ABREV[n]} · ${n.charAt(0)+n.slice(1).toLowerCase()}</span>`).join('')}
+    <span style="margin-left:auto;display:flex;gap:10px;">
+      <span><span style="width:8px;height:8px;border-radius:50%;background:var(--ok);display:inline-block;margin-right:3px;"></span>vigente</span>
+      <span><span style="width:8px;height:8px;border-radius:50%;background:var(--warn);display:inline-block;margin-right:3px;"></span>por vencer</span>
+      <span><span style="width:8px;height:8px;border-radius:50%;background:var(--danger);display:inline-block;margin-right:3px;"></span>vencido</span>
+      <span><span style="width:8px;height:8px;border-radius:50%;border:1.5px solid var(--border);display:inline-block;margin-right:3px;"></span>no tiene</span>
+    </span>
+  </div>`;
+}
+
 function calcularResumenVencimientos(){
   let vencidos = 0, porVencer = 0, vigentes = 0;
   (equiposCache||[]).forEach(e=>{
@@ -11724,7 +11767,7 @@ function renderPersonalCards(){
         <div style="display:flex;flex-direction:column;gap:4px;font-size:11px;">
           <div>🪪 Licencia: ${badgeEstadoVencimiento(licencia.estado, licencia.vencimiento)}</div>
           <div>🩺 Apto Médico: ${badgeEstadoVencimiento(apto.estado, apto.vencimiento)}</div>
-          <div>🎓 Cursos (${cursos.length}): ${cursos.length ? badgeEstadoVencimiento(peorCursos, null) : '<span class="muted">Sin cursos cargados</span>'}</div>
+          <div>🎓 Cursos: ${cursos.length ? matrizCursosHtml(cursos) : '<span class="muted">Sin cursos cargados</span>'}</div>
         </div>
         <div class="row-actions" style="border-top:1px solid var(--border);padding-top:10px;margin-top:10px;">
           <button class="btn secondary small" onclick="abrirEditarPersonal(${p.id})">${puede('personal','editar') ? 'Editar' : 'Ver'}</button>
@@ -11739,6 +11782,11 @@ document.getElementById('per-filter-sucursal').addEventListener('change', applyP
 
 let cursosWorkingList = [];
 
+const CURSOS_FIJOS = [
+  'MANEJO DEFENSIVO','ALTURA','PLATAFORMA','MANIPULADOR',
+  'SEÑALERO','ESLINGADOR','PASE (REGLAS QUE SALVAN VIDAS)',
+];
+
 function limpiarModalPersonal(){
   document.getElementById('per-id').value = '';
   ['per-nombre','per-apellido','per-dni','per-cargo','per-licencia-fecha','per-licencia-valor',
@@ -11750,6 +11798,7 @@ function limpiarModalPersonal(){
   document.getElementById('per-apto-unidad').value = 'meses';
   document.getElementById('per-apto-alerta').value = '30';
   document.getElementById('btn-personal-eliminar').style.display = 'none';
+  document.getElementById('curso-nombre').value = '';
   cursosWorkingList = [];
   renderCursosTabla();
 }
@@ -11795,7 +11844,11 @@ document.getElementById('modal-personal-overlay').addEventListener('click', (e)=
 
 document.getElementById('btn-agregar-curso').addEventListener('click', ()=>{
   const nombre = document.getElementById('curso-nombre').value.trim();
-  if(!nombre){ showToast('Ingresá el nombre del curso', true); return; }
+  if(!nombre){ showToast('Elegí un curso de la lista', true); return; }
+  if(cursosWorkingList.some(c=>c.nombre_curso === nombre)){
+    showToast('Ese curso ya está cargado para esta persona', true);
+    return;
+  }
   cursosWorkingList.push({
     nombre_curso: nombre,
     fecha_emision: document.getElementById('curso-fecha').value || null,
@@ -11810,6 +11863,17 @@ document.getElementById('btn-agregar-curso').addEventListener('click', ()=>{
   renderCursosTabla();
 });
 function renderCursosTabla(){
+  // Deshabilita en el desplegable los cursos que esta persona ya tiene cargados
+  const select = document.getElementById('curso-nombre');
+  const cargados = new Set(cursosWorkingList.map(c=>c.nombre_curso));
+  Array.from(select.options).forEach(opt=>{
+    if(!opt.value) return;
+    opt.disabled = cargados.has(opt.value);
+    opt.textContent = opt.disabled
+      ? `${opt.textContent.replace(' (ya cargado)','')} (ya cargado)`
+      : opt.textContent.replace(' (ya cargado)','');
+  });
+
   document.getElementById('cursos-tbody').innerHTML = cursosWorkingList.map((c, idx)=>{
     const venc = calcularFechaVencimiento(c.fecha_emision, c.periodicidad_valor, c.periodicidad_unidad||'meses');
     return `<tr>
@@ -12486,6 +12550,7 @@ function getFilteredPersonalVenc(){
   return list;
 }
 function renderVencPersonal(){
+  document.getElementById('venc-per-leyenda-cursos').innerHTML = leyendaCursosHtml();
   const list = getFilteredPersonalVenc();
   const tbody = document.getElementById('venc-per-tbody');
   if(!list.length){
@@ -12495,13 +12560,12 @@ function renderVencPersonal(){
   }
   tbody.innerHTML = list.map(p=>{
     const { licencia, apto, cursos } = documentosPersonal(p);
-    const peorCursos = peorEstado(cursos.map(c=>c.estado));
     return `<tr>
       <td>${escapeHtml(p.nombre)} ${escapeHtml(p.apellido)}</td>
       <td class="muted">${escapeHtml(p.cargo||'—')}</td>
       <td>${badgeEstadoVencimiento(licencia.estado, licencia.vencimiento)}</td>
       <td>${badgeEstadoVencimiento(apto.estado, apto.vencimiento)}</td>
-      <td>${cursos.length ? badgeEstadoVencimiento(peorCursos, null) : '<span class="muted">—</span>'}</td>
+      <td>${matrizCursosHtml(cursos)}</td>
       <td><button class="btn secondary small" onclick="abrirEditarPersonal(${p.id})">${puede('personal','editar') ? 'Editar' : 'Ver'}</button></td>
     </tr>`;
   }).join('');
@@ -12527,11 +12591,21 @@ document.getElementById('btn-venc-eq-excel').addEventListener('click', ()=>{
   exportXLS(`vencimientos_maquinas_${new Date().toISOString().slice(0,10)}`, headers, rows);
 });
 document.getElementById('btn-venc-per-excel').addEventListener('click', ()=>{
-  const headers = ['Nombre','Apellido','Cargo','Sucursal','Licencia Fecha','Licencia Vence','Licencia Estado','Apto Fecha','Apto Vence','Apto Estado','Cursos'];
+  const headers = ['Nombre','Apellido','Cargo','Sucursal','Licencia Fecha','Licencia Vence','Licencia Estado','Apto Fecha','Apto Vence','Apto Estado'];
+  CURSOS_FIJOS.forEach(n=>{
+    const label = n.charAt(0)+n.slice(1).toLowerCase();
+    headers.push(`${label} Fecha`, `${label} Vence`, `${label} Estado`);
+  });
   const rows = getFilteredPersonalVenc().map(p=>{
     const { licencia, apto, cursos } = documentosPersonal(p);
-    const cursosTexto = cursos.map(c=>`${c.nombre_curso} (${c.estado||'sin datos'})`).join('; ');
-    return [p.nombre, p.apellido, p.cargo, p.sucursal, licencia.fecha, licencia.vencimiento, licencia.estado, apto.fecha, apto.vencimiento, apto.estado, cursosTexto];
+    const porNombre = {};
+    cursos.forEach(c=>{ porNombre[c.nombre_curso] = c; });
+    const fila = [p.nombre, p.apellido, p.cargo, p.sucursal, licencia.fecha, licencia.vencimiento, licencia.estado, apto.fecha, apto.vencimiento, apto.estado];
+    CURSOS_FIJOS.forEach(n=>{
+      const c = porNombre[n];
+      fila.push(c ? c.fecha_emision : '', c ? c.vencimiento : '', c ? c.estado : 'no_tiene');
+    });
+    return fila;
   });
   exportXLS(`vencimientos_personal_${new Date().toISOString().slice(0,10)}`, headers, rows);
 });
@@ -12595,7 +12669,14 @@ document.getElementById('btn-venc-eq-pdf').addEventListener('click', ()=>{
 document.getElementById('btn-venc-per-pdf').addEventListener('click', ()=>{
   const rows = getFilteredPersonalVenc().map(p=>{
     const { licencia, apto, cursos } = documentosPersonal(p);
-    const cursosTexto = cursos.length ? cursos.map(c=>`${c.nombre_curso}: ${c.estado||'sin datos'}`).join(' / ') : '—';
+    const porNombre = {};
+    cursos.forEach(c=>{ porNombre[c.nombre_curso] = c; });
+    const cursosTexto = CURSOS_FIJOS.map(n=>{
+      const c = porNombre[n];
+      if(!c) return null;
+      const estadoTxt = c.estado === 'vencido' ? 'VENC' : c.estado === 'por_vencer' ? 'x vencer' : 'ok';
+      return `${CURSOS_ABREV[n]}:${estadoTxt}`;
+    }).filter(Boolean).join('  ') || '—';
     return [
       `${p.nombre} ${p.apellido}`, p.cargo||'—',
       `${licencia.estado||'sin datos'}${licencia.vencimiento?' ('+fmtDate(licencia.vencimiento)+')':''}`,
@@ -12603,7 +12684,7 @@ document.getElementById('btn-venc-per-pdf').addEventListener('click', ()=>{
       cursosTexto,
     ];
   });
-  descargarPDFVencimientos('CONTROL DE VENCIMIENTOS — PERSONAL', ['Nombre','Cargo','Licencia Conducir','Apto Médico','Cursos'], rows);
+  descargarPDFVencimientos('CONTROL DE VENCIMIENTOS — PERSONAL', ['Nombre','Cargo','Licencia Conducir','Apto Médico','Cursos (MD/ALT/PLAT/MANIP/SEÑ/ESL/PASE)'], rows);
 });
 
 // =========================================================
