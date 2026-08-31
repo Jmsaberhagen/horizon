@@ -790,6 +790,7 @@
   <button data-tab="contratos">Contratos</button>
   <button data-tab="equipos">Equipos</button>
   <button data-tab="pizarra">Pizarra de Flota</button>
+  <button data-tab="trazabilidad">Trazabilidad</button>
   <button data-tab="pendientes">Pendientes de Facturación</button>
   <button data-tab="reportes">Reportes</button>
   <button data-tab="resumenerp">Resumen ERP</button>
@@ -1510,6 +1511,75 @@
     </div>
 
     <div id="pizarra-board" style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;"></div>
+  </section>
+
+  <section id="tab-trazabilidad" style="display:none;">
+
+    <div class="panel" style="padding:16px;margin-bottom:18px;">
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;">
+        <div class="field" style="flex:1;min-width:240px;position:relative;">
+          <label>Máquina (N° de serie o modelo)</label>
+          <input type="text" id="tz-equipo-search" placeholder="Buscar máquina...">
+          <div id="tz-equipo-results" class="autocomplete-list"></div>
+          <div class="muted" id="tz-equipo-selected" style="font-size:11px;margin-top:4px;"></div>
+        </div>
+        <div class="field">
+          <label>Desde</label>
+          <input type="date" id="tz-desde">
+        </div>
+        <div class="field">
+          <label>Hasta</label>
+          <input type="date" id="tz-hasta">
+        </div>
+        <button class="btn" id="btn-tz-buscar">Ver trazabilidad</button>
+      </div>
+    </div>
+
+    <div id="tz-resultado" style="display:none;">
+
+      <div class="toolbar" style="justify-content:space-between;">
+        <div style="font-size:16px;font-weight:700;" id="tz-titulo-equipo"></div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn secondary" id="btn-tz-exportar-xls">📊 Exportar Excel</button>
+          <button class="btn secondary" id="btn-tz-exportar-pdf">📄 Exportar PDF</button>
+        </div>
+      </div>
+
+      <div class="dash-grid" style="grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); margin:14px 0 20px 0;">
+        <div class="panel" style="padding:14px;">
+          <div class="muted" style="font-size:10.5px;text-transform:uppercase;">Días alquilada</div>
+          <div id="tz-kpi-alquilada" style="font-size:20px;font-weight:700;color:var(--accent);margin-top:4px;">0</div>
+        </div>
+        <div class="panel" style="padding:14px;">
+          <div class="muted" style="font-size:10.5px;text-transform:uppercase;">Días disponible</div>
+          <div id="tz-kpi-disponible" style="font-size:20px;font-weight:700;color:var(--ok);margin-top:4px;">0</div>
+        </div>
+        <div class="panel" style="padding:14px;">
+          <div class="muted" style="font-size:10.5px;text-transform:uppercase;">Días VOR/PDI/Demo</div>
+          <div id="tz-kpi-otros" style="font-size:20px;font-weight:700;color:#EF9F27;margin-top:4px;">0</div>
+        </div>
+        <div class="panel" style="padding:14px;">
+          <div class="muted" style="font-size:10.5px;text-transform:uppercase;">% Utilización</div>
+          <div id="tz-kpi-utilizacion" style="font-size:20px;font-weight:700;margin-top:4px;">0%</div>
+        </div>
+        <div class="panel" style="padding:14px;">
+          <div class="muted" style="font-size:10.5px;text-transform:uppercase;">Contratos / Clientes</div>
+          <div id="tz-kpi-contratos" style="font-size:20px;font-weight:700;margin-top:4px;">0 / 0</div>
+        </div>
+        <div class="panel" style="padding:14px;">
+          <div class="muted" style="font-size:10.5px;text-transform:uppercase;">Facturado (USD / ARS)</div>
+          <div id="tz-kpi-facturado" style="font-size:14px;font-weight:700;margin-top:6px;">U$D 0 / $ 0</div>
+        </div>
+      </div>
+
+      <div class="muted" style="font-size:11px;margin-bottom:8px;">
+        Línea de tiempo del período seleccionado. El historial se reconstruye automáticamente desde contratos;
+        los estados VOR/PDI/Demo solo quedan registrados desde que existe la Pizarra de Flota.
+      </div>
+      <div id="tz-timeline"></div>
+
+    </div>
+    <div id="tz-sin-resultado" class="muted" style="display:none;padding:30px 0;text-align:center;"></div>
   </section>
 
   <section id="tab-planning" style="display:none;">
@@ -3429,6 +3499,7 @@ const TAB_TITLES = {
   contratos: 'Contratos',
   equipos: 'Equipos',
   pizarra: 'Pizarra de Flota',
+  trazabilidad: 'Trazabilidad',
   pendientes: 'Pendientes de Facturación',
   vencimientos: 'Control de Vencimientos',
   personal: 'Personal',
@@ -3479,6 +3550,17 @@ document.querySelectorAll('nav button[data-tab]').forEach(btn=>{
 document.querySelector('nav button[data-tab="pizarra"]')?.addEventListener('click', ()=>{
   initPizarraTabs();
   renderPizarra();
+});
+
+document.querySelector('nav button[data-tab="trazabilidad"]')?.addEventListener('click', ()=>{
+  const hastaEl = document.getElementById('tz-hasta');
+  const desdeEl = document.getElementById('tz-desde');
+  if(!hastaEl.value){
+    const hoy = new Date();
+    const hace6Meses = new Date(); hace6Meses.setMonth(hoy.getMonth()-6);
+    hastaEl.value = hoy.toISOString().slice(0,10);
+    desdeEl.value = hace6Meses.toISOString().slice(0,10);
+  }
 });
 
 document.getElementById('btn-volver-inicio').addEventListener('click', ()=>{
@@ -5656,6 +5738,7 @@ const SECCIONES_PERMISOS = [
   { key:'contratos',     label:'Contratos',     acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar'],['editar_precio','Editar precio ya guardado']] },
   { key:'equipos',       label:'Equipos',       acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
   { key:'pizarra',       label:'Pizarra de Flota', acciones:[['ver','Ver'],['editar','Mover equipos']] },
+  { key:'trazabilidad',  label:'Trazabilidad',    acciones:[['ver','Ver / usar']] },
   { key:'pendientes',    label:'Pendientes de Facturación', acciones:[['ver','Ver'],['facturar','Facturar'],['eliminar','Eliminar']] },
   { key:'reportes',      label:'Reportes',      acciones:[['ver','Ver']] },
   { key:'cuentacliente', label:'Cuenta Cliente', acciones:[['ver','Ver'],['cargar_recibo','Cargar recibo'],['subir_pdf','Subir PDF']] },
@@ -6033,6 +6116,7 @@ function renderDashboard(){
     { key:'logistica', titulo:'Logística', icon:'🚜', tiles:[
       { tab:'equipos',    icon:'🚜', title:'Equipos',    count:`${equiposCache.length} en catálogo`, visible:puede('equipos','ver'), urgencia:null },
       { tab:'pizarra',    icon:'🗂️', title:'Pizarra de Flota', count:'Disponible / Alquilada / VOR / PDI / Demo', visible:puede('pizarra','ver'), urgencia:null },
+      { tab:'trazabilidad', icon:'🔍', title:'Trazabilidad', count:'Historial de una máquina', visible:puede('trazabilidad','ver'), urgencia:null },
       { tab:'planning',   icon:'📅', title:'Planning',   count:'Ocupación de flota', visible:puede('planning','ver'), urgencia:null },
       { tab:'retiros',    icon:'🚨', title:'Pendientes de Retiro', count: puede('retiros','ver') ? `${nRetirosUrgentes} urgente(s)` : '', visible:puede('retiros','ver'), urgencia: nRetirosUrgentes>0 ? 'danger' : 'ok' },
       { tab:'remitos',    icon:'📋', title:'Remitos',    count: puede('remitos','ver') ? `${remitosCache.length} cargado(s)` : '', visible:puede('remitos','ver'), urgencia: null },
@@ -8122,6 +8206,347 @@ document.getElementById('btn-rerp-exportar').addEventListener('click', ()=>{
 
   XLSX.writeFile(wb, `resumen_alquileres_erp_${new Date().toISOString().slice(0,10)}.xlsx`);
   showToast('Excel generado');
+});
+
+// =========================================================
+// MÓDULO TRAZABILIDAD DE MÁQUINA
+// =========================================================
+// Reconstruye la línea de tiempo de una máquina a partir de equipos_historial_estado
+// (que se alimenta solo, vía triggers, desde contratos y desde la Pizarra de Flota)
+// combinada con la facturación real asociada a cada contrato.
+
+let tzEquipoSeleccionado = null;
+
+const tzEquipoSearchInput = document.getElementById('tz-equipo-search');
+const tzEquipoResultsBox = document.getElementById('tz-equipo-results');
+
+tzEquipoSearchInput.addEventListener('input', ()=>{
+  const q = tzEquipoSearchInput.value.trim().toLowerCase();
+  tzEquipoSeleccionado = null;
+  document.getElementById('tz-equipo-selected').textContent = '';
+  if(q.length < 1){ tzEquipoResultsBox.classList.remove('open'); return; }
+  const matches = equiposCache.filter(e =>
+    (e.numero_serie||'').toLowerCase().includes(q) ||
+    (e.modelo||'').toLowerCase().includes(q)
+  ).slice(0, 30);
+  tzEquipoResultsBox.innerHTML = matches.length === 0
+    ? `<div class="autocomplete-item muted">Sin resultados</div>`
+    : matches.map(e=>`
+      <div class="autocomplete-item" data-id="${e.id}">
+        ${escapeHtml(e.numero_serie)}
+        <span class="sub">${escapeHtml(e.modelo || '')} — ${estadoActualEquipo(e)}</span>
+      </div>`).join('');
+  tzEquipoResultsBox.classList.add('open');
+});
+
+tzEquipoResultsBox.addEventListener('click', (ev)=>{
+  const item = ev.target.closest('.autocomplete-item');
+  if(!item || !item.dataset.id) return;
+  const e = equiposCache.find(x=>String(x.id) === item.dataset.id);
+  if(!e) return;
+  tzEquipoSeleccionado = e;
+  tzEquipoSearchInput.value = e.numero_serie;
+  document.getElementById('tz-equipo-selected').textContent = `✓ ${e.modelo || ''} — Sucursal: ${(sucursales.find(s=>String(s.id)===String(e.sucursal_id))||{}).nombre || '—'}`;
+  tzEquipoResultsBox.classList.remove('open');
+});
+
+document.addEventListener('click', (ev)=>{
+  if(!ev.target.closest('#tz-equipo-search') && !ev.target.closest('#tz-equipo-results')) tzEquipoResultsBox.classList.remove('open');
+});
+
+let tzDataCache = null; // { equipo, tramos, contratosDelPeriodo, facturasDelPeriodo, kpis, desde, hasta }
+
+async function tzBuscarTrazabilidad(){
+  if(!tzEquipoSeleccionado){ showToast('Elegí una máquina primero', true); return; }
+  const desde = document.getElementById('tz-desde').value;
+  const hasta = document.getElementById('tz-hasta').value;
+  if(!desde || !hasta){ showToast('Elegí un rango de fechas', true); return; }
+  if(desde > hasta){ showToast('"Desde" no puede ser posterior a "Hasta"', true); return; }
+
+  const equipoId = tzEquipoSeleccionado.id;
+  document.getElementById('tz-resultado').style.display = 'none';
+  document.getElementById('tz-sin-resultado').style.display = 'none';
+
+  try{
+    const { data: tramos, error: errH } = await supabaseClient
+      .from('equipos_historial_estado')
+      .select('*, contratos(id, cliente_id, remito, clientes(razon_social))')
+      .eq('equipo_id', equipoId)
+      .lte('fecha_desde', hasta)
+      .or(`fecha_hasta.gte.${desde},fecha_hasta.is.null`)
+      .order('fecha_desde', { ascending: true });
+    if(errH) throw errH;
+
+    if(!tramos || tramos.length === 0){
+      document.getElementById('tz-sin-resultado').textContent = 'No hay historial registrado para esta máquina en el período elegido.';
+      document.getElementById('tz-sin-resultado').style.display = 'block';
+      return;
+    }
+
+    // Recortamos cada tramo al rango elegido para calcular días correctamente
+    const hoy = new Date().toISOString().slice(0,10);
+    const tramosRecortados = tramos.map(t=>({
+      ...t,
+      desdeEfectivo: t.fecha_desde < desde ? desde : t.fecha_desde,
+      hastaEfectivo: (t.fecha_hasta && t.fecha_hasta < hasta) ? t.fecha_hasta : hasta,
+      vigente: !t.fecha_hasta,
+    }));
+
+    const diasEntre = (a,b) => Math.max(0, Math.round((new Date(b) - new Date(a)) / 86400000) + 1);
+
+    let diasAlquilada=0, diasDisponible=0, diasOtros=0;
+    tramosRecortados.forEach(t=>{
+      const dias = diasEntre(t.desdeEfectivo, t.hastaEfectivo);
+      if(t.estado === 'alquilada') diasAlquilada += dias;
+      else if(t.estado === 'disponible') diasDisponible += dias;
+      else diasOtros += dias;
+    });
+    const diasTotales = Math.max(1, diasEntre(desde, hasta > hoy ? hoy : hasta));
+    const utilizacion = Math.round((diasAlquilada / diasTotales) * 100);
+
+    const contratoIds = [...new Set(tramos.filter(t=>t.contrato_id).map(t=>t.contrato_id))];
+    const clientesDelPeriodo = new Set(tramos.filter(t=>t.contratos?.clientes?.razon_social).map(t=>t.contratos.clientes.razon_social));
+
+    // Facturación asociada a esos contratos, dentro del período
+    let facturasDelPeriodo = [];
+    if(contratoIds.length > 0){
+      const { data: pends, error: errP } = await supabaseClient
+        .from('pendientes_facturacion')
+        .select('*, contratos(moneda, clientes(razon_social))')
+        .in('contrato_id', contratoIds)
+        .eq('estado', 'facturado')
+        .gte('periodo_desde', desde)
+        .lte('periodo_desde', hasta);
+      if(errP) throw errP;
+      facturasDelPeriodo = pends || [];
+    }
+
+    let facturadoUsd = 0, facturadoArs = 0;
+    facturasDelPeriodo.forEach(p=>{
+      const esNC = esNotaDeCredito(p.numero_factura);
+      const signo = esNC ? -1 : 1;
+      if(p.contratos?.moneda === 'ARS' || (p.potencial_facturacion && !p.valor_alquiler_usd)){
+        facturadoArs += (Number(p.potencial_facturacion)||0) * signo;
+      } else {
+        facturadoUsd += (Number(p.valor_alquiler_usd)||0) * signo;
+      }
+    });
+
+    tzDataCache = {
+      equipo: tzEquipoSeleccionado, tramos: tramosRecortados, contratoIds,
+      facturasDelPeriodo, desde, hasta,
+      kpis: {
+        diasAlquilada, diasDisponible, diasOtros, utilizacion,
+        cantContratos: contratoIds.length, cantClientes: clientesDelPeriodo.size,
+        facturadoUsd, facturadoArs,
+      },
+    };
+    tzRenderResultado();
+  } catch(err){
+    console.error('Error consultando trazabilidad:', err);
+    showToast('Error al consultar la trazabilidad: ' + err.message, true);
+  }
+}
+
+document.getElementById('btn-tz-buscar').addEventListener('click', tzBuscarTrazabilidad);
+
+const TZ_ESTADO_INFO = {
+  alquilada:  { color:'var(--accent)', label:'Alquilada' },
+  disponible: { color:'var(--ok)',     label:'Disponible' },
+  vor:        { color:'#EF9F27',       label:'VOR' },
+  pdi:        { color:'#7F77DD',       label:'PDI' },
+  demo:       { color:'#D4537E',       label:'Demo' },
+};
+
+function tzRenderResultado(){
+  const d = tzDataCache;
+  document.getElementById('tz-titulo-equipo').textContent = `${d.equipo.modelo || ''} — N° ${d.equipo.numero_serie} (${fmtDate(d.desde)} → ${fmtDate(d.hasta)})`;
+  document.getElementById('tz-kpi-alquilada').textContent = `${d.kpis.diasAlquilada} d.`;
+  document.getElementById('tz-kpi-disponible').textContent = `${d.kpis.diasDisponible} d.`;
+  document.getElementById('tz-kpi-otros').textContent = `${d.kpis.diasOtros} d.`;
+  document.getElementById('tz-kpi-utilizacion').textContent = `${d.kpis.utilizacion}%`;
+  document.getElementById('tz-kpi-contratos').textContent = `${d.kpis.cantContratos} / ${d.kpis.cantClientes}`;
+  document.getElementById('tz-kpi-facturado').textContent = `${fmtMoney(d.kpis.facturadoUsd,'USD')} / ${fmtMoney(d.kpis.facturadoArs,'ARS')}`;
+
+  const cont = document.getElementById('tz-timeline');
+  cont.innerHTML = d.tramos.map(t=>{
+    const info = TZ_ESTADO_INFO[t.estado] || { color:'var(--muted)', label:t.estado };
+    const cliente = t.contratos?.clientes?.razon_social;
+    return `
+      <div style="display:flex;gap:12px;margin-bottom:2px;">
+        <div style="width:14px;display:flex;flex-direction:column;align-items:center;flex:none;">
+          <div style="width:12px;height:12px;border-radius:50%;background:${info.color};margin-top:4px;"></div>
+          <div style="flex:1;width:2px;background:var(--border);margin-top:2px;"></div>
+        </div>
+        <div class="panel" style="flex:1;padding:10px 14px;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+            <div style="font-weight:700;font-size:13px;color:${info.color};">${info.label}${t.vigente?' <span class="muted" style="font-weight:400;font-size:11px;">(vigente)</span>':''}</div>
+            <div class="muted" style="font-size:11.5px;">${fmtDate(t.desdeEfectivo)} → ${t.vigente ? 'hoy' : fmtDate(t.hastaEfectivo)}</div>
+          </div>
+          ${cliente ? `<div style="font-size:12.5px;margin-top:3px;">Cliente: <strong>${escapeHtml(cliente)}</strong>${t.contratos?.remito ? ` — Remito ${escapeHtml(t.contratos.remito)}` : ''}</div>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('tz-resultado').style.display = 'block';
+}
+
+document.getElementById('btn-tz-exportar-xls').addEventListener('click', ()=>{
+  const d = tzDataCache;
+  if(!d){ showToast('Buscá una trazabilidad primero', true); return; }
+  const wb = XLSX.utils.book_new();
+
+  const kpiHeaders = ['Métrica','Valor'];
+  const kpiRows = [
+    ['Máquina', `${d.equipo.modelo || ''} (N° ${d.equipo.numero_serie})`],
+    ['Período', `${fmtDate(d.desde)} → ${fmtDate(d.hasta)}`],
+    ['Días alquilada', d.kpis.diasAlquilada],
+    ['Días disponible', d.kpis.diasDisponible],
+    ['Días VOR/PDI/Demo', d.kpis.diasOtros],
+    ['% Utilización', `${d.kpis.utilizacion}%`],
+    ['Contratos', d.kpis.cantContratos],
+    ['Clientes distintos', d.kpis.cantClientes],
+    ['Facturado (USD)', d.kpis.facturadoUsd],
+    ['Facturado (ARS)', d.kpis.facturadoArs],
+  ];
+  const wsKpi = XLSX.utils.aoa_to_sheet([kpiHeaders, ...kpiRows]);
+  wsKpi['!cols'] = [{wch:22},{wch:30}];
+  XLSX.utils.book_append_sheet(wb, wsKpi, 'Resumen');
+
+  const tlHeaders = ['Estado','Desde','Hasta','Cliente','Remito'];
+  const tlRows = d.tramos.map(t=>[
+    (TZ_ESTADO_INFO[t.estado]||{}).label || t.estado,
+    fmtDate(t.desdeEfectivo),
+    t.vigente ? 'Vigente' : fmtDate(t.hastaEfectivo),
+    t.contratos?.clientes?.razon_social || '',
+    t.contratos?.remito || '',
+  ]);
+  const wsTl = XLSX.utils.aoa_to_sheet([tlHeaders, ...tlRows]);
+  wsTl['!cols'] = [{wch:14},{wch:14},{wch:14},{wch:30},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, wsTl, 'Línea de tiempo');
+
+  if(d.facturasDelPeriodo.length > 0){
+    const fHeaders = ['Cliente','N° Factura','Fecha','Moneda','Monto'];
+    const fRows = d.facturasDelPeriodo.map(p=>{
+      const esNC = esNotaDeCredito(p.numero_factura);
+      const moneda = p.valor_alquiler_usd ? 'USD' : 'ARS';
+      const monto = (moneda==='USD' ? Number(p.valor_alquiler_usd) : Number(p.potencial_facturacion)) * (esNC?-1:1);
+      return [p.contratos?.clientes?.razon_social || '', p.numero_factura || '', fmtDate(p.fecha_facturacion), moneda, monto];
+    });
+    const wsF = XLSX.utils.aoa_to_sheet([fHeaders, ...fRows]);
+    wsF['!cols'] = [{wch:30},{wch:18},{wch:14},{wch:10},{wch:16}];
+    XLSX.utils.book_append_sheet(wb, wsF, 'Facturación');
+  }
+
+  XLSX.writeFile(wb, `trazabilidad_${d.equipo.numero_serie}_${d.desde}_${d.hasta}.xlsx`);
+  showToast('Excel generado');
+});
+
+document.getElementById('btn-tz-exportar-pdf').addEventListener('click', ()=>{
+  const d = tzDataCache;
+  if(!d){ showToast('Buscá una trazabilidad primero', true); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const marginX = 16;
+  const bannerRatio = 406/2475;
+  const bannerH = pageWidth * bannerRatio;
+  let y = 15;
+
+  const nuevaPaginaSiNecesario = (alturaNecesaria)=>{
+    if(y > pageHeight - bannerH - alturaNecesaria){ doc.addPage(); y = 15; return true; }
+    return false;
+  };
+
+  try{ doc.addImage(LOGO_PDF_BASE64, 'PNG', marginX, y, 55, 11.3); } catch(e){ console.error(e); }
+  doc.setFont('helvetica','bold'); doc.setFontSize(14);
+  doc.text('TRAZABILIDAD DE MÁQUINA', pageWidth - marginX, y + 8, { align:'right' });
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90);
+  doc.text(`Generado: ${fmtDate(new Date().toISOString().slice(0,10))}`, pageWidth - marginX, y + 14, { align:'right' });
+  doc.setTextColor(0);
+  y += 24;
+  doc.setDrawColor(56,189,248); doc.setLineWidth(0.8);
+  doc.line(marginX, y, pageWidth - marginX, y);
+  y += 9;
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(13);
+  doc.text(`${d.equipo.modelo || ''} — N° ${d.equipo.numero_serie}`, marginX, y);
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90);
+  doc.text(`Período: ${fmtDate(d.desde)} → ${fmtDate(d.hasta)}`, marginX, y+6);
+  doc.setTextColor(0);
+  y += 14;
+
+  doc.autoTable({
+    startY: y,
+    body: [
+      ['Días alquilada', String(d.kpis.diasAlquilada), 'Días disponible', String(d.kpis.diasDisponible)],
+      ['Días VOR/PDI/Demo', String(d.kpis.diasOtros), '% Utilización', `${d.kpis.utilizacion}%`],
+      ['Contratos', String(d.kpis.cantContratos), 'Clientes distintos', String(d.kpis.cantClientes)],
+      ['Facturado (USD)', fmtMoney(d.kpis.facturadoUsd,'USD'), 'Facturado (ARS)', fmtMoney(d.kpis.facturadoArs,'ARS')],
+    ],
+    theme: 'grid',
+    styles: { fontSize: 9.5, cellPadding: 3 },
+    columnStyles: { 0:{fontStyle:'bold'}, 2:{fontStyle:'bold'} },
+    margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+  });
+  y = doc.lastAutoTable.finalY + 10;
+
+  nuevaPaginaSiNecesario(30);
+  doc.setFont('helvetica','bold'); doc.setFontSize(11.5);
+  doc.text('Línea de tiempo', marginX, y);
+  y += 5;
+  doc.autoTable({
+    startY: y,
+    head: [['Estado','Desde','Hasta','Cliente','Remito']],
+    body: d.tramos.map(t=>[
+      (TZ_ESTADO_INFO[t.estado]||{}).label || t.estado,
+      fmtDate(t.desdeEfectivo),
+      t.vigente ? 'Vigente' : fmtDate(t.hastaEfectivo),
+      t.contratos?.clientes?.razon_social || '—',
+      t.contratos?.remito || '—',
+    ]),
+    theme: 'grid',
+    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: [10,26,58], textColor: 255, fontStyle: 'bold' },
+    margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+  });
+  y = doc.lastAutoTable.finalY + 10;
+
+  if(d.facturasDelPeriodo.length > 0){
+    nuevaPaginaSiNecesario(30);
+    doc.setFont('helvetica','bold'); doc.setFontSize(11.5);
+    doc.text('Facturación del período', marginX, y);
+    y += 5;
+    doc.autoTable({
+      startY: y,
+      head: [['Cliente','N° Factura','Fecha','Monto']],
+      body: d.facturasDelPeriodo.map(p=>{
+        const esNC = esNotaDeCredito(p.numero_factura);
+        const moneda = p.valor_alquiler_usd ? 'USD' : 'ARS';
+        const monto = (moneda==='USD' ? Number(p.valor_alquiler_usd) : Number(p.potencial_facturacion)) * (esNC?-1:1);
+        return [p.contratos?.clientes?.razon_social || '—', p.numero_factura || '—', fmtDate(p.fecha_facturacion), fmtMoney(monto, moneda)];
+      }),
+      theme: 'grid',
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [56,189,248], textColor: 20, fontStyle: 'bold' },
+      margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+    });
+    y = doc.lastAutoTable.finalY + 4;
+  }
+
+  const totalPaginas = doc.internal.getNumberOfPages();
+  for(let i=1;i<=totalPaginas;i++){
+    doc.setPage(i);
+    try{ doc.addImage(FOOTER_BANNER_BASE64, 'JPEG', 0, pageHeight - bannerH, pageWidth, bannerH); } catch(e){ console.error(e); }
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(120);
+    doc.text(`Página ${i} de ${totalPaginas}`, pageWidth - marginX, pageHeight - bannerH - 4, { align:'right' });
+    doc.setTextColor(0);
+  }
+
+  doc.save(`trazabilidad_${d.equipo.numero_serie}_${d.desde}_${d.hasta}.pdf`);
+  showToast('PDF generado');
 });
 
 // MÓDULO PLANNING / UTILIZACIÓN DE FLOTA
