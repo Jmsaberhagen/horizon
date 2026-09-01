@@ -14760,7 +14760,11 @@ function aplicarEmpresa(empresa, opts){
   const nav = document.getElementById('main-nav');
   if(nav) nav.style.display = empresa === 'haulotte' ? 'none' : '';
 
-  if(forzarInicio && typeof activarTab === 'function') activarTab('inicio');
+  if(forzarInicio && typeof activarTab === 'function'){
+    dashCategoriaActual = null; // al cambiar de empresa, siempre arrancamos desde las categorías
+    activarTab('inicio');
+    if(typeof renderDashboard === 'function') renderDashboard(); // activarTab NO refresca las cards por sí solo
+  }
 }
 document.querySelectorAll('#empresa-switch button').forEach(btn=>{
   btn.addEventListener('click', ()=> aplicarEmpresa(btn.dataset.empresa, { forzarInicio:true }));
