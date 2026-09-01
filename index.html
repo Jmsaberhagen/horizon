@@ -2061,6 +2061,26 @@
         </div>
       </div>
 
+      <div class="panel" id="fin-comparador" style="display:none;padding:16px;margin-bottom:24px;">
+        <div id="fin-cmp-header" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <div>
+            <div style="font-weight:700;font-size:14px;margin-bottom:2px;">📊 Comparador mes vs. mes</div>
+            <div class="muted" style="font-size:11.5px;">Elegí dos meses para ver qué cuenta se disparó (o bajó) entre uno y otro.</div>
+          </div>
+          <div class="muted" id="fin-cmp-toggle-hint" style="font-size:12px;white-space:nowrap;">▸ desplegar</div>
+        </div>
+        <div id="fin-cmp-body" style="display:none;margin-top:12px;">
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <select id="fin-cmp-mes-a"></select>
+            <span class="muted">vs.</span>
+            <select id="fin-cmp-mes-b"></select>
+            <div style="flex:1"></div>
+            <button type="button" class="btn secondary" id="btn-fin-cmp-pdf">📄 Descargar PDF del comparativo</button>
+          </div>
+          <div id="fin-cmp-resultado"></div>
+        </div>
+      </div>
+
       <div class="muted" style="font-size:11px;margin-bottom:8px;">
         Estado de Resultados mes a mes. Hacé clic en un mes para ver el detalle por cuenta.
       </div>
@@ -8542,6 +8562,19 @@ function finRenderResultados(){
     });
   });
 
+  // ---------- Comparador mes vs. mes ----------
+  const selA = document.getElementById('fin-cmp-mes-a');
+  const selB = document.getElementById('fin-cmp-mes-b');
+  const opciones = d.mesesOrdenados.map(k=>`<option value="${k}">${escapeHtml(mesLabel(k))}</option>`).join('');
+  selA.innerHTML = opciones;
+  selB.innerHTML = opciones;
+  if(d.mesesOrdenados.length >= 2){
+    selA.value = d.mesesOrdenados[d.mesesOrdenados.length - 2];
+    selB.value = d.mesesOrdenados[d.mesesOrdenados.length - 1];
+  }
+  document.getElementById('fin-comparador').style.display = d.mesesOrdenados.length >= 2 ? 'block' : 'none';
+  finRenderComparador();
+
   // ---------- Ranking de gastos ----------
   const maxGasto = Math.max(1, ...d.rankingGastos.map(r=>r.monto));
   const rankCont = document.getElementById('fin-ranking-container');
@@ -8586,6 +8619,208 @@ function finRenderResultados(){
     });
   });
 }
+
+function finRenderComparador(){
+  const d = finDataCache;
+  if(!d) return;
+  const selA = document.getElementById('fin-cmp-mes-a');
+  const selB = document.getElementById('fin-cmp-mes-b');
+  const keyA = selA.value, keyB = selB.value;
+  const cont = document.getElementById('fin-cmp-resultado');
+  if(!keyA || !keyB || keyA === keyB){
+    cont.innerHTML = keyA === keyB && keyA
+      ? '<div class="muted" style="padding:12px;">Elegí dos meses distintos para comparar.</div>'
+      : '';
+    return;
+  }
+
+  const mA = d.porMes[keyA] || { ingresos:0, costos:0, gastos:0, cuentas:{} };
+  const mB = d.porMes[keyB] || { ingresos:0, costos:0, gastos:0, cuentas:{} };
+  const codigosA = new Set(Object.keys(mA.cuentas));
+  const codigosB = new Set(Object.keys(mB.cuentas));
+  const todosCodigos = new Set([...codigosA, ...codigosB]);
+
+  const filas = [...todosCodigos].map(codigo=>{
+    const cA = mA.cuentas[codigo];
+    const cB = mB.cuentas[codigo];
+    const montoA = cA ? cA.monto : 0;
+    const montoB = cB ? cB.monto : 0;
+    const diff = montoB - montoA;
+    const pctDiff = montoA !== 0 ? (diff/Math.abs(montoA))*100 : (montoB!==0 ? 100 : 0);
+    let estado;
+    if(!codigosA.has(codigo)) estado = 'Nueva';
+    else if(!codigosB.has(codigo)) estado = 'Desapareció';
+    else estado = 'Continúa';
+    return {
+      codigo, descripcion: (cB||cA).descripcion, categoria: (cB||cA).categoria,
+      montoA, montoB, diff, pctDiff, estado,
+    };
+  }).sort((a,b)=> Math.abs(b.diff) - Math.abs(a.diff));
+
+  const egresosA = mA.costos + mA.gastos, egresosB = mB.costos + mB.gastos;
+  const resultadoA = mA.ingresos - egresosA, resultadoB = mB.ingresos - egresosB;
+  const labelA = mesLabel(keyA), labelB = mesLabel(keyB);
+
+  cont.innerHTML = `
+    <div class="dash-grid" style="grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); margin:14px 0;">
+      <div class="panel" style="padding:12px;">
+        <div class="muted" style="font-size:10.5px;text-transform:uppercase;">Ingresos ${escapeHtml(labelA)} → ${escapeHtml(labelB)}</div>
+        <div style="font-size:13px;font-weight:700;margin-top:2px;">${fmtMoney(mA.ingresos,'ARS')} → ${fmtMoney(mB.ingresos,'ARS')}</div>
+      </div>
+      <div class="panel" style="padding:12px;">
+        <div class="muted" style="font-size:10.5px;text-transform:uppercase;">Egresos ${escapeHtml(labelA)} → ${escapeHtml(labelB)}</div>
+        <div style="font-size:13px;font-weight:700;margin-top:2px;">${fmtMoney(egresosA,'ARS')} → ${fmtMoney(egresosB,'ARS')}</div>
+      </div>
+      <div class="panel" style="padding:12px;">
+        <div class="muted" style="font-size:10.5px;text-transform:uppercase;">Resultado ${escapeHtml(labelA)} → ${escapeHtml(labelB)}</div>
+        <div style="font-size:13px;font-weight:700;margin-top:2px;color:${resultadoB-resultadoA>=0?'var(--ok)':'var(--danger)'};">${fmtMoney(resultadoA,'ARS')} → ${fmtMoney(resultadoB,'ARS')}</div>
+      </div>
+    </div>
+
+    <div style="overflow-x:auto;">
+      <table style="width:100%;font-size:12px;border-collapse:collapse;">
+        <thead>
+          <tr style="text-align:left;color:var(--muted);">
+            <th style="padding:6px 8px;">Cuenta</th>
+            <th style="padding:6px 8px;">Categoría</th>
+            <th style="padding:6px 8px;">Estado</th>
+            <th style="padding:6px 8px;text-align:right;">${escapeHtml(labelA)}</th>
+            <th style="padding:6px 8px;text-align:right;">${escapeHtml(labelB)}</th>
+            <th style="padding:6px 8px;text-align:right;">Diferencia</th>
+            <th style="padding:6px 8px;text-align:right;">%</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${filas.slice(0, 60).map(f=>{
+            const badge = f.estado === 'Nueva'
+              ? '<span class="badge" style="color:var(--ok);border-color:var(--ok);">Nueva</span>'
+              : (f.estado === 'Desapareció'
+                ? '<span class="badge" style="color:var(--danger);border-color:var(--danger);">Desapareció</span>'
+                : '<span class="badge">Continúa</span>');
+            // Para gastos/costos, que la cuenta suba (diff>0) es negativo (rojo); para ingresos, que suba es positivo (verde).
+            const esGasto = f.categoria !== 'ingresos';
+            const colorDiff = (esGasto ? f.diff <= 0 : f.diff >= 0) ? 'var(--ok)' : 'var(--danger)';
+            return `
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:5px 8px;font-weight:600;">${escapeHtml(f.descripcion)} <span class="muted">(${f.codigo})</span></td>
+                <td style="padding:5px 8px;" class="muted">${f.categoria === 'ingresos' ? 'Ingreso' : f.categoria === 'costos' ? 'Costo' : 'Gasto'}</td>
+                <td style="padding:5px 8px;">${badge}</td>
+                <td style="padding:5px 8px;text-align:right;" class="muted">${f.montoA ? fmtMoney(f.montoA,'ARS') : '—'}</td>
+                <td style="padding:5px 8px;text-align:right;" class="muted">${f.montoB ? fmtMoney(f.montoB,'ARS') : '—'}</td>
+                <td style="padding:5px 8px;text-align:right;font-weight:600;color:${colorDiff};">${f.diff>=0?'+':''}${fmtMoney(f.diff,'ARS')}</td>
+                <td style="padding:5px 8px;text-align:right;" class="muted">${f.montoA!==0 ? (f.pctDiff>=0?'+':'')+f.pctDiff.toFixed(1)+'%' : '—'}</td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+document.getElementById('fin-cmp-mes-a').addEventListener('change', finRenderComparador);
+document.getElementById('fin-cmp-mes-b').addEventListener('change', finRenderComparador);
+document.getElementById('fin-cmp-header').addEventListener('click', ()=>{
+  const body = document.getElementById('fin-cmp-body');
+  const hint = document.getElementById('fin-cmp-toggle-hint');
+  const abierto = body.style.display !== 'none';
+  body.style.display = abierto ? 'none' : 'block';
+  hint.textContent = abierto ? '▸ desplegar' : '▾ contraer';
+});
+
+document.getElementById('btn-fin-cmp-pdf').addEventListener('click', ()=>{
+  const d = finDataCache;
+  if(!d) return;
+  const selA = document.getElementById('fin-cmp-mes-a');
+  const selB = document.getElementById('fin-cmp-mes-b');
+  const keyA = selA.value, keyB = selB.value;
+  if(!keyA || !keyB || keyA === keyB){ showToast('Elegí dos meses distintos para comparar', true); return; }
+
+  const mA = d.porMes[keyA] || { ingresos:0, costos:0, gastos:0, cuentas:{} };
+  const mB = d.porMes[keyB] || { ingresos:0, costos:0, gastos:0, cuentas:{} };
+  const codigosA = new Set(Object.keys(mA.cuentas));
+  const codigosB = new Set(Object.keys(mB.cuentas));
+  const todosCodigos = new Set([...codigosA, ...codigosB]);
+  const filas = [...todosCodigos].map(codigo=>{
+    const cA = mA.cuentas[codigo], cB = mB.cuentas[codigo];
+    const montoA = cA ? cA.monto : 0, montoB = cB ? cB.monto : 0;
+    const diff = montoB - montoA;
+    const pctDiff = montoA !== 0 ? (diff/Math.abs(montoA))*100 : (montoB!==0 ? 100 : 0);
+    let estado = !codigosA.has(codigo) ? 'Nueva' : (!codigosB.has(codigo) ? 'Desapareció' : 'Continúa');
+    return { codigo, descripcion:(cB||cA).descripcion, categoria:(cB||cA).categoria, montoA, montoB, diff, pctDiff, estado };
+  }).sort((a,b)=> Math.abs(b.diff) - Math.abs(a.diff));
+
+  const egresosA = mA.costos + mA.gastos, egresosB = mB.costos + mB.gastos;
+  const labelA = mesLabel(keyA), labelB = mesLabel(keyB);
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const marginX = 16;
+  const bannerRatio = 406/2475;
+  const bannerH = pageWidth * bannerRatio;
+  let y = 15;
+
+  try{ doc.addImage(LOGO_PDF_BASE64, 'PNG', marginX, y, 55, 11.3); } catch(e){ console.error(e); }
+  doc.setFont('helvetica','bold'); doc.setFontSize(14);
+  doc.text('COMPARATIVO FINANCIERO', pageWidth - marginX, y + 8, { align:'right' });
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90);
+  doc.text(`Generado: ${fmtDate(new Date().toISOString().slice(0,10))}`, pageWidth - marginX, y + 14, { align:'right' });
+  doc.setTextColor(0);
+  y += 24;
+  doc.setDrawColor(56,189,248); doc.setLineWidth(0.8);
+  doc.line(marginX, y, pageWidth - marginX, y);
+  y += 9;
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(13);
+  doc.text(`${labelA}  vs.  ${labelB}`, marginX, y);
+  y += 10;
+
+  doc.autoTable({
+    startY: y,
+    body: [
+      ['Ingresos', fmtMoney(mA.ingresos,'ARS'), '→', fmtMoney(mB.ingresos,'ARS')],
+      ['Egresos', fmtMoney(egresosA,'ARS'), '→', fmtMoney(egresosB,'ARS')],
+      ['Resultado', fmtMoney(mA.ingresos-egresosA,'ARS'), '→', fmtMoney(mB.ingresos-egresosB,'ARS')],
+    ],
+    theme: 'grid',
+    styles: { fontSize: 9.5, cellPadding: 3 },
+    columnStyles: { 0:{fontStyle:'bold'} },
+    margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+  });
+  y = doc.lastAutoTable.finalY + 10;
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(11.5);
+  doc.text('Detalle por cuenta (ordenado por mayor variación)', marginX, y);
+  y += 5;
+  doc.autoTable({
+    startY: y,
+    head: [['Cuenta','Categoría','Estado',labelA,labelB,'Diferencia','%']],
+    body: filas.slice(0,60).map(f=>[
+      `${f.descripcion} (${f.codigo})`, f.categoria === 'ingresos' ? 'Ingreso' : f.categoria === 'costos' ? 'Costo' : 'Gasto', f.estado,
+      f.montoA ? fmtMoney(f.montoA,'ARS') : '—',
+      f.montoB ? fmtMoney(f.montoB,'ARS') : '—',
+      `${f.diff>=0?'+':''}${fmtMoney(f.diff,'ARS')}`,
+      f.montoA!==0 ? `${f.pctDiff>=0?'+':''}${f.pctDiff.toFixed(1)}%` : '—',
+    ]),
+    theme: 'grid',
+    styles: { fontSize: 7.2, cellPadding: 1.6 },
+    headStyles: { fillColor: [10,26,58], textColor: 255, fontStyle: 'bold', fontSize: 7.5 },
+    margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+  });
+  y = doc.lastAutoTable.finalY + 4;
+
+  const totalPaginas = doc.internal.getNumberOfPages();
+  for(let i=1;i<=totalPaginas;i++){
+    doc.setPage(i);
+    try{ doc.addImage(FOOTER_BANNER_BASE64, 'JPEG', 0, pageHeight - bannerH, pageWidth, bannerH); } catch(e){ console.error(e); }
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(120);
+    doc.text(`Página ${i} de ${totalPaginas}`, pageWidth - marginX, pageHeight - bannerH - 4, { align:'right' });
+    doc.setTextColor(0);
+  }
+
+  doc.save(`comparativo_financiero_${keyA}_vs_${keyB}.pdf`);
+  showToast('PDF generado');
+});
 
 function finMostrarError(msg){
   const el = document.getElementById('fin-error');
@@ -8686,6 +8921,24 @@ document.getElementById('btn-fin-exportar-xls').addEventListener('click', ()=>{
   const wsRk = XLSX.utils.aoa_to_sheet([rkHeaders, ...rkRows]);
   wsRk['!cols'] = [{wch:14},{wch:38},{wch:12},{wch:16},{wch:12}];
   XLSX.utils.book_append_sheet(wb, wsRk, 'Ranking de Gastos');
+
+  // Hoja 3b: Evolución mensual por cuenta (pivot) — para armar el comparativo mes vs mes en Excel
+  const cuentasTodas = {}; // codigo -> {descripcion, categoria}
+  d.mesesOrdenados.forEach(key=>{
+    Object.entries(d.porMes[key].cuentas).forEach(([codigo, c])=>{
+      if(!cuentasTodas[codigo]) cuentasTodas[codigo] = { descripcion:c.descripcion, categoria:c.categoria };
+    });
+  });
+  const pivHeaders = ['Código','Cuenta','Categoría', ...d.mesesOrdenados.map(k=>mesLabel(k))];
+  const pivRows = Object.entries(cuentasTodas)
+    .sort((a,b)=> a[0].localeCompare(b[0]))
+    .map(([codigo, meta])=>{
+      const valores = d.mesesOrdenados.map(key=> d.porMes[key].cuentas[codigo]?.monto || 0);
+      return [codigo, meta.descripcion, meta.categoria === 'ingresos' ? 'Ingreso' : meta.categoria === 'costos' ? 'Costo' : 'Gasto', ...valores];
+    });
+  const wsPiv = XLSX.utils.aoa_to_sheet([pivHeaders, ...pivRows]);
+  wsPiv['!cols'] = [{wch:14},{wch:38},{wch:12}, ...d.mesesOrdenados.map(()=>({wch:16}))];
+  XLSX.utils.book_append_sheet(wb, wsPiv, 'Evolución mensual por cuenta');
 
   // Hoja 4: Detalle de movimientos (cuentas de resultado, formato largo)
   const detHeaders = ['Mes','Código','Cuenta','Categoría','Fecha','Asiento','Referencia','Debe','Haber'];
