@@ -797,6 +797,7 @@
   <button data-tab="pendientes">Pendientes de Facturación</button>
   <button data-tab="reportes">Reportes</button>
   <button data-tab="resumenerp">Resumen ERP</button>
+  <button data-tab="analisisfinanciero">Análisis Financiero</button>
   <button data-tab="cuentacliente">Cuenta Cliente</button>
   <button data-tab="enviofacturas">Envío de Facturas</button>
   <button data-tab="planning">Planning</button>
@@ -2008,6 +2009,68 @@
         Facturado mes a mes (ARS). Hacé clic en un mes para ver el detalle agrupado por cliente; hacé clic en un cliente para ver sus comprobantes.
       </div>
       <div id="rerp-meses-container"></div>
+
+    </div>
+  </section>
+
+  <section id="tab-analisisfinanciero" style="display:none;">
+
+    <div id="fin-dropzone" style="border:2px dashed var(--border);border-radius:12px;padding:36px 20px;text-align:center;cursor:pointer;transition:border-color .15s, background .15s;margin-bottom:20px;">
+      <div style="font-size:34px;line-height:1;margin-bottom:10px;">📈</div>
+      <div style="font-weight:600;font-size:15px;">Arrastrá acá el Reporte de Mayores del ERP</div>
+      <div class="muted" style="font-size:12px;margin-top:6px;">"reportemayor_funcional" (.xls / .xlsx) — o hacé clic para elegir el archivo</div>
+      <input type="file" id="fin-file-input" accept=".xls,.xlsx" style="display:none;">
+    </div>
+    <div id="fin-error" class="muted" style="display:none;color:var(--danger, #ef4444);margin:-12px 0 16px 0;font-size:13px;"></div>
+
+    <div id="fin-resultados" style="display:none;">
+
+      <div class="toolbar" style="justify-content:space-between;">
+        <div class="muted" id="fin-archivo-info" style="font-size:12px;"></div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn secondary" id="btn-fin-nuevo">🔄 Cargar otro archivo</button>
+          <button class="btn secondary" id="btn-fin-exportar-xls">📊 Exportar Excel</button>
+          <button class="btn secondary" id="btn-fin-exportar-pdf">📄 Exportar PDF</button>
+        </div>
+      </div>
+
+      <div class="dash-grid" style="grid-template-columns:repeat(auto-fill, minmax(170px, 1fr)); margin-bottom:24px;">
+        <div class="panel" style="padding:16px;">
+          <div class="muted" style="font-size:11px;text-transform:uppercase;">Ingresos</div>
+          <div id="fin-kpi-ingresos" style="font-size:19px;font-weight:700;color:var(--ok);margin-top:4px;">$ 0</div>
+        </div>
+        <div class="panel" style="padding:16px;">
+          <div class="muted" style="font-size:11px;text-transform:uppercase;">Costo de Ventas</div>
+          <div id="fin-kpi-costos" style="font-size:19px;font-weight:700;color:var(--warn);margin-top:4px;">$ 0</div>
+        </div>
+        <div class="panel" style="padding:16px;">
+          <div class="muted" style="font-size:11px;text-transform:uppercase;">Gastos Operativos</div>
+          <div id="fin-kpi-gastos" style="font-size:19px;font-weight:700;color:var(--danger);margin-top:4px;">$ 0</div>
+        </div>
+        <div class="panel" style="padding:16px;">
+          <div class="muted" style="font-size:11px;text-transform:uppercase;">Resultado Neto</div>
+          <div id="fin-kpi-resultado" style="font-size:19px;font-weight:700;margin-top:4px;">$ 0</div>
+        </div>
+        <div class="panel" style="padding:16px;">
+          <div class="muted" style="font-size:11px;text-transform:uppercase;">Margen</div>
+          <div id="fin-kpi-margen" style="font-size:19px;font-weight:700;margin-top:4px;">0%</div>
+        </div>
+        <div class="panel" style="padding:16px;">
+          <div class="muted" style="font-size:11px;text-transform:uppercase;">Período</div>
+          <div id="fin-periodo" style="font-size:14px;font-weight:600;margin-top:6px;">—</div>
+        </div>
+      </div>
+
+      <div class="muted" style="font-size:11px;margin-bottom:8px;">
+        Estado de Resultados mes a mes. Hacé clic en un mes para ver el detalle por cuenta.
+      </div>
+      <div id="fin-meses-container" style="margin-bottom:26px;"></div>
+
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px;">🏆 Ranking de Gastos y Costos</div>
+      <div class="muted" style="font-size:11px;margin-bottom:8px;">
+        Todas las cuentas de gasto y costo del período, ordenadas de mayor a menor. Hacé clic en una para ver sus movimientos.
+      </div>
+      <div id="fin-ranking-container"></div>
 
     </div>
   </section>
@@ -3586,6 +3649,7 @@ const TAB_TITLES = {
   usuarios: 'Usuarios',
   reportes: 'Reportes',
   resumenerp: 'Resumen de Alquileres (ERP)',
+  analisisfinanciero: 'Análisis Financiero',
   cuentacliente: 'Cuenta Cliente',
   enviofacturas: 'Envío de Facturas',
   planning: 'Planning',
@@ -5830,6 +5894,7 @@ const SECCIONES_PERMISOS = [
   { key:'solicitudoc',   label:'Solicitud de OC',   acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['anular','Anular']] },
   { key:'editorobs',          label:'Editor de Observaciones', acciones:[['ver','Ver / usar']] },
   { key:'resumenerp',         label:'Resumen de Alquileres (ERP)', acciones:[['ver','Ver / usar']] },
+  { key:'analisisfinanciero', label:'Análisis Financiero',        acciones:[['ver','Ver / usar']] },
   { key:'panoramacobranzas',  label:'Panorama de Cobranzas',   acciones:[['ver','Ver / usar']] },
   { key:'panoramaproveedores', label:'Panorama de Deuda a Proveedores', acciones:[['ver','Ver / usar']] },
   { key:'datos_bancarios', label:'Datos Bancarios de Proveedores', acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
@@ -6210,6 +6275,7 @@ function renderDashboard(){
     { key:'herramientas', titulo:'Herramientas', icon:'🛠️', tiles:[
       { tab:'editorobs', icon:'✏️', title:'Editor de Observaciones', count: '', visible:puede('editorobs','ver'), urgencia:null },
       { tab:'resumenerp', icon:'📥', title:'Resumen de Alquileres (ERP)', count:'Importar Excel de GP', visible:puede('resumenerp','ver'), urgencia:null },
+      { tab:'analisisfinanciero', icon:'📈', title:'Análisis Financiero', count:'Importar Mayor de GP', visible:puede('analisisfinanciero','ver'), urgencia:null },
       { tab:'reportes',   icon:'📊', title:'Reportes',   count:'Mora y facturación', visible:puede('reportes','ver'), urgencia:null },
       { tab:'enviofacturas', icon:'📧', title:'Envío de Facturas', count: puede('enviofacturas','ver') ? `${nFacturasSinEnviar} sin enviar` : '', visible:puede('enviofacturas','ver'), urgencia: nFacturasSinEnviar>0 ? 'warn' : 'ok' },
     ]},
@@ -8286,6 +8352,456 @@ document.getElementById('btn-rerp-exportar').addEventListener('click', ()=>{
 
   XLSX.writeFile(wb, `resumen_alquileres_erp_${new Date().toISOString().slice(0,10)}.xlsx`);
   showToast('Excel generado');
+});
+
+// =========================================================
+// MÓDULO ANÁLISIS FINANCIERO (Mayor contable del ERP)
+// =========================================================
+// Reglas de negocio:
+//  - El "Reporte de Mayores Funcional" del ERP ya viene consolidado en PESOS ARGENTINOS
+//    (moneda funcional) — no hay mezcla de monedas a resolver acá, a diferencia de otros módulos.
+//  - Ingresos: aumentan con Haber, disminuyen con Debe -> monto = Haber - Debe
+//  - Costos/Gastos: aumentan con Debe, disminuyen con Haber -> monto = Debe - Haber
+//  - Clasificación por prefijo del código de cuenta (plan de cuentas estándar Horizon):
+//      10-15: Activo | 20-28: Pasivo/Patrimonio | 30,38,39: Ingresos | 40,47,48: Costos | 50-99: Gastos
+
+let finDataCache = null;
+
+function finClasificarCuenta(codigo){
+  const prefijo = parseInt((codigo||'').split('-')[0], 10);
+  if(prefijo >= 10 && prefijo <= 15) return 'activo';
+  if([20,21,24,25,26,28].includes(prefijo)) return 'pasivo_patrimonio';
+  if([30,38,39].includes(prefijo)) return 'ingresos';
+  if([40,47,48].includes(prefijo)) return 'costos';
+  if(prefijo >= 50 && prefijo <= 99) return 'gastos';
+  return 'otros';
+}
+
+function finParsearWorkbook(wb){
+  const nombreHoja = wb.SheetNames[0];
+  const ws = wb.Sheets[nombreHoja];
+  const filasCrudo = XLSX.utils.sheet_to_json(ws, { header:1, raw:true, defval:null });
+
+  const cuentas = []; // { codigo, descripcion, categoria, saldoInicial, movimientos:[{fecha,asiento,referencia,debe,haber,saldo}] }
+  let actual = null;
+
+  filasCrudo.forEach(fila=>{
+    if(!fila || fila.every(c=>c===null || c==='')) return;
+    if(fila[0] === 'Cuenta Nº:'){
+      const codigo = String(fila[1]||'').trim();
+      const descripcion = String(fila[3]||'').trim();
+      actual = {
+        codigo, descripcion, categoria: finClasificarCuenta(codigo),
+        saldoInicial: Number(fila[11]) || 0,
+        movimientos: [],
+      };
+      cuentas.push(actual);
+      return;
+    }
+    if(!actual) return;
+    const fecha = fila[0];
+    if(!(fecha instanceof Date)) return; // fila de movimiento real siempre arranca con fecha
+    actual.movimientos.push({
+      fecha,
+      asiento: fila[1],
+      referencia: fila[2] || '',
+      debe: Number(fila[3]) || 0,
+      haber: Number(fila[4]) || 0,
+      saldo: Number(fila[5]) || 0,
+    });
+  });
+
+  if(cuentas.length === 0){
+    throw new Error('No se encontraron cuentas (¿es el archivo correcto? Debe tener filas "Cuenta Nº:").');
+  }
+  return cuentas;
+}
+
+function finArmarResumen(cuentas){
+  // porMes[key] = { ingresos, costos, gastos, cuentas:{codigo:{descripcion,categoria,monto,movimientos:[]}} }
+  const porMes = {};
+  let fechaMin = null, fechaMax = null;
+  let totalIngresos = 0, totalCostos = 0, totalGastos = 0;
+  const rankingGastos = {}; // codigo -> { descripcion, categoria, monto, movimientos:[] }
+
+  cuentas.forEach(cuenta=>{
+    if(!['ingresos','costos','gastos'].includes(cuenta.categoria)) return;
+    cuenta.movimientos.forEach(mov=>{
+      const key = mov.fecha.toISOString().slice(0,7);
+      if(!porMes[key]) porMes[key] = { ingresos:0, costos:0, gastos:0, cuentas:{} };
+      const m = porMes[key];
+
+      const montoReal = cuenta.categoria === 'ingresos' ? (mov.haber - mov.debe) : (mov.debe - mov.haber);
+
+      if(cuenta.categoria === 'ingresos'){ m.ingresos += montoReal; totalIngresos += montoReal; }
+      else if(cuenta.categoria === 'costos'){ m.costos += montoReal; totalCostos += montoReal; }
+      else { m.gastos += montoReal; totalGastos += montoReal; }
+
+      if(!m.cuentas[cuenta.codigo]) m.cuentas[cuenta.codigo] = { descripcion:cuenta.descripcion, categoria:cuenta.categoria, monto:0, movimientos:[] };
+      m.cuentas[cuenta.codigo].monto += montoReal;
+      m.cuentas[cuenta.codigo].movimientos.push(mov);
+
+      if(cuenta.categoria === 'costos' || cuenta.categoria === 'gastos'){
+        if(!rankingGastos[cuenta.codigo]) rankingGastos[cuenta.codigo] = { descripcion:cuenta.descripcion, categoria:cuenta.categoria, monto:0, movimientos:[] };
+        rankingGastos[cuenta.codigo].monto += montoReal;
+        rankingGastos[cuenta.codigo].movimientos.push({ ...mov, mes:key });
+      }
+
+      if(!fechaMin || mov.fecha < fechaMin) fechaMin = mov.fecha;
+      if(!fechaMax || mov.fecha > fechaMax) fechaMax = mov.fecha;
+    });
+  });
+
+  const mesesOrdenados = Object.keys(porMes).sort();
+  const rankingOrdenado = Object.entries(rankingGastos)
+    .map(([codigo, v])=>({ codigo, ...v }))
+    .sort((a,b)=> b.monto - a.monto);
+  const totalGastosYCostos = totalCostos + totalGastos;
+
+  return {
+    cuentas, porMes, mesesOrdenados, fechaMin, fechaMax,
+    totalIngresos, totalCostos, totalGastos, totalGastosYCostos,
+    resultadoNeto: totalIngresos - totalCostos - totalGastos,
+    rankingGastos: rankingOrdenado,
+  };
+}
+
+function finRenderResultados(){
+  const d = finDataCache;
+  if(!d) return;
+
+  document.getElementById('fin-kpi-ingresos').textContent = fmtMoney(d.totalIngresos,'ARS');
+  document.getElementById('fin-kpi-costos').textContent = fmtMoney(d.totalCostos,'ARS');
+  document.getElementById('fin-kpi-gastos').textContent = fmtMoney(d.totalGastos,'ARS');
+  const elResultado = document.getElementById('fin-kpi-resultado');
+  elResultado.textContent = fmtMoney(d.resultadoNeto,'ARS');
+  elResultado.style.color = d.resultadoNeto >= 0 ? 'var(--ok)' : 'var(--danger)';
+  const margen = d.totalIngresos !== 0 ? (d.resultadoNeto / d.totalIngresos * 100) : 0;
+  const elMargen = document.getElementById('fin-kpi-margen');
+  elMargen.textContent = `${margen.toFixed(1)}%`;
+  elMargen.style.color = margen >= 0 ? 'var(--ok)' : 'var(--danger)';
+  document.getElementById('fin-periodo').textContent = (d.fechaMin && d.fechaMax)
+    ? `${fmtDate(d.fechaMin.toISOString().slice(0,10))} → ${fmtDate(d.fechaMax.toISOString().slice(0,10))}`
+    : '—';
+
+  // ---------- Estado de resultados mensual ----------
+  const maxAbs = Math.max(1, ...d.mesesOrdenados.map(k=> Math.max(d.porMes[k].ingresos, d.porMes[k].costos + d.porMes[k].gastos)));
+  const cont = document.getElementById('fin-meses-container');
+  cont.innerHTML = d.mesesOrdenados.map(key=>{
+    const m = d.porMes[key];
+    const egresos = m.costos + m.gastos;
+    const resultado = m.ingresos - egresos;
+    const pctIng = Math.round(m.ingresos / maxAbs * 100);
+    const pctEgr = Math.round(egresos / maxAbs * 100);
+    const cuentasDelMes = Object.entries(m.cuentas).sort((a,b)=> Math.abs(b[1].monto) - Math.abs(a[1].monto));
+
+    return `
+      <div class="panel fin-mes-row" style="padding:12px 16px;margin-bottom:8px;">
+        <div class="fin-mes-header" data-mes-key="${key}" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+          <div style="font-weight:600;min-width:110px;">${mesLabel(key)}</div>
+          <div class="muted" style="font-size:11px;">${cuentasDelMes.length} cuenta(s) con movimiento</div>
+          <div style="font-weight:700;font-size:13px;color:${resultado>=0?'var(--ok)':'var(--danger)'};">Resultado: ${fmtMoney(resultado,'ARS')}</div>
+          <div style="font-size:11px;" class="fin-toggle-hint muted">▸ ver detalle</div>
+        </div>
+        <div style="display:grid;grid-template-columns:70px 1fr 130px;align-items:center;gap:8px;margin-top:8px;">
+          <div class="muted" style="font-size:11px;">Ingresos</div>
+          <div style="background:var(--bg2, rgba(255,255,255,0.05));border-radius:4px;height:14px;overflow:hidden;"><div style="height:100%;width:${pctIng}%;background:var(--ok);border-radius:4px;"></div></div>
+          <div style="font-size:12px;font-weight:600;text-align:right;color:var(--ok);">${fmtMoney(m.ingresos,'ARS')}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:70px 1fr 130px;align-items:center;gap:8px;margin-top:4px;">
+          <div class="muted" style="font-size:11px;">Egresos</div>
+          <div style="background:var(--bg2, rgba(255,255,255,0.05));border-radius:4px;height:14px;overflow:hidden;"><div style="height:100%;width:${pctEgr}%;background:var(--danger);border-radius:4px;"></div></div>
+          <div style="font-size:12px;font-weight:600;text-align:right;color:var(--danger);">${fmtMoney(egresos,'ARS')}</div>
+        </div>
+        <div class="fin-mes-detalle" id="fin-detalle-${key}" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:10px;overflow-x:auto;">
+          <table style="width:100%;font-size:11.5px;border-collapse:collapse;">
+            <thead><tr style="text-align:left;color:var(--muted);">
+              <th style="padding:4px 6px;">Cuenta</th><th style="padding:4px 6px;">Categoría</th><th style="padding:4px 6px;text-align:right;">Monto</th>
+            </tr></thead>
+            <tbody>
+              ${cuentasDelMes.map(([codigo, c])=>`
+                <tr style="border-top:1px solid var(--border);">
+                  <td style="padding:4px 6px;">${escapeHtml(c.descripcion)} <span class="muted">(${codigo})</span></td>
+                  <td style="padding:4px 6px;" class="muted">${c.categoria === 'ingresos' ? 'Ingreso' : c.categoria === 'costos' ? 'Costo' : 'Gasto'}</td>
+                  <td style="padding:4px 6px;text-align:right;font-weight:600;color:${c.categoria==='ingresos'?'var(--ok)':'var(--danger)'};">${fmtMoney(c.monto,'ARS')}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  }).join('');
+
+  cont.querySelectorAll('.fin-mes-header').forEach(row=>{
+    row.addEventListener('click', ()=>{
+      const key = row.dataset.mesKey;
+      const det = document.getElementById(`fin-detalle-${key}`);
+      const hint = row.querySelector('.fin-toggle-hint');
+      const abierto = det.style.display !== 'none';
+      det.style.display = abierto ? 'none' : 'block';
+      if(hint) hint.textContent = abierto ? '▸ ver detalle' : '▾ ocultar detalle';
+    });
+  });
+
+  // ---------- Ranking de gastos ----------
+  const maxGasto = Math.max(1, ...d.rankingGastos.map(r=>r.monto));
+  const rankCont = document.getElementById('fin-ranking-container');
+  rankCont.innerHTML = d.rankingGastos.slice(0, 30).map(r=>{
+    const pct = Math.round(r.monto / maxGasto * 100);
+    const pctDelTotal = d.totalGastosYCostos !== 0 ? (r.monto / d.totalGastosYCostos * 100) : 0;
+    const rid = `fin-rank-${r.codigo}`.replace(/[^a-z0-9_-]+/gi,'_');
+    return `
+      <div class="panel fin-rank-row" style="padding:10px 14px;margin-bottom:6px;">
+        <div class="fin-rank-header" data-rank-id="${rid}" style="cursor:pointer;display:grid;grid-template-columns:1fr 1fr 110px 60px;align-items:center;gap:10px;">
+          <div style="font-size:12.5px;">${escapeHtml(r.descripcion)} <span class="muted">(${r.codigo})</span></div>
+          <div style="background:var(--bg2, rgba(255,255,255,0.05));border-radius:4px;height:12px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:var(--danger);border-radius:4px;"></div></div>
+          <div style="font-size:12.5px;font-weight:700;text-align:right;">${fmtMoney(r.monto,'ARS')}</div>
+          <div class="muted" style="font-size:11px;text-align:right;">${pctDelTotal.toFixed(1)}%</div>
+        </div>
+        <div class="fin-rank-detalle" id="${rid}" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:8px;overflow-x:auto;">
+          <table style="width:100%;font-size:11px;border-collapse:collapse;">
+            <thead><tr style="text-align:left;color:var(--muted);">
+              <th style="padding:3px 6px;">Fecha</th><th style="padding:3px 6px;">Asiento</th><th style="padding:3px 6px;">Referencia</th>
+              <th style="padding:3px 6px;text-align:right;">Debe</th><th style="padding:3px 6px;text-align:right;">Haber</th>
+            </tr></thead>
+            <tbody>
+              ${[...r.movimientos].sort((a,b)=>a.fecha-b.fecha).map(mov=>`
+                <tr style="border-top:1px solid var(--border);">
+                  <td style="padding:3px 6px;" class="muted">${fmtDate(mov.fecha.toISOString().slice(0,10))}</td>
+                  <td style="padding:3px 6px;" class="muted">${mov.asiento}</td>
+                  <td style="padding:3px 6px;">${escapeHtml(mov.referencia)}</td>
+                  <td style="padding:3px 6px;text-align:right;">${mov.debe ? fmtMoney(mov.debe,'ARS') : '—'}</td>
+                  <td style="padding:3px 6px;text-align:right;">${mov.haber ? fmtMoney(mov.haber,'ARS') : '—'}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  }).join('');
+
+  rankCont.querySelectorAll('.fin-rank-header').forEach(row=>{
+    row.addEventListener('click', ()=>{
+      const id = row.dataset.rankId;
+      const det = document.getElementById(id);
+      det.style.display = det.style.display !== 'none' ? 'none' : 'block';
+    });
+  });
+}
+
+function finMostrarError(msg){
+  const el = document.getElementById('fin-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+async function finProcesarArchivo(file){
+  document.getElementById('fin-error').style.display = 'none';
+  if(!file){ return; }
+  const nombreLower = file.name.toLowerCase();
+  if(!nombreLower.endsWith('.xls') && !nombreLower.endsWith('.xlsx')){
+    finMostrarError('El archivo debe ser .xls o .xlsx');
+    return;
+  }
+  try{
+    const buffer = await file.arrayBuffer();
+    const wb = XLSX.read(buffer, { type:'array', cellDates:true });
+    const cuentas = finParsearWorkbook(wb);
+    finDataCache = finArmarResumen(cuentas);
+    document.getElementById('fin-archivo-info').textContent = `Archivo: ${file.name} — ${cuentas.length} cuenta(s) procesada(s)`;
+    document.getElementById('fin-resultados').style.display = 'block';
+    finRenderResultados();
+    showToast('Reporte de mayores procesado correctamente');
+  } catch(e){
+    console.error('Error procesando reporte de mayores:', e);
+    finMostrarError('No se pudo procesar el archivo: ' + e.message);
+  }
+}
+
+(function initFinDropzone(){
+  const dz = document.getElementById('fin-dropzone');
+  const input = document.getElementById('fin-file-input');
+  if(!dz || !input) return;
+  dz.addEventListener('click', ()=> input.click());
+  input.addEventListener('change', ()=>{
+    if(input.files && input.files[0]) finProcesarArchivo(input.files[0]);
+    input.value = '';
+  });
+  ['dragenter','dragover'].forEach(evt=>{
+    dz.addEventListener(evt, (e)=>{
+      e.preventDefault(); e.stopPropagation();
+      dz.style.borderColor = 'var(--accent)';
+      dz.style.background = 'rgba(56,189,248,0.06)';
+    });
+  });
+  ['dragleave','drop'].forEach(evt=>{
+    dz.addEventListener(evt, (e)=>{
+      e.preventDefault(); e.stopPropagation();
+      dz.style.borderColor = 'var(--border)';
+      dz.style.background = 'transparent';
+    });
+  });
+  dz.addEventListener('drop', (e)=>{
+    const file = e.dataTransfer?.files?.[0];
+    if(file) finProcesarArchivo(file);
+  });
+})();
+
+document.getElementById('btn-fin-nuevo').addEventListener('click', ()=>{
+  finDataCache = null;
+  document.getElementById('fin-resultados').style.display = 'none';
+  document.getElementById('fin-error').style.display = 'none';
+  document.getElementById('fin-file-input').value = '';
+});
+
+document.getElementById('btn-fin-exportar-xls').addEventListener('click', ()=>{
+  const d = finDataCache;
+  if(!d){ showToast('Cargá un archivo primero', true); return; }
+  const wb = XLSX.utils.book_new();
+
+  // Hoja 1: Resumen ejecutivo
+  const wsResumen = XLSX.utils.aoa_to_sheet([
+    ['Métrica','Valor'],
+    ['Período', `${fmtDate(d.fechaMin.toISOString().slice(0,10))} - ${fmtDate(d.fechaMax.toISOString().slice(0,10))}`],
+    ['Ingresos', d.totalIngresos],
+    ['Costo de Ventas', d.totalCostos],
+    ['Gastos Operativos', d.totalGastos],
+    ['Resultado Neto', d.resultadoNeto],
+    ['Margen (%)', d.totalIngresos !== 0 ? (d.resultadoNeto/d.totalIngresos*100).toFixed(1) : 0],
+  ]);
+  wsResumen['!cols'] = [{wch:22},{wch:28}];
+  XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
+
+  // Hoja 2: Estado de resultados mensual (pivot)
+  const erHeaders = ['Mes','Ingresos','Costos','Gastos','Resultado'];
+  const erRows = d.mesesOrdenados.map(key=>{
+    const m = d.porMes[key];
+    return [mesLabel(key), m.ingresos, m.costos, m.gastos, m.ingresos - m.costos - m.gastos];
+  });
+  const wsER = XLSX.utils.aoa_to_sheet([erHeaders, ...erRows]);
+  wsER['!cols'] = erHeaders.map(h=>({wch: Math.max(h.length+2, 16)}));
+  XLSX.utils.book_append_sheet(wb, wsER, 'Estado de Resultados');
+
+  // Hoja 3: Ranking de gastos y costos
+  const rkHeaders = ['Código','Cuenta','Categoría','Monto','% del Total'];
+  const rkRows = d.rankingGastos.map(r=>[r.codigo, r.descripcion, r.categoria === 'costos' ? 'Costo' : 'Gasto', r.monto, d.totalGastosYCostos!==0 ? (r.monto/d.totalGastosYCostos*100).toFixed(1) : 0]);
+  const wsRk = XLSX.utils.aoa_to_sheet([rkHeaders, ...rkRows]);
+  wsRk['!cols'] = [{wch:14},{wch:38},{wch:12},{wch:16},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, wsRk, 'Ranking de Gastos');
+
+  // Hoja 4: Detalle de movimientos (cuentas de resultado, formato largo)
+  const detHeaders = ['Mes','Código','Cuenta','Categoría','Fecha','Asiento','Referencia','Debe','Haber'];
+  const detRows = [];
+  d.mesesOrdenados.forEach(key=>{
+    Object.entries(d.porMes[key].cuentas).forEach(([codigo, c])=>{
+      c.movimientos.forEach(mov=>{
+        detRows.push([mesLabel(key), codigo, c.descripcion, c.categoria === 'ingresos' ? 'Ingreso' : c.categoria === 'costos' ? 'Costo' : 'Gasto',
+          fmtDate(mov.fecha.toISOString().slice(0,10)), mov.asiento, mov.referencia, mov.debe, mov.haber]);
+      });
+    });
+  });
+  const wsDet = XLSX.utils.aoa_to_sheet([detHeaders, ...detRows]);
+  wsDet['!cols'] = detHeaders.map(h=>({wch: Math.max(h.length+2, 14)}));
+  wsDet['!cols'][2] = {wch:34};
+  XLSX.utils.book_append_sheet(wb, wsDet, 'Detalle');
+
+  XLSX.writeFile(wb, `analisis_financiero_${new Date().toISOString().slice(0,10)}.xlsx`);
+  showToast('Excel generado');
+});
+
+document.getElementById('btn-fin-exportar-pdf').addEventListener('click', ()=>{
+  const d = finDataCache;
+  if(!d){ showToast('Cargá un archivo primero', true); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const marginX = 16;
+  const bannerRatio = 406/2475;
+  const bannerH = pageWidth * bannerRatio;
+  let y = 15;
+
+  const nuevaPaginaSiNecesario = (alturaNecesaria)=>{
+    if(y > pageHeight - bannerH - alturaNecesaria){ doc.addPage(); y = 15; return true; }
+    return false;
+  };
+
+  try{ doc.addImage(LOGO_PDF_BASE64, 'PNG', marginX, y, 55, 11.3); } catch(e){ console.error(e); }
+  doc.setFont('helvetica','bold'); doc.setFontSize(14);
+  doc.text('ANÁLISIS FINANCIERO', pageWidth - marginX, y + 8, { align:'right' });
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90);
+  doc.text(`Generado: ${fmtDate(new Date().toISOString().slice(0,10))}`, pageWidth - marginX, y + 14, { align:'right' });
+  doc.setTextColor(0);
+  y += 24;
+  doc.setDrawColor(56,189,248); doc.setLineWidth(0.8);
+  doc.line(marginX, y, pageWidth - marginX, y);
+  y += 9;
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(13);
+  doc.text(`Período: ${fmtDate(d.fechaMin.toISOString().slice(0,10))} → ${fmtDate(d.fechaMax.toISOString().slice(0,10))}`, marginX, y);
+  y += 10;
+
+  const margen = d.totalIngresos !== 0 ? (d.resultadoNeto/d.totalIngresos*100) : 0;
+  doc.autoTable({
+    startY: y,
+    body: [
+      ['Ingresos', fmtMoney(d.totalIngresos,'ARS'), 'Costo de Ventas', fmtMoney(d.totalCostos,'ARS')],
+      ['Gastos Operativos', fmtMoney(d.totalGastos,'ARS'), 'Resultado Neto', fmtMoney(d.resultadoNeto,'ARS')],
+      ['Margen', `${margen.toFixed(1)}%`, '', ''],
+    ],
+    theme: 'grid',
+    styles: { fontSize: 9.5, cellPadding: 3 },
+    columnStyles: { 0:{fontStyle:'bold'}, 2:{fontStyle:'bold'} },
+    margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+  });
+  y = doc.lastAutoTable.finalY + 10;
+
+  nuevaPaginaSiNecesario(30);
+  doc.setFont('helvetica','bold'); doc.setFontSize(11.5);
+  doc.text('Estado de Resultados mensual', marginX, y);
+  y += 5;
+  doc.autoTable({
+    startY: y,
+    head: [['Mes','Ingresos','Costos','Gastos','Resultado']],
+    body: d.mesesOrdenados.map(key=>{
+      const m = d.porMes[key];
+      return [mesLabel(key), fmtMoney(m.ingresos,'ARS'), fmtMoney(m.costos,'ARS'), fmtMoney(m.gastos,'ARS'), fmtMoney(m.ingresos-m.costos-m.gastos,'ARS')];
+    }),
+    theme: 'grid',
+    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: [10,26,58], textColor: 255, fontStyle: 'bold' },
+    margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+  });
+  y = doc.lastAutoTable.finalY + 10;
+
+  nuevaPaginaSiNecesario(30);
+  doc.setFont('helvetica','bold'); doc.setFontSize(11.5);
+  doc.text('Ranking de Gastos y Costos (top 30)', marginX, y);
+  y += 5;
+  doc.autoTable({
+    startY: y,
+    head: [['Cuenta','Categoría','Monto','% del Total']],
+    body: d.rankingGastos.slice(0,30).map(r=>[
+      `${r.descripcion} (${r.codigo})`, r.categoria === 'costos' ? 'Costo' : 'Gasto',
+      fmtMoney(r.monto,'ARS'), d.totalGastosYCostos!==0 ? `${(r.monto/d.totalGastosYCostos*100).toFixed(1)}%` : '—',
+    ]),
+    theme: 'grid',
+    styles: { fontSize: 7.6, cellPadding: 1.8 },
+    headStyles: { fillColor: [56,189,248], textColor: 20, fontStyle: 'bold', fontSize: 8 },
+    margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+  });
+  y = doc.lastAutoTable.finalY + 4;
+
+  const totalPaginas = doc.internal.getNumberOfPages();
+  for(let i=1;i<=totalPaginas;i++){
+    doc.setPage(i);
+    try{ doc.addImage(FOOTER_BANNER_BASE64, 'JPEG', 0, pageHeight - bannerH, pageWidth, bannerH); } catch(e){ console.error(e); }
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(120);
+    doc.text(`Página ${i} de ${totalPaginas}`, pageWidth - marginX, pageHeight - bannerH - 4, { align:'right' });
+    doc.setTextColor(0);
+  }
+
+  doc.save(`analisis_financiero_${new Date().toISOString().slice(0,10)}.pdf`);
+  showToast('PDF generado');
 });
 
 // =========================================================
