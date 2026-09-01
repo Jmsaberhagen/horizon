@@ -829,6 +829,7 @@
   <button data-tab="reportes">Reportes</button>
   <button data-tab="resumenerp">Resumen ERP</button>
   <button data-tab="analisisfinanciero">Análisis Financiero</button>
+  <button data-tab="stockvalorizado">Stock Valorizado</button>
   <button data-tab="cuentacliente">Cuenta Cliente</button>
   <button data-tab="enviofacturas">Envío de Facturas</button>
   <button data-tab="planning">Planning</button>
@@ -2122,6 +2123,79 @@
         Todas las cuentas de gasto y costo del período, ordenadas de mayor a menor. Hacé clic en una para ver sus movimientos.
       </div>
       <div id="fin-ranking-container"></div>
+
+    </div>
+  </section>
+
+  <section id="tab-stockvalorizado" style="display:none;">
+
+    <div id="stk-dropzone" style="border:2px dashed var(--border);border-radius:12px;padding:36px 20px;text-align:center;cursor:pointer;transition:border-color .15s, background .15s;margin-bottom:20px;">
+      <div style="font-size:34px;line-height:1;margin-bottom:10px;">📦</div>
+      <div style="font-weight:600;font-size:15px;">Arrastrá acá el SmartList de Stock Valorizado</div>
+      <div class="muted" style="font-size:12px;margin-top:6px;">Reporte de Stock por Clase y Depósito (.xls / .xlsx) — o hacé clic para elegir el archivo</div>
+      <input type="file" id="stk-file-input" accept=".xls,.xlsx" style="display:none;">
+    </div>
+    <div id="stk-error" class="muted" style="display:none;color:var(--danger, #ef4444);margin:-12px 0 16px 0;font-size:13px;"></div>
+
+    <div id="stk-resultados" style="display:none;">
+
+      <div class="toolbar" style="justify-content:space-between;">
+        <div class="muted" id="stk-archivo-info" style="font-size:12px;"></div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn secondary" id="btn-stk-nuevo">🔄 Cargar otro archivo</button>
+          <button class="btn secondary" id="btn-stk-exportar-xls">📊 Exportar Excel</button>
+          <button class="btn secondary" id="btn-stk-exportar-pdf">📄 Exportar PDF</button>
+        </div>
+      </div>
+
+      <div class="dash-grid" style="grid-template-columns:repeat(auto-fill, minmax(170px, 1fr)); margin-bottom:24px;">
+        <div class="panel" style="padding:16px;">
+          <div class="muted" style="font-size:11px;text-transform:uppercase;">Valor Total de Stock</div>
+          <div id="stk-kpi-total" style="font-size:19px;font-weight:700;color:var(--ok);margin-top:4px;">$ 0</div>
+        </div>
+        <div class="panel" style="padding:16px;">
+          <div class="muted" style="font-size:11px;text-transform:uppercase;">Ítems</div>
+          <div id="stk-kpi-items" style="font-size:19px;font-weight:700;margin-top:4px;">0</div>
+        </div>
+        <div class="panel" style="padding:16px;">
+          <div class="muted" style="font-size:11px;text-transform:uppercase;">Clases</div>
+          <div id="stk-kpi-clases" style="font-size:19px;font-weight:700;margin-top:4px;">0</div>
+        </div>
+        <div class="panel" style="padding:16px;">
+          <div class="muted" style="font-size:11px;text-transform:uppercase;">Depósitos</div>
+          <div id="stk-kpi-depositos" style="font-size:19px;font-weight:700;margin-top:4px;">0</div>
+        </div>
+        <div class="panel" style="padding:16px;">
+          <div class="muted" style="font-size:11px;text-transform:uppercase;">Ítems c/ stock negativo</div>
+          <div id="stk-kpi-negativos" style="font-size:19px;font-weight:700;color:var(--warn);margin-top:4px;">0</div>
+        </div>
+      </div>
+
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px;">🏆 Valor por Clase</div>
+      <div class="muted" style="font-size:11px;margin-bottom:8px;">
+        Ordenado de mayor a menor. Hacé clic en una clase para ver el desglose por depósito.
+      </div>
+      <div id="stk-clases-container" style="margin-bottom:26px;"></div>
+
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px;">📍 Valor por Depósito</div>
+      <div class="muted" style="font-size:11px;margin-bottom:8px;">
+        Dónde está físicamente inmovilizado el stock.
+      </div>
+      <div id="stk-depositos-container" style="margin-bottom:26px;"></div>
+
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px;">💎 Top 30 ítems de mayor valor</div>
+      <div class="muted" style="font-size:11px;margin-bottom:8px;">
+        Los ítems individuales que más capital inmovilizan.
+      </div>
+      <div id="stk-topitems-container" style="margin-bottom:26px;overflow-x:auto;"></div>
+
+      <div id="stk-negativos-section" style="display:none;">
+        <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:var(--warn);">⚠ Ítems con stock negativo (revisar en GP)</div>
+        <div class="muted" style="font-size:11px;margin-bottom:8px;">
+          Indica un desajuste contable — no se incluyen en el análisis de valorización de arriba.
+        </div>
+        <div id="stk-negativos-container" style="overflow-x:auto;"></div>
+      </div>
 
     </div>
   </section>
@@ -3701,6 +3775,7 @@ const TAB_TITLES = {
   reportes: 'Reportes',
   resumenerp: 'Resumen de Alquileres (ERP)',
   analisisfinanciero: 'Análisis Financiero',
+  stockvalorizado: 'Stock Valorizado (Haulotte)',
   cuentacliente: 'Cuenta Cliente',
   enviofacturas: 'Envío de Facturas',
   planning: 'Planning',
@@ -5946,6 +6021,7 @@ const SECCIONES_PERMISOS = [
   { key:'editorobs',          label:'Editor de Observaciones', acciones:[['ver','Ver / usar']] },
   { key:'resumenerp',         label:'Resumen de Alquileres (ERP)', acciones:[['ver','Ver / usar']] },
   { key:'analisisfinanciero', label:'Análisis Financiero',        acciones:[['ver','Ver / usar']] },
+  { key:'stockvalorizado',    label:'Stock Valorizado (Haulotte)', acciones:[['ver','Ver / usar']] },
   { key:'panoramacobranzas',  label:'Panorama de Cobranzas',   acciones:[['ver','Ver / usar']] },
   { key:'panoramaproveedores', label:'Panorama de Deuda a Proveedores', acciones:[['ver','Ver / usar']] },
   { key:'datos_bancarios', label:'Datos Bancarios de Proveedores', acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
@@ -6339,10 +6415,10 @@ function renderDashboard(){
     ]},
   ];
 
-  // Categorías del contexto HAULOTTE — todavía sin cards propias, se van a ir sumando acá.
+  // Categorías del contexto HAULOTTE — se van sumando cards acá a medida que se piden.
   const categoriasHaulotte = [
     { key:'haulotte_reportes', titulo:'Reportes Haulotte', icon:'🟠', tiles:[
-      { tab:'haulotte_placeholder', icon:'🚧', title:'Próximamente', count:'Todavía no hay reportes cargados en esta sección', visible:true, urgencia:null },
+      { tab:'stockvalorizado', icon:'📦', title:'Stock Valorizado', count:'Importar SmartList de GP', visible:puede('stockvalorizado','ver'), urgencia:null },
     ]},
   ];
 
@@ -9095,6 +9171,508 @@ document.getElementById('btn-fin-exportar-pdf').addEventListener('click', ()=>{
   }
 
   doc.save(`analisis_financiero_${new Date().toISOString().slice(0,10)}.pdf`);
+  showToast('PDF generado');
+});
+
+// =========================================================
+// MÓDULO STOCK VALORIZADO (Haulotte) — SmartList de GP
+// =========================================================
+// Estructura del archivo: bloques por CLASE, dentro de cada clase bloques por Depósito,
+// y dentro de cada depósito filas de ítem. Cada bloque de clase cierra con una fila
+// "TOTAL POR CLASE :" que usamos para validar que el parseo cerró correcto.
+
+let stkDataCache = null;
+
+const STK_FAMILIAS_REPUESTO = [
+  { familia:'Hidráulico',       patrones:/HIDRAULIC|MANGUERA|CILINDRO|BOMBA|VALVULA|VÁLVULA|RACOR|OLEO/i },
+  { familia:'Eléctrico/Electrónico', patrones:/SOLENOIDE|BOBINA|SENSOR|MODULO|MÓDULO|PLACA|CABLE|BATERIA|BATERÍA|FUSIBLE|RELE|RELÉ|JOYSTICK|CONTROLADOR|INCLINOMETRO|INCLINÓMETRO/i },
+  { familia:'Neumáticos/Ruedas', patrones:/RUEDA|NEUMATIC|NEUMÁTIC|LLANTA|CUBIERTA/i },
+  { familia:'Filtros',          patrones:/FILTRO/i },
+  { familia:'Motor',            patrones:/MOTOR|ARRANQUE|EMBRAGUE|BUJIA|BUJÍA/i },
+  { familia:'Estructura/Chapa', patrones:/CHASIS|PLATAFORMA|CHAPA|ESTRUCTURA|BRAZO|TIJERA/i },
+];
+function stkClasificarRepuesto(desc){
+  const d = (desc||'').toUpperCase();
+  for(const f of STK_FAMILIAS_REPUESTO){
+    if(f.patrones.test(d)) return f.familia;
+  }
+  return 'Otros';
+}
+
+function stkParsearWorkbook(wb){
+  const nombreHoja = wb.SheetNames[0];
+  const ws = wb.Sheets[nombreHoja];
+  const filasCrudo = XLSX.utils.sheet_to_json(ws, { header:1, raw:true, defval:null });
+
+  const items = [];
+  let claseActual = null;
+  let depositoGrupoActual = null;
+  let totalDeclaradoPorClase = {};
+
+  filasCrudo.forEach(fila=>{
+    if(!fila || fila.every(c=>c===null || c==='')) return;
+
+    // Encabezado de clase: col[1] === 'CLASE:'
+    if (fila[1] === 'CLASE:'){
+      claseActual = fila[2] || 'SIN CLASE';
+      depositoGrupoActual = null;
+      return;
+    }
+    // Fila de total por clase: col[3] === 'TOTAL POR CLASE :'
+    if (fila[3] === 'TOTAL POR CLASE :'){
+      totalDeclaradoPorClase[claseActual] = Number(fila[8]) || 0;
+      return;
+    }
+    // Fila de agrupador de depósito: solo col[0] tiene texto, el resto vacío
+    if (fila[0] && !fila[1] && !fila[5]){
+      depositoGrupoActual = fila[0];
+      return;
+    }
+    // Fila de ítem real: col[0]=código, col[1]=descripción, col[5]=depósito (≠ header "Deposito")
+    if (fila[0] && fila[5] && fila[5] !== 'Deposito'){
+      items.push({
+        clase: claseActual || 'SIN CLASE',
+        codigo: String(fila[0]),
+        descripcion: fila[1] || '',
+        deposito: fila[5],
+        recibido: Number(fila[6]) || 0,
+        vendidoUsado: Number(fila[7]) || 0,
+        stockCantidad: Number(fila[8]) || 0,
+        stockValorizado: Number(fila[9]) || 0,
+        costoUnitario: Number(fila[12]) || 0,
+      });
+    }
+  });
+
+  if(items.length === 0){
+    throw new Error('No se encontraron ítems (¿es el archivo correcto? Debe tener filas "CLASE:").');
+  }
+  return { items, totalDeclaradoPorClase };
+}
+
+function stkArmarResumen({ items, totalDeclaradoPorClase }){
+  const porClase = {}; // clase -> { valor, items, porDeposito:{dep:{valor,items}} }
+  const porDeposito = {}; // deposito -> { valor, items }
+  const negativos = [];
+  let valorTotal = 0;
+
+  items.forEach(it=>{
+    valorTotal += it.stockValorizado;
+
+    if(!porClase[it.clase]) porClase[it.clase] = { valor:0, cant:0, porDeposito:{} };
+    const c = porClase[it.clase];
+    c.valor += it.stockValorizado;
+    c.cant += 1;
+    if(!c.porDeposito[it.deposito]) c.porDeposito[it.deposito] = { valor:0, cant:0, items:[] };
+    c.porDeposito[it.deposito].valor += it.stockValorizado;
+    c.porDeposito[it.deposito].cant += 1;
+    c.porDeposito[it.deposito].items.push(it);
+
+    if(!porDeposito[it.deposito]) porDeposito[it.deposito] = { valor:0, cant:0 };
+    porDeposito[it.deposito].valor += it.stockValorizado;
+    porDeposito[it.deposito].cant += 1;
+
+    if(it.stockCantidad < 0) negativos.push(it);
+  });
+
+  const clasesOrdenadas = Object.entries(porClase).sort((a,b)=> b[1].valor - a[1].valor);
+  const depositosOrdenados = Object.entries(porDeposito).sort((a,b)=> b[1].valor - a[1].valor);
+  const topItems = [...items].sort((a,b)=> b.stockValorizado - a.stockValorizado).slice(0, 30);
+
+  // Sub-clasificación heurística de repuestos (REP + REP-HAU), solo a título orientativo
+  const repuestos = items.filter(it=> it.clase === 'REP' || it.clase === 'REP-HAU');
+  const porFamilia = {};
+  repuestos.forEach(it=>{
+    const fam = stkClasificarRepuesto(it.descripcion);
+    if(!porFamilia[fam]) porFamilia[fam] = { valor:0, cant:0 };
+    porFamilia[fam].valor += it.stockValorizado;
+    porFamilia[fam].cant += 1;
+  });
+  const familiasOrdenadas = Object.entries(porFamilia).sort((a,b)=> b[1].valor - a[1].valor);
+
+  return {
+    items, valorTotal, porClase, clasesOrdenadas, porDeposito, depositosOrdenados,
+    topItems, negativos, familiasOrdenadas, totalDeclaradoPorClase,
+    cantClases: clasesOrdenadas.length, cantDepositos: depositosOrdenados.length,
+  };
+}
+
+function stkRenderResultados(){
+  const d = stkDataCache;
+  if(!d) return;
+
+  document.getElementById('stk-kpi-total').textContent = fmtMoney(d.valorTotal,'ARS');
+  document.getElementById('stk-kpi-items').textContent = d.items.length.toLocaleString('es-AR');
+  document.getElementById('stk-kpi-clases').textContent = d.cantClases;
+  document.getElementById('stk-kpi-depositos').textContent = d.cantDepositos;
+  const elNeg = document.getElementById('stk-kpi-negativos');
+  elNeg.textContent = d.negativos.length;
+  elNeg.style.color = d.negativos.length > 0 ? 'var(--warn)' : 'var(--ok)';
+
+  // ---------- Valor por clase ----------
+  const maxClase = Math.max(1, ...d.clasesOrdenadas.map(([,c])=>c.valor));
+  const contClases = document.getElementById('stk-clases-container');
+  contClases.innerHTML = d.clasesOrdenadas.map(([clase, c])=>{
+    const pct = Math.round(c.valor / maxClase * 100);
+    const pctDelTotal = d.valorTotal !== 0 ? (c.valor / d.valorTotal * 100) : 0;
+    const cid = `stk-clase-${clase}`.replace(/[^a-z0-9_-]+/gi,'_');
+    const depsDeLaClase = Object.entries(c.porDeposito).sort((a,b)=> b[1].valor - a[1].valor);
+    return `
+      <div class="panel" style="padding:10px 14px;margin-bottom:6px;">
+        <div class="stk-clase-header" data-clase-id="${cid}" style="cursor:pointer;display:grid;grid-template-columns:140px 1fr 140px 60px;align-items:center;gap:10px;">
+          <div style="font-weight:700;font-size:12.5px;">${escapeHtml(clase)}</div>
+          <div style="background:var(--bg2, rgba(255,255,255,0.05));border-radius:4px;height:14px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:var(--accent);border-radius:4px;"></div></div>
+          <div style="font-size:12.5px;font-weight:700;text-align:right;">${fmtMoney(c.valor,'ARS')}</div>
+          <div class="muted" style="font-size:11px;text-align:right;">${pctDelTotal.toFixed(1)}%</div>
+        </div>
+        <div class="muted" style="font-size:10.5px;margin-top:2px;">${c.cant} ítem(s)</div>
+        <div id="${cid}" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:8px;">
+          <table style="width:100%;font-size:11px;border-collapse:collapse;">
+            <thead><tr style="text-align:left;color:var(--muted);"><th style="padding:3px 6px;">Depósito</th><th style="padding:3px 6px;text-align:right;">Ítems</th><th style="padding:3px 6px;text-align:right;">Valorizado</th></tr></thead>
+            <tbody>
+              ${depsDeLaClase.map(([dep, x])=>`
+                <tr style="border-top:1px solid var(--border);">
+                  <td style="padding:3px 6px;">${escapeHtml(dep)}</td>
+                  <td style="padding:3px 6px;text-align:right;">${x.cant}</td>
+                  <td style="padding:3px 6px;text-align:right;font-weight:600;">${fmtMoney(x.valor,'ARS')}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  }).join('');
+  contClases.querySelectorAll('.stk-clase-header').forEach(row=>{
+    row.addEventListener('click', ()=>{
+      const det = document.getElementById(row.dataset.claseId);
+      det.style.display = det.style.display !== 'none' ? 'none' : 'block';
+    });
+  });
+
+  // ---------- Valor por depósito ----------
+  const maxDep = Math.max(1, ...d.depositosOrdenados.map(([,x])=>x.valor));
+  document.getElementById('stk-depositos-container').innerHTML = d.depositosOrdenados.map(([dep, x])=>{
+    const pct = Math.round(x.valor / maxDep * 100);
+    return `
+      <div class="panel" style="padding:10px 14px;margin-bottom:6px;">
+        <div style="display:grid;grid-template-columns:140px 1fr 140px;align-items:center;gap:10px;">
+          <div style="font-weight:600;font-size:12.5px;">📍 ${escapeHtml(dep)}</div>
+          <div style="background:var(--bg2, rgba(255,255,255,0.05));border-radius:4px;height:14px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:var(--ok);border-radius:4px;"></div></div>
+          <div style="font-size:12.5px;font-weight:700;text-align:right;">${fmtMoney(x.valor,'ARS')}</div>
+        </div>
+        <div class="muted" style="font-size:10.5px;margin-top:2px;">${x.cant} ítem(s)</div>
+      </div>`;
+  }).join('');
+
+  // ---------- Top ítems ----------
+  document.getElementById('stk-topitems-container').innerHTML = `
+    <table style="width:100%;font-size:12px;border-collapse:collapse;">
+      <thead><tr style="text-align:left;color:var(--muted);">
+        <th style="padding:5px 8px;">Código</th><th style="padding:5px 8px;">Descripción</th>
+        <th style="padding:5px 8px;">Clase</th><th style="padding:5px 8px;">Depósito</th>
+        <th style="padding:5px 8px;text-align:right;">Cant.</th><th style="padding:5px 8px;text-align:right;">Valorizado</th>
+      </tr></thead>
+      <tbody>
+        ${d.topItems.map(it=>`
+          <tr style="border-top:1px solid var(--border);">
+            <td style="padding:5px 8px;" class="muted">${escapeHtml(it.codigo)}</td>
+            <td style="padding:5px 8px;">${escapeHtml(it.descripcion)}</td>
+            <td style="padding:5px 8px;" class="muted">${escapeHtml(it.clase)}</td>
+            <td style="padding:5px 8px;" class="muted">${escapeHtml(it.deposito)}</td>
+            <td style="padding:5px 8px;text-align:right;">${it.stockCantidad}</td>
+            <td style="padding:5px 8px;text-align:right;font-weight:700;">${fmtMoney(it.stockValorizado,'ARS')}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+
+  // ---------- Negativos ----------
+  const negSection = document.getElementById('stk-negativos-section');
+  if(d.negativos.length > 0){
+    negSection.style.display = 'block';
+    document.getElementById('stk-negativos-container').innerHTML = `
+      <table style="width:100%;font-size:12px;border-collapse:collapse;">
+        <thead><tr style="text-align:left;color:var(--muted);">
+          <th style="padding:5px 8px;">Código</th><th style="padding:5px 8px;">Descripción</th>
+          <th style="padding:5px 8px;">Clase</th><th style="padding:5px 8px;">Depósito</th>
+          <th style="padding:5px 8px;text-align:right;">Stock</th>
+        </tr></thead>
+        <tbody>
+          ${d.negativos.map(it=>`
+            <tr style="border-top:1px solid var(--border);">
+              <td style="padding:5px 8px;" class="muted">${escapeHtml(it.codigo)}</td>
+              <td style="padding:5px 8px;">${escapeHtml(it.descripcion)}</td>
+              <td style="padding:5px 8px;" class="muted">${escapeHtml(it.clase)}</td>
+              <td style="padding:5px 8px;" class="muted">${escapeHtml(it.deposito)}</td>
+              <td style="padding:5px 8px;text-align:right;font-weight:700;color:var(--warn);">${it.stockCantidad}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } else {
+    negSection.style.display = 'none';
+  }
+}
+
+function stkMostrarError(msg){
+  const el = document.getElementById('stk-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+async function stkProcesarArchivo(file){
+  document.getElementById('stk-error').style.display = 'none';
+  if(!file){ return; }
+  const nombreLower = file.name.toLowerCase();
+  if(!nombreLower.endsWith('.xls') && !nombreLower.endsWith('.xlsx')){
+    stkMostrarError('El archivo debe ser .xls o .xlsx');
+    return;
+  }
+  try{
+    const buffer = await file.arrayBuffer();
+    const wb = XLSX.read(buffer, { type:'array', cellDates:true });
+    const parsed = stkParsearWorkbook(wb);
+    stkDataCache = stkArmarResumen(parsed);
+
+    // Validación cruzada contra los subtotales "TOTAL POR CLASE" que trae el propio archivo
+    let avisoDesvio = '';
+    Object.entries(parsed.totalDeclaradoPorClase).forEach(([clase, totalDeclarado])=>{
+      const calculado = stkDataCache.porClase[clase]?.valor || 0;
+      if(Math.abs(calculado - totalDeclarado) > 1){
+        avisoDesvio += ` [${clase}: archivo=${totalDeclarado}, calculado=${calculado.toFixed(2)}]`;
+      }
+    });
+    if(avisoDesvio){
+      console.warn('Diferencias en subtotales por clase:', avisoDesvio);
+      showToast('Se procesó, pero hay pequeñas diferencias en algunos subtotales — revisar consola', true);
+    }
+
+    document.getElementById('stk-archivo-info').textContent = `Archivo: ${file.name} — ${stkDataCache.items.length} ítem(s) procesado(s)`;
+    document.getElementById('stk-resultados').style.display = 'block';
+    stkRenderResultados();
+    showToast('Stock valorizado procesado correctamente');
+  } catch(e){
+    console.error('Error procesando stock valorizado:', e);
+    stkMostrarError('No se pudo procesar el archivo: ' + e.message);
+  }
+}
+
+(function initStkDropzone(){
+  const dz = document.getElementById('stk-dropzone');
+  const input = document.getElementById('stk-file-input');
+  if(!dz || !input) return;
+  dz.addEventListener('click', ()=> input.click());
+  input.addEventListener('change', ()=>{
+    if(input.files && input.files[0]) stkProcesarArchivo(input.files[0]);
+    input.value = '';
+  });
+  ['dragenter','dragover'].forEach(evt=>{
+    dz.addEventListener(evt, (e)=>{
+      e.preventDefault(); e.stopPropagation();
+      dz.style.borderColor = 'var(--accent)';
+      dz.style.background = 'rgba(56,189,248,0.06)';
+    });
+  });
+  ['dragleave','drop'].forEach(evt=>{
+    dz.addEventListener(evt, (e)=>{
+      e.preventDefault(); e.stopPropagation();
+      dz.style.borderColor = 'var(--border)';
+      dz.style.background = 'transparent';
+    });
+  });
+  dz.addEventListener('drop', (e)=>{
+    const file = e.dataTransfer?.files?.[0];
+    if(file) stkProcesarArchivo(file);
+  });
+})();
+
+document.getElementById('btn-stk-nuevo').addEventListener('click', ()=>{
+  stkDataCache = null;
+  document.getElementById('stk-resultados').style.display = 'none';
+  document.getElementById('stk-error').style.display = 'none';
+  document.getElementById('stk-file-input').value = '';
+});
+
+document.getElementById('btn-stk-exportar-xls').addEventListener('click', ()=>{
+  const d = stkDataCache;
+  if(!d){ showToast('Cargá un archivo primero', true); return; }
+  const wb = XLSX.utils.book_new();
+
+  // Hoja 1: Resumen ejecutivo
+  const wsResumen = XLSX.utils.aoa_to_sheet([
+    ['Métrica','Valor'],
+    ['Valor Total de Stock', d.valorTotal],
+    ['Cantidad de Ítems', d.items.length],
+    ['Cantidad de Clases', d.cantClases],
+    ['Cantidad de Depósitos', d.cantDepositos],
+    ['Ítems con stock negativo', d.negativos.length],
+  ]);
+  wsResumen['!cols'] = [{wch:26},{wch:22}];
+  XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
+
+  // Hoja 2: Valor por clase
+  const wsClase = XLSX.utils.aoa_to_sheet([
+    ['Clase','Ítems','Valorizado','% del Total'],
+    ...d.clasesOrdenadas.map(([clase,c])=>[clase, c.cant, c.valor, d.valorTotal!==0 ? (c.valor/d.valorTotal*100).toFixed(1) : 0]),
+  ]);
+  wsClase['!cols'] = [{wch:16},{wch:10},{wch:18},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, wsClase, 'Por Clase');
+
+  // Hoja 3: Cruce Clase x Depósito
+  const wsCruce = XLSX.utils.aoa_to_sheet([
+    ['Clase','Depósito','Ítems','Valorizado'],
+    ...d.clasesOrdenadas.flatMap(([clase,c])=>
+      Object.entries(c.porDeposito).sort((a,b)=>b[1].valor-a[1].valor).map(([dep,x])=>[clase, dep, x.cant, x.valor])
+    ),
+  ]);
+  wsCruce['!cols'] = [{wch:16},{wch:14},{wch:10},{wch:18}];
+  XLSX.utils.book_append_sheet(wb, wsCruce, 'Clase x Depósito');
+
+  // Hoja 4: Familias de repuestos (heurístico)
+  const wsFam = XLSX.utils.aoa_to_sheet([
+    ['Familia (aproximado)','Ítems','Valorizado'],
+    ...d.familiasOrdenadas.map(([fam,x])=>[fam, x.cant, x.valor]),
+  ]);
+  wsFam['!cols'] = [{wch:24},{wch:10},{wch:18}];
+  XLSX.utils.book_append_sheet(wb, wsFam, 'Familias de Repuestos');
+
+  // Hoja 5: Detalle completo
+  const detHeaders = ['Código','Descripción','Clase','Depósito','Recibido','Vendido/Usado','Stock Cantidad','Stock Valorizado','Costo Unitario'];
+  const detRows = d.items.map(it=>[it.codigo, it.descripcion, it.clase, it.deposito, it.recibido, it.vendidoUsado, it.stockCantidad, it.stockValorizado, it.costoUnitario]);
+  const wsDet = XLSX.utils.aoa_to_sheet([detHeaders, ...detRows]);
+  wsDet['!cols'] = detHeaders.map(h=>({wch: Math.max(h.length+2, 14)}));
+  wsDet['!cols'][1] = {wch:42};
+  XLSX.utils.book_append_sheet(wb, wsDet, 'Detalle');
+
+  // Hoja 6: Ítems con stock negativo (completo, para revisar en GP)
+  if(d.negativos.length > 0){
+    const negHeaders = ['Código','Descripción','Clase','Depósito','Stock Cantidad','Stock Valorizado'];
+    const negRows = [...d.negativos].sort((a,b)=> a.stockCantidad - b.stockCantidad)
+      .map(it=>[it.codigo, it.descripcion, it.clase, it.deposito, it.stockCantidad, it.stockValorizado]);
+    const wsNeg = XLSX.utils.aoa_to_sheet([negHeaders, ...negRows]);
+    wsNeg['!cols'] = negHeaders.map(h=>({wch: Math.max(h.length+2, 14)}));
+    wsNeg['!cols'][1] = {wch:42};
+    XLSX.utils.book_append_sheet(wb, wsNeg, 'Stock Negativo');
+  }
+
+  XLSX.writeFile(wb, `stock_valorizado_haulotte_${new Date().toISOString().slice(0,10)}.xlsx`);
+  showToast('Excel generado');
+});
+
+document.getElementById('btn-stk-exportar-pdf').addEventListener('click', ()=>{
+  const d = stkDataCache;
+  if(!d){ showToast('Cargá un archivo primero', true); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const marginX = 16;
+  const bannerRatio = 406/2475;
+  const bannerH = pageWidth * bannerRatio;
+  let y = 15;
+
+  const nuevaPaginaSiNecesario = (alturaNecesaria)=>{
+    if(y > pageHeight - bannerH - alturaNecesaria){ doc.addPage(); y = 15; return true; }
+    return false;
+  };
+
+  try{ doc.addImage(LOGO_PDF_BASE64, 'PNG', marginX, y, 55, 11.3); } catch(e){ console.error(e); }
+  doc.setFont('helvetica','bold'); doc.setFontSize(14);
+  doc.text('STOCK VALORIZADO — HAULOTTE', pageWidth - marginX, y + 8, { align:'right' });
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90);
+  doc.text(`Generado: ${fmtDate(new Date().toISOString().slice(0,10))}`, pageWidth - marginX, y + 14, { align:'right' });
+  doc.setTextColor(0);
+  y += 24;
+  doc.setDrawColor(56,189,248); doc.setLineWidth(0.8);
+  doc.line(marginX, y, pageWidth - marginX, y);
+  y += 9;
+
+  doc.autoTable({
+    startY: y,
+    body: [
+      ['Valor Total de Stock', fmtMoney(d.valorTotal,'ARS'), 'Cantidad de Ítems', d.items.length.toLocaleString('es-AR')],
+      ['Clases', String(d.cantClases), 'Depósitos', String(d.cantDepositos)],
+      ['Ítems con stock negativo', String(d.negativos.length), '', ''],
+    ],
+    theme: 'grid',
+    styles: { fontSize: 9.5, cellPadding: 3 },
+    columnStyles: { 0:{fontStyle:'bold'}, 2:{fontStyle:'bold'} },
+    margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+  });
+  y = doc.lastAutoTable.finalY + 10;
+
+  nuevaPaginaSiNecesario(30);
+  doc.setFont('helvetica','bold'); doc.setFontSize(11.5);
+  doc.text('Valor por Clase', marginX, y);
+  y += 5;
+  doc.autoTable({
+    startY: y,
+    head: [['Clase','Ítems','Valorizado','% del Total']],
+    body: d.clasesOrdenadas.map(([clase,c])=>[clase, c.cant, fmtMoney(c.valor,'ARS'), d.valorTotal!==0 ? `${(c.valor/d.valorTotal*100).toFixed(1)}%` : '—']),
+    theme: 'grid',
+    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: [10,26,58], textColor: 255, fontStyle: 'bold' },
+    margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+  });
+  y = doc.lastAutoTable.finalY + 10;
+
+  nuevaPaginaSiNecesario(30);
+  doc.setFont('helvetica','bold'); doc.setFontSize(11.5);
+  doc.text('Valor por Depósito', marginX, y);
+  y += 5;
+  doc.autoTable({
+    startY: y,
+    head: [['Depósito','Ítems','Valorizado']],
+    body: d.depositosOrdenados.map(([dep,x])=>[dep, x.cant, fmtMoney(x.valor,'ARS')]),
+    theme: 'grid',
+    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: [56,189,248], textColor: 20, fontStyle: 'bold' },
+    margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+  });
+  y = doc.lastAutoTable.finalY + 10;
+
+  nuevaPaginaSiNecesario(30);
+  doc.setFont('helvetica','bold'); doc.setFontSize(11.5);
+  doc.text('Top 30 ítems de mayor valor', marginX, y);
+  y += 5;
+  doc.autoTable({
+    startY: y,
+    head: [['Código','Descripción','Clase','Depósito','Valorizado']],
+    body: d.topItems.map(it=>[it.codigo, it.descripcion, it.clase, it.deposito, fmtMoney(it.stockValorizado,'ARS')]),
+    theme: 'grid',
+    styles: { fontSize: 7.2, cellPadding: 1.6 },
+    headStyles: { fillColor: [10,26,58], textColor: 255, fontStyle: 'bold', fontSize: 7.5 },
+    margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+  });
+  y = doc.lastAutoTable.finalY + 4;
+
+  if(d.negativos.length > 0){
+    nuevaPaginaSiNecesario(30);
+    doc.setFont('helvetica','bold'); doc.setFontSize(11.5); doc.setTextColor(200,140,20);
+    doc.text(`Ítems con stock negativo (top 50 de ${d.negativos.length} — ver Excel para el listado completo)`, marginX, y);
+    doc.setTextColor(0);
+    y += 5;
+    const negativosPdf = [...d.negativos].sort((a,b)=> a.stockCantidad - b.stockCantidad).slice(0, 50);
+    doc.autoTable({
+      startY: y,
+      head: [['Código','Descripción','Clase','Depósito','Stock']],
+      body: negativosPdf.map(it=>[it.codigo, it.descripcion, it.clase, it.deposito, String(it.stockCantidad)]),
+      theme: 'grid',
+      styles: { fontSize: 7.2, cellPadding: 1.6 },
+      headStyles: { fillColor: [200,140,20], textColor: 255, fontStyle: 'bold', fontSize: 7.5 },
+      margin: { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 },
+    });
+    y = doc.lastAutoTable.finalY + 4;
+  }
+
+  const totalPaginas = doc.internal.getNumberOfPages();
+  for(let i=1;i<=totalPaginas;i++){
+    doc.setPage(i);
+    try{ doc.addImage(FOOTER_BANNER_BASE64, 'JPEG', 0, pageHeight - bannerH, pageWidth, bannerH); } catch(e){ console.error(e); }
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(120);
+    doc.text(`Página ${i} de ${totalPaginas}`, pageWidth - marginX, pageHeight - bannerH - 4, { align:'right' });
+    doc.setTextColor(0);
+  }
+
+  doc.save(`stock_valorizado_haulotte_${new Date().toISOString().slice(0,10)}.pdf`);
   showToast('PDF generado');
 });
 
