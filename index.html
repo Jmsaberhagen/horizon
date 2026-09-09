@@ -6712,6 +6712,7 @@ function renderDashboard(){
       { tab:'editorobs', icon:'✏️', title:'Editor de Observaciones', count: '', visible:puede('editorobs','ver'), urgencia:null },
       { tab:'resumenerp', icon:'📥', title:'Resumen de Alquileres (ERP)', count:'Importar Excel de GP', visible:puede('resumenerp','ver'), urgencia:null },
       { tab:'analisisfinanciero', icon:'📈', title:'Análisis Financiero', count:'Importar Mayor de GP', visible:puede('analisisfinanciero','ver'), urgencia:null },
+      { tab:'backlogfacturacion', icon:'🧾', title:'Backlog de Facturación', count:'Mes en curso + proyección', visible:puede('backlogfacturacion','ver'), urgencia:null },
       { tab:'reportes',   icon:'📊', title:'Reportes',   count:'Mora y facturación', visible:puede('reportes','ver'), urgencia:null },
       { tab:'enviofacturas', icon:'📧', title:'Envío de Facturas', count: puede('enviofacturas','ver') ? `${nFacturasSinEnviar} sin enviar` : '', visible:puede('enviofacturas','ver'), urgencia: nFacturasSinEnviar>0 ? 'warn' : 'ok' },
     ]},
