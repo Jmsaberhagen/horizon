@@ -829,6 +829,7 @@
   <button data-tab="reportes">Reportes</button>
   <button data-tab="resumenerp">Resumen ERP</button>
   <button data-tab="analisisfinanciero">Análisis Financiero</button>
+  <button data-tab="backlogfacturacion">Backlog de Facturación</button>
   <button data-tab="stockvalorizado">Stock Valorizado</button>
   <button data-tab="cuentacliente">Cuenta Cliente</button>
   <button data-tab="enviofacturas">Envío de Facturas</button>
@@ -1164,6 +1165,83 @@
       </div>
     </div>
   </div>
+
+  <section id="tab-backlogfacturacion" style="display:none;">
+    <div class="dash-hero" style="margin-bottom:14px;">
+      <h1 style="font-size:16px;">Backlog de Facturación</h1>
+      <div class="sub">Todo lo que corresponde facturar en el mes en curso (ya facturado + pendiente) y una proyección aproximada del mes siguiente, para reporting a Francia.</div>
+    </div>
+
+    <div class="muted" id="backlog-periodo-label" style="font-size:12.5px;margin-bottom:14px;"></div>
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:10px;">
+      <div class="panel" style="padding:14px 16px;border-left:3px solid var(--accent);">
+        <div class="muted" style="font-size:11px;text-transform:uppercase;">Backlog del mes — ARS</div>
+        <div id="backlog-kpi-total-ars" style="font-size:19px;font-weight:700;margin-top:4px;">$ 0</div>
+      </div>
+      <div class="panel" style="padding:14px 16px;border-left:3px solid var(--accent);">
+        <div class="muted" style="font-size:11px;text-transform:uppercase;">Backlog del mes — USD</div>
+        <div id="backlog-kpi-total-usd" style="font-size:19px;font-weight:700;margin-top:4px;">U$D 0</div>
+      </div>
+      <div class="panel" style="padding:14px 16px;border-left:3px solid var(--ok);">
+        <div class="muted" style="font-size:11px;text-transform:uppercase;">Ya facturado (ARS / USD)</div>
+        <div id="backlog-kpi-facturado" style="font-size:15px;font-weight:700;margin-top:4px;">$ 0 · U$D 0</div>
+      </div>
+      <div class="panel" style="padding:14px 16px;border-left:3px solid var(--warn);">
+        <div class="muted" style="font-size:11px;text-transform:uppercase;">Todavía pendiente (ARS / USD)</div>
+        <div id="backlog-kpi-pendiente" style="font-size:15px;font-weight:700;margin-top:4px;">$ 0 · U$D 0</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:20px;">
+      <div class="panel" style="padding:14px 16px;border-left:3px solid var(--accent);">
+        <div class="muted" style="font-size:11px;text-transform:uppercase;">Proyección próximo mes — ARS</div>
+        <div id="backlog-kpi-proy-ars" style="font-size:19px;font-weight:700;margin-top:4px;">$ 0</div>
+      </div>
+      <div class="panel" style="padding:14px 16px;border-left:3px solid var(--accent);">
+        <div class="muted" style="font-size:11px;text-transform:uppercase;">Proyección próximo mes — USD</div>
+        <div id="backlog-kpi-proy-usd" style="font-size:19px;font-weight:700;margin-top:4px;">U$D 0</div>
+      </div>
+    </div>
+
+    <div class="toolbar" style="margin-bottom:14px;">
+      <div class="muted" style="font-size:12px;">La proyección es un run-rate simple: repite el valor de cada contrato activo (no DEMO) que siga vigente, ajustado por su periodicidad. Es aproximada, no una factura.</div>
+      <div style="flex:1"></div>
+      <button class="btn secondary" id="btn-backlog-excel">📊 Exportar Excel</button>
+    </div>
+
+    <div class="panel" style="padding:14px 16px;margin-bottom:10px;">
+      <div style="font-weight:700;font-size:13.5px;margin-bottom:10px;">Backlog detallado — mes en curso</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Cliente</th><th>Equipo</th><th>Sucursal</th><th>Moneda</th>
+              <th>Período</th><th>Monto</th><th>Estado</th><th>N° Factura</th>
+            </tr>
+          </thead>
+          <tbody id="backlog-detalle-tbody"><tr><td colspan="8" class="empty-state">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+      <div class="muted" id="backlog-detalle-count" style="margin-top:10px;font-size:12px;"></div>
+    </div>
+
+    <div class="panel" style="padding:14px 16px;">
+      <div style="font-weight:700;font-size:13.5px;margin-bottom:10px;">Proyección — próximo mes</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Cliente</th><th>Equipo</th><th>Sucursal</th><th>Moneda</th>
+              <th>Periodicidad</th><th>Monto proyectado</th><th>Vence antes de fin de mes</th>
+            </tr>
+          </thead>
+          <tbody id="backlog-proyeccion-tbody"><tr><td colspan="7" class="empty-state">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+      <div class="muted" id="backlog-proyeccion-count" style="margin-top:10px;font-size:12px;"></div>
+    </div>
+  </section>
 
   <section id="tab-vencimientos" style="display:none;">
     <div class="dash-hero" style="margin-bottom:14px;">
@@ -3775,6 +3853,7 @@ const TAB_TITLES = {
   reportes: 'Reportes',
   resumenerp: 'Resumen de Alquileres (ERP)',
   analisisfinanciero: 'Análisis Financiero',
+  backlogfacturacion: 'Backlog de Facturación',
   stockvalorizado: 'Stock Valorizado (Haulotte)',
   cuentacliente: 'Cuenta Cliente',
   enviofacturas: 'Envío de Facturas',
@@ -4333,6 +4412,235 @@ function fmtDate(d){
   const [y,m,day] = d.split('-');
   return `${day}/${m}/${y}`;
 }
+
+// ============================================================
+// MÓDULO: BACKLOG DE FACTURACIÓN + PROYECCIÓN (reporting a Francia)
+// ============================================================
+// Backlog del mes en curso = TODO lo que corresponde facturar en el mes en curso,
+// ya sea que esté "facturado" o todavía "pendiente" (se usa periodo_desde como ancla
+// de a qué mes pertenece cada línea de pendientes_facturacion).
+// Proyección del mes siguiente = run-rate simple: se repite el valor de cada contrato
+// activo (no DEMO) que siga vigente, multiplicado por la cantidad de períodos que le
+// tocan según su periodicidad (mensual=1, semanal≈4-5, diario=días del mes). Es
+// deliberadamente aproximada — no reemplaza la facturación real generada por el sistema.
+
+function primerYUltimoDiaMes(anio, mesIdx){ // mesIdx: 0=enero
+  const primero = new Date(anio, mesIdx, 1);
+  const ultimo = new Date(anio, mesIdx + 1, 0);
+  return [primero.toISOString().slice(0,10), ultimo.toISOString().slice(0,10)];
+}
+
+function periodosEnMesSegunPeriodicidad(periodicidad, anio, mesIdx){
+  const diasEnMes = new Date(anio, mesIdx + 1, 0).getDate();
+  if(periodicidad === 'diario') return diasEnMes;
+  if(periodicidad === 'semanal') return Math.round(diasEnMes / 7);
+  return 1; // mensual (default)
+}
+
+function calcularBacklogMesActual(){
+  const hoy = new Date();
+  const [desde, hasta] = primerYUltimoDiaMes(hoy.getFullYear(), hoy.getMonth());
+  return (pendientesCache || [])
+    .filter(p => p.contratos && p.periodo_desde >= desde && p.periodo_desde <= hasta)
+    .map(p => {
+      const c = p.contratos;
+      const monto = c.moneda === 'USD' ? (p.valor_alquiler_usd || 0) : (p.potencial_facturacion || 0);
+      return {
+        cliente: c.clientes?.razon_social || '—',
+        equipo: c.equipos?.numero_serie || '—',
+        modelo: c.equipos?.modelo || '',
+        sucursal: c.sucursales?.nombre || 'Sin sucursal',
+        moneda: c.moneda || 'ARS',
+        periodoDesde: p.periodo_desde,
+        periodoHasta: p.periodo_hasta,
+        monto,
+        estado: p.estado, // 'facturado' | 'pendiente'
+        numeroFactura: p.numero_factura || '',
+      };
+    });
+}
+
+function calcularProyeccionProximoMes(){
+  const hoy = new Date();
+  const proxAnio = hoy.getMonth() === 11 ? hoy.getFullYear() + 1 : hoy.getFullYear();
+  const proxMesIdx = (hoy.getMonth() + 1) % 12;
+  const [desdeProx, hastaProx] = primerYUltimoDiaMes(proxAnio, proxMesIdx);
+
+  return (contratosCache || [])
+    .filter(c => c.estado === 'activo' && !c.es_demo)
+    .filter(c => !c.fecha_vencimiento || c.fecha_vencimiento >= desdeProx) // sigue vigente en el próximo mes
+    .map(c => {
+      const periodicidad = c.periodicidad || 'mensual';
+      const precioPorPeriodo = c.precio_mensual_con_descuento ?? c.precio_mensual_sin_descuento ?? 0;
+      const cantPeriodos = periodosEnMesSegunPeriodicidad(periodicidad, proxAnio, proxMesIdx);
+      const vencePronto = !!c.fecha_vencimiento && c.fecha_vencimiento <= hastaProx;
+      return {
+        cliente: c.clientes?.razon_social || '—',
+        equipo: c.equipos?.numero_serie || '—',
+        modelo: c.equipos?.modelo || '',
+        sucursal: c.sucursales?.nombre || 'Sin sucursal',
+        moneda: c.moneda || 'ARS',
+        periodicidad,
+        monto: precioPorPeriodo * cantPeriodos,
+        vencePronto,
+        fechaVencimiento: c.fecha_vencimiento || null,
+      };
+    });
+}
+
+function sumarMoneda(filas, moneda, campoMonto){
+  return filas.filter(f => f.moneda === moneda).reduce((acc, f) => acc + (f[campoMonto] || 0), 0);
+}
+
+function renderBacklogStats(backlog, proyeccion){
+  const totalArs = sumarMoneda(backlog, 'ARS', 'monto');
+  const totalUsd = sumarMoneda(backlog, 'USD', 'monto');
+  const facturadoArs = sumarMoneda(backlog.filter(f => f.estado === 'facturado'), 'ARS', 'monto');
+  const facturadoUsd = sumarMoneda(backlog.filter(f => f.estado === 'facturado'), 'USD', 'monto');
+  const pendienteArs = sumarMoneda(backlog.filter(f => f.estado === 'pendiente'), 'ARS', 'monto');
+  const pendienteUsd = sumarMoneda(backlog.filter(f => f.estado === 'pendiente'), 'USD', 'monto');
+  const proyArs = sumarMoneda(proyeccion, 'ARS', 'monto');
+  const proyUsd = sumarMoneda(proyeccion, 'USD', 'monto');
+
+  document.getElementById('backlog-kpi-total-ars').textContent = fmtMoney(totalArs, 'ARS');
+  document.getElementById('backlog-kpi-total-usd').textContent = fmtMoney(totalUsd, 'USD');
+  document.getElementById('backlog-kpi-facturado').textContent = `${fmtMoney(facturadoArs,'ARS')} · ${fmtMoney(facturadoUsd,'USD')}`;
+  document.getElementById('backlog-kpi-pendiente').textContent = `${fmtMoney(pendienteArs,'ARS')} · ${fmtMoney(pendienteUsd,'USD')}`;
+  document.getElementById('backlog-kpi-proy-ars').textContent = fmtMoney(proyArs, 'ARS');
+  document.getElementById('backlog-kpi-proy-usd').textContent = fmtMoney(proyUsd, 'USD');
+
+  const hoy = new Date();
+  const nombresMes = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const proxMesIdx = (hoy.getMonth() + 1) % 12;
+  document.getElementById('backlog-periodo-label').textContent =
+    `Backlog de ${nombresMes[hoy.getMonth()]} de ${hoy.getFullYear()} — proyección de ${nombresMes[proxMesIdx]}.`;
+}
+
+function renderBacklogTablas(backlog, proyeccion){
+  const tbodyDet = document.getElementById('backlog-detalle-tbody');
+  const filasOrdenadas = [...backlog].sort((a,b) => a.sucursal.localeCompare(b.sucursal) || a.cliente.localeCompare(b.cliente));
+  tbodyDet.innerHTML = filasOrdenadas.length === 0
+    ? '<tr><td colspan="8" class="empty-state">Sin movimientos para el mes en curso.</td></tr>'
+    : filasOrdenadas.map(f => `
+      <tr>
+        <td>${escapeHtml(f.cliente)}</td>
+        <td>${escapeHtml(f.equipo)} <span class="muted">${escapeHtml(f.modelo)}</span></td>
+        <td>${escapeHtml(f.sucursal)}</td>
+        <td>${f.moneda}</td>
+        <td>${fmtDate(f.periodoDesde)} – ${fmtDate(f.periodoHasta)}</td>
+        <td>${fmtMoney(f.monto, f.moneda)}</td>
+        <td>${f.estado === 'facturado'
+          ? '<span class="badge" style="color:var(--ok);border-color:var(--ok);">Facturado</span>'
+          : '<span class="badge" style="color:var(--warn);border-color:var(--warn);">Pendiente</span>'}</td>
+        <td>${escapeHtml(f.numeroFactura)}</td>
+      </tr>`).join('');
+  document.getElementById('backlog-detalle-count').textContent = `${filasOrdenadas.length} línea(s)`;
+
+  const tbodyProy = document.getElementById('backlog-proyeccion-tbody');
+  const proyOrdenada = [...proyeccion].sort((a,b) => a.sucursal.localeCompare(b.sucursal) || a.cliente.localeCompare(b.cliente));
+  tbodyProy.innerHTML = proyOrdenada.length === 0
+    ? '<tr><td colspan="7" class="empty-state">Sin contratos activos para proyectar.</td></tr>'
+    : proyOrdenada.map(f => `
+      <tr>
+        <td>${escapeHtml(f.cliente)}</td>
+        <td>${escapeHtml(f.equipo)} <span class="muted">${escapeHtml(f.modelo)}</span></td>
+        <td>${escapeHtml(f.sucursal)}</td>
+        <td>${f.moneda}</td>
+        <td style="text-transform:capitalize;">${f.periodicidad}</td>
+        <td>${fmtMoney(f.monto, f.moneda)}</td>
+        <td>${f.vencePronto
+          ? `<span class="badge" style="color:var(--warn);border-color:var(--warn);">${fmtDate(f.fechaVencimiento)}</span>`
+          : '<span class="muted">—</span>'}</td>
+      </tr>`).join('');
+  document.getElementById('backlog-proyeccion-count').textContent = `${proyOrdenada.length} contrato(s)`;
+}
+
+let backlogDataCache = null;
+
+async function renderBacklog(){
+  // Por si el usuario entra directo a este tab sin haber pasado por Contratos/Pendientes.
+  if(!contratosCache || contratosCache.length === 0) await loadContratos();
+  if(!pendientesCache || pendientesCache.length === 0) await loadPendientes();
+
+  const backlog = calcularBacklogMesActual();
+  const proyeccion = calcularProyeccionProximoMes();
+  backlogDataCache = { backlog, proyeccion };
+  renderBacklogStats(backlog, proyeccion);
+  renderBacklogTablas(backlog, proyeccion);
+}
+
+function exportarBacklogExcel(){
+  if(!backlogDataCache){ showToast('Todavía no hay datos para exportar', true); return; }
+  const { backlog, proyeccion } = backlogDataCache;
+  const hoy = new Date();
+  const nombresMes = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const proxMesIdx = (hoy.getMonth() + 1) % 12;
+
+  const totalArs = sumarMoneda(backlog, 'ARS', 'monto');
+  const totalUsd = sumarMoneda(backlog, 'USD', 'monto');
+  const facturadoArs = sumarMoneda(backlog.filter(f=>f.estado==='facturado'), 'ARS', 'monto');
+  const facturadoUsd = sumarMoneda(backlog.filter(f=>f.estado==='facturado'), 'USD', 'monto');
+  const pendienteArs = sumarMoneda(backlog.filter(f=>f.estado==='pendiente'), 'ARS', 'monto');
+  const pendienteUsd = sumarMoneda(backlog.filter(f=>f.estado==='pendiente'), 'USD', 'monto');
+  const proyArs = sumarMoneda(proyeccion, 'ARS', 'monto');
+  const proyUsd = sumarMoneda(proyeccion, 'USD', 'monto');
+
+  const wb = XLSX.utils.book_new();
+
+  // Hoja 1: Resumen ejecutivo
+  const wsResumen = XLSX.utils.aoa_to_sheet([
+    ['Backlog de Facturación — Horizon Sudamérica'],
+    [`Mes en curso: ${nombresMes[hoy.getMonth()]} ${hoy.getFullYear()} — Proyección: ${nombresMes[proxMesIdx]}`],
+    [],
+    ['Métrica', 'ARS', 'USD'],
+    ['Backlog total del mes', totalArs, totalUsd],
+    ['  · Ya facturado', facturadoArs, facturadoUsd],
+    ['  · Todavía pendiente', pendienteArs, pendienteUsd],
+    ['Proyección próximo mes (run-rate)', proyArs, proyUsd],
+  ]);
+  wsResumen['!cols'] = [{wch:32},{wch:18},{wch:18}];
+  XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
+
+  // Hoja 2: Backlog por sucursal (pivot rápido para pegar en el reporte de Francia)
+  const sucursalesUnicas = [...new Set(backlog.map(f=>f.sucursal))].sort();
+  const pivHeaders = ['Sucursal','Backlog ARS','Backlog USD','Facturado ARS','Facturado USD','Pendiente ARS','Pendiente USD'];
+  const pivRows = sucursalesUnicas.map(suc=>{
+    const deSuc = backlog.filter(f=>f.sucursal===suc);
+    return [
+      suc,
+      sumarMoneda(deSuc,'ARS','monto'), sumarMoneda(deSuc,'USD','monto'),
+      sumarMoneda(deSuc.filter(f=>f.estado==='facturado'),'ARS','monto'), sumarMoneda(deSuc.filter(f=>f.estado==='facturado'),'USD','monto'),
+      sumarMoneda(deSuc.filter(f=>f.estado==='pendiente'),'ARS','monto'), sumarMoneda(deSuc.filter(f=>f.estado==='pendiente'),'USD','monto'),
+    ];
+  });
+  const wsPiv = XLSX.utils.aoa_to_sheet([pivHeaders, ...pivRows]);
+  wsPiv['!cols'] = pivHeaders.map(h=>({wch: Math.max(h.length+2, 15)}));
+  XLSX.utils.book_append_sheet(wb, wsPiv, 'Por Sucursal');
+
+  // Hoja 3: Backlog detallado
+  const detHeaders = ['Cliente','N° Serie','Modelo','Sucursal','Moneda','Período desde','Período hasta','Monto','Estado','N° Factura'];
+  const detRows = backlog.map(f => [f.cliente, f.equipo, f.modelo, f.sucursal, f.moneda, f.periodoDesde, f.periodoHasta, f.monto, f.estado === 'facturado' ? 'Facturado' : 'Pendiente', f.numeroFactura]);
+  const wsDet = XLSX.utils.aoa_to_sheet([detHeaders, ...detRows]);
+  wsDet['!cols'] = detHeaders.map(h=>({wch: Math.max(h.length+2, 14)}));
+  wsDet['!cols'][0] = {wch:30};
+  XLSX.utils.book_append_sheet(wb, wsDet, 'Backlog Detallado');
+
+  // Hoja 4: Proyección próximo mes
+  const proyHeaders = ['Cliente','N° Serie','Modelo','Sucursal','Moneda','Periodicidad','Monto proyectado','Vence antes de fin de mes'];
+  const proyRows = proyeccion.map(f => [f.cliente, f.equipo, f.modelo, f.sucursal, f.moneda, f.periodicidad, f.monto, f.vencePronto ? fmtDate(f.fechaVencimiento) : '']);
+  const wsProy = XLSX.utils.aoa_to_sheet([proyHeaders, ...proyRows]);
+  wsProy['!cols'] = proyHeaders.map(h=>({wch: Math.max(h.length+2, 14)}));
+  wsProy['!cols'][0] = {wch:30};
+  XLSX.utils.book_append_sheet(wb, wsProy, 'Proyección Próximo Mes');
+
+  XLSX.writeFile(wb, `backlog_facturacion_horizon_${hoy.toISOString().slice(0,10)}.xlsx`);
+  showToast('Excel generado');
+}
+
+document.querySelector('nav button[data-tab="backlogfacturacion"]')?.addEventListener('click', renderBacklog);
+document.getElementById('btn-backlog-excel')?.addEventListener('click', exportarBacklogExcel);
+
+
 
 function renderContratos(list){
   const tbody = document.getElementById('contratos-tbody');
@@ -6021,6 +6329,7 @@ const SECCIONES_PERMISOS = [
   { key:'editorobs',          label:'Editor de Observaciones', acciones:[['ver','Ver / usar']] },
   { key:'resumenerp',         label:'Resumen de Alquileres (ERP)', acciones:[['ver','Ver / usar']] },
   { key:'analisisfinanciero', label:'Análisis Financiero',        acciones:[['ver','Ver / usar']] },
+  { key:'backlogfacturacion', label:'Backlog de Facturación',     acciones:[['ver','Ver / usar']] },
   { key:'stockvalorizado',    label:'Stock Valorizado (Haulotte)', acciones:[['ver','Ver / usar']] },
   { key:'panoramacobranzas',  label:'Panorama de Cobranzas',   acciones:[['ver','Ver / usar']] },
   { key:'panoramaproveedores', label:'Panorama de Deuda a Proveedores', acciones:[['ver','Ver / usar']] },
@@ -15207,7 +15516,7 @@ async function initApp(){
     renderRetiros();
     mostrarAlertaRetirosSiCorresponde();
 
-    if(puede('pendientes','ver') || puede('reportes','ver') || puede('enviofacturas','ver')){
+    if(puede('pendientes','ver') || puede('reportes','ver') || puede('enviofacturas','ver') || puede('backlogfacturacion','ver')){
       console.log('[Horizon] contratos OK, cargando requisitos y pendientes...');
       await loadTodosLosRequisitos();
       await loadTodosLosCertificados();
