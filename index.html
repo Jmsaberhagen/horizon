@@ -4471,7 +4471,9 @@ function calcularProyeccionProximoMes(){
 
   return (contratosCache || [])
     .filter(c => c.estado === 'activo' && !c.es_demo)
-    .filter(c => !c.fecha_vencimiento || c.fecha_vencimiento >= desdeProx) // sigue vigente en el próximo mes
+    // La fecha de vencimiento ya no corta la facturación (es solo alerta para
+    // logística) — un contrato activo sigue proyectándose aunque ya haya vencido,
+    // salvo que se haya dado de baja de verdad. "vencePronto" queda como aviso.
     .map(c => {
       const periodicidad = c.periodicidad || 'mensual';
       const precioPorPeriodo = c.precio_mensual_con_descuento ?? c.precio_mensual_sin_descuento ?? 0;
@@ -5445,27 +5447,21 @@ async function autoGenerarPendientesDelMes(){
   const nuevos = [];
   for(const c of contratosAGenerar){
     let cursor = addDays(c.ultimo_periodo_facturado_hasta, 1);
-    // El límite de facturación es la fecha PACTADA con el cliente (vencimiento),
-    // no la fecha real en que logística retira la máquina (fecha_baja) — eso
-    // puede demorarse unos días y no corresponde cobrárselo ni de más ni de menos.
-    // Si no hay vencimiento cargado, usamos fecha_baja como resguardo (contrato
-    // ya cerrado sin fecha pactada conocida); si tampoco hay nada, hasta hoy.
+    // La fecha de vencimiento es una alerta para ir a buscar la máquina, NO determina
+    // el corte de facturación. El sistema sigue generando pendientes normalmente
+    // mientras el contrato esté "activo", sin importar si ya pasó su vencimiento
+    // pactado. El único corte real es la fecha de baja (cuando el contrato se cierra
+    // de verdad), o si no hay baja, hasta hoy.
     let limite = hoy;
-    if(c.fecha_vencimiento && c.fecha_vencimiento < limite){
-      limite = c.fecha_vencimiento;
-    } else if(!c.fecha_vencimiento && c.estado === 'baja' && c.fecha_baja && c.fecha_baja < limite){
+    if(c.estado === 'baja' && c.fecha_baja && c.fecha_baja < limite){
       limite = c.fecha_baja;
     }
     let guard = 0; // tope de seguridad para no generar infinitos períodos atrasados de una sola vez
     while(cursor <= limite && guard < 36){
       let hasta = calcularPeriodoHasta(cursor, c.periodicidad || 'mensual');
-      // Si el período de calendario se pasaría de la fecha de vencimiento pactada,
-      // lo cortamos justo ahí: la facturación se corta en la fecha acordada con
-      // el cliente, no al final del mes/semana "de calendario" completo, y sin
-      // importar cuándo se termine retirando físicamente el equipo.
-      if(c.fecha_vencimiento && hasta > c.fecha_vencimiento){
-        hasta = c.fecha_vencimiento;
-      } else if(!c.fecha_vencimiento && c.estado === 'baja' && c.fecha_baja && hasta > c.fecha_baja){
+      // Solo se corta en la fecha de baja real (contrato cerrado), no en el
+      // vencimiento pactado — ese es apenas un aviso para logística.
+      if(c.estado === 'baja' && c.fecha_baja && hasta > c.fecha_baja){
         hasta = c.fecha_baja;
       }
       if(!existentesSet.has(`${c.id}|${cursor}`)){
@@ -7043,13 +7039,11 @@ function calcularConciliacion(clienteId, serie){
   const precioMensual = masReciente.precio_mensual_con_descuento ?? masReciente.precio_mensual_sin_descuento ?? 0;
   if(!precioMensual) return null;
 
-  // fecha de referencia: la pactada con el cliente (vencimiento), no la fecha real
-  // de retiro físico — eso puede demorarse y no corresponde facturarlo de más.
+  // fecha de referencia: la fecha de vencimiento ya no corta la facturación
+  // esperada (es solo alerta para logística) — el corte real es la baja.
   const hoy = new Date().toISOString().slice(0,10);
   let fechaHasta = hoy;
-  if(masReciente.fecha_vencimiento && masReciente.fecha_vencimiento < fechaHasta){
-    fechaHasta = masReciente.fecha_vencimiento;
-  } else if(!masReciente.fecha_vencimiento && masReciente.estado === 'baja' && masReciente.fecha_baja && masReciente.fecha_baja < fechaHasta){
+  if(masReciente.estado === 'baja' && masReciente.fecha_baja && masReciente.fecha_baja < fechaHasta){
     fechaHasta = masReciente.fecha_baja;
   }
 
@@ -11342,7 +11336,10 @@ function calcularRetirosUrgentes(){
 function calcularTodosLosRetiros(){
   const ahora = new Date();
   return contratosCache
-    .filter(c => c.fecha_vencimiento && c.equipos?.numero_serie)
+    // Si el contrato ya se dio de baja (cierre real, no solo el vencimiento
+    // pactado), deja de ser un "retiro pendiente" — ya se resolvió, aunque
+    // nadie haya tildado "confirmar retirada" por separado.
+    .filter(c => c.fecha_vencimiento && c.equipos?.numero_serie && c.estado !== 'baja')
     .map(c=>{
       const fechaVenc = new Date(c.fecha_vencimiento + 'T00:00:00');
       const horasRestantes = (fechaVenc - ahora) / 3600000;
