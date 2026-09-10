@@ -4440,8 +4440,11 @@ function periodosEnMesSegunPeriodicidad(periodicidad, anio, mesIdx){
 function calcularBacklogMesActual(){
   const hoy = new Date();
   const [desde, hasta] = primerYUltimoDiaMes(hoy.getFullYear(), hoy.getMonth());
+  // Un período "pertenece" al mes en curso si se SOLAPA con él, no solo si arranca
+  // dentro del mes. Muchos contratos tienen su período desde/hasta corrido respecto
+  // al mes calendario (ej. 29/08 -> 27/09) y esa factura corresponde igual a este mes.
   return (pendientesCache || [])
-    .filter(p => p.contratos && p.periodo_desde >= desde && p.periodo_desde <= hasta)
+    .filter(p => p.contratos && p.periodo_desde <= hasta && (p.periodo_hasta || p.periodo_desde) >= desde)
     .map(p => {
       const c = p.contratos;
       const monto = c.moneda === 'USD' ? (p.valor_alquiler_usd || 0) : (p.potencial_facturacion || 0);
