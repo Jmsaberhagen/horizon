@@ -15072,7 +15072,10 @@ function renderPresItemsTabla(){
           </td>
           <td><input type="number" class="pres-item-precio" data-idx="${idx}" value="${it.precio_unitario}" step="0.01" style="width:110px;"></td>
           <td class="muted pres-item-subtotal" data-idx="${idx}">${fmtMoney(subtotal, document.getElementById('pres-moneda').value)}</td>
-          <td><button type="button" class="btn secondary small" onclick="quitarItemPresupuesto(${idx})">✕</button></td>
+          <td style="white-space:nowrap;">
+            <button type="button" class="btn secondary small" title="Duplicar este equipo con otro período" onclick="duplicarItemPresupuesto(${idx})">⧉</button>
+            <button type="button" class="btn secondary small" onclick="quitarItemPresupuesto(${idx})">✕</button>
+          </td>
         </tr>`;
     }).join('');
   }
@@ -15113,6 +15116,21 @@ document.getElementById('pres-flete-incluir').addEventListener('change', (e)=>{
   actualizarTotalPresupuestoPreview();
 });
 document.getElementById('pres-flete-monto').addEventListener('input', actualizarTotalPresupuestoPreview);
+function duplicarItemPresupuesto(idx){
+  const original = presupuestoItemsState[idx];
+  if(!original) return;
+  // Sugiere el período que todavía no se cotizó para este mismo modelo (Mes -> Semana -> Día),
+  // para armar rápido el desglose de 3 precios que pide Comercial sin tener que buscar el
+  // equipo de nuevo cada vez.
+  const modeloNorm = (original.modelo||'').trim().toLowerCase();
+  const periodosUsados = presupuestoItemsState
+    .filter(it => (it.modelo||'').trim().toLowerCase() === modeloNorm)
+    .map(it => it.periodo);
+  const periodoSugerido = ['Mes','Semana','Día'].find(p => !periodosUsados.includes(p)) || 'Mes';
+  const nuevo = { modelo: original.modelo, categoria: original.categoria, cantidad: 1, periodo: periodoSugerido, precio_unitario: 0 };
+  presupuestoItemsState.splice(idx + 1, 0, nuevo);
+  renderPresItemsTabla();
+}
 function quitarItemPresupuesto(idx){
   presupuestoItemsState.splice(idx, 1);
   renderPresItemsTabla();
