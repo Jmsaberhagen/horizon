@@ -4412,6 +4412,12 @@ function fmtDate(d){
   const [y,m,day] = d.split('-');
   return `${day}/${m}/${y}`;
 }
+// Para exports a Excel: mismo dato, formato DD-MM-AAAA (con guiones, sin el '—' de placeholder).
+function fmtDateExport(d){
+  if(!d) return '';
+  const [y,m,day] = d.split('-');
+  return `${day}-${m}-${y}`;
+}
 
 // ============================================================
 // MÓDULO: BACKLOG DE FACTURACIÓN + PROYECCIÓN (reporting a Francia)
@@ -5303,10 +5309,10 @@ function pendientesToRows(list){
     return [
       p.contratos?.clientes?.razon_social || '', p.contratos?.equipos?.numero_serie || '', p.contratos?.equipos?.modelo || '',
       p.contratos?.sucursales?.nombre || '', p.contratos?.clientes?.provincia || '',
-      p.periodo_desde || '', p.periodo_hasta || '', p.valor_alquiler_usd ?? '', p.potencial_facturacion ?? '',
+      fmtDateExport(p.periodo_desde), fmtDateExport(p.periodo_hasta), p.valor_alquiler_usd ?? '', p.potencial_facturacion ?? '',
       p.estado, p.numero_factura || '',
       estadoContrato,
-      ultima?.periodo_desde || '', ultima?.periodo_hasta || '', ultima?.numero_factura || '', ultima?.fecha_facturacion || '',
+      fmtDateExport(ultima?.periodo_desde), fmtDateExport(ultima?.periodo_hasta), ultima?.numero_factura || '', fmtDateExport(ultima?.fecha_facturacion),
     ];
   });
   return { headers, rows };
@@ -5359,7 +5365,7 @@ function pendientesAgrupadoToRows(list){
         p.contratos?.equipos?.numero_serie || '',
         p.contratos?.equipos?.modelo || '',
         p.contratos?.sucursales?.nombre || '',
-        p.periodo_desde || '', p.periodo_hasta || '',
+        fmtDateExport(p.periodo_desde), fmtDateExport(p.periodo_hasta),
         p.valor_alquiler_usd ?? '',
         p.potencial_facturacion ?? '',
         p.estado,
@@ -7658,8 +7664,8 @@ function reportesToRows(){
     p.contratos?.clientes?.provincia || '',
     p.contratos?.sucursales?.nombre || '',
     p.contratos?.equipos?.numero_serie || '',
-    p.periodo_desde || '',
-    p.periodo_hasta || '',
+    fmtDateExport(p.periodo_desde),
+    fmtDateExport(p.periodo_hasta),
     p.valor_alquiler_usd || 0,
     p.estado,
     p.numero_factura || '',
