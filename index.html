@@ -3659,7 +3659,23 @@
     </div>
     <datalist id="pres-modelos-datalist"></datalist>
     <button class="btn secondary small" id="btn-pres-agregar-item" type="button" style="margin-top:10px;">+ Agregar equipo</button>
-    <div style="text-align:right;margin-top:10px;font-size:14px;">
+
+    <div style="margin-top:14px;padding:12px 14px;border:1px solid var(--border);border-radius:8px;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;">
+        <input type="checkbox" id="pres-flete-incluir" style="width:auto;">
+        Incluir flete en el presupuesto
+      </label>
+      <div id="pres-flete-monto-wrap" style="margin-top:8px;display:none;max-width:220px;">
+        <label>Costo del flete</label>
+        <input type="number" id="pres-flete-monto" step="0.01" value="0">
+      </div>
+    </div>
+
+    <div style="text-align:right;margin-top:14px;font-size:14px;">
+      <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12.5px;color:var(--muted);margin-right:16px;">
+        <input type="checkbox" id="pres-ocultar-total" style="width:auto;">
+        Ocultar el total al exportar el PDF
+      </label>
       Total: <strong id="pres-total-preview">U$D 0,00</strong>
     </div>
 
@@ -14907,7 +14923,8 @@ async function loadPresupuestos(){
 
 function totalPresupuesto(p){
   const items = p.presupuesto_items || [];
-  return items.reduce((acc, it) => acc + (Number(it.cantidad)||0) * (Number(it.precio_unitario)||0), 0);
+  const totalItems = items.reduce((acc, it) => acc + (Number(it.cantidad)||0) * (Number(it.precio_unitario)||0), 0);
+  return totalItems + (p.flete_incluir ? (Number(p.flete_monto)||0) : 0);
 }
 
 function getPresupuestosFiltrados(){
@@ -15027,6 +15044,14 @@ function populateSucursalSelectPresupuesto(){
 }
 
 // ---------- Ítems del presupuesto (tabla dinámica) ----------
+function calcularTotalPresupuestoForm(){
+  const totalItems = presupuestoItemsState.reduce((acc,it)=> acc + (Number(it.cantidad)||0)*(Number(it.precio_unitario)||0), 0);
+  const flete = document.getElementById('pres-flete-incluir').checked ? (Number(document.getElementById('pres-flete-monto').value)||0) : 0;
+  return totalItems + flete;
+}
+function actualizarTotalPresupuestoPreview(){
+  document.getElementById('pres-total-preview').textContent = fmtMoney(calcularTotalPresupuestoForm(), document.getElementById('pres-moneda').value);
+}
 function renderPresItemsTabla(){
   const tbody = document.getElementById('pres-items-tbody');
   if(presupuestoItemsState.length === 0){
@@ -15046,14 +15071,16 @@ function renderPresItemsTabla(){
             </select>
           </td>
           <td><input type="number" class="pres-item-precio" data-idx="${idx}" value="${it.precio_unitario}" step="0.01" style="width:110px;"></td>
-          <td class="muted">${fmtMoney(subtotal, document.getElementById('pres-moneda').value)}</td>
+          <td class="muted pres-item-subtotal" data-idx="${idx}">${fmtMoney(subtotal, document.getElementById('pres-moneda').value)}</td>
           <td><button type="button" class="btn secondary small" onclick="quitarItemPresupuesto(${idx})">✕</button></td>
         </tr>`;
     }).join('');
   }
-  const total = presupuestoItemsState.reduce((acc,it)=> acc + (Number(it.cantidad)||0)*(Number(it.precio_unitario)||0), 0);
-  document.getElementById('pres-total-preview').textContent = fmtMoney(total, document.getElementById('pres-moneda').value);
+  actualizarTotalPresupuestoPreview();
 }
+// Al tipear: NO se reconstruye la tabla (eso destruye el <input> y hace saltar el
+// cursor al principio en cada tecla). Solo se actualiza el estado en memoria y,
+// puntualmente, el texto del subtotal de esa fila + el total — nunca el input en sí.
 document.getElementById('pres-items-tbody').addEventListener('input', (e)=>{
   const idx = Number(e.target.dataset.idx);
   if(Number.isNaN(idx) || !presupuestoItemsState[idx]) return;
@@ -15064,14 +15091,28 @@ document.getElementById('pres-items-tbody').addEventListener('input', (e)=>{
   }
   if(e.target.classList.contains('pres-item-cantidad')) presupuestoItemsState[idx].cantidad = e.target.value;
   if(e.target.classList.contains('pres-item-precio')) presupuestoItemsState[idx].precio_unitario = e.target.value;
-  renderPresItemsTabla();
+  if(e.target.classList.contains('pres-item-cantidad') || e.target.classList.contains('pres-item-precio')){
+    const it = presupuestoItemsState[idx];
+    const subtotal = (Number(it.cantidad)||0) * (Number(it.precio_unitario)||0);
+    const celda = tbodyPresQuerySubtotal(idx);
+    if(celda) celda.textContent = fmtMoney(subtotal, document.getElementById('pres-moneda').value);
+    actualizarTotalPresupuestoPreview();
+  }
 });
+function tbodyPresQuerySubtotal(idx){
+  return document.querySelector(`#pres-items-tbody .pres-item-subtotal[data-idx="${idx}"]`);
+}
 document.getElementById('pres-items-tbody').addEventListener('change', (e)=>{
   const idx = Number(e.target.dataset.idx);
   if(Number.isNaN(idx) || !presupuestoItemsState[idx]) return;
   if(e.target.classList.contains('pres-item-periodo')) presupuestoItemsState[idx].periodo = e.target.value;
 });
 document.getElementById('pres-moneda').addEventListener('change', renderPresItemsTabla);
+document.getElementById('pres-flete-incluir').addEventListener('change', (e)=>{
+  document.getElementById('pres-flete-monto-wrap').style.display = e.target.checked ? 'block' : 'none';
+  actualizarTotalPresupuestoPreview();
+});
+document.getElementById('pres-flete-monto').addEventListener('input', actualizarTotalPresupuestoPreview);
 function quitarItemPresupuesto(idx){
   presupuestoItemsState.splice(idx, 1);
   renderPresItemsTabla();
@@ -15108,6 +15149,10 @@ function resetPresupuestoForm(){
   document.getElementById('pres-facturar_domicilio').value = '';
   document.getElementById('pres-facturar_tel').value = '';
   document.getElementById('pres-mail_factura_electronica').value = '';
+  document.getElementById('pres-flete-incluir').checked = false;
+  document.getElementById('pres-flete-monto').value = 0;
+  document.getElementById('pres-flete-monto-wrap').style.display = 'none';
+  document.getElementById('pres-ocultar-total').checked = false;
   document.getElementById('pres-modelos-datalist').innerHTML =
     catalogoTecnicoCache.filter(c => c.especificaciones && c.especificaciones.length).map(c=>`<option value="${escapeHtml(c.modelo)}">`).join('');
   presupuestoItemsState = [{ modelo:'', categoria:'', cantidad:1, periodo:'Mes', precio_unitario:0 }];
@@ -15156,6 +15201,10 @@ function abrirEditarPresupuesto(id){
   document.getElementById('pres-facturar_domicilio').value = p.facturar_domicilio || '';
   document.getElementById('pres-facturar_tel').value = p.facturar_tel || '';
   document.getElementById('pres-mail_factura_electronica').value = p.mail_factura_electronica || '';
+  document.getElementById('pres-flete-incluir').checked = !!p.flete_incluir;
+  document.getElementById('pres-flete-monto').value = p.flete_monto || 0;
+  document.getElementById('pres-flete-monto-wrap').style.display = p.flete_incluir ? 'block' : 'none';
+  document.getElementById('pres-ocultar-total').checked = !!p.ocultar_total;
   presupuestoItemsState = (p.presupuesto_items || []).length > 0
     ? p.presupuesto_items.map(it => ({ modelo: it.modelo||'', categoria: it.categoria||'', cantidad: it.cantidad, periodo: it.periodo||'Mes', precio_unitario: it.precio_unitario }))
     : [{ modelo:'', categoria:'', cantidad:1, periodo:'Mes', precio_unitario:0 }];
@@ -15191,6 +15240,9 @@ document.getElementById('btn-presupuesto-save').addEventListener('click', async 
     facturar_domicilio: document.getElementById('pres-facturar_domicilio').value || null,
     facturar_tel: document.getElementById('pres-facturar_tel').value || null,
     mail_factura_electronica: document.getElementById('pres-mail_factura_electronica').value || null,
+    flete_incluir: document.getElementById('pres-flete-incluir').checked,
+    flete_monto: Number(document.getElementById('pres-flete-monto').value) || 0,
+    ocultar_total: document.getElementById('pres-ocultar-total').checked,
   };
 
   try{
@@ -15361,10 +15413,22 @@ function generarPresupuestoPDF(id){
   });
 
   y += 2;
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(11);
-  doc.text(`TOTAL: ${fmtMoney(total, p.moneda)}`, pageWidth - marginX, y, { align:'right' });
-  y += 12;
+  if(p.flete_incluir && Number(p.flete_monto) > 0){
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(9);
+    doc.text('Flete:', colPrecio, y);
+    doc.text(fmtMoney(p.flete_monto, p.moneda), colSub, y);
+    y += 6;
+    total += Number(p.flete_monto);
+  }
+  if(!p.ocultar_total){
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(11);
+    doc.text(`TOTAL: ${fmtMoney(total, p.moneda)}`, pageWidth - marginX, y, { align:'right' });
+    y += 12;
+  } else {
+    y += 6;
+  }
 
   doc.setFont('helvetica','bold');
   doc.setFontSize(10);
