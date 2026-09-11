@@ -5293,7 +5293,7 @@ function obtenerUltimaFacturaDelContrato(contratoId){
 
 function pendientesToRows(list){
   const headers = [
-    'Cliente','Equipo','Modelo','Sucursal','Provincia','Periodo Desde','Periodo Hasta','Valor USD','Estado','N Factura',
+    'Cliente','Equipo','Modelo','Sucursal','Provincia','Periodo Desde','Periodo Hasta','Valor USD','Valor ARS','Estado','N Factura',
     'Estado Contrato',
     'Ultimo Periodo Facturado Desde','Ultimo Periodo Facturado Hasta','N Factura Ultimo Periodo','Fecha Emision Ultima Factura',
   ];
@@ -5303,7 +5303,7 @@ function pendientesToRows(list){
     return [
       p.contratos?.clientes?.razon_social || '', p.contratos?.equipos?.numero_serie || '', p.contratos?.equipos?.modelo || '',
       p.contratos?.sucursales?.nombre || '', p.contratos?.clientes?.provincia || '',
-      p.periodo_desde || '', p.periodo_hasta || '', p.valor_alquiler_usd ?? '',
+      p.periodo_desde || '', p.periodo_hasta || '', p.valor_alquiler_usd ?? '', p.potencial_facturacion ?? '',
       p.estado, p.numero_factura || '',
       estadoContrato,
       ultima?.periodo_desde || '', ultima?.periodo_hasta || '', ultima?.numero_factura || '', ultima?.fecha_facturacion || '',
@@ -5325,24 +5325,31 @@ document.getElementById('btn-export-pendientes-xls').addEventListener('click', (
 // y dentro de cada cliente ordena por N° de serie, con subtotal por cliente
 // y total general al pie.
 function pendientesAgrupadoToRows(list){
-  const headers = ['Cliente','N Equipo','Modelo','Sucursal','Periodo Desde','Periodo Hasta','Valor USD','Estado','N Factura'];
+  const headers = ['Cliente','N Equipo','Modelo','Sucursal','Periodo Desde','Periodo Hasta','Valor USD','Valor ARS','Estado','N Factura'];
 
   const porCliente = new Map();
   list.forEach(p=>{
     const clienteId = p.contratos?.clientes?.id || 'sin_cliente';
     const clienteNombre = p.contratos?.clientes?.razon_social || '(Sin cliente)';
-    if(!porCliente.has(clienteId)) porCliente.set(clienteId, { nombre: clienteNombre, items: [], total: 0 });
+    if(!porCliente.has(clienteId)) porCliente.set(clienteId, { nombre: clienteNombre, items: [], totalUsd: 0, totalArs: 0 });
     const grupo = porCliente.get(clienteId);
-    const valor = Number(p.valor_alquiler_usd) || 0;
-    grupo.total += (p.estado === 'pendiente' ? valor : 0); // el total que "queda por facturar" solo suma lo pendiente
+    const valorUsd = Number(p.valor_alquiler_usd) || 0;
+    const valorArs = Number(p.potencial_facturacion) || 0;
+    // el total que "queda por facturar" solo suma lo pendiente — USD y ARS nunca se mezclan
+    if(p.estado === 'pendiente'){
+      grupo.totalUsd += valorUsd;
+      grupo.totalArs += valorArs;
+    }
     grupo.items.push(p);
   });
 
-  // Clientes con más plata pendiente primero, así se sabe por dónde arrancar
-  const grupos = [...porCliente.values()].sort((a,b)=> b.total - a.total);
+  // Clientes con más plata pendiente primero (en USD, que es la moneda principal de la
+  // cartera); a igualdad de USD, se ordena por ARS para que los clientes que solo tienen
+  // contratos en pesos no queden todos amontonados al final con un total "0" engañoso.
+  const grupos = [...porCliente.values()].sort((a,b)=> (b.totalUsd - a.totalUsd) || (b.totalArs - a.totalArs));
 
   const rows = [];
-  let totalGeneral = 0;
+  let totalGeneralUsd = 0, totalGeneralArs = 0;
   grupos.forEach(grupo=>{
     // Dentro del cliente: por N° de serie, para no repetir viajes/búsquedas de la misma máquina
     grupo.items.sort((a,b)=> (a.contratos?.equipos?.numero_serie||'').localeCompare(b.contratos?.equipos?.numero_serie||''));
@@ -5354,15 +5361,17 @@ function pendientesAgrupadoToRows(list){
         p.contratos?.sucursales?.nombre || '',
         p.periodo_desde || '', p.periodo_hasta || '',
         p.valor_alquiler_usd ?? '',
+        p.potencial_facturacion ?? '',
         p.estado,
         p.numero_factura || '',
       ]);
     });
-    rows.push([`TOTAL ${grupo.nombre} ►`, '', '', '', '', '', grupo.total.toFixed(2), '', '']);
-    rows.push(['', '', '', '', '', '', '', '', '']);
-    totalGeneral += grupo.total;
+    rows.push([`TOTAL ${grupo.nombre} ►`, '', '', '', '', '', grupo.totalUsd.toFixed(2), grupo.totalArs.toFixed(2), '', '']);
+    rows.push(['', '', '', '', '', '', '', '', '', '']);
+    totalGeneralUsd += grupo.totalUsd;
+    totalGeneralArs += grupo.totalArs;
   });
-  rows.push(['TOTAL GENERAL PENDIENTE ►', '', '', '', '', '', totalGeneral.toFixed(2), '', '']);
+  rows.push(['TOTAL GENERAL PENDIENTE ►', '', '', '', '', '', totalGeneralUsd.toFixed(2), totalGeneralArs.toFixed(2), '', '']);
 
   return { headers, rows };
 }
