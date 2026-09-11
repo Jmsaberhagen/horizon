@@ -15399,32 +15399,53 @@ function generarPresupuestoPDF(id){
 
   const linksAFichas = []; // {yPosicion, modelo}
   let total = 0;
+
+  // Agrupar por modelo (+ descripción, por si dos ítems con el mismo modelo llevan
+  // una descripción distinta a propósito) preservando el orden en que se cargaron,
+  // para que el PDF muestre "1 equipo con 3 precios" y no "3 equipos distintos".
+  const grupos = [];
+  const indicePorClave = new Map();
   items.forEach((it) => {
-    const ficha = buscarFichaTecnica(it.modelo);
-    const subtotal = (Number(it.cantidad)||0) * (Number(it.precio_unitario)||0);
-    total += subtotal;
+    const clave = `${it.modelo}||${it.descripcion||''}`;
+    if(!indicePorClave.has(clave)){
+      indicePorClave.set(clave, grupos.length);
+      grupos.push({ modelo: it.modelo, descripcion: it.descripcion, filas: [] });
+    }
+    grupos[indicePorClave.get(clave)].filas.push(it);
+  });
+
+  grupos.forEach((grupo) => {
+    const ficha = buscarFichaTecnica(grupo.modelo);
 
     doc.setFont('helvetica','bold');
     doc.setFontSize(9);
-    doc.text(it.descripcion || it.modelo, colModelo + 2, y);
-    doc.setFont('helvetica','normal');
-    doc.setFontSize(8.5);
-    doc.text(String(it.cantidad), colCant, y);
-    doc.text(it.periodo || 'Mes', colPer, y);
-    doc.text(fmtMoney(it.precio_unitario, p.moneda), colPrecio, y);
-    doc.text(fmtMoney(subtotal, p.moneda), colSub, y);
+    doc.text(grupo.descripcion || grupo.modelo, colModelo + 2, y);
     y += 5;
 
     if(ficha && ficha.especificaciones && ficha.especificaciones.length){
       doc.setTextColor(30, 100, 200);
       doc.setFontSize(8);
       doc.textWithLink('Ver ficha técnica', colModelo + 2, y, { url: undefined });
-      linksAFichas.push({ y: y - 3, modelo: it.modelo, ficha });
+      linksAFichas.push({ y: y - 3, modelo: grupo.modelo, ficha });
       doc.setTextColor(0,0,0);
       y += 6;
     } else {
-      y += 3;
+      y += 2;
     }
+
+    grupo.filas.forEach((it) => {
+      const subtotal = (Number(it.cantidad)||0) * (Number(it.precio_unitario)||0);
+      total += subtotal;
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(8.5);
+      doc.text(String(it.cantidad), colCant, y);
+      doc.text(it.periodo || 'Mes', colPer, y);
+      doc.text(fmtMoney(it.precio_unitario, p.moneda), colPrecio, y);
+      doc.text(fmtMoney(subtotal, p.moneda), colSub, y);
+      y += 5.5;
+    });
+
+    y += 1;
     doc.setDrawColor(220,220,220);
     doc.line(marginX, y, pageWidth - marginX, y);
     y += 6;
