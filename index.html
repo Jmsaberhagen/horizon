@@ -831,6 +831,7 @@
   <button data-tab="analisisfinanciero">Análisis Financiero</button>
   <button data-tab="backlogfacturacion">Backlog de Facturación</button>
   <button data-tab="stockvalorizado">Stock Valorizado</button>
+  <button data-tab="haulotte_articulos">Artículos Haulotte</button>
   <button data-tab="cuentacliente">Cuenta Cliente</button>
   <button data-tab="enviofacturas">Envío de Facturas</button>
   <button data-tab="planning">Planning</button>
@@ -2277,6 +2278,74 @@
 
     </div>
   </section>
+
+  <section id="tab-haulotte_articulos" style="display:none;">
+    <div class="toolbar">
+      <input type="text" id="hrep-search-input" placeholder="Buscar por código, descripción o categoría...">
+      <div style="flex:1"></div>
+      <button class="btn" id="btn-new-hrep">+ Nuevo artículo</button>
+    </div>
+
+    <div class="panel">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Descripción</th>
+              <th style="width:110px;">Categoría</th>
+              <th style="width:130px;">Último costo</th>
+              <th style="width:90px;">Estado</th>
+              <th style="width:120px;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="hrep-tbody">
+            <tr><td colspan="6" class="empty-state">Cargando artículos...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="muted" id="hrep-results-count" style="margin-top:10px;font-size:12px;"></div>
+  </section>
+
+  <div class="overlay" id="modal-hrep-overlay">
+    <div class="modal">
+      <h2 id="hrep-modal-title">Nuevo artículo</h2>
+      <input type="hidden" id="hrep-id">
+
+      <div class="field-grid">
+        <div class="field full">
+          <label>Código *</label>
+          <input type="text" id="hrep-codigo" placeholder="Ej: 2324000890" style="font-family:monospace;">
+        </div>
+        <div class="field full">
+          <label>Descripción</label>
+          <input type="text" id="hrep-descripcion" placeholder="Descripción del repuesto">
+        </div>
+        <div class="field">
+          <label>Categoría</label>
+          <input type="text" id="hrep-categoria" placeholder="Ej: A, B, C...">
+        </div>
+        <div class="field">
+          <label>Estado</label>
+          <select id="hrep-activo">
+            <option value="true">Activo</option>
+            <option value="false">Inactivo</option>
+          </select>
+        </div>
+        <div class="field full">
+          <label>Último costo cargado</label>
+          <div class="muted" id="hrep-costo-info" style="font-size:13px;padding-top:6px;">—</div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn danger" id="btn-hrep-delete" style="display:none;margin-right:auto;">Eliminar</button>
+        <button class="btn secondary" id="btn-hrep-cancel">Cancelar</button>
+        <button class="btn" id="btn-hrep-save">Guardar</button>
+      </div>
+    </div>
+  </div>
 
   <section id="tab-editorobs" style="display:none;margin:-24px calc(-50vw + 50% - 0px);padding:0;">
     <iframe src="herramientas/editor-observaciones.html" title="Editor de Observaciones"
@@ -3784,6 +3853,7 @@ let equiposCache = [];
 let contratosCache = [];
 let datosBancariosCache = [];
 let pendientesCache = [];
+let haulotteRepuestosCache = [];
 let reqCounter = 0;
 
 function initSupabase(){
@@ -3871,6 +3941,7 @@ const TAB_TITLES = {
   analisisfinanciero: 'Análisis Financiero',
   backlogfacturacion: 'Backlog de Facturación',
   stockvalorizado: 'Stock Valorizado (Haulotte)',
+  haulotte_articulos: 'Artículos Haulotte',
   cuentacliente: 'Cuenta Cliente',
   enviofacturas: 'Envío de Facturas',
   planning: 'Planning',
@@ -6361,6 +6432,7 @@ const SECCIONES_PERMISOS = [
   { key:'analisisfinanciero', label:'Análisis Financiero',        acciones:[['ver','Ver / usar']] },
   { key:'backlogfacturacion', label:'Backlog de Facturación',     acciones:[['ver','Ver / usar']] },
   { key:'stockvalorizado',    label:'Stock Valorizado (Haulotte)', acciones:[['ver','Ver / usar']] },
+  { key:'haulotte_repuestos', label:'Artículos Haulotte', acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
   { key:'panoramacobranzas',  label:'Panorama de Cobranzas',   acciones:[['ver','Ver / usar']] },
   { key:'panoramaproveedores', label:'Panorama de Deuda a Proveedores', acciones:[['ver','Ver / usar']] },
   { key:'datos_bancarios', label:'Datos Bancarios de Proveedores', acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
@@ -6759,6 +6831,9 @@ function renderDashboard(){
   const categoriasHaulotte = [
     { key:'haulotte_reportes', titulo:'Reportes Haulotte', icon:'🟠', tiles:[
       { tab:'stockvalorizado', icon:'📦', title:'Stock Valorizado', count:'Importar SmartList de GP', visible:puede('stockvalorizado','ver'), urgencia:null },
+    ]},
+    { key:'haulotte_articulos_cat', titulo:'Artículos Haulotte', icon:'🔧', tiles:[
+      { tab:'haulotte_articulos', icon:'🔧', title:'Artículos', count:`${haulotteRepuestosCache.length} repuesto(s)`, visible:puede('haulotte_repuestos','ver'), urgencia:null },
     ]},
   ];
 
@@ -15615,6 +15690,183 @@ function generarPresupuestoPDF(id){
   doc.save(`Presupuesto_${String(p.numero).padStart(5,'0')}_${empresa.replace(/[^a-zA-Z0-9]/g,'_')}.pdf`);
 }
 
+// =========================================================
+// =========================================================
+// MÓDULO ARTÍCULOS HAULOTTE (catálogo de repuestos)
+// =========================================================
+
+async function loadHaulotteRepuestos(){
+  const tbody = document.getElementById('hrep-tbody');
+  if(tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Cargando artículos...</td></tr>';
+
+  const [{ data: repuestos, error: errR }, { data: costos, error: errC }] = await Promise.all([
+    supabaseClient.from('haulotte_repuestos').select('*').order('codigo'),
+    supabaseClient.from('haulotte_repuestos_ultimo_costo').select('*'),
+  ]);
+
+  if(errR){
+    console.error('Error cargando artículos Haulotte:', errR);
+    haulotteRepuestosCache = [];
+    if(tbody) tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Error al cargar: ${errR.message}</td></tr>`;
+    return;
+  }
+  if(errC) console.error('Error cargando último costo:', errC);
+
+  const costoPorCodigo = new Map((costos||[]).map(c=>[c.codigo, c]));
+  haulotteRepuestosCache = (repuestos||[]).map(r=>({ ...r, _ultimo_costo: costoPorCodigo.get(r.codigo) || null }));
+}
+
+function getFilteredHaulotteRepuestos(){
+  const q = (document.getElementById('hrep-search-input')?.value || '').trim().toLowerCase();
+  let list = haulotteRepuestosCache;
+  if(q){
+    list = list.filter(r =>
+      (r.codigo||'').toLowerCase().includes(q) ||
+      (r.descripcion||'').toLowerCase().includes(q) ||
+      (r.categoria||'').toLowerCase().includes(q)
+    );
+  }
+  return list;
+}
+
+function renderHaulotteRepuestos(){
+  const list = getFilteredHaulotteRepuestos();
+  const tbody = document.getElementById('hrep-tbody');
+  if(!tbody) return;
+  if(list.length === 0){
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No hay artículos con este filtro.</td></tr>';
+    document.getElementById('hrep-results-count').textContent = '';
+    return;
+  }
+  tbody.innerHTML = list.map(r=>{
+    const costo = r._ultimo_costo?.costo_unitario_usd;
+    const costoTxt = (costo === null || costo === undefined) ? '<span class="muted">—</span>' : `US$ ${Number(costo).toFixed(2)}`;
+    return `
+      <tr>
+        <td style="font-family:monospace;">${escapeHtml(r.codigo)}</td>
+        <td>${r.descripcion ? escapeHtml(r.descripcion) : '<span class="muted">Sin descripción</span>'}</td>
+        <td class="muted">${r.categoria ? escapeHtml(r.categoria) : '—'}</td>
+        <td class="muted">${costoTxt}</td>
+        <td>${r.activo
+          ? '<span class="badge" style="color:var(--ok);border-color:var(--ok);">Activo</span>'
+          : '<span class="badge" style="color:var(--text-dim);border-color:var(--border);">Inactivo</span>'}</td>
+        <td>
+          <div class="row-actions">
+            <button class="btn secondary small" onclick="abrirEditarHrep(${r.id})">${puede('haulotte_repuestos','editar') ? 'Editar' : 'Ver'}</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+  document.getElementById('hrep-results-count').textContent = `${list.length} artículo(s)`;
+}
+
+document.getElementById('hrep-search-input').addEventListener('input', renderHaulotteRepuestos);
+
+function limpiarModalHrep(){
+  document.getElementById('hrep-id').value = '';
+  document.getElementById('hrep-codigo').value = '';
+  document.getElementById('hrep-codigo').disabled = false;
+  document.getElementById('hrep-descripcion').value = '';
+  document.getElementById('hrep-categoria').value = '';
+  document.getElementById('hrep-activo').value = 'true';
+  document.getElementById('hrep-costo-info').textContent = '—';
+}
+
+document.getElementById('btn-new-hrep').addEventListener('click', ()=>{
+  limpiarModalHrep();
+  document.getElementById('hrep-modal-title').textContent = 'Nuevo artículo';
+  document.getElementById('btn-hrep-delete').style.display = 'none';
+  document.getElementById('modal-hrep-overlay').classList.add('open');
+});
+
+function abrirEditarHrep(id){
+  const r = haulotteRepuestosCache.find(x=>x.id === id);
+  if(!r) return;
+  limpiarModalHrep();
+  document.getElementById('hrep-modal-title').textContent = r.codigo;
+  document.getElementById('hrep-id').value = r.id;
+  document.getElementById('hrep-codigo').value = r.codigo;
+  // El código es la clave que enlaza todo el historial de costeo (haulotte_repuestos_costeo) —
+  // no se puede editar una vez creado el artículo, solo al darlo de alta.
+  document.getElementById('hrep-codigo').disabled = true;
+  document.getElementById('hrep-descripcion').value = r.descripcion || '';
+  document.getElementById('hrep-categoria').value = r.categoria || '';
+  document.getElementById('hrep-activo').value = String(r.activo);
+  const costo = r._ultimo_costo?.costo_unitario_usd;
+  document.getElementById('hrep-costo-info').textContent = (costo === null || costo === undefined)
+    ? 'Sin costeo registrado'
+    : `US$ ${Number(costo).toFixed(2)}${r._ultimo_costo.fecha_importacion ? ' — ' + fmtDate(r._ultimo_costo.fecha_importacion) : ''}`;
+  document.getElementById('btn-hrep-delete').style.display = puede('haulotte_repuestos','eliminar') ? 'inline-block' : 'none';
+  document.getElementById('modal-hrep-overlay').classList.add('open');
+}
+
+document.getElementById('btn-hrep-cancel').addEventListener('click', ()=>{
+  document.getElementById('modal-hrep-overlay').classList.remove('open');
+});
+document.getElementById('modal-hrep-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'modal-hrep-overlay') document.getElementById('modal-hrep-overlay').classList.remove('open');
+});
+
+document.getElementById('btn-hrep-save').addEventListener('click', async ()=>{
+  const id = document.getElementById('hrep-id').value;
+  const codigo = document.getElementById('hrep-codigo').value.trim();
+  if(!codigo){ showToast('El código es obligatorio', true); return; }
+
+  const payload = {
+    descripcion: document.getElementById('hrep-descripcion').value.trim() || null,
+    categoria: document.getElementById('hrep-categoria').value.trim() || null,
+    activo: document.getElementById('hrep-activo').value === 'true',
+  };
+
+  try{
+    if(id){
+      const { error } = await supabaseClient.from('haulotte_repuestos').update(payload).eq('id', id);
+      if(error) throw error;
+      showToast('Artículo actualizado');
+    } else {
+      const { error } = await supabaseClient.from('haulotte_repuestos').insert({ codigo, ...payload });
+      if(error){
+        if(error.code === '23505') throw new Error('Ya existe un artículo con ese código');
+        throw error;
+      }
+      showToast('Artículo creado');
+    }
+    document.getElementById('modal-hrep-overlay').classList.remove('open');
+    await loadHaulotteRepuestos();
+    renderHaulotteRepuestos();
+    renderDashboard();
+  } catch(err){
+    console.error(err);
+    showToast('Error al guardar: ' + err.message, true);
+  }
+});
+
+document.getElementById('btn-hrep-delete').addEventListener('click', async ()=>{
+  const id = document.getElementById('hrep-id').value;
+  if(!id) return;
+  if(!confirm('¿Eliminar este artículo? Esta acción no se puede deshacer.')) return;
+  try{
+    const { error } = await supabaseClient.from('haulotte_repuestos').delete().eq('id', id);
+    if(error) throw error;
+    showToast('Artículo eliminado');
+    document.getElementById('modal-hrep-overlay').classList.remove('open');
+    await loadHaulotteRepuestos();
+    renderHaulotteRepuestos();
+    renderDashboard();
+  } catch(err){
+    console.error(err);
+    const msg = err.code === '23503'
+      ? 'No se puede eliminar: tiene historial de costeo (u otros datos) asociado. Marcalo como inactivo en su lugar.'
+      : ('Error al eliminar: ' + err.message);
+    showToast(msg, true);
+  }
+});
+
+document.querySelector('nav button[data-tab="haulotte_articulos"]')?.addEventListener('click', async ()=>{
+  await loadHaulotteRepuestos();
+  renderHaulotteRepuestos();
+});
+
 async function initApp(){
   try{
     console.log('[Horizon] cargando sucursales...');
@@ -15713,6 +15965,12 @@ async function initApp(){
       renderDatosBancarios();
     }
     document.getElementById('btn-new-dbp').style.display = puede('datos_bancarios','crear') ? '' : 'none';
+
+    if(puede('haulotte_repuestos','ver')){
+      console.log('[Horizon] cargando artículos Haulotte...');
+      await loadHaulotteRepuestos();
+    }
+    document.getElementById('btn-new-hrep').style.display = puede('haulotte_repuestos','crear') ? '' : 'none';
 
     console.log('[Horizon] listo.');
     await initChatInterno();
