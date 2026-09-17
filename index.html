@@ -948,11 +948,12 @@
               <th>Salida / Vencimiento</th>
               <th>Precio mensual</th>
               <th>Estado</th>
+              <th>Creado por</th>
               <th style="width:140px;">Acciones</th>
             </tr>
           </thead>
           <tbody id="contratos-tbody">
-            <tr><td colspan="7" class="empty-state">Cargando contratos...</td></tr>
+            <tr><td colspan="8" class="empty-state">Cargando contratos...</td></tr>
           </tbody>
         </table>
       </div>
@@ -4456,7 +4457,7 @@ async function loadEquipos(){
 
 async function loadContratos(){
   const tbody = document.getElementById('contratos-tbody');
-  tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Cargando contratos...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Cargando contratos...</td></tr>';
 
   const pageSize = 1000;
   let allData = [];
@@ -4464,12 +4465,12 @@ async function loadContratos(){
   while(true){
     const { data, error } = await supabaseClient
       .from('contratos')
-      .select('*, clientes(razon_social), equipos(numero_serie, modelo), sucursales(nombre)')
+      .select('*, clientes(razon_social), equipos(numero_serie, modelo), sucursales(nombre), creador:perfiles(nombre)')
       .order('created_at', { ascending: false })
       .range(from, from + pageSize - 1);
     if(error){
       console.error(error);
-      tbody.innerHTML = `<tr><td colspan="7" class="empty-state">Error al cargar contratos: ${escapeHtml(error.message)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="empty-state">Error al cargar contratos: ${escapeHtml(error.message)}</td></tr>`;
       return;
     }
     allData = allData.concat(data);
@@ -4743,7 +4744,7 @@ document.getElementById('btn-backlog-excel')?.addEventListener('click', exportar
 function renderContratos(list){
   const tbody = document.getElementById('contratos-tbody');
   if(list.length === 0){
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No se encontraron contratos con ese filtro.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No se encontraron contratos con ese filtro.</td></tr>';
     document.getElementById('contratos-results-count').textContent = '';
     return;
   }
@@ -4752,6 +4753,7 @@ function renderContratos(list){
     const equipo = c.equipos ? `${c.equipos.numero_serie}${c.equipos.modelo ? ' — '+c.equipos.modelo : ''}` : '—';
     const sucursal = c.sucursales ? c.sucursales.nombre : '—';
     const precio = c.precio_mensual_con_descuento ?? c.precio_mensual_sin_descuento;
+    const creadoPor = c.creador?.nombre || '—';
     return `
       <tr>
         <td>${escapeHtml(cliente)}${c.es_demo ? ' <span class="badge" style="color:#38BDF8;border-color:#38BDF8;">🎁 DEMO</span>' : ''}${c.datos_confirmados ? '' : ' <span class="badge" style="color:#ff9f43;border-color:#ff9f43;" title="Falta confirmar periodicidad / último período facturado">⚠ a confirmar</span>'}</td>
@@ -4760,6 +4762,7 @@ function renderContratos(list){
         <td class="muted">${fmtDate(c.fecha_salida)} → ${fmtDate(c.fecha_vencimiento)}</td>
         <td class="muted">${fmtMoney(precio, c.moneda)}</td>
         <td>${c.estado === 'activo' ? '<span class="badge" style="color:var(--ok);border-color:var(--ok);">Activo</span>' : '<span class="badge" style="color:var(--danger);border-color:var(--danger);">De baja</span>'}</td>
+        <td class="muted">${escapeHtml(creadoPor)}</td>
         <td>
           <div class="row-actions">
             <button class="btn secondary small" onclick="openEditContrato(${c.id})">Editar</button>
@@ -4807,7 +4810,7 @@ document.getElementById('contrato-filter-confirmado').addEventListener('change',
 document.getElementById('contrato-filter-precio').addEventListener('change', applyContratoFilters);
 
 function contratosToRows(list){
-  const headers = ['Cliente','Equipo N Serie','Modelo','Sucursal','Es Demo','Periodicidad','Fecha Salida','Fecha Vencimiento','Ultimo Periodo Facturado','Confirmado','Moneda','Precio Mensual','Flete Entrega','Costo Flete Entrega','Flete Entrega Facturado','Flete Retiro','Costo Flete Retiro','Flete Retiro Facturado','Orden Compra','Obra','Estado'];
+  const headers = ['Cliente','Equipo N Serie','Modelo','Sucursal','Es Demo','Periodicidad','Fecha Salida','Fecha Vencimiento','Ultimo Periodo Facturado','Confirmado','Moneda','Precio Mensual','Flete Entrega','Costo Flete Entrega','Flete Entrega Facturado','Flete Retiro','Costo Flete Retiro','Flete Retiro Facturado','Orden Compra','Obra','Estado','Creado por'];
   const rows = list.map(c => [
     c.clientes?.razon_social || '', c.equipos?.numero_serie || '', c.equipos?.modelo || '', c.sucursales?.nombre || '', c.es_demo ? 'SI' : 'NO',
     c.periodicidad || '', c.fecha_salida || '', c.fecha_vencimiento || '',
@@ -4815,7 +4818,7 @@ function contratosToRows(list){
     c.precio_mensual_con_descuento ?? c.precio_mensual_sin_descuento ?? '',
     c.tiene_flete_entrega ? 'SI' : 'NO', c.costo_flete_entrega ?? '', c.flete_entrega_facturado ? 'SI' : 'NO',
     c.tiene_flete_retiro ? 'SI' : 'NO', c.costo_flete_retiro ?? '', c.flete_retiro_facturado ? 'SI' : 'NO',
-    c.orden_de_compra || '', c.obra || '', c.estado,
+    c.orden_de_compra || '', c.obra || '', c.estado, c.creador?.nombre || '',
   ]);
   return { headers, rows };
 }
@@ -5179,7 +5182,7 @@ document.getElementById('btn-contrato-save').addEventListener('click', async ()=
       const { error } = await supabaseClient.from('contratos').update(payload).eq('id', id);
       if(error) throw error;
     } else {
-      const { data, error } = await supabaseClient.from('contratos').insert(payload).select().single();
+      const { data, error } = await supabaseClient.from('contratos').insert({ ...payload, created_by: miPerfil?.id || null }).select().single();
       if(error) throw error;
       contratoId = data.id;
     }
