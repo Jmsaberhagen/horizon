@@ -826,6 +826,7 @@
   <button data-tab="pizarra">Pizarra de Flota</button>
   <button data-tab="trazabilidad">Trazabilidad</button>
   <button data-tab="pendientes">Pendientes de Facturación</button>
+  <button data-tab="modalidadfact">Modalidad de Facturación</button>
   <button data-tab="reportes">Reportes</button>
   <button data-tab="resumenerp">Resumen ERP</button>
   <button data-tab="analisisfinanciero">Análisis Financiero</button>
@@ -991,6 +992,12 @@
       <select id="pend-filter-provincia">
         <option value="">Todas las provincias</option>
       </select>
+      <select id="pend-filter-modalidad" title="Modalidad de facturación del cliente">
+        <option value="">Todas las modalidades</option>
+        <option value="adelantado">Facturan por adelantado</option>
+        <option value="devengado">Facturan a alquiler devengado</option>
+        <option value="sin_definir">Sin definir</option>
+      </select>
       <select id="pend-filter-estado">
         <option value="pendiente">Pendientes</option>
         <option value="facturado">Facturados</option>
@@ -1004,12 +1011,14 @@
       <button class="btn secondary" id="btn-nuevo-pendiente">+ Pendiente manual</button>
     </div>
 
+    <div id="pend-aviso-modalidad" class="muted" style="display:none;font-size:12.5px;margin:0 0 10px;padding:8px 12px;border:1px solid var(--warn);border-radius:8px;color:var(--warn);"></div>
     <div class="panel">
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
               <th>Cliente</th>
+              <th>Facturación</th>
               <th>Equipo</th>
               <th>Modelo</th>
               <th>Sucursal</th>
@@ -1021,7 +1030,7 @@
             </tr>
           </thead>
           <tbody id="pendientes-tbody">
-            <tr><td colspan="9" class="empty-state">Cargando pendientes...</td></tr>
+            <tr><td colspan="10" class="empty-state">Cargando pendientes...</td></tr>
           </tbody>
         </table>
       </div>
@@ -1167,6 +1176,48 @@
       </div>
     </div>
   </div>
+
+  <section id="tab-modalidadfact" style="display:none;">
+    <div class="dash-hero" style="margin-bottom:14px;">
+      <h1 style="font-size:16px;">Modalidad de Facturación</h1>
+      <div class="sub">Encuesta por sucursal: para cada cliente, indicá si factura <b>por adelantado</b> o a <b>alquiler devengado</b>. Lo que completes se guarda en la ficha del cliente y se ve en Pendientes de Facturación.</div>
+    </div>
+
+    <div id="mf-sucursal-tabs" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;"></div>
+
+    <div class="toolbar">
+      <input type="text" id="mf-search" placeholder="Buscar cliente...">
+      <select id="mf-filter-estado">
+        <option value="">Todos</option>
+        <option value="sin_definir" selected>Sin definir (faltan completar)</option>
+        <option value="adelantado">Adelantado</option>
+        <option value="devengado">Devengado</option>
+      </select>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;"><input type="checkbox" id="mf-solo-activos"> Solo con contratos activos</label>
+      <div style="flex:1"></div>
+      <button class="btn secondary" id="btn-mf-export">Exportar Excel (vista actual)</button>
+    </div>
+
+    <div class="panel">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Contratos activos / total</th>
+              <th style="width:230px;">Modalidad de facturación</th>
+              <th>Observaciones (opcional)</th>
+              <th>Confirmado por</th>
+            </tr>
+          </thead>
+          <tbody id="mf-tbody">
+            <tr><td colspan="5" class="empty-state">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="muted" id="mf-count" style="margin-top:10px;font-size:12px;"></div>
+  </section>
 
   <section id="tab-backlogfacturacion" style="display:none;">
     <div class="dash-hero" style="margin-bottom:14px;">
@@ -2688,6 +2739,14 @@
         </select>
       </div>
       <div class="field">
+        <label>Modalidad de facturación</label>
+        <select id="f-modalidad_facturacion">
+          <option value="">Sin definir</option>
+          <option value="adelantado">Factura por adelantado</option>
+          <option value="devengado">Factura a alquiler devengado</option>
+        </select>
+      </div>
+      <div class="field">
         <label>Portal web (opcional)</label>
         <input type="text" id="f-portal_web">
       </div>
@@ -3934,6 +3993,7 @@ const TAB_TITLES = {
   pizarra: 'Pizarra de Flota',
   trazabilidad: 'Trazabilidad',
   pendientes: 'Pendientes de Facturación',
+  modalidadfact: 'Modalidad de Facturación',
   vencimientos: 'Control de Vencimientos',
   personal: 'Personal',
   usuarios: 'Usuarios',
@@ -4155,6 +4215,7 @@ function resetForm(){
    'telefono','cuit','mail_envio_factura','portal_web','portal_usuario','portal_password']
    .forEach(f => document.getElementById('f-'+f).value = '');
   document.getElementById('f-sucursal_habitual_id').value = '';
+  document.getElementById('f-modalidad_facturacion').value = '';
   document.getElementById('req-list').innerHTML = '';
   reqCounter = 0;
   document.getElementById('cert-list').innerHTML = '<div class="muted" style="font-size:12px;">Guardá el cliente para poder subir certificados.</div>';
@@ -4182,6 +4243,7 @@ function openEdit(id){
   document.getElementById('f-portal_usuario').value = c.portal_usuario || '';
   document.getElementById('f-portal_password').value = c.portal_password || '';
   document.getElementById('f-sucursal_habitual_id').value = c.sucursal_habitual_id || '';
+  document.getElementById('f-modalidad_facturacion').value = c.modalidad_facturacion || '';
 
   loadRequisitosIntoForm(c.id);
   loadCertificadosIntoForm(c.id);
@@ -4372,6 +4434,16 @@ document.getElementById('btn-save').addEventListener('click', async ()=>{
     portal_password: document.getElementById('f-portal_password').value.trim() || null,
     sucursal_habitual_id: document.getElementById('f-sucursal_habitual_id').value || null,
   };
+  // Modalidad de facturación: si cambió respecto de lo guardado, se registra quién y cuándo
+  {
+    const nuevaModalidad = document.getElementById('f-modalidad_facturacion').value || null;
+    const previo = id ? clientesCache.find(x=>String(x.id) === String(id)) : null;
+    if(!previo || (previo.modalidad_facturacion || null) !== nuevaModalidad){
+      payload.modalidad_facturacion = nuevaModalidad;
+      payload.modalidad_confirmada_por = nuevaModalidad ? (miPerfil?.nombre || null) : null;
+      payload.modalidad_confirmada_at = nuevaModalidad ? new Date().toISOString() : null;
+    }
+  }
 
   let clienteId = id;
   try{
@@ -5258,7 +5330,7 @@ async function refrescarPendientesSiCorresponde(){
 
 async function loadPendientes(){
   const tbody = document.getElementById('pendientes-tbody');
-  tbody.innerHTML = '<tr><td colspan="9" class="empty-state">Cargando pendientes...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="10" class="empty-state">Cargando pendientes...</td></tr>';
 
   const pageSize = 1000;
   let allData = [];
@@ -5271,7 +5343,7 @@ async function loadPendientes(){
           tiene_flete_entrega, costo_flete_entrega, flete_entrega_facturado,
           tiene_flete_retiro, costo_flete_retiro, flete_retiro_facturado,
           remito, orden_de_compra, obra, contacto_obra, observacion,
-          clientes(id, razon_social, provincia, numero_cliente, cuit, direccion, ciudad, mail_envio_factura),
+          clientes(id, razon_social, provincia, numero_cliente, cuit, direccion, ciudad, mail_envio_factura, modalidad_facturacion),
           equipos(numero_serie, modelo),
           sucursales(id, nombre)
         )`)
@@ -5312,7 +5384,7 @@ function populatePendFilters(){
 function renderPendientes(list){
   const tbody = document.getElementById('pendientes-tbody');
   if(list.length === 0){
-    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No hay pendientes con ese filtro.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No hay pendientes con ese filtro.</td></tr>';
     document.getElementById('pendientes-results-count').textContent = '';
     return;
   }
@@ -5328,6 +5400,7 @@ function renderPendientes(list){
     return `
       <tr>
         <td>${escapeHtml(cliente)}</td>
+        <td>${modalidadBadge(p.contratos?.clientes?.modalidad_facturacion)}</td>
         <td class="muted">${escapeHtml(equipo)}${p.contratos?.tiene_flete_entrega && !p.contratos?.flete_entrega_facturado ? ` <span class="badge" style="color:var(--accent);border-color:var(--accent-dim);" title="Flete de entrega sin facturar: ${fmtMoney(p.contratos.costo_flete_entrega,'USD')}">🚚 entrega</span>` : ''}${p.contratos?.tiene_flete_retiro && !p.contratos?.flete_retiro_facturado ? ` <span class="badge" style="color:#ff9f43;border-color:#ff9f43;" title="Flete de retiro sin facturar: ${fmtMoney(p.contratos.costo_flete_retiro,'USD')}">🚚 retiro</span>` : ''}</td>
         <td class="muted">${escapeHtml(modelo)}</td>
         <td>${sucursal !== '—' ? `<span class="badge">${sucursal}</span>` : '—'}</td>
@@ -5343,6 +5416,31 @@ function renderPendientes(list){
       </tr>`;
   }).join('');
   document.getElementById('pendientes-results-count').textContent = `${list.length} pendiente(s)`;
+  actualizarAvisoModalidadPendientes(list);
+}
+
+// ---------- Modalidad de facturación (adelantado / devengado) ----------
+function modalidadLabel(m){
+  return m === 'adelantado' ? 'Adelantado' : m === 'devengado' ? 'Devengado' : 'Sin definir';
+}
+function modalidadBadge(m){
+  if(m === 'adelantado') return '<span class="badge" style="color:var(--accent);border-color:var(--accent-dim);" title="Factura por adelantado">ADELANTADO</span>';
+  if(m === 'devengado')  return '<span class="badge" style="color:var(--ok);border-color:var(--ok);" title="Factura a alquiler devengado">DEVENGADO</span>';
+  return '<span class="badge" style="color:var(--warn);border-color:var(--warn);" title="Falta definir la modalidad en la ficha del cliente">SIN DEFINIR</span>';
+}
+function actualizarAvisoModalidadPendientes(list){
+  const el = document.getElementById('pend-aviso-modalidad');
+  if(!el) return;
+  const sinDefinir = new Map();
+  (list||[]).forEach(p=>{
+    if(p.estado !== 'pendiente') return;
+    const c = p.contratos?.clientes;
+    if(c && !c.modalidad_facturacion) sinDefinir.set(c.id, c.razon_social);
+  });
+  if(sinDefinir.size === 0){ el.style.display = 'none'; return; }
+  const nombres = [...sinDefinir.values()].slice(0,6).join(', ');
+  el.textContent = `⚠ ${sinDefinir.size} cliente(s) con pendientes no tienen definida la modalidad de facturación (adelantado / devengado): ${nombres}${sinDefinir.size>6?'…':''}`;
+  el.style.display = 'block';
 }
 
 function getFilteredPendientesLista(){
@@ -5350,7 +5448,10 @@ function getFilteredPendientesLista(){
   const sucursalId = document.getElementById('pend-filter-sucursal').value;
   const provincia = document.getElementById('pend-filter-provincia').value;
   const estado = document.getElementById('pend-filter-estado').value;
+  const modalidadFiltro = document.getElementById('pend-filter-modalidad').value;
   let list = pendientesCache;
+  if(modalidadFiltro === 'sin_definir') list = list.filter(p => !p.contratos?.clientes?.modalidad_facturacion);
+  else if(modalidadFiltro) list = list.filter(p => p.contratos?.clientes?.modalidad_facturacion === modalidadFiltro);
   if(sucursalId) list = list.filter(p => String(p.contratos?.sucursales?.id) === sucursalId);
   if(provincia) list = list.filter(p => p.contratos?.clientes?.provincia === provincia);
   if(estado === 'facturado_sin_pdf'){
@@ -5375,6 +5476,7 @@ document.getElementById('pend-search-input').addEventListener('input', applyPend
 document.getElementById('pend-filter-sucursal').addEventListener('change', applyPendFilters);
 document.getElementById('pend-filter-provincia').addEventListener('change', applyPendFilters);
 document.getElementById('pend-filter-estado').addEventListener('change', applyPendFilters);
+document.getElementById('pend-filter-modalidad').addEventListener('change', applyPendFilters);
 
 // Busca, para un contrato, cuál fue el último período REALMENTE facturado
 // (ignora las Notas de Crédito, que no son una factura de alquiler en sí)
@@ -5392,6 +5494,7 @@ function pendientesToRows(list){
     'Cliente','Equipo','Modelo','Sucursal','Provincia','Periodo Desde','Periodo Hasta','Valor USD','Valor ARS','Estado','N Factura',
     'Estado Contrato',
     'Ultimo Periodo Facturado Desde','Ultimo Periodo Facturado Hasta','N Factura Ultimo Periodo','Fecha Emision Ultima Factura',
+    'Modalidad Facturacion',
   ];
   const rows = list.map(p => {
     const ultima = obtenerUltimaFacturaDelContrato(p.contrato_id);
@@ -5403,6 +5506,7 @@ function pendientesToRows(list){
       p.estado, p.numero_factura || '',
       estadoContrato,
       fmtDateExport(ultima?.periodo_desde), fmtDateExport(ultima?.periodo_hasta), ultima?.numero_factura || '', fmtDateExport(ultima?.fecha_facturacion),
+      modalidadLabel(p.contratos?.clientes?.modalidad_facturacion),
     ];
   });
   return { headers, rows };
@@ -5421,13 +5525,15 @@ document.getElementById('btn-export-pendientes-xls').addEventListener('click', (
 // y dentro de cada cliente ordena por N° de serie, con subtotal por cliente
 // y total general al pie.
 function pendientesAgrupadoToRows(list){
-  const headers = ['Cliente','N Equipo','Modelo','Sucursal','Periodo Desde','Periodo Hasta','Valor USD','Valor ARS','Estado','N Factura'];
+  const headers = ['Cliente','N Equipo','Modelo','Sucursal','Periodo Desde','Periodo Hasta','Valor USD','Valor ARS','Estado','N Factura','Modalidad Facturacion'];
+  const N = headers.length;
+  const fila = (...vals) => { const r = vals.slice(); while(r.length < N) r.push(''); return r; };
 
   const porCliente = new Map();
   list.forEach(p=>{
     const clienteId = p.contratos?.clientes?.id || 'sin_cliente';
     const clienteNombre = p.contratos?.clientes?.razon_social || '(Sin cliente)';
-    if(!porCliente.has(clienteId)) porCliente.set(clienteId, { nombre: clienteNombre, items: [], totalUsd: 0, totalArs: 0 });
+    if(!porCliente.has(clienteId)) porCliente.set(clienteId, { nombre: clienteNombre, modalidad: p.contratos?.clientes?.modalidad_facturacion || '', items: [], totalUsd: 0, totalArs: 0 });
     const grupo = porCliente.get(clienteId);
     const valorUsd = Number(p.valor_alquiler_usd) || 0;
     const valorArs = Number(p.potencial_facturacion) || 0;
@@ -5444,30 +5550,49 @@ function pendientesAgrupadoToRows(list){
   // contratos en pesos no queden todos amontonados al final con un total "0" engañoso.
   const grupos = [...porCliente.values()].sort((a,b)=> (b.totalUsd - a.totalUsd) || (b.totalArs - a.totalArs));
 
+  // Bloques por modalidad: primero los que facturan por adelantado, después los de alquiler
+  // devengado y al final los que todavía no tienen la modalidad definida.
+  const bloques = [
+    { key:'adelantado', titulo:'FACTURAN POR ADELANTADO' },
+    { key:'devengado',  titulo:'FACTURAN A ALQUILER DEVENGADO' },
+    { key:'',           titulo:'SIN DEFINIR (falta completar la modalidad en la ficha del cliente)' },
+  ];
+
   const rows = [];
   let totalGeneralUsd = 0, totalGeneralArs = 0;
-  grupos.forEach(grupo=>{
-    // Dentro del cliente: por N° de serie, para no repetir viajes/búsquedas de la misma máquina
-    grupo.items.sort((a,b)=> (a.contratos?.equipos?.numero_serie||'').localeCompare(b.contratos?.equipos?.numero_serie||''));
-    grupo.items.forEach(p=>{
-      rows.push([
-        grupo.nombre,
-        p.contratos?.equipos?.numero_serie || '',
-        p.contratos?.equipos?.modelo || '',
-        p.contratos?.sucursales?.nombre || '',
-        fmtDateExport(p.periodo_desde), fmtDateExport(p.periodo_hasta),
-        p.valor_alquiler_usd ?? '',
-        p.potencial_facturacion ?? '',
-        p.estado,
-        p.numero_factura || '',
-      ]);
+  bloques.forEach(bloque=>{
+    const gruposBloque = grupos.filter(g => g.modalidad === bloque.key);
+    if(gruposBloque.length === 0) return;
+    rows.push(fila(`=== ${bloque.titulo} — ${gruposBloque.length} cliente(s) ===`));
+    let subUsd = 0, subArs = 0;
+    gruposBloque.forEach(grupo=>{
+      // Dentro del cliente: por N° de serie, para no repetir viajes/búsquedas de la misma máquina
+      grupo.items.sort((a,b)=> (a.contratos?.equipos?.numero_serie||'').localeCompare(b.contratos?.equipos?.numero_serie||''));
+      grupo.items.forEach(p=>{
+        rows.push(fila(
+          grupo.nombre,
+          p.contratos?.equipos?.numero_serie || '',
+          p.contratos?.equipos?.modelo || '',
+          p.contratos?.sucursales?.nombre || '',
+          fmtDateExport(p.periodo_desde), fmtDateExport(p.periodo_hasta),
+          p.valor_alquiler_usd ?? '',
+          p.potencial_facturacion ?? '',
+          p.estado,
+          p.numero_factura || '',
+          modalidadLabel(grupo.modalidad),
+        ));
+      });
+      rows.push(fila(`TOTAL ${grupo.nombre} ►`, '', '', '', '', '', grupo.totalUsd.toFixed(2), grupo.totalArs.toFixed(2)));
+      rows.push(fila());
+      subUsd += grupo.totalUsd; subArs += grupo.totalArs;
     });
-    rows.push([`TOTAL ${grupo.nombre} ►`, '', '', '', '', '', grupo.totalUsd.toFixed(2), grupo.totalArs.toFixed(2), '', '']);
-    rows.push(['', '', '', '', '', '', '', '', '', '']);
-    totalGeneralUsd += grupo.totalUsd;
-    totalGeneralArs += grupo.totalArs;
+    rows.push(fila(`SUBTOTAL ${bloque.titulo} ►`, '', '', '', '', '', subUsd.toFixed(2), subArs.toFixed(2)));
+    rows.push(fila());
+    rows.push(fila());
+    totalGeneralUsd += subUsd;
+    totalGeneralArs += subArs;
   });
-  rows.push(['TOTAL GENERAL PENDIENTE ►', '', '', '', '', '', totalGeneralUsd.toFixed(2), totalGeneralArs.toFixed(2), '', '']);
+  rows.push(fila('TOTAL GENERAL PENDIENTE ►', '', '', '', '', '', totalGeneralUsd.toFixed(2), totalGeneralArs.toFixed(2)));
 
   return { headers, rows };
 }
@@ -6434,6 +6559,7 @@ const SECCIONES_PERMISOS = [
   { key:'resumenerp',         label:'Resumen de Alquileres (ERP)', acciones:[['ver','Ver / usar']] },
   { key:'analisisfinanciero', label:'Análisis Financiero',        acciones:[['ver','Ver / usar']] },
   { key:'backlogfacturacion', label:'Backlog de Facturación',     acciones:[['ver','Ver / usar']] },
+  { key:'modalidadfact',      label:'Modalidad de Facturación (encuesta a comerciales)', acciones:[['ver','Ver'],['editar','Completar / editar']] },
   { key:'stockvalorizado',    label:'Stock Valorizado (Haulotte)', acciones:[['ver','Ver / usar']] },
   { key:'haulotte_repuestos', label:'Artículos Haulotte', acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
   { key:'panoramacobranzas',  label:'Panorama de Cobranzas',   acciones:[['ver','Ver / usar']] },
@@ -6818,6 +6944,7 @@ function renderDashboard(){
       { tab:'resumenerp', icon:'📥', title:'Resumen de Alquileres (ERP)', count:'Importar Excel de GP', visible:puede('resumenerp','ver'), urgencia:null },
       { tab:'analisisfinanciero', icon:'📈', title:'Análisis Financiero', count:'Importar Mayor de GP', visible:puede('analisisfinanciero','ver'), urgencia:null },
       { tab:'backlogfacturacion', icon:'🧾', title:'Backlog de Facturación', count:'Mes en curso + proyección', visible:puede('backlogfacturacion','ver'), urgencia:null },
+      { tab:'modalidadfact', icon:'🗓️', title:'Modalidad de Facturación', count:'Adelantado / devengado por cliente', visible:puede('modalidadfact','ver'), urgencia:null },
       { tab:'reportes',   icon:'📊', title:'Reportes',   count:'Mora y facturación', visible:puede('reportes','ver'), urgencia:null },
       { tab:'enviofacturas', icon:'📧', title:'Envío de Facturas', count: puede('enviofacturas','ver') ? `${nFacturasSinEnviar} sin enviar` : '', visible:puede('enviofacturas','ver'), urgencia: nFacturasSinEnviar>0 ? 'warn' : 'ok' },
     ]},
@@ -15868,6 +15995,156 @@ document.getElementById('btn-hrep-delete').addEventListener('click', async ()=>{
 document.querySelector('nav button[data-tab="haulotte_articulos"]')?.addEventListener('click', async ()=>{
   await loadHaulotteRepuestos();
   renderHaulotteRepuestos();
+});
+
+// =========================================================
+// MÓDULO: Modalidad de facturación (encuesta a comerciales)
+// El dato vive en clientes.modalidad_facturacion ('adelantado' | 'devengado' | null).
+// La lista y el guardado van por RPC (SECURITY DEFINER) para que los comerciales no
+// necesiten permiso sobre Clientes: solo ven razón social y modifican estos campos.
+// =========================================================
+let mfCache = [];          // un renglón por cliente y sucursal
+let mfSucursalId = null;   // pestaña de sucursal activa
+
+async function loadEncuestaModalidad(){
+  const tbody = document.getElementById('mf-tbody');
+  const { data, error } = await supabaseClient.rpc('encuesta_modalidad_listar');
+  if(error){
+    console.error(error);
+    tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Error al cargar: ${escapeHtml(error.message)}</td></tr>`;
+    return;
+  }
+  mfCache = data || [];
+  if(mfSucursalId === null || !mfCache.some(r => String(r.sucursal_id) === String(mfSucursalId))){
+    const ids = [...new Set(mfCache.map(r=>r.sucursal_id))].sort((a,b)=>a-b);
+    mfSucursalId = ids.length ? ids[0] : null;
+  }
+  renderEncuestaModalidad();
+}
+
+function mfSucursales(){
+  const map = new Map();
+  mfCache.forEach(r=> map.set(r.sucursal_id, r.sucursal_nombre));
+  return [...map.entries()].sort((a,b)=>a[0]-b[0]).map(([id,nombre])=>({id,nombre}));
+}
+
+function renderMfTabs(){
+  const cont = document.getElementById('mf-sucursal-tabs');
+  cont.innerHTML = mfSucursales().map(suc=>{
+    const filas = mfCache.filter(r => r.sucursal_id === suc.id);
+    const hechos = filas.filter(r => r.modalidad_facturacion).length;
+    const pct = filas.length ? Math.round(hechos*100/filas.length) : 0;
+    const activa = String(suc.id) === String(mfSucursalId);
+    return `<button type="button" class="btn ${activa?'':'secondary'}" data-mf-suc="${suc.id}" style="min-width:190px;text-align:left;">
+      <div style="font-weight:700;">${escapeHtml(suc.nombre)}</div>
+      <div style="font-size:11.5px;opacity:.85;">${hechos} de ${filas.length} completados (${pct}%)</div>
+    </button>`;
+  }).join('');
+  cont.querySelectorAll('button[data-mf-suc]').forEach(b=> b.addEventListener('click', ()=>{
+    mfSucursalId = Number(b.dataset.mfSuc);
+    renderEncuestaModalidad();
+  }));
+}
+
+function getMfFiltrado(){
+  const q = document.getElementById('mf-search').value.trim().toLowerCase();
+  const estado = document.getElementById('mf-filter-estado').value;
+  const soloActivos = document.getElementById('mf-solo-activos').checked;
+  let list = mfCache.filter(r => String(r.sucursal_id) === String(mfSucursalId));
+  if(soloActivos) list = list.filter(r => r.contratos_activos > 0);
+  if(estado === 'sin_definir') list = list.filter(r => !r.modalidad_facturacion);
+  else if(estado) list = list.filter(r => r.modalidad_facturacion === estado);
+  if(q) list = list.filter(r => (r.razon_social||'').toLowerCase().includes(q));
+  // primero los que tienen contratos activos, después por razón social
+  return list.sort((a,b)=> ((b.contratos_activos>0) - (a.contratos_activos>0)) || (a.razon_social||'').localeCompare(b.razon_social||''));
+}
+
+function renderEncuestaModalidad(){
+  renderMfTabs();
+  const tbody = document.getElementById('mf-tbody');
+  const list = getMfFiltrado();
+  const editable = puede('modalidadfact','editar');
+  if(list.length === 0){
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No hay clientes con ese filtro.</td></tr>';
+    document.getElementById('mf-count').textContent = '';
+    return;
+  }
+  tbody.innerHTML = list.map(r=>{
+    const conf = r.modalidad_confirmada_por
+      ? `${escapeHtml(r.modalidad_confirmada_por)}<div class="muted" style="font-size:11px;">${escapeHtml(new Date(r.modalidad_confirmada_at).toLocaleDateString('es-AR'))}</div>`
+      : '<span class="muted">—</span>';
+    const activos = r.contratos_activos > 0
+      ? `<span class="badge" style="color:var(--ok);border-color:var(--ok);">${r.contratos_activos} activo(s)</span> <span class="muted">/ ${r.contratos_totales}</span>`
+      : `<span class="muted">0 activos / ${r.contratos_totales} (de baja)</span>`;
+    return `<tr data-mf-cliente="${r.cliente_id}">
+      <td>${escapeHtml(r.razon_social)}${r.numero_cliente ? ` <span class="muted" style="font-size:11px;">#${escapeHtml(r.numero_cliente)}</span>` : ''}</td>
+      <td>${activos}</td>
+      <td>
+        <select class="mf-sel" ${editable?'':'disabled'} style="width:100%;">
+          <option value="" ${!r.modalidad_facturacion?'selected':''}>— Sin definir —</option>
+          <option value="adelantado" ${r.modalidad_facturacion==='adelantado'?'selected':''}>Factura por adelantado</option>
+          <option value="devengado" ${r.modalidad_facturacion==='devengado'?'selected':''}>Factura a alquiler devengado</option>
+        </select>
+      </td>
+      <td><input type="text" class="mf-obs" ${editable?'':'disabled'} value="${escapeHtml(r.modalidad_observaciones||'')}" placeholder="Ej: paga a 30 días, OC mensual..." style="width:100%;"></td>
+      <td class="muted mf-conf">${conf}</td>
+    </tr>`;
+  }).join('');
+  tbody.querySelectorAll('tr[data-mf-cliente]').forEach(tr=>{
+    const id = Number(tr.dataset.mfCliente);
+    tr.querySelector('.mf-sel').addEventListener('change', ()=> guardarModalidadFila(id, tr, true));
+    tr.querySelector('.mf-obs').addEventListener('change', ()=> guardarModalidadFila(id, tr, false));
+  });
+  document.getElementById('mf-count').textContent = `${list.length} cliente(s) en esta vista`;
+}
+
+async function guardarModalidadFila(clienteId, tr, cambioModalidad){
+  const modalidad = tr.querySelector('.mf-sel').value || null;
+  const obs = tr.querySelector('.mf-obs').value.trim();
+  const { error } = await supabaseClient.rpc('encuesta_modalidad_guardar', { p_cliente_id: clienteId, p_modalidad: modalidad, p_obs: obs });
+  if(error){
+    console.error(error);
+    showToast('Error al guardar: ' + error.message, true);
+    return;
+  }
+  const ahora = new Date().toISOString();
+  const por = miPerfil?.nombre || null;
+  // Un cliente puede estar en más de una sucursal: se actualizan todos sus renglones
+  mfCache.forEach(r=>{
+    if(r.cliente_id === clienteId){
+      r.modalidad_facturacion = modalidad;
+      r.modalidad_observaciones = obs || null;
+      r.modalidad_confirmada_por = modalidad ? por : null;
+      r.modalidad_confirmada_at = modalidad ? ahora : null;
+    }
+  });
+  // y los caches del resto de la app (ficha de cliente y Pendientes de Facturación)
+  const cli = clientesCache.find(c => c.id === clienteId);
+  if(cli){
+    cli.modalidad_facturacion = modalidad; cli.modalidad_observaciones = obs || null;
+    cli.modalidad_confirmada_por = modalidad ? por : null; cli.modalidad_confirmada_at = modalidad ? ahora : null;
+  }
+  if(typeof pendientesCache !== 'undefined'){
+    pendientesCache.forEach(pp=>{ if(pp.contratos?.clientes?.id === clienteId) pp.contratos.clientes.modalidad_facturacion = modalidad; });
+  }
+  showToast('Guardado');
+  if(cambioModalidad) renderEncuestaModalidad(); else renderMfTabs();
+}
+
+document.getElementById('mf-search').addEventListener('input', renderEncuestaModalidad);
+document.getElementById('mf-filter-estado').addEventListener('change', renderEncuestaModalidad);
+document.getElementById('mf-solo-activos').addEventListener('change', renderEncuestaModalidad);
+document.querySelector('nav button[data-tab="modalidadfact"]')?.addEventListener('click', loadEncuestaModalidad);
+
+document.getElementById('btn-mf-export').addEventListener('click', ()=>{
+  const headers = ['Cliente','N Cliente','Sucursal','Contratos Activos','Contratos Totales','Modalidad Facturacion','Observaciones','Confirmado Por','Fecha Confirmacion'];
+  const rows = getMfFiltrado().map(r=>[
+    r.razon_social, r.numero_cliente || '', r.sucursal_nombre, r.contratos_activos, r.contratos_totales,
+    modalidadLabel(r.modalidad_facturacion), r.modalidad_observaciones || '',
+    r.modalidad_confirmada_por || '', r.modalidad_confirmada_at ? new Date(r.modalidad_confirmada_at).toLocaleDateString('es-AR') : '',
+  ]);
+  const suc = (mfSucursales().find(x=>String(x.id)===String(mfSucursalId))?.nombre || 'sucursal').toLowerCase();
+  exportXLS('modalidad_facturacion_' + suc.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,'_'), headers, rows);
 });
 
 async function initApp(){
