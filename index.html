@@ -1808,7 +1808,7 @@
         </div>
       </div>
 
-      <div class="dash-grid" style="grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); margin:14px 0 20px 0;">
+      <div class="dash-grid" style="grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); margin:14px 0 12px 0;">
         <div class="panel" style="padding:14px;">
           <div class="muted" style="font-size:10.5px;text-transform:uppercase;">Días alquilada</div>
           <div id="tz-kpi-alquilada" style="font-size:20px;font-weight:700;color:var(--accent);margin-top:4px;">0</div>
@@ -1818,12 +1818,27 @@
           <div id="tz-kpi-disponible" style="font-size:20px;font-weight:700;color:var(--ok);margin-top:4px;">0</div>
         </div>
         <div class="panel" style="padding:14px;">
-          <div class="muted" style="font-size:10.5px;text-transform:uppercase;">Días VOR/PDI/Demo</div>
-          <div id="tz-kpi-otros" style="font-size:20px;font-weight:700;color:#EF9F27;margin-top:4px;">0</div>
+          <div class="muted" style="font-size:10.5px;text-transform:uppercase;">Días VOR</div>
+          <div id="tz-kpi-vor" style="font-size:20px;font-weight:700;color:#EF9F27;margin-top:4px;">0</div>
         </div>
+        <div class="panel" style="padding:14px;">
+          <div class="muted" style="font-size:10.5px;text-transform:uppercase;">Días PDI</div>
+          <div id="tz-kpi-pdi" style="font-size:20px;font-weight:700;color:#7F77DD;margin-top:4px;">0</div>
+        </div>
+        <div class="panel" style="padding:14px;">
+          <div class="muted" style="font-size:10.5px;text-transform:uppercase;">Días Demo</div>
+          <div id="tz-kpi-demo" style="font-size:20px;font-weight:700;color:#D4537E;margin-top:4px;">0</div>
+        </div>
+        <div class="panel" id="tz-kpi-sinreg-box" style="padding:14px;display:none;">
+          <div class="muted" style="font-size:10.5px;text-transform:uppercase;">Sin registro</div>
+          <div id="tz-kpi-sinreg" style="font-size:20px;font-weight:700;color:var(--muted);margin-top:4px;">0</div>
+        </div>
+      </div>
+      <div class="dash-grid" style="grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); margin:0 0 20px 0;">
         <div class="panel" style="padding:14px;">
           <div class="muted" style="font-size:10.5px;text-transform:uppercase;">% Utilización</div>
           <div id="tz-kpi-utilizacion" style="font-size:20px;font-weight:700;margin-top:4px;">0%</div>
+          <div class="muted" style="font-size:10px;margin-top:2px;">días alquilada / días del período</div>
         </div>
         <div class="panel" style="padding:14px;">
           <div class="muted" style="font-size:10.5px;text-transform:uppercase;">Contratos / Clientes</div>
@@ -1835,9 +1850,10 @@
         </div>
       </div>
 
+      <div id="tz-aviso-revisar" style="display:none;margin-bottom:10px;padding:8px 12px;border-radius:8px;border:1px solid #EF9F27;background:rgba(239,159,39,.10);font-size:12px;"></div>
       <div class="muted" style="font-size:11px;margin-bottom:8px;">
-        Línea de tiempo del período seleccionado. El historial se reconstruye automáticamente desde contratos;
-        los estados VOR/PDI/Demo solo quedan registrados desde que existe la Pizarra de Flota.
+        Cada día cuenta en un solo estado (Alquilada, Disponible, VOR, PDI o Demo), por lo que los días suman el total del período.
+        El historial se registra automáticamente con cada cambio en contratos y en la Pizarra de Flota; lo anterior al 31/08/2026 es una reconstrucción desde los contratos.
       </div>
       <div id="tz-timeline"></div>
 
@@ -8078,7 +8094,7 @@ function descargarResumenClientePDF(clienteId){
   doc.setFont('helvetica','bold'); doc.setFontSize(14);
   doc.text('RESUMEN DE CUENTA CLIENTE', pageWidth - marginX, y + 8, { align:'right' });
   doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90);
-  doc.text(`Generado: ${fmtDate(new Date().toISOString().slice(0,10))}`, pageWidth - marginX, y + 14, { align:'right' });
+  doc.text(`Generado: ${fmtDate(tzHoyAr())}`, pageWidth - marginX, y + 14, { align:'right' });
   doc.setTextColor(0);
   y += 24;
   doc.setDrawColor(56,189,248); doc.setLineWidth(0.8);
@@ -10724,6 +10740,8 @@ document.addEventListener('click', (ev)=>{
   if(!ev.target.closest('#tz-equipo-search') && !ev.target.closest('#tz-equipo-results')) tzEquipoResultsBox.classList.remove('open');
 });
 
+function tzHoyAr(){ return new Date().toLocaleDateString('en-CA', { timeZone:'America/Argentina/Buenos_Aires' }); }
+
 let tzDataCache = null; // { equipo, tramos, contratosDelPeriodo, facturasDelPeriodo, kpis, desde, hasta }
 
 async function tzBuscarTrazabilidad(){
@@ -10744,7 +10762,8 @@ async function tzBuscarTrazabilidad(){
       .eq('equipo_id', equipoId)
       .lte('fecha_desde', hasta)
       .or(`fecha_hasta.gte.${desde},fecha_hasta.is.null`)
-      .order('fecha_desde', { ascending: true });
+      .order('fecha_desde', { ascending: true })
+      .order('id', { ascending: true });
     if(errH) throw errH;
 
     if(!tramos || tramos.length === 0){
@@ -10753,26 +10772,40 @@ async function tzBuscarTrazabilidad(){
       return;
     }
 
-    // Recortamos cada tramo al rango elegido para calcular días correctamente
-    const hoy = new Date().toISOString().slice(0,10);
+    // Cada día del período se asigna a UN solo estado (los tramos son [desde, hasta): el día "hasta" ya es del tramo siguiente)
+    const hoy = tzHoyAr();
+    const finCalc = hasta > hoy ? hoy : hasta;
+    const MS = 86400000;
+    const toMs = (iso)=> Date.parse(iso + 'T00:00:00Z');
+    const toIso = (ms)=> new Date(ms).toISOString().slice(0,10);
+    const diasEntre = (a,b) => Math.max(0, Math.round((toMs(b) - toMs(a)) / MS) + 1);
+
+    const dias = { alquilada:0, disponible:0, vor:0, pdi:0, demo:0, sinRegistro:0 };
+    const tramosOrdenados = [...tramos].sort((x,y)=> x.fecha_desde < y.fecha_desde ? -1 : x.fecha_desde > y.fecha_desde ? 1 : x.id - y.id);
+    const diasTotales = finCalc >= desde ? diasEntre(desde, finCalc) : 0;
+    for(let i=0;i<diasTotales;i++){
+      const dIso = toIso(toMs(desde) + i*MS);
+      let est = null;
+      for(const t of tramosOrdenados){
+        if(t.fecha_desde <= dIso && (!t.fecha_hasta || t.fecha_hasta > dIso)) est = t.estado;
+      }
+      if(est && dias[est] !== undefined) dias[est]++; else dias.sinRegistro++;
+    }
     const tramosRecortados = tramos.map(t=>({
       ...t,
       desdeEfectivo: t.fecha_desde < desde ? desde : t.fecha_desde,
       hastaEfectivo: (t.fecha_hasta && t.fecha_hasta < hasta) ? t.fecha_hasta : hasta,
       vigente: !t.fecha_hasta,
+      dias: (()=>{
+        const ini = t.fecha_desde < desde ? desde : t.fecha_desde;
+        const finEx = t.fecha_hasta ? t.fecha_hasta : toIso(toMs(hoy) + MS);
+        const finCalcEx = toIso(toMs(finCalc) + MS);
+        const fin = finEx < finCalcEx ? finEx : finCalcEx;
+        return Math.max(0, Math.round((toMs(fin) - toMs(ini)) / MS));
+      })(),
     }));
-
-    const diasEntre = (a,b) => Math.max(0, Math.round((new Date(b) - new Date(a)) / 86400000) + 1);
-
-    let diasAlquilada=0, diasDisponible=0, diasOtros=0;
-    tramosRecortados.forEach(t=>{
-      const dias = diasEntre(t.desdeEfectivo, t.hastaEfectivo);
-      if(t.estado === 'alquilada') diasAlquilada += dias;
-      else if(t.estado === 'disponible') diasDisponible += dias;
-      else diasOtros += dias;
-    });
-    const diasTotales = Math.max(1, diasEntre(desde, hasta > hoy ? hoy : hasta));
-    const utilizacion = Math.round((diasAlquilada / diasTotales) * 100);
+    const utilizacion = diasTotales > 0 ? Math.round((dias.alquilada / diasTotales) * 100) : 0;
+    const diasAlquilada = dias.alquilada, diasDisponible = dias.disponible;
 
     const contratoIds = [...new Set(tramos.filter(t=>t.contrato_id).map(t=>t.contrato_id))];
     const clientesDelPeriodo = new Set(tramos.filter(t=>t.contratos?.clientes?.razon_social).map(t=>t.contratos.clientes.razon_social));
@@ -10806,7 +10839,7 @@ async function tzBuscarTrazabilidad(){
       equipo: tzEquipoSeleccionado, tramos: tramosRecortados, contratoIds,
       facturasDelPeriodo, desde, hasta,
       kpis: {
-        diasAlquilada, diasDisponible, diasOtros, utilizacion,
+        diasAlquilada, diasDisponible, diasVor: dias.vor, diasPdi: dias.pdi, diasDemo: dias.demo, diasSinRegistro: dias.sinRegistro, diasTotales, utilizacion,
         cantContratos: contratoIds.length, cantClientes: clientesDelPeriodo.size,
         facturadoUsd, facturadoArs,
       },
@@ -10833,7 +10866,15 @@ function tzRenderResultado(){
   document.getElementById('tz-titulo-equipo').textContent = `${d.equipo.modelo || ''} — N° ${d.equipo.numero_serie} (${fmtDate(d.desde)} → ${fmtDate(d.hasta)})`;
   document.getElementById('tz-kpi-alquilada').textContent = `${d.kpis.diasAlquilada} d.`;
   document.getElementById('tz-kpi-disponible').textContent = `${d.kpis.diasDisponible} d.`;
-  document.getElementById('tz-kpi-otros').textContent = `${d.kpis.diasOtros} d.`;
+  document.getElementById('tz-kpi-vor').textContent = `${d.kpis.diasVor} d.`;
+  document.getElementById('tz-kpi-pdi').textContent = `${d.kpis.diasPdi} d.`;
+  document.getElementById('tz-kpi-demo').textContent = `${d.kpis.diasDemo} d.`;
+  document.getElementById('tz-kpi-sinreg').textContent = `${d.kpis.diasSinRegistro} d.`;
+  document.getElementById('tz-kpi-sinreg-box').style.display = d.kpis.diasSinRegistro > 0 ? '' : 'none';
+  const nRev = d.tramos.filter(t=>t.a_revisar).length;
+  const avisoEl = document.getElementById('tz-aviso-revisar');
+  avisoEl.style.display = nRev ? 'block' : 'none';
+  avisoEl.textContent = nRev ? `⚠ ${nRev} tramo${nRev>1?'s':''} de esta máquina está${nRev>1?'n':''} marcado${nRev>1?'s':''} "a revisar" (fechas dudosas en el contrato). Los días se calculan igual, pero conviene verificarlos.` : '';
   document.getElementById('tz-kpi-utilizacion').textContent = `${d.kpis.utilizacion}%`;
   document.getElementById('tz-kpi-contratos').textContent = `${d.kpis.cantContratos} / ${d.kpis.cantClientes}`;
   document.getElementById('tz-kpi-facturado').textContent = `${fmtMoney(d.kpis.facturadoUsd,'USD')} / ${fmtMoney(d.kpis.facturadoArs,'ARS')}`;
@@ -10850,9 +10891,10 @@ function tzRenderResultado(){
         </div>
         <div class="panel" style="flex:1;padding:10px 14px;margin-bottom:10px;">
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
-            <div style="font-weight:700;font-size:13px;color:${info.color};">${info.label}${t.vigente?' <span class="muted" style="font-weight:400;font-size:11px;">(vigente)</span>':''}</div>
-            <div class="muted" style="font-size:11.5px;">${fmtDate(t.desdeEfectivo)} → ${t.vigente ? 'hoy' : fmtDate(t.hastaEfectivo)}</div>
+            <div style="font-weight:700;font-size:13px;color:${info.color};">${info.label}${t.vigente?' <span class="muted" style="font-weight:400;font-size:11px;">(vigente)</span>':''}${t.a_revisar?` <span title="${escapeHtml(t.nota_revision||'')}" style="font-size:10.5px;font-weight:600;color:#EF9F27;border:1px solid #EF9F27;border-radius:10px;padding:1px 7px;margin-left:6px;">A REVISAR</span>`:''}</div>
+            <div class="muted" style="font-size:11.5px;">${fmtDate(t.desdeEfectivo)} → ${t.vigente ? 'hoy' : fmtDate(t.hastaEfectivo)} · ${t.dias} d.</div>
           </div>
+          ${t.a_revisar && t.nota_revision ? `<div style="font-size:11.5px;margin-top:3px;color:#EF9F27;">${escapeHtml(t.nota_revision)}</div>` : ''}
           ${cliente ? `<div style="font-size:12.5px;margin-top:3px;">Cliente: <strong>${escapeHtml(cliente)}</strong>${t.contratos?.remito ? ` — Remito ${escapeHtml(t.contratos.remito)}` : ''}</div>` : ''}
         </div>
       </div>`;
@@ -10872,7 +10914,11 @@ document.getElementById('btn-tz-exportar-xls').addEventListener('click', ()=>{
     ['Período', `${fmtDate(d.desde)} → ${fmtDate(d.hasta)}`],
     ['Días alquilada', d.kpis.diasAlquilada],
     ['Días disponible', d.kpis.diasDisponible],
-    ['Días VOR/PDI/Demo', d.kpis.diasOtros],
+    ['Días VOR', d.kpis.diasVor],
+    ['Días PDI', d.kpis.diasPdi],
+    ['Días Demo', d.kpis.diasDemo],
+    ['Días sin registro', d.kpis.diasSinRegistro],
+    ['Total días del período', d.kpis.diasTotales],
     ['% Utilización', `${d.kpis.utilizacion}%`],
     ['Contratos', d.kpis.cantContratos],
     ['Clientes distintos', d.kpis.cantClientes],
@@ -10883,16 +10929,18 @@ document.getElementById('btn-tz-exportar-xls').addEventListener('click', ()=>{
   wsKpi['!cols'] = [{wch:22},{wch:30}];
   XLSX.utils.book_append_sheet(wb, wsKpi, 'Resumen');
 
-  const tlHeaders = ['Estado','Desde','Hasta','Cliente','Remito'];
+  const tlHeaders = ['Estado','Desde','Hasta','Días','Cliente','Remito','A revisar'];
   const tlRows = d.tramos.map(t=>[
     (TZ_ESTADO_INFO[t.estado]||{}).label || t.estado,
     fmtDate(t.desdeEfectivo),
     t.vigente ? 'Vigente' : fmtDate(t.hastaEfectivo),
+    t.dias,
     t.contratos?.clientes?.razon_social || '',
     t.contratos?.remito || '',
+    t.a_revisar ? (t.nota_revision || 'Sí') : '',
   ]);
   const wsTl = XLSX.utils.aoa_to_sheet([tlHeaders, ...tlRows]);
-  wsTl['!cols'] = [{wch:14},{wch:14},{wch:14},{wch:30},{wch:14}];
+  wsTl['!cols'] = [{wch:14},{wch:14},{wch:14},{wch:8},{wch:30},{wch:14},{wch:50}];
   XLSX.utils.book_append_sheet(wb, wsTl, 'Línea de tiempo');
 
   if(d.facturasDelPeriodo.length > 0){
@@ -10952,7 +11000,9 @@ document.getElementById('btn-tz-exportar-pdf').addEventListener('click', ()=>{
     startY: y,
     body: [
       ['Días alquilada', String(d.kpis.diasAlquilada), 'Días disponible', String(d.kpis.diasDisponible)],
-      ['Días VOR/PDI/Demo', String(d.kpis.diasOtros), '% Utilización', `${d.kpis.utilizacion}%`],
+      ['Días VOR', String(d.kpis.diasVor), 'Días PDI', String(d.kpis.diasPdi)],
+      ['Días Demo', String(d.kpis.diasDemo), 'Sin registro', String(d.kpis.diasSinRegistro)],
+      ['% Utilización', `${d.kpis.utilizacion}%`, 'Total días del período', String(d.kpis.diasTotales)],
       ['Contratos', String(d.kpis.cantContratos), 'Clientes distintos', String(d.kpis.cantClientes)],
       ['Facturado (USD)', fmtMoney(d.kpis.facturadoUsd,'USD'), 'Facturado (ARS)', fmtMoney(d.kpis.facturadoArs,'ARS')],
     ],
@@ -10969,13 +11019,15 @@ document.getElementById('btn-tz-exportar-pdf').addEventListener('click', ()=>{
   y += 5;
   doc.autoTable({
     startY: y,
-    head: [['Estado','Desde','Hasta','Cliente','Remito']],
+    head: [['Estado','Desde','Hasta','Días','Cliente','Remito','Rev.']],
     body: d.tramos.map(t=>[
       (TZ_ESTADO_INFO[t.estado]||{}).label || t.estado,
       fmtDate(t.desdeEfectivo),
       t.vigente ? 'Vigente' : fmtDate(t.hastaEfectivo),
+      String(t.dias),
       t.contratos?.clientes?.razon_social || '—',
       t.contratos?.remito || '—',
+      t.a_revisar ? 'A revisar' : '',
     ]),
     theme: 'grid',
     styles: { fontSize: 8, cellPadding: 2 },
