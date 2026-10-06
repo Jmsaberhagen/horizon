@@ -6267,12 +6267,16 @@ const PIZARRA_CATEGORIAS = {
 };
 
 let pizarraSucursalActual = null;
+// Valor especial de la 4ta pestaña: reúne la flota de todas las sucursales en un solo tablero
+const PIZARRA_TODAS = 'todas';
 
 function initPizarraTabs(){
   const cont = document.getElementById('pizarra-tabs-sucursal');
   cont.innerHTML = sucursales.map(s=>`
     <button type="button" class="btn ${String(s.id)===String(pizarraSucursalActual)?'':'secondary'}" data-pizarra-suc="${s.id}">${escapeHtml(s.nombre)}</button>
-  `).join('');
+  `).join('') + `
+    <button type="button" class="btn ${pizarraSucursalActual === PIZARRA_TODAS?'':'secondary'}" data-pizarra-suc="${PIZARRA_TODAS}">TODAS</button>
+  `;
   cont.querySelectorAll('[data-pizarra-suc]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       pizarraSucursalActual = btn.dataset.pizarraSuc;
@@ -6284,8 +6288,11 @@ function initPizarraTabs(){
 
 function renderPizarra(){
   if(!pizarraSucursalActual && sucursales.length > 0) pizarraSucursalActual = String(sucursales[0].id);
-  const equiposDeLaSucursal = equiposCache.filter(e => String(e.sucursal_id) === String(pizarraSucursalActual) && e.estado !== 'baja');
-  document.getElementById('pizarra-conteo').textContent = `${equiposDeLaSucursal.length} equipo(s) en esta sucursal`;
+  const esTodas = pizarraSucursalActual === PIZARRA_TODAS;
+  const equiposDeLaSucursal = equiposCache.filter(e => (esTodas || String(e.sucursal_id) === String(pizarraSucursalActual)) && e.estado !== 'baja');
+  document.getElementById('pizarra-conteo').textContent = esTodas
+    ? `${equiposDeLaSucursal.length} equipo(s) en toda la flota`
+    : `${equiposDeLaSucursal.length} equipo(s) en esta sucursal`;
 
   const puedeEditar = puede('pizarra','editar');
   const board = document.getElementById('pizarra-board');
@@ -6296,14 +6303,24 @@ function renderPizarra(){
 
     const tarjetas = items.map(e=>{
       const cat = PIZARRA_CATEGORIAS[e.categoria_color] || PIZARRA_CATEGORIAS.accesorio;
+      // En Alquilada y Demo se muestra, al lado de la serie, el cliente que tiene la máquina
+      const cliente = (col.estado === 'alquilada' || col.estado === 'demo') ? clienteActualDeEquipo(e.id) : null;
+      // En la vista TODAS se indica a qué sucursal pertenece cada equipo
+      const sucNombre = esTodas ? (sucursales.find(s => String(s.id) === String(e.sucursal_id))?.nombre || '') : '';
       // Si está en un contrato activo (alquiler o DEMO) no se arrastra: se libera cerrando el contrato
       const draggable = col.arrastrable && puedeEditar && !equipoTieneContratoActivo(e.id);
       return `
         <div class="pizarra-card" data-equipo-id="${e.id}" ${draggable?'draggable="true"':''}
              style="background:var(--panel);border:1px solid var(--border);border-left:3px solid ${cat.color};border-radius:6px;padding:7px 9px;margin-bottom:6px;${draggable?'cursor:grab;':'cursor:default;opacity:0.92;'}"
-             title="${escapeHtml(cat.label)}">
-          <div style="font-size:12px;font-weight:700;">${escapeHtml(e.modelo || '—')}</div>
-          <div class="muted" style="font-size:10.5px;font-family:var(--font-mono);margin-top:1px;">${escapeHtml(e.numero_serie || '')}</div>
+             title="${escapeHtml(cat.label)}${cliente ? ' — ' + escapeHtml(cliente) : ''}">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;">
+            <div style="font-size:12px;font-weight:700;">${escapeHtml(e.modelo || '—')}</div>
+            ${sucNombre ? `<div class="muted" style="font-size:9.5px;text-transform:uppercase;letter-spacing:.03em;flex:none;">${escapeHtml(sucNombre)}</div>` : ''}
+          </div>
+          <div style="display:flex;align-items:baseline;gap:8px;margin-top:1px;">
+            <div class="muted" style="font-size:10.5px;font-family:var(--font-mono);flex:none;">${escapeHtml(e.numero_serie || '')}</div>
+            ${cliente ? `<div style="font-size:10.5px;color:var(--accent);font-weight:600;min-width:0;flex:1;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(cliente)}</div>` : ''}
+          </div>
         </div>`;
     }).join('') || '<div class="muted" style="text-align:center;padding:18px 0;font-size:11.5px;">Sin equipos</div>';
 
@@ -6329,7 +6346,8 @@ function renderPizarra(){
 // del contrato activo.
 function pizarraDatosExport(){
   const alcance = document.getElementById('pizarra-export-alcance')?.value || 'actual';
-  const sucs = alcance === 'todas'
+  // Si se está viendo la pestaña TODAS, se exporta toda la flota sin importar el selector
+  const sucs = (alcance === 'todas' || pizarraSucursalActual === PIZARRA_TODAS)
     ? sucursales.slice()
     : sucursales.filter(s => String(s.id) === String(pizarraSucursalActual));
   return sucs.map(s=>{
@@ -6386,11 +6404,11 @@ function exportarPizarraExcel(){
   XLSX.utils.book_append_sheet(wb, wsRes, 'Resumen');
 
   // Una hoja por estado (todas las sucursales elegidas, con columna Sucursal)
-  const headers = ['Sucursal','Modelo','N° de serie','Tipo de equipo','Cliente','Remito','Vencimiento'];
+  const headers = ['Sucursal','Modelo','N° de serie','Cliente','Tipo de equipo','Remito','Vencimiento'];
   PIZARRA_COLUMNAS.forEach(col=>{
     const rows = [];
     datos.forEach(d => d.porEstado[col.estado].forEach(x=>{
-      rows.push([d.sucursal, x.modelo, x.serie, x.tipo, x.cliente, x.remito, fmtDateExport(x.vence)]);
+      rows.push([d.sucursal, x.modelo, x.serie, x.cliente, x.tipo, x.remito, fmtDateExport(x.vence)]);
     }));
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     ws['!cols'] = anchoCols(headers, rows);
@@ -6455,34 +6473,46 @@ function exportarPizarraPDF(){
   });
   y = doc.lastAutoTable.finalY + 10;
 
-  // Detalle por sucursal y estado
-  datos.forEach((d, idx)=>{
-    if(idx > 0 || y > pageHeight - bannerH - 40){ doc.addPage(); y = 15; }
-    doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(0);
-    doc.text(`${d.sucursal} — ${d.total} equipo(s)`, marginX, y);
-    y += 7;
+  // Detalle por estado. Con una sola sucursal: sus tablas. Con varias (pestaña TODAS):
+  // una tabla por estado con toda la flota, con columna Sucursal (igual que el tablero).
+  const multi = datos.length > 1;
+  const totalFlota = datos.reduce((a,d)=>a + d.total, 0);
+  nuevaPaginaSiNecesario(40);
+  doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(0);
+  doc.text(multi ? `TODA LA FLOTA — ${totalFlota} equipo(s)` : `${datos[0].sucursal} — ${datos[0].total} equipo(s)`, marginX, y);
+  y += 7;
 
-    PIZARRA_COLUMNAS.forEach(col=>{
-      const items = d.porEstado[col.estado];
-      if(items.length === 0) return;
-      nuevaPaginaSiNecesario(30);
-      const esAlq = col.estado === 'alquilada' || col.estado === 'demo';
-      doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(0);
-      doc.text(`${col.titulo} (${items.length})`, marginX, y);
-      y += 3;
-      doc.autoTable({
-        startY: y,
-        head: [esAlq ? ['Modelo','N° de serie','Tipo','Cliente','Remito','Vence'] : ['Modelo','N° de serie','Tipo de equipo']],
-        body: items.map(x => esAlq
-          ? [x.modelo, x.serie, x.tipo, x.cliente || '—', x.remito || '—', fmtDate(x.vence)]
-          : [x.modelo, x.serie, x.tipo]),
-        theme: 'grid',
-        styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: { fillColor: colorEstado[col.estado], textColor: 20, fontStyle: 'bold' },
-        margin: margenTabla,
-      });
-      y = doc.lastAutoTable.finalY + 8;
+  PIZARRA_COLUMNAS.forEach(col=>{
+    const items = [];
+    datos.forEach(d => d.porEstado[col.estado].forEach(x => items.push({ ...x, sucursal: d.sucursal })));
+    if(items.length === 0) return;
+    nuevaPaginaSiNecesario(30);
+    const esAlq = col.estado === 'alquilada' || col.estado === 'demo';
+    doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(0);
+    doc.text(`${col.titulo} (${items.length})`, marginX, y);
+    y += 3;
+
+    // El cliente va justo después de la serie
+    const head = [
+      ...(multi ? ['Sucursal'] : []),
+      'Modelo', 'N° de serie',
+      ...(esAlq ? ['Cliente', 'Tipo', 'Remito', 'Vence'] : ['Tipo de equipo']),
+    ];
+    const body = items.map(x => [
+      ...(multi ? [x.sucursal] : []),
+      x.modelo, x.serie,
+      ...(esAlq ? [x.cliente || '—', x.tipo, x.remito || '—', fmtDate(x.vence)] : [x.tipo]),
+    ]);
+    doc.autoTable({
+      startY: y,
+      head: [head],
+      body,
+      theme: 'grid',
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: colorEstado[col.estado], textColor: 20, fontStyle: 'bold' },
+      margin: margenTabla,
     });
+    y = doc.lastAutoTable.finalY + 8;
   });
 
   const totalPaginas = doc.internal.getNumberOfPages();
