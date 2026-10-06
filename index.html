@@ -6130,8 +6130,12 @@ document.getElementById('modal-ficha-tecnica-overlay').addEventListener('click',
 // "De baja" sigue siendo manual (equipo que salió de la flota, no un alquiler puntual).
 function estadoActualEquipo(equipo){
   if(equipo.estado === 'baja') return 'baja';
-  const tieneContratoActivo = contratosCache.some(c => c.equipo_id === equipo.id && c.estado === 'activo');
-  if(tieneContratoActivo) return 'alquilada';
+  const contratosActivos = contratosCache.filter(c => c.equipo_id === equipo.id && c.estado === 'activo');
+  if(contratosActivos.length > 0){
+    // Un contrato DEMO (prueba gratuita) ocupa la máquina pero no es un alquiler: va a la columna Demo.
+    // Si por algún motivo hubiera además un contrato activo que no es demo, manda ese (alquilada).
+    return contratosActivos.some(c => !c.es_demo) ? 'alquilada' : 'demo';
+  }
   // vor/pdi/demo son estados manuales que se cargan desde la Pizarra de Flota
   if(equipo.estado === 'vor' || equipo.estado === 'pdi' || equipo.estado === 'demo') return equipo.estado;
   return 'disponible';
@@ -6153,7 +6157,7 @@ function renderEquipos(list){
     const tarjetas = items.map(e=>{
       const suc = sucursales.find(s => s.id === e.sucursal_id);
       const tieneFicha = !!buscarFichaTecnica(e.modelo);
-      const cliente = col.estado === 'alquilada' ? clienteActualDeEquipo(e.id) : null;
+      const cliente = (col.estado === 'alquilada' || col.estado === 'demo') ? clienteActualDeEquipo(e.id) : null;
 
       // Semáforo de vencimientos: 4 puntitos (Patentamiento, Certificación, Seg. Técnico, Seg. RC)
       const docs = documentosEquipo(e);
@@ -6238,7 +6242,8 @@ document.getElementById('equipo-filter-tipo').addEventListener('change', applyEq
 // MÓDULO PIZARRA DE FLOTA
 // =========================================================
 // Réplica digital de la pizarra magnética física de cada sucursal.
-// "Alquilada" es 100% automático (viene de estadoActualEquipo() según contratos activos)
+// "Alquilada" es 100% automático (viene de estadoActualEquipo() según contratos activos).
+// Un contrato activo marcado DEMO manda la máquina a la columna Demo (tampoco se mueve a mano).
 // y no se puede arrastrar hacia/desde esa columna: para liberar una máquina hay que
 // cerrar el contrato en Contratos, como siempre. Disponible/VOR/PDI/Demo son manuales
 // y se guardan en equipos.estado — se cambian arrastrando la tarjeta entre columnas.
@@ -6291,7 +6296,8 @@ function renderPizarra(){
 
     const tarjetas = items.map(e=>{
       const cat = PIZARRA_CATEGORIAS[e.categoria_color] || PIZARRA_CATEGORIAS.accesorio;
-      const draggable = col.arrastrable && puedeEditar;
+      // Si está en un contrato activo (alquiler o DEMO) no se arrastra: se libera cerrando el contrato
+      const draggable = col.arrastrable && puedeEditar && !equipoTieneContratoActivo(e.id);
       return `
         <div class="pizarra-card" data-equipo-id="${e.id}" ${draggable?'draggable="true"':''}
              style="background:var(--panel);border:1px solid var(--border);border-left:3px solid ${cat.color};border-radius:6px;padding:7px 9px;margin-bottom:6px;${draggable?'cursor:grab;':'cursor:default;opacity:0.92;'}"
@@ -6335,7 +6341,7 @@ function pizarraDatosExport(){
         .sort((a,b)=> (a.modelo||'').localeCompare(b.modelo||'') || (a.numero_serie||'').localeCompare(b.numero_serie||''))
         .map(e=>{
           const cat = PIZARRA_CATEGORIAS[e.categoria_color] || PIZARRA_CATEGORIAS.accesorio;
-          const ct = col.estado === 'alquilada'
+          const ct = (col.estado === 'alquilada' || col.estado === 'demo')
             ? contratosCache.find(c => c.equipo_id === e.id && c.estado === 'activo')
             : null;
           return {
@@ -6460,7 +6466,7 @@ function exportarPizarraPDF(){
       const items = d.porEstado[col.estado];
       if(items.length === 0) return;
       nuevaPaginaSiNecesario(30);
-      const esAlq = col.estado === 'alquilada';
+      const esAlq = col.estado === 'alquilada' || col.estado === 'demo';
       doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(0);
       doc.text(`${col.titulo} (${items.length})`, marginX, y);
       y += 3;
@@ -6531,8 +6537,10 @@ function initPizarraDragAndDrop(){
 
       const estadoActual = estadoActualEquipo(equipo);
       if(estadoActual === colInfo.estado) return; // soltó en la misma columna
-      if(estadoActual === 'alquilada'){
-        showToast('Este equipo está alquilado. Para liberarlo, cerrá el contrato en Contratos.', true);
+      if(equipoTieneContratoActivo(equipo.id)){
+        showToast(estadoActual === 'demo'
+          ? 'Este equipo está en un contrato DEMO. Para liberarlo, cerrá el contrato en Contratos.'
+          : 'Este equipo está alquilado. Para liberarlo, cerrá el contrato en Contratos.', true);
         return;
       }
 
@@ -6554,7 +6562,13 @@ function initPizarraDragAndDrop(){
   });
 }
 
-// Cliente actual de un equipo alquilado (busca el contrato activo asociado)
+// ¿El equipo está ocupado por un contrato activo (alquiler o DEMO)? En ese caso la pizarra
+// no deja moverlo a mano: hay que cerrar el contrato en Contratos.
+function equipoTieneContratoActivo(equipoId){
+  return contratosCache.some(c => c.equipo_id === equipoId && c.estado === 'activo');
+}
+
+// Cliente actual de un equipo alquilado o en DEMO (busca el contrato activo asociado)
 function clienteActualDeEquipo(equipoId){
   const contrato = contratosCache.find(c => c.equipo_id === equipoId && c.estado === 'activo');
   return contrato?.clientes?.razon_social || null;
@@ -6566,7 +6580,7 @@ function equiposToRows(list){
     const estado = estadoActualEquipo(e);
     return [
       e.numero_serie, e.modelo, sucursales.find(s=>s.id===e.sucursal_id)?.nombre || '', estado,
-      estado === 'alquilada' ? (clienteActualDeEquipo(e.id) || '') : '',
+      (estado === 'alquilada' || estado === 'demo') ? (clienteActualDeEquipo(e.id) || '') : '',
       e.tipo === 'tercero' ? 'De terceros' : 'Propio', e.proveedor_tercero || '',
     ];
   });
@@ -14448,7 +14462,7 @@ async function abrirDetalleEquipo(equipoId){
   const suc = sucursales.find(s => s.id === e.sucursal_id);
   document.getElementById('det-eq-id').value = e.id;
   document.getElementById('det-eq-titulo').textContent = e.numero_serie;
-  document.getElementById('det-eq-subtitulo').textContent = `${e.modelo || 'sin modelo'}${suc ? ' — '+suc.nombre : ''} — ${estadoActualEquipo(e)==='baja'?'De baja':estadoActualEquipo(e)==='alquilada'?'Alquilada':'Disponible'}`;
+  document.getElementById('det-eq-subtitulo').textContent = `${e.modelo || 'sin modelo'}${suc ? ' — '+suc.nombre : ''} — ${estadoActualEquipo(e)==='baja'?'De baja':estadoActualEquipo(e)==='alquilada'?'Alquilada':estadoActualEquipo(e)==='demo'?'Demo':'Disponible'}`;
   const badgeTerceros = document.getElementById('det-eq-badge-terceros');
   if(e.tipo === 'tercero'){ badgeTerceros.style.display = ''; badgeTerceros.title = e.proveedor_tercero ? 'Proveedor: '+e.proveedor_tercero : ''; }
   else badgeTerceros.style.display = 'none';
