@@ -1755,17 +1755,7 @@
       </div>
     </div>
 
-    <div style="display:flex;gap:14px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin:12px 0 16px 0;">
-      <div class="muted" style="font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;margin-right:4px;">Tipo de equipo</div>
-      <div style="display:flex;align-items:center;gap:5px;font-size:11.5px;"><span style="width:10px;height:10px;border-radius:2px;background:#7DD3E8;display:inline-block;"></span>Tijera eléctrica</div>
-      <div style="display:flex;align-items:center;gap:5px;font-size:11.5px;"><span style="width:10px;height:10px;border-radius:2px;background:#2563EB;display:inline-block;"></span>Brazo eléctrico</div>
-      <div style="display:flex;align-items:center;gap:5px;font-size:11.5px;"><span style="width:10px;height:10px;border-radius:2px;background:#86D06B;display:inline-block;"></span>Brazo art. diésel</div>
-      <div style="display:flex;align-items:center;gap:5px;font-size:11.5px;"><span style="width:10px;height:10px;border-radius:2px;background:#2F8F3E;display:inline-block;"></span>Tijera diésel</div>
-      <div style="display:flex;align-items:center;gap:5px;font-size:11.5px;"><span style="width:10px;height:10px;border-radius:2px;background:#F5D30A;display:inline-block;"></span>Brazo telescóp. diésel</div>
-      <div style="display:flex;align-items:center;gap:5px;font-size:11.5px;"><span style="width:10px;height:10px;border-radius:2px;background:#F4F4F2;border:1px solid var(--border);display:inline-block;"></span>Accesorio</div>
-      <div style="display:flex;align-items:center;gap:5px;font-size:11.5px;"><span style="width:10px;height:10px;border-radius:2px;background:#A9432B;display:inline-block;"></span>Manipulador</div>
-      <div class="muted" style="font-size:10.5px;margin-left:auto;">Arrastrá una tarjeta para cambiar su estado</div>
-    </div>
+    <div id="pizarra-leyenda" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:8px 14px;margin:12px 0 16px 0;"></div>
 
     <!-- Columnas con proporción fija (minmax(…,Xfr)): el contenido nunca las ensancha.
          Alquilada y Demo son más anchas porque llevan el nombre del cliente. Si la ventana es
@@ -6294,14 +6284,58 @@ const PIZARRA_COLUMNAS = [
 ];
 
 const PIZARRA_CATEGORIAS = {
-  tijera_electrica:         { color:'#7DD3E8', label:'Tijera eléctrica' },
-  brazo_electrico:          { color:'#2563EB', label:'Brazo eléctrico' },
-  brazo_articulado_diesel:  { color:'#86D06B', label:'Brazo articulado diésel' },
-  tijera_diesel:            { color:'#2F8F3E', label:'Tijera diésel' },
-  brazo_telescopico_diesel: { color:'#F5D30A', label:'Brazo telescópico diésel' },
-  accesorio:                { color:'#F4F4F2', label:'Accesorio' },
-  manipulador:              { color:'#A9432B', label:'Manipulador' },
+  tijera_electrica:         { color:'#7DD3E8', label:'Tijera eléctrica', corto:'Tijera eléctrica' },
+  brazo_electrico:          { color:'#2563EB', label:'Brazo eléctrico', corto:'Brazo eléctrico' },
+  brazo_articulado_diesel:  { color:'#86D06B', label:'Brazo articulado diésel', corto:'Brazo art. diésel' },
+  tijera_diesel:            { color:'#2F8F3E', label:'Tijera diésel', corto:'Tijera diésel' },
+  brazo_telescopico_diesel: { color:'#F5D30A', label:'Brazo telescópico diésel', corto:'Brazo telescóp. diésel' },
+  accesorio:                { color:'#F4F4F2', label:'Accesorio', corto:'Accesorio' },
+  manipulador:              { color:'#A9432B', label:'Manipulador', corto:'Manipulador' },
 };
+
+// Filtro por tipo de equipo: la leyenda de colores es también un conjunto de interruptores.
+// Los tipos ocultos no aparecen en el tablero ni en las exportaciones, y se recuerdan en este navegador.
+const PIZARRA_TIPOS_LS = 'horizon_pizarra_tipos_ocultos';
+let pizarraTiposOcultos = new Set();
+try{
+  const guardado = JSON.parse(localStorage.getItem(PIZARRA_TIPOS_LS) || '[]');
+  if(Array.isArray(guardado)) pizarraTiposOcultos = new Set(guardado.filter(k => PIZARRA_CATEGORIAS[k]));
+}catch(_){}
+function pizarraClaveTipo(e){ return PIZARRA_CATEGORIAS[e.categoria_color] ? e.categoria_color : 'accesorio'; }
+function pizarraTipoVisible(e){ return !pizarraTiposOcultos.has(pizarraClaveTipo(e)); }
+function pizarraGuardarTipos(){
+  try{ localStorage.setItem(PIZARRA_TIPOS_LS, JSON.stringify([...pizarraTiposOcultos])); }catch(_){}
+}
+function pizarraRenderLeyenda(){
+  const cont = document.getElementById('pizarra-leyenda');
+  if(!cont) return;
+  const chips = Object.entries(PIZARRA_CATEGORIAS).map(([k, c])=>{
+    const on = !pizarraTiposOcultos.has(k);
+    return `<button type="button" data-pizarra-tipo="${k}" aria-pressed="${on}" title="${on ? 'Click para ocultar' : 'Click para mostrar'}: ${escapeHtml(c.label)}"
+      style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-family:inherit;cursor:pointer;padding:3px 10px 3px 6px;border-radius:999px;border:1px solid ${on ? c.color : 'var(--border)'};background:${on ? 'var(--panel-2)' : 'transparent'};color:${on ? 'var(--text)' : 'var(--text-dim)'};${on ? '' : 'text-decoration:line-through;opacity:.6;'}">
+      <span style="width:14px;height:14px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;line-height:1;font-weight:800;flex:none;background:${on ? c.color : 'transparent'};border:1px solid ${on ? c.color : 'var(--border)'};color:#111;">${on ? '✓' : ''}</span>${escapeHtml(c.corto || c.label)}
+    </button>`;
+  }).join('');
+  const hayOcultos = pizarraTiposOcultos.size > 0;
+  cont.innerHTML = `<div class="muted" style="font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;margin-right:2px;">Tipo de equipo</div>${chips}
+    ${hayOcultos ? `<button type="button" id="pizarra-tipos-todos" class="btn secondary" style="padding:2px 10px;font-size:11px;">Mostrar todos</button>` : ''}
+    <div class="muted" style="font-size:10.5px;margin-left:auto;">Tocá un tipo para ocultarlo o mostrarlo · Arrastrá una tarjeta para cambiar su estado</div>`;
+  cont.querySelectorAll('[data-pizarra-tipo]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const k = btn.dataset.pizarraTipo;
+      if(pizarraTiposOcultos.has(k)) pizarraTiposOcultos.delete(k); else pizarraTiposOcultos.add(k);
+      pizarraGuardarTipos();
+      pizarraRenderLeyenda();
+      renderPizarra({ conservarScroll:true });
+    });
+  });
+  document.getElementById('pizarra-tipos-todos')?.addEventListener('click', ()=>{
+    pizarraTiposOcultos.clear();
+    pizarraGuardarTipos();
+    pizarraRenderLeyenda();
+    renderPizarra({ conservarScroll:true });
+  });
+}
 
 let pizarraSucursalActual = null;
 // Sigla corta para la etiqueta de sucursal en la vista TODAS (BA / CBA / NQN; otras: 3 primeras letras)
@@ -6339,10 +6373,13 @@ function renderPizarra(opts = {}){
   }
   const ahora = Date.now();
   const esTodas = pizarraSucursalActual === PIZARRA_TODAS;
-  const equiposDeLaSucursal = equiposCache.filter(e => (esTodas || String(e.sucursal_id) === String(pizarraSucursalActual)) && e.estado !== 'baja');
-  document.getElementById('pizarra-conteo').textContent = esTodas
+  const equiposDelAmbito = equiposCache.filter(e => (esTodas || String(e.sucursal_id) === String(pizarraSucursalActual)) && e.estado !== 'baja');
+  const equiposDeLaSucursal = equiposDelAmbito.filter(pizarraTipoVisible);
+  const ocultos = equiposDelAmbito.length - equiposDeLaSucursal.length;
+  document.getElementById('pizarra-conteo').textContent = (esTodas
     ? `${equiposDeLaSucursal.length} equipo(s) en toda la flota`
-    : `${equiposDeLaSucursal.length} equipo(s) en esta sucursal`;
+    : `${equiposDeLaSucursal.length} equipo(s) en esta sucursal`) + (ocultos ? ` · ${ocultos} oculto(s) por tipo` : '');
+  pizarraRenderLeyenda();
 
   const puedeEditar = puede('pizarra','editar');
   const board = document.getElementById('pizarra-board');
@@ -6595,7 +6632,7 @@ function pizarraDatosExport(){
     ? sucursales.slice()
     : sucursales.filter(s => String(s.id) === String(pizarraSucursalActual));
   return sucs.map(s=>{
-    const equipos = equiposCache.filter(e => String(e.sucursal_id) === String(s.id) && e.estado !== 'baja');
+    const equipos = equiposCache.filter(e => String(e.sucursal_id) === String(s.id) && e.estado !== 'baja' && pizarraTipoVisible(e));
     const porEstado = {};
     PIZARRA_COLUMNAS.forEach(col=>{
       porEstado[col.estado] = equipos
