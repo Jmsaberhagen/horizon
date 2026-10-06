@@ -1729,7 +1729,15 @@
   <section id="tab-pizarra" style="display:none;">
     <div class="toolbar" style="justify-content:space-between;flex-wrap:wrap;gap:10px;">
       <div style="display:flex;gap:8px;flex-wrap:wrap;" id="pizarra-tabs-sucursal"></div>
-      <div class="muted" id="pizarra-conteo" style="font-size:12px;"></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <div class="muted" id="pizarra-conteo" style="font-size:12px;"></div>
+        <select id="pizarra-export-alcance" title="Qué sucursales incluir en la exportación" style="font-size:12px;">
+          <option value="actual">Sucursal actual</option>
+          <option value="todas">Todas las sucursales</option>
+        </select>
+        <button class="btn secondary" id="btn-pizarra-export-xls">Exportar XLSX</button>
+        <button class="btn secondary" id="btn-pizarra-export-pdf">Exportar PDF</button>
+      </div>
     </div>
 
     <div style="display:flex;gap:14px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin:12px 0 16px 0;">
@@ -6308,6 +6316,184 @@ function renderPizarra(){
 
   initPizarraDragAndDrop();
 }
+
+// ---------- Exportación de la Pizarra de Flota (XLSX / PDF) ----------
+// Exporta lo mismo que se ve en pantalla: equipos no dados de baja, agrupados por estado
+// calculado (estadoActualEquipo). Para las alquiladas suma cliente / remito / vencimiento
+// del contrato activo.
+function pizarraDatosExport(){
+  const alcance = document.getElementById('pizarra-export-alcance')?.value || 'actual';
+  const sucs = alcance === 'todas'
+    ? sucursales.slice()
+    : sucursales.filter(s => String(s.id) === String(pizarraSucursalActual));
+  return sucs.map(s=>{
+    const equipos = equiposCache.filter(e => String(e.sucursal_id) === String(s.id) && e.estado !== 'baja');
+    const porEstado = {};
+    PIZARRA_COLUMNAS.forEach(col=>{
+      porEstado[col.estado] = equipos
+        .filter(e => estadoActualEquipo(e) === col.estado)
+        .sort((a,b)=> (a.modelo||'').localeCompare(b.modelo||'') || (a.numero_serie||'').localeCompare(b.numero_serie||''))
+        .map(e=>{
+          const cat = PIZARRA_CATEGORIAS[e.categoria_color] || PIZARRA_CATEGORIAS.accesorio;
+          const ct = col.estado === 'alquilada'
+            ? contratosCache.find(c => c.equipo_id === e.id && c.estado === 'activo')
+            : null;
+          return {
+            modelo: e.modelo || '',
+            serie: e.numero_serie || '',
+            tipo: cat.label,
+            cliente: ct?.clientes?.razon_social || '',
+            remito: ct?.remito || '',
+            vence: ct?.fecha_vencimiento || '',
+          };
+        });
+    });
+    return { sucursal: s.nombre, total: equipos.length, porEstado };
+  });
+}
+
+function pizarraNombreArchivo(datos, ext){
+  const hoy = new Date().toISOString().slice(0,10);
+  const parte = datos.length === 1
+    ? datos[0].sucursal.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z0-9]+/g,'_').toLowerCase()
+    : 'todas';
+  return `pizarra_flota_${parte}_${hoy}.${ext}`;
+}
+
+function exportarPizarraExcel(){
+  const datos = pizarraDatosExport();
+  if(datos.length === 0 || datos.every(d => d.total === 0)){ showToast('No hay equipos para exportar', true); return; }
+
+  const wb = XLSX.utils.book_new();
+  const anchoCols = (headers, rows)=> headers.map((h,i)=>({
+    wch: Math.min(Math.max(Math.max(String(h).length, ...rows.map(r => String(r[i] ?? '').length)) + 2, 10), 50)
+  }));
+
+  // Hoja Resumen: cantidad de equipos por sucursal y estado
+  const resHead = ['Sucursal', ...PIZARRA_COLUMNAS.map(c=>c.titulo), 'Total'];
+  const resRows = datos.map(d => [d.sucursal, ...PIZARRA_COLUMNAS.map(c => d.porEstado[c.estado].length), d.total]);
+  if(datos.length > 1){
+    resRows.push(['TOTAL', ...PIZARRA_COLUMNAS.map((c,i)=> resRows.reduce((a,r)=>a + r[i+1], 0)), resRows.reduce((a,r)=>a + r[resHead.length-1], 0)]);
+  }
+  const wsRes = XLSX.utils.aoa_to_sheet([resHead, ...resRows]);
+  wsRes['!cols'] = anchoCols(resHead, resRows);
+  XLSX.utils.book_append_sheet(wb, wsRes, 'Resumen');
+
+  // Una hoja por estado (todas las sucursales elegidas, con columna Sucursal)
+  const headers = ['Sucursal','Modelo','N° de serie','Tipo de equipo','Cliente','Remito','Vencimiento'];
+  PIZARRA_COLUMNAS.forEach(col=>{
+    const rows = [];
+    datos.forEach(d => d.porEstado[col.estado].forEach(x=>{
+      rows.push([d.sucursal, x.modelo, x.serie, x.tipo, x.cliente, x.remito, fmtDateExport(x.vence)]);
+    }));
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    ws['!cols'] = anchoCols(headers, rows);
+    XLSX.utils.book_append_sheet(wb, ws, col.titulo);
+  });
+
+  XLSX.writeFile(wb, pizarraNombreArchivo(datos, 'xlsx'));
+  showToast('XLSX generado');
+}
+
+function exportarPizarraPDF(){
+  const datos = pizarraDatosExport();
+  if(datos.length === 0 || datos.every(d => d.total === 0)){ showToast('No hay equipos para exportar', true); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const marginX = 16;
+  const bannerRatio = 406/2475;
+  const bannerH = pageWidth * bannerRatio;
+  const margenTabla = { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 };
+  const colorEstado = { disponible:[34,160,90], alquilada:[56,189,248], vor:[239,159,39], pdi:[127,119,221], demo:[212,83,126] };
+  let y = 15;
+
+  const encabezado = ()=>{
+    try{ doc.addImage(LOGO_PDF_BASE64, 'PNG', marginX, y, 55, 11.3); } catch(e){ console.error(e); }
+    doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.setTextColor(0);
+    doc.text('PIZARRA DE FLOTA', pageWidth - marginX, y + 8, { align:'right' });
+    doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90);
+    doc.text(`Generado: ${fmtDate(new Date().toISOString().slice(0,10))}`, pageWidth - marginX, y + 14, { align:'right' });
+    doc.setTextColor(0);
+    y += 24;
+    doc.setDrawColor(56,189,248); doc.setLineWidth(0.8);
+    doc.line(marginX, y, pageWidth - marginX, y);
+    y += 9;
+  };
+  const nuevaPaginaSiNecesario = (alto)=>{
+    if(y > pageHeight - bannerH - alto){ doc.addPage(); y = 15; return true; }
+    return false;
+  };
+
+  encabezado();
+
+  // Resumen general
+  const resHead = ['Sucursal', ...PIZARRA_COLUMNAS.map(c=>c.titulo), 'Total'];
+  const resBody = datos.map(d => [d.sucursal, ...PIZARRA_COLUMNAS.map(c => String(d.porEstado[c.estado].length)), String(d.total)]);
+  if(datos.length > 1){
+    resBody.push(['TOTAL', ...PIZARRA_COLUMNAS.map(c => String(datos.reduce((a,d)=>a + d.porEstado[c.estado].length, 0))), String(datos.reduce((a,d)=>a + d.total, 0))]);
+  }
+  doc.setFont('helvetica','bold'); doc.setFontSize(11.5);
+  doc.text('Resumen', marginX, y); y += 5;
+  doc.autoTable({
+    startY: y,
+    head: [resHead],
+    body: resBody,
+    theme: 'grid',
+    styles: { fontSize: 9, cellPadding: 2.5, halign: 'center' },
+    headStyles: { fillColor: [10,26,58], textColor: 255, fontStyle: 'bold' },
+    columnStyles: { 0: { halign: 'left', fontStyle: 'bold' } },
+    margin: margenTabla,
+  });
+  y = doc.lastAutoTable.finalY + 10;
+
+  // Detalle por sucursal y estado
+  datos.forEach((d, idx)=>{
+    if(idx > 0 || y > pageHeight - bannerH - 40){ doc.addPage(); y = 15; }
+    doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(0);
+    doc.text(`${d.sucursal} — ${d.total} equipo(s)`, marginX, y);
+    y += 7;
+
+    PIZARRA_COLUMNAS.forEach(col=>{
+      const items = d.porEstado[col.estado];
+      if(items.length === 0) return;
+      nuevaPaginaSiNecesario(30);
+      const esAlq = col.estado === 'alquilada';
+      doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(0);
+      doc.text(`${col.titulo} (${items.length})`, marginX, y);
+      y += 3;
+      doc.autoTable({
+        startY: y,
+        head: [esAlq ? ['Modelo','N° de serie','Tipo','Cliente','Remito','Vence'] : ['Modelo','N° de serie','Tipo de equipo']],
+        body: items.map(x => esAlq
+          ? [x.modelo, x.serie, x.tipo, x.cliente || '—', x.remito || '—', fmtDate(x.vence)]
+          : [x.modelo, x.serie, x.tipo]),
+        theme: 'grid',
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: colorEstado[col.estado], textColor: 20, fontStyle: 'bold' },
+        margin: margenTabla,
+      });
+      y = doc.lastAutoTable.finalY + 8;
+    });
+  });
+
+  const totalPaginas = doc.internal.getNumberOfPages();
+  for(let i=1;i<=totalPaginas;i++){
+    doc.setPage(i);
+    try{ doc.addImage(FOOTER_BANNER_BASE64, 'JPEG', 0, pageHeight - bannerH, pageWidth, bannerH); } catch(e){ console.error(e); }
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(120);
+    doc.text(`Página ${i} de ${totalPaginas}`, pageWidth - marginX, pageHeight - bannerH - 4, { align:'right' });
+    doc.setTextColor(0);
+  }
+
+  doc.save(pizarraNombreArchivo(datos, 'pdf'));
+  showToast('PDF generado');
+}
+
+document.getElementById('btn-pizarra-export-xls').addEventListener('click', exportarPizarraExcel);
+document.getElementById('btn-pizarra-export-pdf').addEventListener('click', exportarPizarraPDF);
 
 function initPizarraDragAndDrop(){
   const puedeEditar = puede('pizarra','editar');
