@@ -727,6 +727,20 @@
     -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
     mask-image:linear-gradient(to bottom, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
   }
+/* Pizarra en vivo: pulso breve sobre las tarjetas que cambiaron (estado, cliente, sucursal…) */
+@keyframes pizarraFlash {
+  0%   { box-shadow: 0 0 0 0 rgba(56,189,248,.85); background: rgba(56,189,248,.28); }
+  70%  { box-shadow: 0 0 0 7px rgba(56,189,248,0);  background: rgba(56,189,248,.10); }
+  100% { box-shadow: 0 0 0 0 rgba(56,189,248,0);    background: var(--panel); }
+}
+.pizarra-card.pizarra-flash { animation: pizarraFlash 2.2s ease-out 3; }
+#pizarra-live-estado { font-size: 11.5px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+#pizarra-live-estado .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); }
+#pizarra-live-estado.vivo .dot { background: var(--ok); box-shadow: 0 0 0 0 rgba(34,197,94,.6); animation: pizarraLatido 2s infinite; }
+#pizarra-live-estado.reconectando .dot { background: #EF9F27; }
+#pizarra-live-estado.sin_conexion .dot { background: var(--danger); }
+#pizarra-live-estado.sin_conexion { color: var(--danger); font-weight: 600; }
+@keyframes pizarraLatido { 0%{box-shadow:0 0 0 0 rgba(34,197,94,.55)} 70%{box-shadow:0 0 0 6px rgba(34,197,94,0)} 100%{box-shadow:0 0 0 0 rgba(34,197,94,0)} }
 </style>
 </head>
 <body>
@@ -1730,6 +1744,7 @@
     <div class="toolbar" style="justify-content:space-between;flex-wrap:wrap;gap:10px;">
       <div style="display:flex;gap:8px;flex-wrap:wrap;" id="pizarra-tabs-sucursal"></div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <span id="pizarra-live-estado" class="muted" title="La pizarra se actualiza sola cuando alguien cambia un equipo o un contrato"><span class="dot"></span><span class="txt">Conectando…</span></span>
         <div class="muted" id="pizarra-conteo" style="font-size:12px;"></div>
         <select id="pizarra-export-alcance" title="Qué sucursales incluir en la exportación" style="font-size:12px;">
           <option value="actual">Sucursal actual</option>
@@ -4060,6 +4075,7 @@ document.querySelectorAll('nav button[data-tab]').forEach(btn=>{
 document.querySelector('nav button[data-tab="pizarra"]')?.addEventListener('click', ()=>{
   initPizarraTabs();
   renderPizarra();
+  pizarraRefrescarDatos('abrir');     // al abrirla se pone al día con lo que cambió mientras estaba en otra pantalla
 });
 
 document.querySelector('nav button[data-tab="trazabilidad"]')?.addEventListener('click', ()=>{
@@ -6297,8 +6313,15 @@ function initPizarraTabs(){
   });
 }
 
-function renderPizarra(){
+function renderPizarra(opts = {}){
   if(!pizarraSucursalActual && sucursales.length > 0) pizarraSucursalActual = String(sucursales[0].id);
+  // Al redibujar por un cambio (en vivo o al soltar una tarjeta) se mantiene el scroll de cada
+  // columna; al cambiar de sucursal se arranca desde arriba.
+  const scrollPrevio = {};
+  if(opts.conservarScroll){
+    document.querySelectorAll('#pizarra-board .pizarra-dropzone').forEach(z => { scrollPrevio[z.dataset.pizarraCol] = z.scrollTop; });
+  }
+  const ahora = Date.now();
   const esTodas = pizarraSucursalActual === PIZARRA_TODAS;
   const equiposDeLaSucursal = equiposCache.filter(e => (esTodas || String(e.sucursal_id) === String(pizarraSucursalActual)) && e.estado !== 'baja');
   document.getElementById('pizarra-conteo').textContent = esTodas
@@ -6322,7 +6345,7 @@ function renderPizarra(){
       // Si está en un contrato activo (alquiler o DEMO) no se arrastra: se libera cerrando el contrato
       const draggable = col.arrastrable && puedeEditar && !equipoTieneContratoActivo(e.id);
       return `
-        <div class="pizarra-card" data-equipo-id="${e.id}" ${draggable?'draggable="true"':''}
+        <div class="pizarra-card${(pizarraCambiosRecientes.get(e.id) || 0) > ahora ? ' pizarra-flash' : ''}" data-equipo-id="${e.id}" ${draggable?'draggable="true"':''}
              style="background:var(--panel);border:1px solid var(--border);border-left:3px solid ${cat.color};border-radius:6px;padding:7px 9px;margin-bottom:6px;${draggable?'cursor:grab;':'cursor:default;opacity:0.92;'}"
              title="${escapeHtml(cat.label)}${cliente ? ' — ' + escapeHtml(cliente) : ''}">
           <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;">
@@ -6347,8 +6370,203 @@ function renderPizarra(){
       </div>`;
   }).join('');
 
+  if(opts.conservarScroll){
+    board.querySelectorAll('.pizarra-dropzone').forEach(z => {
+      const y = scrollPrevio[z.dataset.pizarraCol];
+      if(y) z.scrollTop = y;
+    });
+  }
   initPizarraDragAndDrop();
 }
+
+// =========================================================
+// PIZARRA EN VIVO
+// =========================================================
+// La pizarra se mantiene al día sola, pensada para dejarla en un televisor:
+//  1) Supabase Realtime (equipos y contratos): llega el cambio apenas alguien lo guarda.
+//  2) Sondeo de respaldo cada 60 s: por si el websocket se cae sin avisar (pasa en TVs / redes inestables).
+//  3) Refresco al volver a la pestaña o recuperar internet (los navegadores frenan los timers en segundo plano).
+// Solo se redibuja si algo cambió de verdad (no parpadea ni pierde el scroll), y las tarjetas
+// modificadas pulsan unos segundos para que se note qué se movió.
+const PIZARRA_SONDEO_MS = 60000;
+const PIZARRA_FLASH_MS = 20000;
+const PIZARRA_FALLAS_PARA_RECARGAR = 5;
+let pizarraCambiosRecientes = new Map();   // equipo_id -> hasta cuándo resaltar (ms)
+let pizarraLiveCanal = null;
+let pizarraLiveSondeo = null;
+let pizarraLiveIndicador = null;
+let pizarraLiveDebounce = null;
+let pizarraLiveRealtimeOk = false;
+let pizarraLiveYaSuscripto = false;
+let pizarraLiveRefrescando = false;
+let pizarraLiveRepetir = false;
+let pizarraLiveFallas = 0;
+let pizarraLiveUltimoOk = null;
+let pizarraLiveRenderPendiente = false;
+let pizarraArrastrando = false;
+
+function pizarraVisible(){
+  const s = document.getElementById('tab-pizarra');
+  return !!s && s.style.display === 'block';
+}
+
+// "Huella" de lo que se ve en la pizarra por equipo: si cambia, hay que redibujar y resaltar.
+function pizarraHuellas(){
+  const m = new Map();
+  equiposCache.forEach(e=>{
+    if(e.estado === 'baja') return;
+    m.set(e.id, [estadoActualEquipo(e), e.sucursal_id, e.modelo, e.numero_serie, e.categoria_color, clienteActualDeEquipo(e.id) || ''].join('|'));
+  });
+  return m;
+}
+
+async function pizarraTraerPaginas(armarConsulta){
+  const pageSize = 1000;
+  let todo = [], from = 0;
+  while(true){
+    const { data, error } = await armarConsulta().range(from, from + pageSize - 1);
+    if(error) throw error;
+    todo = todo.concat(data);
+    if(data.length < pageSize) break;
+    from += pageSize;
+  }
+  return todo;
+}
+
+// Trae equipos + contratos activos (y los que estaban activos y ya no) sin recargar todo el historial.
+async function pizarraRefrescarDatos(motivo){
+  if(!pizarraVisible() && motivo !== 'abrir') return;      // si nadie la mira, no gastamos consultas
+  if(pizarraLiveRefrescando){ pizarraLiveRepetir = true; return; }
+  pizarraLiveRefrescando = true;
+  try{
+    const antes = pizarraHuellas();
+
+    const equipos = await pizarraTraerPaginas(() => supabaseClient.from('equipos').select('*').order('numero_serie'));
+    const SEL = '*, clientes(razon_social), equipos(numero_serie, modelo), sucursales(nombre), creador:perfiles(nombre)';
+    const activos = await pizarraTraerPaginas(() => supabaseClient.from('contratos').select(SEL).eq('estado','activo').order('id'));
+
+    const idsActivos = new Set(activos.map(c => c.id));
+    // contratos que figuraban activos en la caché y ya no: se vuelven a pedir para ver en qué quedaron
+    const idsAReconsultar = contratosCache.filter(c => c.estado === 'activo' && !idsActivos.has(c.id)).map(c => c.id);
+    let reconsultados = [];
+    for(let i = 0; i < idsAReconsultar.length; i += 100){
+      const { data, error } = await supabaseClient.from('contratos').select(SEL).in('id', idsAReconsultar.slice(i, i + 100));
+      if(error) throw error;
+      reconsultados = reconsultados.concat(data);
+    }
+    const idsReconsultados = new Set(reconsultados.map(c => c.id));
+
+    // Actualizamos la caché de contratos en el lugar (mismo orden: más nuevos primero)
+    const frescos = new Map([...activos, ...reconsultados].map(c => [c.id, c]));
+    const enCache = new Set();
+    contratosCache = contratosCache
+      .filter(c => !(idsAReconsultar.includes(c.id) && !idsReconsultados.has(c.id)))   // borrados
+      .map(c => { enCache.add(c.id); return frescos.get(c.id) || c; });
+    const nuevos = [...frescos.values()].filter(c => !enCache.has(c.id))
+      .sort((a,b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+    if(nuevos.length) contratosCache = nuevos.concat(contratosCache);
+
+    equiposCache = equipos;
+
+    // ¿Cambió algo de lo que se ve?
+    const despues = pizarraHuellas();
+    const cambiados = [];
+    despues.forEach((h, id) => { if(antes.get(id) !== h) cambiados.push(id); });
+    const huboCambios = cambiados.length > 0 || antes.size !== despues.size;
+    if(huboCambios){
+      const hasta = Date.now() + PIZARRA_FLASH_MS;
+      cambiados.forEach(id => pizarraCambiosRecientes.set(id, hasta));
+      if(pizarraVisible()){
+        if(pizarraArrastrando) pizarraLiveRenderPendiente = true;     // no redibujar en medio de un arrastre
+        else renderPizarra({ conservarScroll: true });
+      }
+    }
+
+    pizarraLiveFallas = 0;
+    pizarraLiveUltimoOk = Date.now();
+  } catch(err){
+    console.error('[Pizarra en vivo] error al refrescar:', err);
+    pizarraLiveFallas++;
+    // Autorreparación para el televisor: si hay internet pero los datos fallan varias veces
+    // seguidas (sesión vencida, conexión zombi), se recarga la página; la sesión se restaura sola.
+    if(pizarraLiveFallas >= PIZARRA_FALLAS_PARA_RECARGAR && navigator.onLine && pizarraVisible()){
+      location.reload();
+      return;
+    }
+  } finally {
+    pizarraLiveRefrescando = false;
+    pizarraLiveRenderIndicador();
+    if(pizarraLiveRepetir){ pizarraLiveRepetir = false; pizarraProgramarRefresco(); }
+  }
+}
+
+function pizarraProgramarRefresco(){
+  clearTimeout(pizarraLiveDebounce);
+  pizarraLiveDebounce = setTimeout(() => pizarraRefrescarDatos('realtime'), 700);
+}
+
+function pizarraLiveRenderIndicador(){
+  const el = document.getElementById('pizarra-live-estado');
+  if(!el) return;
+  const hora = pizarraLiveUltimoOk ? new Date(pizarraLiveUltimoOk).toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit', second:'2-digit' }) : '—';
+  const desactualizado = !pizarraLiveUltimoOk || (Date.now() - pizarraLiveUltimoOk) > PIZARRA_SONDEO_MS * 3;
+  let clase, texto;
+  if(pizarraLiveFallas > 0 || desactualizado){
+    clase = 'sin_conexion';
+    texto = `Sin conexión · último dato ${hora}`;
+  } else if(!pizarraLiveRealtimeOk){
+    clase = 'reconectando';
+    texto = `Reconectando… · actualizado ${hora}`;
+  } else {
+    clase = 'vivo';
+    texto = `En vivo · actualizado ${hora}`;
+  }
+  el.className = 'muted ' + clase;
+  el.querySelector('.txt').textContent = texto;
+}
+
+function pizarraLiveIniciar(){
+  pizarraLiveDetener();
+  pizarraLiveUltimoOk = Date.now();     // los datos recién se cargaron en initApp
+  pizarraLiveCanal = supabaseClient.channel('pizarra-en-vivo')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'equipos' }, pizarraProgramarRefresco)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'contratos' }, pizarraProgramarRefresco)
+    .subscribe((status) => {
+      pizarraLiveRealtimeOk = (status === 'SUBSCRIBED');
+      if(status === 'SUBSCRIBED'){
+        // Al reconectarse se pide todo de nuevo para no perder lo que pasó mientras estuvo caído
+        if(pizarraLiveYaSuscripto) pizarraRefrescarDatos('reconexion');
+        pizarraLiveYaSuscripto = true;
+      }
+      pizarraLiveRenderIndicador();
+    });
+  pizarraLiveSondeo = setInterval(() => pizarraRefrescarDatos('sondeo'), PIZARRA_SONDEO_MS);
+  pizarraLiveIndicador = setInterval(pizarraLiveRenderIndicador, 15000);
+  pizarraLiveRenderIndicador();
+}
+
+function pizarraLiveDetener(){
+  if(pizarraLiveCanal){ supabaseClient.removeChannel(pizarraLiveCanal); pizarraLiveCanal = null; }
+  clearInterval(pizarraLiveSondeo); pizarraLiveSondeo = null;
+  clearInterval(pizarraLiveIndicador); pizarraLiveIndicador = null;
+  clearTimeout(pizarraLiveDebounce);
+  pizarraLiveRealtimeOk = false; pizarraLiveYaSuscripto = false; pizarraLiveFallas = 0;
+}
+
+// Los navegadores frenan los timers de pestañas ocultas / TVs que "duermen": al volver, se pone al día
+document.addEventListener('visibilitychange', () => { if(!document.hidden) pizarraRefrescarDatos('visible'); });
+window.addEventListener('online', () => pizarraRefrescarDatos('online'));
+window.addEventListener('offline', () => { pizarraLiveRealtimeOk = false; pizarraLiveRenderIndicador(); });
+
+// No redibujar en medio de un arrastre; si hubo cambios mientras tanto, se aplican al soltar
+document.addEventListener('dragstart', (ev) => { if(ev.target.closest && ev.target.closest('.pizarra-card')) pizarraArrastrando = true; });
+document.addEventListener('dragend', () => {
+  pizarraArrastrando = false;
+  if(pizarraLiveRenderPendiente){
+    pizarraLiveRenderPendiente = false;
+    setTimeout(() => { if(pizarraVisible()) renderPizarra({ conservarScroll: true }); }, 250);
+  }
+});
 
 // ---------- Exportación de la Pizarra de Flota (XLSX / PDF) ----------
 // Exporta lo mismo que se ve en pantalla: equipos no dados de baja, agrupados por estado
@@ -6587,7 +6805,7 @@ function initPizarraDragAndDrop(){
       // Actualización optimista + persistencia en Supabase
       const estadoAnterior = equipo.estado;
       equipo.estado = colInfo.estado;
-      renderPizarra();
+      renderPizarra({ conservarScroll: true });
       try{
         const { error } = await supabaseClient.from('equipos').update({ estado: colInfo.estado }).eq('id', equipoId);
         if(error) throw error;
@@ -6595,7 +6813,7 @@ function initPizarraDragAndDrop(){
       } catch(e){
         console.error('Error moviendo equipo en pizarra:', e);
         equipo.estado = estadoAnterior;
-        renderPizarra();
+        renderPizarra({ conservarScroll: true });
         showToast('No se pudo guardar el cambio. Reintentá.', true);
       }
     });
@@ -6889,6 +7107,7 @@ document.getElementById('login-password').addEventListener('keydown', (e)=>{
 });
 
 document.getElementById('btn-logout').addEventListener('click', async ()=>{
+  pizarraLiveDetener();
   await supabaseClient.auth.signOut();
   miPerfil = null;
   document.getElementById('login-email').value = '';
@@ -16402,6 +16621,9 @@ async function initApp(){
     // recién acá contratosCache tiene datos, así que renderizamos equipos
     // DESPUÉS de esto — si no, "alquilada" siempre da falso (contratosCache vacío)
     renderEquipos(getFilteredEquipos());
+
+    // Pizarra de Flota en vivo (televisor de operaciones): solo para quien tiene acceso a la pizarra
+    if(puede('pizarra','ver')) pizarraLiveIniciar();
 
     populateRetirosFiltros();
     renderRetiros();
