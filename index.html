@@ -1850,6 +1850,22 @@ input.fecha-ar.fecha-ar-invalida{ border-color:var(--danger) !important; color:v
     <div style="overflow-x:auto;">
       <div id="pizarra-board" style="display:grid;grid-template-columns:minmax(170px,1fr) minmax(230px,1.5fr) minmax(150px,.8fr) minmax(160px,.9fr) minmax(210px,1.3fr);gap:12px;"></div>
     </div>
+    <div id="pizarra-mail-panels" style="display:none;">
+    <div class="panel" style="padding:14px 16px;margin-top:16px;">
+      <div id="email-dest-pdi_vor-header" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-weight:700;font-size:13.5px;">📧 Informe diario de PDI y VOR — destinatarios</div>
+        <div class="muted" id="email-dest-pdi_vor-hint" style="font-size:12px;">▸ desplegar</div>
+      </div>
+      <div id="email-dest-pdi_vor-body" style="display:none;margin-top:10px;"></div>
+    </div>
+    <div class="panel" style="padding:14px 16px;margin-top:16px;">
+      <div id="email-dest-baja_pdi-header" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-weight:700;font-size:13.5px;">🔔 Alerta cuando una máquina entra a PDI por baja de contrato — destinatarios</div>
+        <div class="muted" id="email-dest-baja_pdi-hint" style="font-size:12px;">▸ desplegar</div>
+      </div>
+      <div id="email-dest-baja_pdi-body" style="display:none;margin-top:10px;"></div>
+    </div>
+    </div>
   </section>
 
   <section id="tab-trazabilidad" style="display:none;">
@@ -3266,7 +3282,7 @@ input.fecha-ar.fecha-ar-invalida{ border-color:var(--danger) !important; color:v
           <option value="disponible">Disponible</option>
           <option value="vor">VOR</option>
           <option value="pdi">PDI</option>
-          <option value="demo">Demo</option>
+          <option value="demo" disabled>Demo (se asigna desde el contrato)</option>
           <option value="baja">De baja</option>
         </select>
         <div class="muted" style="font-size:11px;margin-top:4px;">
@@ -6627,7 +6643,7 @@ const PIZARRA_COLUMNAS = [
   { estado:'alquilada',  titulo:'Alquilada',  color:'var(--accent)',    arrastrable:false },
   { estado:'vor',        titulo:'VOR',        color:'#EF9F27',          arrastrable:true  },
   { estado:'pdi',        titulo:'PDI',        color:'#7F77DD',          arrastrable:true  },
-  { estado:'demo',       titulo:'Demo',       color:'#D4537E',          arrastrable:true  },
+  { estado:'demo',       titulo:'Demo',       color:'#D4537E',          arrastrable:false },   // DEMO se asigna tildando "Demo" en el contrato, nunca arrastrando
 ];
 
 const PIZARRA_CATEGORIAS = {
@@ -6730,8 +6746,8 @@ function renderPizarra(opts = {}){
     : `${equiposDeLaSucursal.length} equipo(s) en esta sucursal`);
   pizarraRenderLeyenda();
 
-  const puedeEditar = puede('pizarra','editar');
   const board = document.getElementById('pizarra-board');
+  document.getElementById('pizarra-mail-panels').style.display = (miPerfil && ['maestro','admin'].includes(miPerfil.rol)) ? 'block' : 'none';
 
   board.innerHTML = PIZARRA_COLUMNAS.map(col=>{
     const items = equiposDeLaSucursal.filter(e => estadoActualEquipo(e) === col.estado)
@@ -6745,7 +6761,9 @@ function renderPizarra(opts = {}){
       const sucNombre = esTodas ? (sucursales.find(s => String(s.id) === String(e.sucursal_id))?.nombre || '') : '';
       const sucSigla = sucNombre ? pizarraSiglaSucursal(sucNombre) : '';
       // Si está en un contrato activo (alquiler o DEMO) no se arrastra: se libera cerrando el contrato
-      const draggable = col.arrastrable && puedeEditar && !equipoTieneContratoActivo(e.id);
+      const sinContrato = !equipoTieneContratoActivo(e.id);
+      const draggable = col.arrastrable && sinContrato && ['disponible','pdi','vor'].some(t => t !== col.estado && pizarraPuedeMoverA(t));
+      const fechaEditable = ['disponible','pdi','vor'].includes(col.estado) && sinContrato && puede('pizarra','editar_fecha');
       return `
         <div class="pizarra-card${(pizarraCambiosRecientes.get(e.id) || 0) > ahora ? ' pizarra-flash' : ''}" data-equipo-id="${e.id}" ${draggable?'draggable="true"':''}
              style="background:var(--panel);border:1px solid var(--border);border-left:3px solid ${cat.color};border-radius:6px;padding:7px 9px;margin-bottom:6px;${draggable?'cursor:grab;':'cursor:default;opacity:0.92;'}"
@@ -6753,7 +6771,7 @@ function renderPizarra(opts = {}){
           <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;">
             <div style="font-size:12px;font-weight:700;min-width:0;overflow-wrap:anywhere;">${escapeHtml(e.modelo || '—')}</div>
             <div style="display:flex;align-items:center;gap:4px;flex:none;">
-              ${draggable ? `<button type="button" class="pizarra-fecha-btn" data-equipo-id="${e.id}" title="Cambiar desde cuándo está en este estado" draggable="false">📅</button>` : ''}
+              ${fechaEditable ? `<button type="button" class="pizarra-fecha-btn" data-equipo-id="${e.id}" title="Cambiar desde cuándo está en este estado" draggable="false">📅</button>` : ''}
               ${sucSigla ? `<span class="muted" title="${escapeHtml(sucNombre)}" style="font-size:9px;font-weight:700;letter-spacing:.04em;padding:1px 5px;border:1px solid var(--border);border-radius:4px;line-height:1.3;">${escapeHtml(sucSigla)}</span>` : ''}
             </div>
           </div>
@@ -6769,7 +6787,7 @@ function renderPizarra(opts = {}){
           <span style="font-weight:700;font-size:12px;letter-spacing:.3px;text-transform:uppercase;">${col.titulo}</span>
           <span class="muted" style="font-size:11px;margin-left:auto;">${items.length}</span>
         </div>
-        <div class="pizarra-dropzone" data-pizarra-col="${col.estado}" style="flex:1;min-height:200px;max-height:calc(100vh - 380px);overflow-y:auto;padding:10px;background:var(--panel);border:1px dashed transparent;border-radius:0 0 8px 8px;">
+        <div class="pizarra-dropzone" data-pizarra-col="${col.estado}" ${col.estado === 'demo' ? 'title="Una máquina pasa a DEMO tildando &quot;Demo&quot; en su contrato; no se arrastra."' : ''} style="flex:1;min-height:200px;max-height:calc(100vh - 380px);overflow-y:auto;padding:10px;background:var(--panel);border:1px dashed transparent;border-radius:0 0 8px 8px;">
           ${tarjetas}
         </div>
       </div>`;
@@ -6872,10 +6890,11 @@ function pizarraRenderTV(opts = {}){
   cols.forEach(c => { porEstado[c.estado] = equipos.filter(e => estadoActualEquipo(e) === c.estado).sort((a,b)=> (a.modelo||'').localeCompare(b.modelo||'')); });
   const total = equipos.length;
   const nAlq = porEstado.alquilada.length;
-  const util = total ? (nAlq / total * 100) : 0;
+  const nDemo = porEstado.demo.length;   // una máquina en DEMO también está afuera, en uso de un cliente: suma a la utilización
+  const util = total ? ((nAlq + nDemo) / total * 100) : 0;
 
   const kpis = cols.map(c => `<div class="tv-kpi" style="--c:${c.color}"><div class="l">${c.titulo}</div><div class="n">${porEstado[c.estado].length}</div></div>`).join('')
-    + `<div class="tv-kpi util"><div class="l">Utilización de flota</div><div class="n">${util.toFixed(1).replace('.', ',')}%</div><div class="bar"><i style="width:${util.toFixed(1)}%"></i></div><div class="s">${total} equipos · ${nAlq} alquilados</div></div>`;
+    + `<div class="tv-kpi util"><div class="l">Utilización de flota</div><div class="n">${util.toFixed(1).replace('.', ',')}%</div><div class="bar"><i style="width:${util.toFixed(1)}%"></i></div><div class="s">${total} equipos · ${nAlq} alquilados · ${nDemo} demo</div></div>`;
 
   const tarjetas = (col)=> porEstado[col.estado].map(e=>{
     const cat = PIZARRA_CATEGORIAS[pizarraClaveTipo(e)];
@@ -7464,6 +7483,7 @@ const PIZARRA_ESTADO_TXT = { disponible:'Disponible', vor:'VOR', pdi:'PDI', demo
 async function pizarraEditarFechaEstado(equipoId){
   const equipo = equiposCache.find(e => e.id === equipoId);
   if(!equipo) return;
+  if(!puede('pizarra','editar_fecha')){ showToast('No tenés permiso para corregir fechas de inicio', true); return; }
   if(equipoTieneContratoActivo(equipoId)){ showToast('Este equipo está en un contrato: la fecha depende del contrato', true); return; }
   const estado = estadoActualEquipo(equipo);
   try{
@@ -7486,7 +7506,6 @@ async function pizarraEditarFechaEstado(equipoId){
 }
 
 function initPizarraDragAndDrop(){
-  const puedeEditar = puede('pizarra','editar');
   document.querySelectorAll('.pizarra-fecha-btn').forEach(btn=>{
     btn.addEventListener('click', (ev)=>{ ev.stopPropagation(); pizarraEditarFechaEstado(Number(btn.dataset.equipoId)); });
     btn.addEventListener('mousedown', (ev)=> ev.stopPropagation());
@@ -7503,7 +7522,7 @@ function initPizarraDragAndDrop(){
   document.querySelectorAll('.pizarra-dropzone').forEach(zone=>{
     const colInfo = PIZARRA_COLUMNAS.find(c=>c.estado === zone.dataset.pizarraCol);
     zone.addEventListener('dragover', (ev)=>{
-      if(!colInfo.arrastrable || !puedeEditar) return;
+      if(!colInfo.arrastrable || !pizarraPuedeMoverA(colInfo.estado)) return;
       ev.preventDefault();
       zone.style.borderColor = 'var(--accent)';
       zone.style.background = 'var(--panel-2)';
@@ -7516,8 +7535,8 @@ function initPizarraDragAndDrop(){
       ev.preventDefault();
       zone.style.borderColor = 'transparent';
       zone.style.background = 'var(--panel)';
-      if(!puedeEditar){ showToast('No tenés permiso para mover equipos en la pizarra', true); return; }
-      if(!colInfo.arrastrable){ showToast('"Alquilada" es automático según contratos — no se puede mover manualmente', true); return; }
+      if(!colInfo.arrastrable){ showToast(colInfo.estado === 'demo' ? 'DEMO se asigna tildando "Demo" en el contrato, no arrastrando la tarjeta' : '"Alquilada" es automático según contratos — no se puede mover manualmente', true); return; }
+      if(!pizarraPuedeMoverA(colInfo.estado)){ showToast(`No tenés permiso para mover equipos a ${colInfo.titulo}`, true); return; }
 
       const equipoId = Number(ev.dataTransfer.getData('text/plain'));
       const equipo = equiposCache.find(e=>e.id === equipoId);
@@ -7562,7 +7581,7 @@ function initPizarraDragAndDrop(){
         console.error('Error moviendo equipo en pizarra:', e);
         equipo.estado = estadoAnterior;
         renderPizarra({ conservarScroll: true });
-        showToast('No se pudo guardar el cambio. Reintentá.', true);
+        showToast(e && e.message && /permiso|DEMO/.test(e.message) ? e.message : 'No se pudo guardar el cambio. Reintentá.', true);
       }
     });
   });
@@ -7570,6 +7589,9 @@ function initPizarraDragAndDrop(){
 
 // ¿El equipo está ocupado por un contrato activo (alquiler o DEMO)? En ese caso la pizarra
 // no deja moverlo a mano: hay que cerrar el contrato en Contratos.
+// Permisos de la pizarra: cada columna destino tiene el suyo (mover_disponible / mover_pdi / mover_vor)
+function pizarraPuedeMoverA(estado){ return ['disponible','pdi','vor'].includes(estado) && puede('pizarra', 'mover_' + estado); }
+
 function equipoTieneContratoActivo(equipoId){
   return contratosCache.some(c => c.equipo_id === equipoId && c.estado === 'activo');
 }
@@ -7616,6 +7638,7 @@ function resetEquipoForm(){
   document.getElementById('e-modelo').value = '';
   document.getElementById('e-sucursal_id').value = '';
   document.getElementById('e-estado').value = 'disponible';
+  document.querySelector('#e-estado option[value="demo"]').disabled = true;
   document.getElementById('e-categoria_color').value = 'accesorio';
   document.getElementById('e-tipo').value = 'propio';
   document.getElementById('e-proveedor_tercero').value = '';
@@ -7647,6 +7670,7 @@ function openEditEquipo(id){
   document.getElementById('e-numero_serie').value = e.numero_serie || '';
   document.getElementById('e-modelo').value = e.modelo || '';
   document.getElementById('e-sucursal_id').value = e.sucursal_id || '';
+  document.querySelector('#e-estado option[value="demo"]').disabled = e.estado !== 'demo';   // solo se muestra si ya estaba en DEMO
   document.getElementById('e-estado').value = ['vor','pdi','demo','baja'].includes(e.estado) ? e.estado : 'disponible';
   document.getElementById('e-categoria_color').value = e.categoria_color || 'accesorio';
   document.getElementById('e-tipo').value = e.tipo || 'propio';
@@ -7750,7 +7774,7 @@ const SECCIONES_PERMISOS = [
   { key:'clientes',      label:'Clientes',      acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
   { key:'contratos',     label:'Contratos',     acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar'],['editar_precio','Editar precio ya guardado']] },
   { key:'equipos',       label:'Equipos',       acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
-  { key:'pizarra',       label:'Pizarra de Flota', acciones:[['ver','Ver'],['editar','Mover equipos']] },
+  { key:'pizarra',       label:'Pizarra de Flota', acciones:[['ver','Ver'],['mover_disponible','Arrastrar a Disponible'],['mover_pdi','Arrastrar a PDI'],['mover_vor','Arrastrar a VOR'],['editar_fecha','Corregir fecha de inicio (📅)']] },
   { key:'trazabilidad',  label:'Trazabilidad',    acciones:[['ver','Ver / usar']] },
   { key:'pendientes',    label:'Pendientes de Facturación', acciones:[['ver','Ver'],['facturar','Facturar'],['eliminar','Eliminar']] },
   { key:'reportes',      label:'Reportes',      acciones:[['ver','Ver']] },
@@ -11541,7 +11565,7 @@ async function tzBuscarTrazabilidad(){
         return Math.max(0, Math.round((toMs(fin) - toMs(ini)) / MS));
       })(),
     }));
-    const utilizacion = diasTotales > 0 ? Math.round((dias.alquilada / diasTotales) * 100) : 0;
+    const utilizacion = diasTotales > 0 ? Math.round(((dias.alquilada + dias.demo) / diasTotales) * 100) : 0;
     const diasAlquilada = dias.alquilada, diasDisponible = dias.disponible;
 
     const contratoIds = [...new Set(tramos.filter(t=>t.contrato_id).map(t=>t.contrato_id))];
@@ -11817,6 +11841,10 @@ document.getElementById('btn-tz-exportar-pdf').addEventListener('click', ()=>{
 const EMAIL_DEST_CONFIG = {
   retiros: { headerId: 'email-dest-retiros-header', bodyId: 'email-dest-retiros-body', hintId: 'email-dest-retiros-hint' },
   vencimientos: { headerId: 'email-dest-vencimientos-header', bodyId: 'email-dest-vencimientos-body', hintId: 'email-dest-vencimientos-hint' },
+  pdi_vor: { headerId: 'email-dest-pdi_vor-header', bodyId: 'email-dest-pdi_vor-body', hintId: 'email-dest-pdi_vor-hint',
+    descripcion: 'Todos los días a las 21:00 se envía un mail con las máquinas que están en PDI y en VOR (sucursal, desde cuándo, días parada y último cliente), con PDF y Excel adjuntos, a las direcciones activas de abajo.' },
+  baja_pdi: { headerId: 'email-dest-baja_pdi-header', bodyId: 'email-dest-baja_pdi-body', hintId: 'email-dest-baja_pdi-hint',
+    descripcion: 'Cuando se da de baja un contrato, la máquina entra a PDI y se envía enseguida un mail de aviso (equipo, cliente, sucursal y fecha de retiro) a las direcciones activas de abajo.' },
 };
 
 async function renderDestinatariosReporte(tipoReporte){
@@ -11837,8 +11865,8 @@ async function renderDestinatariosReporte(tipoReporte){
 
   body.innerHTML = `
     <div class="muted" style="font-size:11.5px;margin-bottom:10px;">
-      Todos los días a las 21:00 se envía un mail con este reporte (resumen en el cuerpo + PDF adjunto) a las direcciones activas de abajo.
-      Solo se incluye lo vencido y lo próximo a vencer.
+      ${cfg.descripcion ? cfg.descripcion : `Todos los días a las 21:00 se envía un mail con este reporte (resumen en el cuerpo + PDF adjunto) a las direcciones activas de abajo.
+      Solo se incluye lo vencido y lo próximo a vencer.`}
     </div>
     <div style="display:flex;gap:8px;margin-bottom:10px;">
       <input type="email" id="email-dest-input-${tipoReporte}" placeholder="nombre@empresa.com" style="flex:1;">
@@ -11937,6 +11965,8 @@ function initPanelDestinatarios(tipoReporte){
 }
 initPanelDestinatarios('retiros');
 initPanelDestinatarios('vencimientos');
+initPanelDestinatarios('pdi_vor');
+initPanelDestinatarios('baja_pdi');
 
 
 // =========================================================
