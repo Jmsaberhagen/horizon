@@ -1823,7 +1823,7 @@ input.fecha-ar.fecha-ar-invalida{ border-color:var(--danger) !important; color:v
       <div style="display:flex;gap:8px;flex-wrap:wrap;" id="pizarra-tabs-sucursal"></div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <span id="pizarra-live-estado" class="muted" title="La pizarra se actualiza sola cuando alguien cambia un equipo o un contrato"><span class="dot"></span><span class="txt">Conectando…</span></span>
-        <div class="muted" id="pizarra-conteo" style="font-size:12px;"></div>
+        <div class="muted" id="pizarra-conteo" style="font-size:12px;white-space:nowrap;"></div>
         <select id="pizarra-export-alcance" title="Qué sucursales incluir en la exportación" style="font-size:12px;">
           <option value="actual">Sucursal actual</option>
           <option value="todas">Todas las sucursales</option>
@@ -6619,9 +6619,11 @@ function pizarraRenderLeyenda(){
     </button>`;
   }).join('');
   const hayOcultos = pizarraTiposOcultos.size > 0;
+  const _todas = pizarraSucursalActual === PIZARRA_TODAS;
+  const ocultosN = equiposCache.filter(e => (_todas || String(e.sucursal_id) === String(pizarraSucursalActual)) && e.estado !== 'baja' && !pizarraTipoVisible(e)).length;
   cont.innerHTML = `<div class="muted" style="font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;margin-right:2px;">Tipo de equipo</div>${chips}
-    ${hayOcultos ? `<button type="button" id="pizarra-tipos-todos" class="btn secondary" style="padding:2px 10px;font-size:11px;">Mostrar todos</button>` : ''}
-    <div class="muted" style="font-size:10.5px;margin-left:auto;">Tocá un tipo para ocultarlo o mostrarlo · Arrastrá una tarjeta para cambiar su estado</div>`;
+    <button type="button" id="pizarra-tipos-todos" class="btn secondary" style="padding:2px 10px;font-size:11px;${hayOcultos ? '' : 'visibility:hidden;pointer-events:none;'}" ${hayOcultos ? '' : 'tabindex="-1" aria-hidden="true"'}>Mostrar todos${hayOcultos ? ` (${ocultosN} oculto${ocultosN === 1 ? '' : 's'})` : ''}</button>
+    <div class="muted" style="font-size:10.5px;flex:1 0 100%;text-align:right;">Tocá un tipo para ocultarlo o mostrarlo · Arrastrá una tarjeta para cambiar su estado</div>`;
   cont.querySelectorAll('[data-pizarra-tipo]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const k = btn.dataset.pizarraTipo;
@@ -6680,7 +6682,7 @@ function renderPizarra(opts = {}){
   const ocultos = equiposDelAmbito.length - equiposDeLaSucursal.length;
   document.getElementById('pizarra-conteo').textContent = (esTodas
     ? `${equiposDeLaSucursal.length} equipo(s) en toda la flota`
-    : `${equiposDeLaSucursal.length} equipo(s) en esta sucursal`) + (ocultos ? ` · ${ocultos} oculto(s) por tipo` : '');
+    : `${equiposDeLaSucursal.length} equipo(s) en esta sucursal`);
   pizarraRenderLeyenda();
 
   const puedeEditar = puede('pizarra','editar');
