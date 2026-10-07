@@ -6883,7 +6883,7 @@ function pizarraRenderTV(opts = {}){
   });
   if(pizarraTVAuto && Object.keys(pizarraTVAutoSt).length){
     // el re-dibujado (datos en vivo) no debe mandar el scroll automático de vuelta arriba
-    cont.querySelectorAll('.tv-cards').forEach(z => { const st = pizarraTVAutoSt[z.dataset.col]; if(st && st.y) z.scrollTop = st.y; });
+    cont.querySelectorAll('.tv-cards').forEach(z => { const st = pizarraTVAutoSt[z.dataset.col]; if(st && st.y){ pizarraTVPrepararBucle(z); z.scrollTop = st.y; } });
   } else if(opts.conservarScroll){
     cont.querySelectorAll('.tv-cards').forEach(z => { const y = scrollPrevio[z.dataset.col]; if(y) z.scrollTop = y; });
   }
@@ -6902,32 +6902,40 @@ function pizarraTVActualizarEstado(){
 }
 
 // ---- Desplazamiento automático (lento, en bucle) de cada columna del Modo TV ----
-const PIZARRA_TV_SCROLL_PX_S = 22;      // velocidad de bajada (px por segundo): bajá este número para ir más lento
-const PIZARRA_TV_PAUSA_MS = 5000;       // pausa al llegar arriba y abajo
+const PIZARRA_TV_SCROLL_PX_S = 22;      // velocidad (px por segundo): bajá este número para ir más lento
 const PIZARRA_TV_PAUSA_MANUAL_MS = 20000; // si alguien toca el mouse/scroll, se detiene ese tiempo
 let pizarraTVAuto = true, pizarraTVAutoSt = {}, pizarraTVRaf = null, pizarraTVUlt = 0;
+// Bucle continuo sin saltos: la lista se duplica a continuación de sí misma y, al terminar la primera copia, el scroll
+// vuelve en silencio al mismo punto de la segunda (se ve idéntico), así nunca hay pausa ni rebobinado.
+function pizarraTVPrepararBucle(z){
+  if(z.dataset.bucle === '1') return z._bucleH || 0;
+  if(z.scrollHeight - z.clientHeight <= 2){ return 0; }
+  const originales = [...z.children];
+  if(!originales.length) return 0;
+  const top0 = originales[0].offsetTop;
+  // separador: obliga a que la copia empiece en una fila nueva (si la última fila quedó incompleta no se ve el empalme)
+  const sep = document.createElement('div');
+  sep.setAttribute('aria-hidden', 'true');
+  sep.style.cssText = 'grid-column:1/-1;height:0;margin-top:-6px;';
+  z.appendChild(sep);
+  originales.forEach(n => { const c = n.cloneNode(true); c.setAttribute('aria-hidden', 'true'); z.appendChild(c); });
+  z.dataset.bucle = '1';
+  z._bucleH = z.children[originales.length + 1].offsetTop - top0;
+  return z._bucleH;
+}
 function pizarraTVAutoPaso(ts){
   if(!pizarraModoTV){ pizarraTVRaf = null; return; }
   const dt = Math.min(0.1, Math.max(0, (ts - pizarraTVUlt) / 1000)); pizarraTVUlt = ts;
   if(pizarraTVAuto){
     document.querySelectorAll('#pizarra-tv .tv-cards').forEach(z => {
       const k = z.dataset.col;
-      const st = pizarraTVAutoSt[k] || (pizarraTVAutoSt[k] = { y:0, fase:'ini', hasta: ts + PIZARRA_TV_PAUSA_MS, manual:0 });
-      const max = z.scrollHeight - z.clientHeight;
-      if(max <= 2){ st.y = 0; return; }
-      if(ts < st.manual){ st.y = z.scrollTop; st.hasta = ts + PIZARRA_TV_PAUSA_MS; if(st.fase === 'volver') st.fase = 'bajando'; return; }
-      if(st.fase === 'ini'){ if(ts >= st.hasta) st.fase = 'bajando'; }
-      else if(st.fase === 'bajando'){
-        st.y = Math.min(max, st.y + PIZARRA_TV_SCROLL_PX_S * dt);
-        z.scrollTop = st.y;
-        if(st.y >= max){ st.fase = 'fin'; st.hasta = ts + PIZARRA_TV_PAUSA_MS; }
-      }
-      else if(st.fase === 'fin'){ if(ts >= st.hasta) st.fase = 'volver'; }
-      else if(st.fase === 'volver'){
-        st.y = Math.max(0, st.y - Math.max(300, max / 1.5) * dt);
-        z.scrollTop = st.y;
-        if(st.y <= 0){ st.fase = 'ini'; st.hasta = ts + PIZARRA_TV_PAUSA_MS; }
-      }
+      const st = pizarraTVAutoSt[k] || (pizarraTVAutoSt[k] = { y:0, manual:0 });
+      const bucleH = pizarraTVPrepararBucle(z);
+      if(bucleH <= 0){ st.y = 0; return; }
+      if(ts < st.manual){ st.y = z.scrollTop; return; }
+      st.y += PIZARRA_TV_SCROLL_PX_S * dt;
+      if(st.y >= bucleH) st.y -= bucleH;
+      z.scrollTop = st.y;
     });
   }
   pizarraTVRaf = requestAnimationFrame(pizarraTVAutoPaso);
