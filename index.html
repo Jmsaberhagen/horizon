@@ -742,6 +742,18 @@
 #pizarra-live-estado.sin_conexion { color: var(--danger); font-weight: 600; }
 @keyframes pizarraLatido { 0%{box-shadow:0 0 0 0 rgba(34,197,94,.55)} 70%{box-shadow:0 0 0 6px rgba(34,197,94,0)} 100%{box-shadow:0 0 0 0 rgba(34,197,94,0)} }
 
+/* Botón 📅 de las tarjetas (editar desde cuándo está en el estado): aparece al pasar el mouse */
+.pizarra-fecha-btn{ opacity:0; transition:opacity .12s; border:none; background:transparent; cursor:pointer; font-size:12px; line-height:1; padding:1px 3px; border-radius:4px; }
+.pizarra-card:hover .pizarra-fecha-btn, .pizarra-fecha-btn:focus{ opacity:.85; }
+.pizarra-fecha-btn:hover{ opacity:1 !important; background:var(--panel-2); }
+.pizarra-dlg-fondo{ position:fixed; inset:0; z-index:6000; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; padding:16px; }
+.pizarra-dlg{ background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:20px 22px; width:min(440px,100%); box-shadow:0 18px 50px rgba(0,0,0,.5); }
+.pizarra-dlg h3{ font-size:16px; margin-bottom:6px; }
+.pizarra-dlg p{ font-size:12.5px; color:var(--text-dim); line-height:1.45; margin-bottom:12px; }
+.pizarra-dlg input[type=date]{ width:100%; margin-bottom:6px; }
+.pizarra-dlg .dias{ font-size:12px; color:var(--text-dim); margin-bottom:14px; min-height:16px; }
+.pizarra-dlg .acc{ display:flex; gap:8px; justify-content:flex-end; }
+
 /* ===== Pizarra: MODO TV (solo lectura, pensada para televisores) ===== */
 #pizarra-tv.tv-activo{ position:fixed; inset:0; z-index:5000; background:var(--bg); display:flex !important; flex-direction:column; padding:14px 22px 14px; color:var(--text); overflow:hidden; }
 .tv-top{ display:flex; align-items:center; gap:18px; flex:none; min-height:44px; }
@@ -6455,7 +6467,10 @@ function renderPizarra(opts = {}){
              title="${escapeHtml(cat.label)}${cliente ? ' — ' + escapeHtml(cliente) : ''}">
           <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;">
             <div style="font-size:12px;font-weight:700;min-width:0;overflow-wrap:anywhere;">${escapeHtml(e.modelo || '—')}</div>
-            ${sucSigla ? `<span class="muted" title="${escapeHtml(sucNombre)}" style="font-size:9px;font-weight:700;letter-spacing:.04em;flex:none;padding:1px 5px;border:1px solid var(--border);border-radius:4px;line-height:1.3;">${escapeHtml(sucSigla)}</span>` : ''}
+            <div style="display:flex;align-items:center;gap:4px;flex:none;">
+              ${draggable ? `<button type="button" class="pizarra-fecha-btn" data-equipo-id="${e.id}" title="Cambiar desde cuándo está en este estado" draggable="false">📅</button>` : ''}
+              ${sucSigla ? `<span class="muted" title="${escapeHtml(sucNombre)}" style="font-size:9px;font-weight:700;letter-spacing:.04em;padding:1px 5px;border:1px solid var(--border);border-radius:4px;line-height:1.3;">${escapeHtml(sucSigla)}</span>` : ''}
+            </div>
           </div>
           <div class="muted" style="font-size:10.5px;font-family:var(--font-mono);margin-top:1px;overflow-wrap:anywhere;">${escapeHtml(e.numero_serie || '')}</div>
           ${cliente ? `<div style="font-size:10.5px;color:var(--accent);font-weight:600;margin-top:3px;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere;">${escapeHtml(cliente)}</div>` : ''}
@@ -7046,8 +7061,87 @@ function exportarPizarraPDF(){
 document.getElementById('btn-pizarra-export-xls').addEventListener('click', exportarPizarraExcel);
 document.getElementById('btn-pizarra-export-pdf').addEventListener('click', exportarPizarraPDF);
 
+// ---------- Fecha de inicio del estado (desde cuándo está así) ----------
+// Al mover una tarjeta, o con el botón 📅, el operador puede indicar desde qué día está la máquina en ese estado.
+// La corrección se aplica en la base (historial_ajustar_inicio) y reemplaza hacia atrás lo que el historial decía.
+function pizarraPedirFecha({ titulo, texto, valor, okTexto }){
+  return new Promise(resolve=>{
+    const hoy = pizarraHoyAr();
+    const fondo = document.createElement('div');
+    fondo.className = 'pizarra-dlg-fondo';
+    fondo.innerHTML = `
+      <div class="pizarra-dlg" role="dialog" aria-modal="true">
+        <h3>${escapeHtml(titulo)}</h3>
+        <p>${texto}</p>
+        <input type="date" id="pizarra-dlg-fecha" max="${hoy}" value="${valor || hoy}">
+        <div class="dias" id="pizarra-dlg-dias"></div>
+        <div class="acc">
+          <button type="button" class="btn secondary" id="pizarra-dlg-cancelar">Cancelar</button>
+          <button type="button" class="btn" id="pizarra-dlg-ok">${escapeHtml(okTexto || 'Guardar')}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(fondo);
+    const input = fondo.querySelector('#pizarra-dlg-fecha');
+    const dias = fondo.querySelector('#pizarra-dlg-dias');
+    const ok = fondo.querySelector('#pizarra-dlg-ok');
+    const actualizar = ()=>{
+      const v = input.value;
+      if(!v){ dias.textContent = ''; ok.disabled = true; return; }
+      if(v > hoy){ dias.textContent = 'La fecha no puede ser futura'; ok.disabled = true; return; }
+      ok.disabled = false;
+      const n = pizarraDiasEntreIso(v, hoy);
+      dias.textContent = n === 0 ? 'Desde hoy' : `Hace ${n} día${n === 1 ? '' : 's'}`;
+    };
+    const cerrar = (res)=>{ document.removeEventListener('keydown', onKey, true); fondo.remove(); resolve(res); };
+    const onKey = (ev)=>{ if(ev.key === 'Escape'){ ev.stopPropagation(); cerrar(null); } else if(ev.key === 'Enter' && !ok.disabled){ cerrar(input.value); } };
+    document.addEventListener('keydown', onKey, true);
+    input.addEventListener('input', actualizar);
+    fondo.querySelector('#pizarra-dlg-cancelar').addEventListener('click', ()=> cerrar(null));
+    ok.addEventListener('click', ()=> cerrar(input.value));
+    fondo.addEventListener('mousedown', (ev)=>{ if(ev.target === fondo) cerrar(null); });
+    actualizar();
+    input.focus();
+  });
+}
+
+async function pizarraAjustarInicio(equipoId, fecha){
+  const { error } = await supabaseClient.rpc('historial_ajustar_inicio', { p_equipo: equipoId, p_desde: fecha });
+  if(error) throw error;
+  if(typeof pizarraTVCargarDesde === 'function') pizarraTVCargarDesde();
+}
+
+const PIZARRA_ESTADO_TXT = { disponible:'Disponible', vor:'VOR', pdi:'PDI', demo:'Demo' };
+
+async function pizarraEditarFechaEstado(equipoId){
+  const equipo = equiposCache.find(e => e.id === equipoId);
+  if(!equipo) return;
+  if(equipoTieneContratoActivo(equipoId)){ showToast('Este equipo está en un contrato: la fecha depende del contrato', true); return; }
+  const estado = estadoActualEquipo(equipo);
+  try{
+    const { data, error } = await supabaseClient.from('equipos_historial_estado')
+      .select('fecha_desde').eq('equipo_id', equipoId).is('fecha_hasta', null).order('fecha_desde', { ascending:false }).limit(1);
+    if(error) throw error;
+    const actual = data && data[0] ? data[0].fecha_desde : pizarraHoyAr();
+    const fecha = await pizarraPedirFecha({
+      titulo: `${equipo.modelo || ''} ${equipo.numero_serie || ''} · ${PIZARRA_ESTADO_TXT[estado] || estado}`,
+      texto: `Indicá <strong>desde qué día</strong> está la máquina en <strong>${escapeHtml(PIZARRA_ESTADO_TXT[estado] || estado)}</strong>. El historial (trazabilidad) se corrige hacia atrás con esa fecha.`,
+      valor: actual, okTexto: 'Guardar fecha',
+    });
+    if(!fecha || fecha === actual) return;
+    await pizarraAjustarInicio(equipoId, fecha);
+    showToast('Fecha actualizada');
+  }catch(e){
+    console.error('Error editando fecha de estado:', e);
+    showToast(e.message || 'No se pudo guardar la fecha', true);
+  }
+}
+
 function initPizarraDragAndDrop(){
   const puedeEditar = puede('pizarra','editar');
+  document.querySelectorAll('.pizarra-fecha-btn').forEach(btn=>{
+    btn.addEventListener('click', (ev)=>{ ev.stopPropagation(); pizarraEditarFechaEstado(Number(btn.dataset.equipoId)); });
+    btn.addEventListener('mousedown', (ev)=> ev.stopPropagation());
+  });
   document.querySelectorAll('.pizarra-card[draggable="true"]').forEach(card=>{
     card.addEventListener('dragstart', (ev)=>{
       ev.dataTransfer.setData('text/plain', card.dataset.equipoId);
@@ -7089,6 +7183,14 @@ function initPizarraDragAndDrop(){
         return;
       }
 
+      // ¿Desde cuándo? (por defecto hoy; si se olvidaron de moverla a tiempo, se corrige el historial hacia atrás)
+      const fechaInicio = await pizarraPedirFecha({
+        titulo: `${equipo.modelo || ''} ${equipo.numero_serie || ''} → ${colInfo.titulo}`,
+        texto: `¿<strong>Desde cuándo</strong> está en <strong>${escapeHtml(colInfo.titulo)}</strong>? Si la movés hoy, dejá la fecha de hoy. Si se olvidaron de pasarla a tiempo, poné el día real: la trazabilidad se corrige hacia atrás.`,
+        valor: pizarraHoyAr(), okTexto: 'Mover',
+      });
+      if(!fechaInicio) return;   // canceló: no se mueve nada
+
       // Actualización optimista + persistencia en Supabase
       const estadoAnterior = equipo.estado;
       equipo.estado = colInfo.estado;
@@ -7096,7 +7198,17 @@ function initPizarraDragAndDrop(){
       try{
         const { error } = await supabaseClient.from('equipos').update({ estado: colInfo.estado }).eq('id', equipoId);
         if(error) throw error;
-        showToast(`${equipo.modelo} → ${colInfo.titulo}`);
+        if(fechaInicio !== pizarraHoyAr()){
+          try{
+            await pizarraAjustarInicio(equipoId, fechaInicio);
+            showToast(`${equipo.modelo} → ${colInfo.titulo} (desde ${fmtDate(fechaInicio)})`);
+          }catch(e2){
+            console.error('No se pudo ajustar la fecha de inicio:', e2);
+            showToast(`${equipo.modelo} → ${colInfo.titulo}, pero la fecha quedó en hoy: ${e2.message || 'no se pudo corregir'}`, true);
+          }
+        } else {
+          showToast(`${equipo.modelo} → ${colInfo.titulo}`);
+        }
       } catch(e){
         console.error('Error moviendo equipo en pizarra:', e);
         equipo.estado = estadoAnterior;
