@@ -743,6 +743,18 @@
 @keyframes pizarraLatido { 0%{box-shadow:0 0 0 0 rgba(34,197,94,.55)} 70%{box-shadow:0 0 0 6px rgba(34,197,94,0)} 100%{box-shadow:0 0 0 0 rgba(34,197,94,0)} }
 
 /* Campos de fecha DD/MM/AAAA (FechaAR) */
+.fecha-cal{ position:fixed; z-index:2147483000; width:252px; padding:10px; background:var(--panel-2, #1c1c1f); color:var(--text, #eee); border:1px solid var(--border, #444); border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,.45); font-size:13px; user-select:none; }
+.fecha-cal button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; border-radius:6px; }
+.fecha-cal .fc-cab{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; font-weight:600; }
+.fecha-cal .fc-cab button{ width:28px; height:28px; font-size:18px; }
+.fecha-cal .fc-sem, .fecha-cal .fc-dias{ display:grid; grid-template-columns:repeat(7,1fr); gap:2px; text-align:center; }
+.fecha-cal .fc-sem i{ font-style:normal; font-size:11px; opacity:.6; padding:3px 0; }
+.fecha-cal .fc-dias button{ height:30px; }
+.fecha-cal button:hover{ background:rgba(127,127,127,.25); }
+.fecha-cal .fc-hoy{ outline:1px solid var(--accent, #38bdf8); }
+.fecha-cal .fc-dias button.fc-sel{ background:var(--accent, #38bdf8); color:#04141c; font-weight:700; }
+.fecha-cal .fc-pie{ display:flex; justify-content:space-between; margin-top:6px; }
+.fecha-cal .fc-pie button{ padding:5px 10px; }
 input.fecha-ar{ width:132px; padding-right:30px; background-repeat:no-repeat; background-position:right 8px center; background-size:16px 16px; font-variant-numeric:tabular-nums; }
 .toolbar input.fecha-ar{ flex:none; max-width:none; }
 input.fecha-ar.fecha-ar-invalida{ border-color:var(--danger) !important; color:var(--danger); }
@@ -4736,22 +4748,73 @@ const FechaAR = (function(){
   }
   const ICONO = "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239a9a9e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='4' width='18' height='18' rx='2'/><path d='M16 2v4M8 2v4M3 10h18'/></svg>\")";
 
+  // Calendario propio (en español, lunes primero). No depende del selector del navegador.
+  const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  let cal = null;
+  function cerrarCalendario(){
+    if(!cal) return;
+    document.removeEventListener('mousedown', cal.fuera, true);
+    document.removeEventListener('keydown', cal.tecla, true);
+    window.removeEventListener('resize', cal.cerrar);
+    cal.el.remove(); cal = null;
+  }
   function abrirCalendario(inp){
     if(inp.disabled || inp.readOnly) return;
-    if(!picker){
-      picker = document.createElement('input');
-      picker.type = 'date';
-      picker.tabIndex = -1;
-      picker.setAttribute('aria-hidden', 'true');
-      picker.style.cssText = 'position:fixed;opacity:0;pointer-events:none;width:1px;height:1px;border:0;padding:0;';
-      document.body.appendChild(picker);
-    }
+    if(cal && cal.inp === inp){ cerrarCalendario(); return; }
+    cerrarCalendario();
+    const hoy = hoyIso();
+    const sel = inp.value || '';
+    const base = ISO_FECHA_RE.test(sel) ? sel : hoy;
+    let anio = +base.slice(0,4), mes = +base.slice(5,7) - 1;
+    const el = document.createElement('div');
+    el.className = 'fecha-cal';
+    el.setAttribute('role', 'dialog');
+    el.addEventListener('mousedown', e => e.preventDefault());   // no le saca el foco al campo
+    document.body.appendChild(el);
+    const elegir = (iso)=>{
+      inp.value = iso; inp.__fechaForzar = true;
+      inp.dispatchEvent(new Event('input', { bubbles:true }));
+      inp.dispatchEvent(new Event('change', { bubbles:true }));
+      cerrarCalendario(); try{ inp.focus(); }catch(_){}
+    };
+    const dibujar = ()=>{
+      const primero = new Date(Date.UTC(anio, mes, 1));
+      const offset = (primero.getUTCDay() + 6) % 7;
+      const dim = new Date(Date.UTC(anio, mes + 1, 0)).getUTCDate();
+      let h = `<div class="fc-cab"><button type="button" data-a="ant" aria-label="Mes anterior">‹</button><span>${MESES[mes]} ${anio}</span><button type="button" data-a="sig" aria-label="Mes siguiente">›</button></div><div class="fc-sem">` +
+        ['L','M','M','J','V','S','D'].map(x=>`<i>${x}</i>`).join('') + `</div><div class="fc-dias">`;
+      for(let i=0;i<offset;i++) h += '<span></span>';
+      for(let d=1; d<=dim; d++){
+        const iso = `${anio}-${String(mes+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        h += `<button type="button" data-f="${iso}" class="${iso===sel?'fc-sel':''}${iso===hoy?' fc-hoy':''}">${d}</button>`;
+      }
+      h += `</div><div class="fc-pie"><button type="button" data-a="hoy">Hoy</button><button type="button" data-a="borrar">Borrar</button></div>`;
+      el.innerHTML = h;
+    };
+    el.addEventListener('click', (e)=>{
+      const b = e.target.closest('button'); if(!b) return;
+      if(b.dataset.f) return elegir(b.dataset.f);
+      const a = b.dataset.a;
+      if(a === 'ant'){ if(--mes < 0){ mes = 11; anio--; } dibujar(); }
+      else if(a === 'sig'){ if(++mes > 11){ mes = 0; anio++; } dibujar(); }
+      else if(a === 'hoy') elegir(hoy);
+      else if(a === 'borrar') elegir('');
+    });
+    dibujar();
     const r = inp.getBoundingClientRect();
-    picker.style.left = Math.round(r.left) + 'px';
-    picker.style.top = Math.round(r.bottom) + 'px';
-    picker.value = inp.value || '';
-    picker.onchange = ()=>{ if(picker.value){ inp.value = picker.value; inp.__fechaForzar = true; inp.dispatchEvent(new Event('input', { bubbles:true })); inp.dispatchEvent(new Event('change', { bubbles:true })); } };
-    try{ picker.showPicker(); }catch(_){ try{ picker.focus(); picker.click(); }catch(__){} }
+    const w = el.offsetWidth, hh = el.offsetHeight;
+    let left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8));
+    let top = r.bottom + 4;
+    if(top + hh > window.innerHeight - 8) top = Math.max(8, r.top - hh - 4);
+    el.style.left = left + 'px'; el.style.top = top + 'px';
+    cal = {
+      el, inp, cerrar: cerrarCalendario,
+      fuera: (e)=>{ if(!el.contains(e.target) && e.target !== inp) cerrarCalendario(); },
+      tecla: (e)=>{ if(e.key === 'Escape'){ e.stopPropagation(); e.preventDefault(); cerrarCalendario(); } },
+    };
+    document.addEventListener('mousedown', cal.fuera, true);
+    document.addEventListener('keydown', cal.tecla, true);
+    window.addEventListener('resize', cal.cerrar);
   }
 
   function mejorar(inp){
@@ -4761,7 +4824,6 @@ const FechaAR = (function(){
     inp.type = 'text';
     inp.classList.add('fecha-ar');
     inp.setAttribute('inputmode', 'numeric');
-    inp.setAttribute('maxlength', '10');
     inp.setAttribute('autocomplete', 'off');
     inp.setAttribute('placeholder', 'DD/MM/AAAA');
     inp.style.backgroundImage = ICONO;
@@ -4806,6 +4868,22 @@ const FechaAR = (function(){
       if(iso === ultimoIso){ ev.stopImmediatePropagation(); return; }
       ultimoIso = iso;
     }, true);
+    // Sobrescribir: con la fecha completa, tipear un dígito reemplaza el que está a la derecha del cursor
+    inp.addEventListener('beforeinput', (ev)=>{
+      if(ev.inputType !== 'insertText' || !/^\d$/.test(ev.data || '')) return;
+      const t = nativoGet.call(inp);
+      if(inp.selectionStart !== inp.selectionEnd || t.replace(/\D/g,'').length < 8) return;
+      ev.preventDefault();
+      let pos = inp.selectionStart;
+      if(t[pos] === '/') pos++;
+      if(pos >= t.length) return;
+      nativoSet.call(inp, t.slice(0,pos) + ev.data + t.slice(pos+1));
+      pos++; if(inp.value !== undefined && nativoGet.call(inp)[pos] === '/') pos++;
+      try{ inp.setSelectionRange(pos, pos); }catch(_){}
+      inp.dispatchEvent(new Event('input', { bubbles:true }));
+    });
+    // Al entrar con el teclado (Tab) o al abrir un diálogo, queda todo seleccionado para escribir encima
+    inp.addEventListener('focus', ()=>{ setTimeout(()=>{ try{ if(document.activeElement === inp && inp.selectionStart === inp.selectionEnd && inp.selectionStart === 0) inp.select(); }catch(_){} }, 0); });
     inp.addEventListener('change', (ev)=>{
       const iso = dmaToIso(nativoGet.call(inp));
       if(nativoGet.call(inp) !== '' && !iso){ marcar(); }
