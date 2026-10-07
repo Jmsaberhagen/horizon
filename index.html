@@ -742,6 +742,10 @@
 #pizarra-live-estado.sin_conexion { color: var(--danger); font-weight: 600; }
 @keyframes pizarraLatido { 0%{box-shadow:0 0 0 0 rgba(34,197,94,.55)} 70%{box-shadow:0 0 0 6px rgba(34,197,94,0)} 100%{box-shadow:0 0 0 0 rgba(34,197,94,0)} }
 
+/* Campos de fecha DD/MM/AAAA (FechaAR) */
+input.fecha-ar{ width:132px; padding-right:30px; background-repeat:no-repeat; background-position:right 8px center; background-size:16px 16px; font-variant-numeric:tabular-nums; }
+.toolbar input.fecha-ar{ flex:none; max-width:none; }
+input.fecha-ar.fecha-ar-invalida{ border-color:var(--danger) !important; color:var(--danger); }
 /* Botón 📅 de las tarjetas (editar desde cuándo está en el estado): aparece al pasar el mouse */
 .pizarra-fecha-btn{ opacity:0; transition:opacity .12s; border:none; background:transparent; cursor:pointer; font-size:12px; line-height:1; padding:1px 3px; border-radius:4px; }
 .pizarra-card:hover .pizarra-fecha-btn, .pizarra-fecha-btn:focus{ opacity:.85; }
@@ -4046,7 +4050,7 @@ function showToast(msg, isErr){
 function exportCSV(filename, headers, rows){
   if(rows.length === 0){ showToast('No hay datos para exportar con este filtro', true); return; }
   const csvContent = [headers, ...rows]
-    .map(row => row.map(cell => `"${String(cell ?? '').replace(/"/g,'""')}"`).join(','))
+    .map(row => row.map(cell => `"${String(fechaCeldaExport(cell) ?? '').replace(/"/g,'""')}"`).join(','))
     .join('\n');
   const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -4154,8 +4158,8 @@ document.querySelector('nav button[data-tab="trazabilidad"]')?.addEventListener(
   if(!hastaEl.value){
     const hoy = new Date();
     const hace6Meses = new Date(); hace6Meses.setMonth(hoy.getMonth()-6);
-    hastaEl.value = hoy.toISOString().slice(0,10);
-    desdeEl.value = hace6Meses.toISOString().slice(0,10);
+    hastaEl.value = hoyIso();
+    { const [yy,mm,dd] = hoyIso().split('-').map(Number); const h6 = new Date(yy, mm-1-6, dd); desdeEl.value = `${h6.getFullYear()}-${String(h6.getMonth()+1).padStart(2,'0')}-${String(h6.getDate()).padStart(2,'0')}`; }
   }
 });
 
@@ -4380,7 +4384,7 @@ async function loadTodosLosCertificados(){
 
 function certificadoVigente(cert){
   if(!cert.fecha_vencimiento) return true; // sin vencimiento cargado = se asume vigente
-  return cert.fecha_vencimiento >= new Date().toISOString().slice(0,10);
+  return cert.fecha_vencimiento >= hoyIso();
 }
 
 async function loadCertificadosIntoForm(clienteId){
@@ -4668,15 +4672,170 @@ function fmtMoney(v, moneda){
 }
 function fmtDate(d){
   if(!d) return '—';
-  const [y,m,day] = d.split('-');
-  return `${day}/${m}/${y}`;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d));
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : String(d);
 }
-// Para exports a Excel: mismo dato, formato DD-MM-AAAA (con guiones, sin el '—' de placeholder).
+// Para exports: mismo formato DD/MM/AAAA, sin el '—' de placeholder.
 function fmtDateExport(d){
   if(!d) return '';
-  const [y,m,day] = d.split('-');
-  return `${day}-${m}-${y}`;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d));
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : String(d);
 }
+
+// ============================================================
+// FECHAS: siempre DD/MM/AAAA, sin depender del idioma / teclado / navegador del usuario
+// ============================================================
+// Hoy en horario de Argentina (YYYY-MM-DD). new Date().toISOString() usa UTC y después de las 21 h da el día siguiente.
+function hoyIso(){ return new Date().toLocaleDateString('en-CA', { timeZone:'America/Argentina/Buenos_Aires' }); }
+// Hoy como DD-MM-AAAA (para nombres de archivo, donde la barra no es válida)
+function hoyDMA(){ const [y,m,d] = hoyIso().split('-'); return `${d}-${m}-${y}`; }
+function isoToDMAguion(iso){ const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso||'')); return m ? `${m[3]}-${m[2]}-${m[1]}` : String(iso||''); }
+// Timestamps (con hora) -> DD/MM/AAAA y DD/MM/AAAA HH:MM, en horario de Argentina
+function fmtFechaTs(ts){
+  if(!ts) return '';
+  const d = new Date(ts); if(isNaN(d)) return '';
+  const p = new Intl.DateTimeFormat('en-GB', { timeZone:'America/Argentina/Buenos_Aires', day:'2-digit', month:'2-digit', year:'numeric' }).formatToParts(d);
+  const g = t => p.find(x=>x.type===t).value;
+  return `${g('day')}/${g('month')}/${g('year')}`;
+}
+function fmtFechaHoraTs(ts){
+  if(!ts) return '';
+  const d = new Date(ts); if(isNaN(d)) return '';
+  const hora = new Intl.DateTimeFormat('en-GB', { timeZone:'America/Argentina/Buenos_Aires', hour:'2-digit', minute:'2-digit', hour12:false }).format(d);
+  return `${fmtFechaTs(ts)} ${hora}`;
+}
+const ISO_FECHA_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+// Red de seguridad para exports: cualquier texto que sea una fecha AAAA-MM-DD sale como DD/MM/AAAA
+function fechaCeldaExport(v){
+  if(typeof v === 'string'){ const m = ISO_FECHA_RE.exec(v); if(m) return `${m[3]}/${m[2]}/${m[1]}`; }
+  return v;
+}
+
+// --- Campo de fecha propio: se escribe y se ve siempre como DD/MM/AAAA ---
+// Reemplaza a <input type="date"> (que muestra el formato del navegador). El código sigue leyendo y escribiendo
+// .value en formato AAAA-MM-DD; lo que ve el usuario es DD/MM/AAAA, con máscara y calendario.
+const FechaAR = (function(){
+  const nativoSet = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+  const nativoGet = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').get;
+  let picker = null;
+
+  function dmaToIso(txt){
+    const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(txt);
+    if(!m) return '';
+    const d = +m[1], mo = +m[2], y = +m[3];
+    if(y < 1900 || y > 2100 || mo < 1 || mo > 12 || d < 1) return '';
+    const dim = new Date(Date.UTC(y, mo, 0)).getUTCDate();
+    return d <= dim ? `${m[3]}-${m[2]}-${m[1]}` : '';
+  }
+  function isoToDma(iso){ const m = ISO_FECHA_RE.exec(iso || ''); return m ? `${m[3]}/${m[2]}/${m[1]}` : ''; }
+  function mascara(digitos){
+    const d = digitos.slice(0, 8);
+    if(d.length <= 2) return d;
+    if(d.length <= 4) return d.slice(0,2) + '/' + d.slice(2);
+    return d.slice(0,2) + '/' + d.slice(2,4) + '/' + d.slice(4);
+  }
+  const ICONO = "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239a9a9e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='4' width='18' height='18' rx='2'/><path d='M16 2v4M8 2v4M3 10h18'/></svg>\")";
+
+  function abrirCalendario(inp){
+    if(inp.disabled || inp.readOnly) return;
+    if(!picker){
+      picker = document.createElement('input');
+      picker.type = 'date';
+      picker.tabIndex = -1;
+      picker.setAttribute('aria-hidden', 'true');
+      picker.style.cssText = 'position:fixed;opacity:0;pointer-events:none;width:1px;height:1px;border:0;padding:0;';
+      document.body.appendChild(picker);
+    }
+    const r = inp.getBoundingClientRect();
+    picker.style.left = Math.round(r.left) + 'px';
+    picker.style.top = Math.round(r.bottom) + 'px';
+    picker.value = inp.value || '';
+    picker.onchange = ()=>{ if(picker.value){ inp.value = picker.value; inp.__fechaForzar = true; inp.dispatchEvent(new Event('input', { bubbles:true })); inp.dispatchEvent(new Event('change', { bubbles:true })); } };
+    try{ picker.showPicker(); }catch(_){ try{ picker.focus(); picker.click(); }catch(__){} }
+  }
+
+  function mejorar(inp){
+    if(!inp || inp.dataset.fechaAr) return;
+    const isoInicial = inp.value || inp.getAttribute('value') || '';   // mientras es type=date, .value ya viene en AAAA-MM-DD
+    inp.dataset.fechaAr = '1';
+    inp.type = 'text';
+    inp.classList.add('fecha-ar');
+    inp.setAttribute('inputmode', 'numeric');
+    inp.setAttribute('maxlength', '10');
+    inp.setAttribute('autocomplete', 'off');
+    inp.setAttribute('placeholder', 'DD/MM/AAAA');
+    inp.style.backgroundImage = ICONO;
+    let ultimoIso = '';
+
+    const mostrar = (iso)=>{ nativoSet.call(inp, isoToDma(iso)); ultimoIso = ISO_FECHA_RE.test(iso || '') ? iso : ''; marcar(); };
+    const marcar = ()=>{
+      const t = nativoGet.call(inp);
+      const incompletaOInvalida = t.length > 0 && !dmaToIso(t);
+      inp.classList.toggle('fecha-ar-invalida', incompletaOInvalida && t.length === 10);
+      inp.title = (incompletaOInvalida && t.length === 10) ? 'Fecha inválida. Formato: DD/MM/AAAA' : (inp.dataset.titulo || '');
+    };
+    if(inp.title) inp.dataset.titulo = inp.title;
+
+    Object.defineProperty(inp, 'value', {
+      configurable: true,
+      get(){ return dmaToIso(nativoGet.call(inp)); },
+      set(v){ mostrar(v == null ? '' : String(v)); },
+    });
+    mostrar(isoInicial);
+
+    // Máscara DD/MM/AAAA mientras se escribe
+    inp.addEventListener('input', (ev)=>{
+      if(ev.isTrusted !== false){
+        const t = nativoGet.call(inp);
+        const pos = inp.selectionStart ?? t.length;
+        const digitosAntes = t.slice(0, pos).replace(/\D/g, '').length;
+        const nuevo = mascara(t.replace(/\D/g, ''));
+        if(nuevo !== t){
+          nativoSet.call(inp, nuevo);
+          // reponer el cursor después del mismo número de dígitos
+          let c = 0, n = 0;
+          while(c < nuevo.length && n < digitosAntes){ if(/\d/.test(nuevo[c])) n++; c++; }
+          if(nuevo[c] === '/' && digitosAntes > 0 && (digitosAntes === 2 || digitosAntes === 4)) c++;
+          try{ inp.setSelectionRange(c, c); }catch(_){}
+        }
+      }
+      marcar();
+      // Igual que el campo nativo: solo avisa cuando cambia la fecha válida (o se vacía); no durante el tipeo parcial
+      const iso = dmaToIso(nativoGet.call(inp));
+      if(inp.__fechaForzar){ inp.__fechaForzar = false; ultimoIso = iso; return; }
+      if(iso === ultimoIso){ ev.stopImmediatePropagation(); return; }
+      ultimoIso = iso;
+    }, true);
+    inp.addEventListener('change', (ev)=>{
+      const iso = dmaToIso(nativoGet.call(inp));
+      if(nativoGet.call(inp) !== '' && !iso){ marcar(); }
+    }, true);
+    inp.addEventListener('blur', ()=>{ marcar(); });
+    // Atajos: "h" = hoy
+    inp.addEventListener('keydown', (ev)=>{
+      if((ev.key === 'h' || ev.key === 'H') && !ev.ctrlKey && !ev.metaKey && !ev.altKey){
+        ev.preventDefault(); inp.value = hoyIso(); inp.__fechaForzar = true;
+        inp.dispatchEvent(new Event('input', { bubbles:true })); inp.dispatchEvent(new Event('change', { bubbles:true }));
+      } else if(ev.key === 'ArrowDown' && ev.altKey){ ev.preventDefault(); abrirCalendario(inp); }
+    });
+    // Ícono de calendario (borde derecho del campo)
+    inp.addEventListener('click', (ev)=>{
+      const r = inp.getBoundingClientRect();
+      if(ev.clientX > r.right - 30) abrirCalendario(inp);
+    });
+    inp.addEventListener('mousemove', (ev)=>{
+      const r = inp.getBoundingClientRect();
+      inp.style.cursor = ev.clientX > r.right - 30 ? 'pointer' : '';
+    });
+  }
+
+  function arbol(raiz){
+    (raiz || document).querySelectorAll('input[type="date"]').forEach(mejorar);
+  }
+  return { mejorar, arbol, dmaToIso, isoToDma };
+})();
+
+// ============================================================
 
 // ============================================================
 // MÓDULO: BACKLOG DE FACTURACIÓN + PROYECCIÓN (reporting a Francia)
@@ -5030,7 +5189,7 @@ function descargarRedistribucionPDF(){
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(90);
-  doc.text(`Generado: ${fmtDate(new Date().toISOString().slice(0,10))}`, pageWidth - marginX, y + 14, { align: 'right' });
+  doc.text(`Generado: ${fmtDate(hoyIso())}`, pageWidth - marginX, y + 14, { align: 'right' });
   doc.setTextColor(0);
 
   y += 22;
@@ -5733,7 +5892,7 @@ function calcularPeriodoHasta(periodoDesde, periodicidad){
 // Solo genera para contratos con "último período facturado" confirmado —
 // los que todavía están "a confirmar" quedan afuera hasta que se carguen a mano.
 async function autoGenerarPendientesDelMes(){
-  const hoy = new Date().toISOString().slice(0,10);
+  const hoy = hoyIso();
   // Contratos confirmados que necesitan generar su próximo pendiente:
   // - Activos: se genera hasta hoy (y va a seguir generando mes a mes).
   // - De baja: se genera hasta la fecha de baja nomás (esa renta corta igual
@@ -6095,7 +6254,7 @@ document.getElementById('btn-pendiente-save').addEventListener('click', async ()
     potencial_facturacion: document.getElementById('p-potencial_facturacion').value ? Number(document.getElementById('p-potencial_facturacion').value) : null,
     estado: estado,
     numero_factura: numeroFactura || null,
-    fecha_facturacion: estado === 'facturado' ? new Date().toISOString().slice(0,10) : null,
+    fecha_facturacion: estado === 'facturado' ? hoyIso() : null,
   };
 
   try{
@@ -6513,7 +6672,7 @@ let pizarraTVDesde = new Map();        // equipo_id -> fecha (YYYY-MM-DD) desde 
 let pizarraTVDesdeTs = 0;
 let pizarraTVDesdeCargando = false;
 
-function pizarraHoyAr(){ return new Date().toLocaleDateString('en-CA', { timeZone:'America/Argentina/Buenos_Aires' }); }
+function pizarraHoyAr(){ return hoyIso(); }
 function pizarraHoraAr(conSegundos){
   return new Date().toLocaleTimeString('es-AR', { timeZone:'America/Argentina/Buenos_Aires', hour:'2-digit', minute:'2-digit', ...(conSegundos ? { second:'2-digit' } : {}), hour12:false });
 }
@@ -6907,7 +7066,7 @@ function pizarraDatosExport(){
 }
 
 function pizarraNombreArchivo(datos, ext){
-  const hoy = new Date().toISOString().slice(0,10);
+  const hoy = hoyIso();
   const parte = datos.length === 1
     ? datos[0].sucursal.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z0-9]+/g,'_').toLowerCase()
     : 'todas';
@@ -6969,7 +7128,7 @@ function exportarPizarraPDF(){
     doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.setTextColor(0);
     doc.text('PIZARRA DE FLOTA', pageWidth - marginX, y + 8, { align:'right' });
     doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90);
-    doc.text(`Generado: ${fmtDate(new Date().toISOString().slice(0,10))}`, pageWidth - marginX, y + 14, { align:'right' });
+    doc.text(`Generado: ${fmtDate(hoyIso())}`, pageWidth - marginX, y + 14, { align:'right' });
     doc.setTextColor(0);
     y += 24;
     doc.setDrawColor(56,189,248); doc.setLineWidth(0.8);
@@ -7081,6 +7240,7 @@ function pizarraPedirFecha({ titulo, texto, valor, okTexto }){
         </div>
       </div>`;
     document.body.appendChild(fondo);
+    FechaAR.arbol(fondo);
     const input = fondo.querySelector('#pizarra-dlg-fecha');
     const dias = fondo.querySelector('#pizarra-dlg-dias');
     const ok = fondo.querySelector('#pizarra-dlg-ok');
@@ -7943,7 +8103,7 @@ document.getElementById('btn-cerrar-cuenta').addEventListener('click', ()=>{
 document.getElementById('btn-cargar-recibo').addEventListener('click', ()=>{
   if(!cuentaClienteActivaId){ showToast('Buscá un cliente primero', true); return; }
   document.getElementById('rc-cliente_id').value = cuentaClienteActivaId;
-  document.getElementById('rc-fecha').value = new Date().toISOString().slice(0,10);
+  document.getElementById('rc-fecha').value = hoyIso();
   document.getElementById('rc-monto_usd').value = '';
   document.getElementById('rc-numero_recibo').value = '';
   document.getElementById('rc-observacion').value = '';
@@ -8136,7 +8296,7 @@ function calcularConciliacion(clienteId, serie){
 
   // fecha de referencia: la fecha de vencimiento ya no corta la facturación
   // esperada (es solo alerta para logística) — el corte real es la baja.
-  const hoy = new Date().toISOString().slice(0,10);
+  const hoy = hoyIso();
   let fechaHasta = hoy;
   if(masReciente.estado === 'baja' && masReciente.fecha_baja && masReciente.fecha_baja < fechaHasta){
     fechaHasta = masReciente.fecha_baja;
@@ -8374,7 +8534,7 @@ function exportarResumenClienteExcel(clienteId){
     ['N° Cliente', d.cliente.numero_cliente || ''],
     ['CUIT', d.cliente.cuit || ''],
     ['Provincia', d.cliente.provincia || ''],
-    ['Generado', fmtDate(new Date().toISOString().slice(0,10))],
+    ['Generado', fmtDate(hoyIso())],
     [],
     ['Facturado histórico (USD)', d.totalFacturado],
     ['Cobrado (USD)', d.totalCobrado],
@@ -8451,7 +8611,7 @@ function exportarResumenClienteExcel(clienteId){
   wsRecibos['!cols'] = recHeaders.map(h=>({wch: Math.max(h.length+2, 16)}));
   XLSX.utils.book_append_sheet(wb, wsRecibos, 'Recibos de cobro');
 
-  const nombreArchivo = `cuenta_${(d.cliente.razon_social||'cliente').replace(/[^a-z0-9]+/gi,'_')}_${new Date().toISOString().slice(0,10)}`;
+  const nombreArchivo = `cuenta_${(d.cliente.razon_social||'cliente').replace(/[^a-z0-9]+/gi,'_')}_${hoyDMA()}`;
   XLSX.writeFile(wb, `${nombreArchivo}.xlsx`);
   showToast('Excel generado');
 }
@@ -8608,7 +8768,7 @@ function descargarResumenClientePDF(clienteId){
     doc.setTextColor(0);
   }
 
-  const nombreArchivo = `cuenta_${(d.cliente.razon_social||'cliente').replace(/[^a-z0-9]+/gi,'_')}_${new Date().toISOString().slice(0,10)}`;
+  const nombreArchivo = `cuenta_${(d.cliente.razon_social||'cliente').replace(/[^a-z0-9]+/gi,'_')}_${hoyDMA()}`;
   doc.save(`${nombreArchivo}.pdf`);
   showToast('PDF generado');
 }
@@ -8754,11 +8914,11 @@ function reportesToRows(){
 }
 document.getElementById('btn-rep-exportar').addEventListener('click', ()=>{
   const { headers, rows } = reportesToRows();
-  exportCSV(`reporte_horizon_${new Date().toISOString().slice(0,10)}`, headers, rows);
+  exportCSV(`reporte_horizon_${hoyDMA()}`, headers, rows);
 });
 document.getElementById('btn-rep-exportar-xls').addEventListener('click', ()=>{
   const { headers, rows } = reportesToRows();
-  exportXLS(`reporte_horizon_${new Date().toISOString().slice(0,10)}`, headers, rows);
+  exportXLS(`reporte_horizon_${hoyDMA()}`, headers, rows);
 });
 
 // ---------- Reporte de Facturación por Sucursal (mensual) ----------
@@ -8921,7 +9081,7 @@ document.getElementById('btn-rep-sucursal-xls').addEventListener('click', ()=>{
   wsFacturas['!cols'][1] = {wch:32}; // Cliente más ancho
   XLSX.utils.book_append_sheet(wb, wsFacturas, 'Detalle Facturas');
 
-  const nombreArchivo = `reporte_sucursal_${d.tituloAlcance.replace(/[^a-z0-9]+/gi,'_')}_${new Date().toISOString().slice(0,10)}`;
+  const nombreArchivo = `reporte_sucursal_${d.tituloAlcance.replace(/[^a-z0-9]+/gi,'_')}_${hoyDMA()}`;
   XLSX.writeFile(wb, `${nombreArchivo}.xlsx`);
   showToast('Excel generado');
 });
@@ -8949,7 +9109,7 @@ document.getElementById('btn-rep-sucursal-pdf').addEventListener('click', ()=>{
   doc.setFont('helvetica','bold'); doc.setFontSize(14);
   doc.text('REPORTE DE FACTURACIÓN POR SUCURSAL', pageWidth - marginX, y + 8, { align:'right' });
   doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90);
-  doc.text(`Generado: ${fmtDate(new Date().toISOString().slice(0,10))}`, pageWidth - marginX, y + 14, { align:'right' });
+  doc.text(`Generado: ${fmtDate(hoyIso())}`, pageWidth - marginX, y + 14, { align:'right' });
   doc.setTextColor(0);
   y += 24;
   doc.setDrawColor(56,189,248); doc.setLineWidth(0.8);
@@ -9044,7 +9204,7 @@ document.getElementById('btn-rep-sucursal-pdf').addEventListener('click', ()=>{
     doc.setTextColor(0);
   }
 
-  const nombreArchivo = `reporte_sucursal_${d.tituloAlcance.replace(/[^a-z0-9]+/gi,'_')}_${new Date().toISOString().slice(0,10)}`;
+  const nombreArchivo = `reporte_sucursal_${d.tituloAlcance.replace(/[^a-z0-9]+/gi,'_')}_${hoyDMA()}`;
   doc.save(`${nombreArchivo}.pdf`);
   showToast('PDF generado');
 });
@@ -9499,7 +9659,7 @@ function rerpExportarMesPDF(key){
   doc.setFont('helvetica','bold'); doc.setFontSize(14);
   doc.text('RESUMEN DE ALQUILERES FACTURADOS', pageWidth - marginX, y + 8, { align:'right' });
   doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90);
-  doc.text(`Generado: ${fmtDate(new Date().toISOString().slice(0,10))}`, pageWidth - marginX, y + 14, { align:'right' });
+  doc.text(`Generado: ${fmtDate(hoyIso())}`, pageWidth - marginX, y + 14, { align:'right' });
   doc.setTextColor(0);
   y += 24;
   doc.setDrawColor(56,189,248); doc.setLineWidth(0.8);
@@ -9655,7 +9815,7 @@ function rerpExportarComparadorPDF(){
   doc.setFont('helvetica','bold'); doc.setFontSize(14);
   doc.text('COMPARATIVO DE FACTURACIÓN', pageWidth - marginX, y + 8, { align:'right' });
   doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90);
-  doc.text(`Generado: ${fmtDate(new Date().toISOString().slice(0,10))}`, pageWidth - marginX, y + 14, { align:'right' });
+  doc.text(`Generado: ${fmtDate(hoyIso())}`, pageWidth - marginX, y + 14, { align:'right' });
   doc.setTextColor(0);
   y += 24;
   doc.setDrawColor(56,189,248); doc.setLineWidth(0.8);
@@ -9889,7 +10049,7 @@ document.getElementById('btn-rerp-exportar').addEventListener('click', ()=>{
   wsDet['!cols'][2] = {wch:32};
   XLSX.utils.book_append_sheet(wb, wsDet, 'Detalle');
 
-  XLSX.writeFile(wb, `resumen_alquileres_erp_${new Date().toISOString().slice(0,10)}.xlsx`);
+  XLSX.writeFile(wb, `resumen_alquileres_erp_${hoyDMA()}.xlsx`);
   showToast('Excel generado');
 });
 
@@ -10283,7 +10443,7 @@ document.getElementById('btn-fin-cmp-pdf').addEventListener('click', ()=>{
   doc.setFont('helvetica','bold'); doc.setFontSize(14);
   doc.text('COMPARATIVO FINANCIERO', pageWidth - marginX, y + 8, { align:'right' });
   doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90);
-  doc.text(`Generado: ${fmtDate(new Date().toISOString().slice(0,10))}`, pageWidth - marginX, y + 14, { align:'right' });
+  doc.text(`Generado: ${fmtDate(hoyIso())}`, pageWidth - marginX, y + 14, { align:'right' });
   doc.setTextColor(0);
   y += 24;
   doc.setDrawColor(56,189,248); doc.setLineWidth(0.8);
@@ -10475,7 +10635,7 @@ document.getElementById('btn-fin-exportar-xls').addEventListener('click', ()=>{
   wsDet['!cols'][2] = {wch:34};
   XLSX.utils.book_append_sheet(wb, wsDet, 'Detalle');
 
-  XLSX.writeFile(wb, `analisis_financiero_${new Date().toISOString().slice(0,10)}.xlsx`);
+  XLSX.writeFile(wb, `analisis_financiero_${hoyDMA()}.xlsx`);
   showToast('Excel generado');
 });
 
@@ -10501,7 +10661,7 @@ document.getElementById('btn-fin-exportar-pdf').addEventListener('click', ()=>{
   doc.setFont('helvetica','bold'); doc.setFontSize(14);
   doc.text('ANÁLISIS FINANCIERO', pageWidth - marginX, y + 8, { align:'right' });
   doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90);
-  doc.text(`Generado: ${fmtDate(new Date().toISOString().slice(0,10))}`, pageWidth - marginX, y + 14, { align:'right' });
+  doc.text(`Generado: ${fmtDate(hoyIso())}`, pageWidth - marginX, y + 14, { align:'right' });
   doc.setTextColor(0);
   y += 24;
   doc.setDrawColor(56,189,248); doc.setLineWidth(0.8);
@@ -10572,7 +10732,7 @@ document.getElementById('btn-fin-exportar-pdf').addEventListener('click', ()=>{
     doc.setTextColor(0);
   }
 
-  doc.save(`analisis_financiero_${new Date().toISOString().slice(0,10)}.pdf`);
+  doc.save(`analisis_financiero_${hoyDMA()}.pdf`);
   showToast('PDF generado');
 });
 
@@ -10954,7 +11114,7 @@ document.getElementById('btn-stk-exportar-xls').addEventListener('click', ()=>{
     XLSX.utils.book_append_sheet(wb, wsNeg, 'Stock Negativo');
   }
 
-  XLSX.writeFile(wb, `stock_valorizado_haulotte_${new Date().toISOString().slice(0,10)}.xlsx`);
+  XLSX.writeFile(wb, `stock_valorizado_haulotte_${hoyDMA()}.xlsx`);
   showToast('Excel generado');
 });
 
@@ -10980,7 +11140,7 @@ document.getElementById('btn-stk-exportar-pdf').addEventListener('click', ()=>{
   doc.setFont('helvetica','bold'); doc.setFontSize(14);
   doc.text('STOCK VALORIZADO — HAULOTTE', pageWidth - marginX, y + 8, { align:'right' });
   doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90);
-  doc.text(`Generado: ${fmtDate(new Date().toISOString().slice(0,10))}`, pageWidth - marginX, y + 14, { align:'right' });
+  doc.text(`Generado: ${fmtDate(hoyIso())}`, pageWidth - marginX, y + 14, { align:'right' });
   doc.setTextColor(0);
   y += 24;
   doc.setDrawColor(56,189,248); doc.setLineWidth(0.8);
@@ -11074,7 +11234,7 @@ document.getElementById('btn-stk-exportar-pdf').addEventListener('click', ()=>{
     doc.setTextColor(0);
   }
 
-  doc.save(`stock_valorizado_haulotte_${new Date().toISOString().slice(0,10)}.pdf`);
+  doc.save(`stock_valorizado_haulotte_${hoyDMA()}.pdf`);
   showToast('PDF generado');
 });
 
@@ -11124,7 +11284,7 @@ document.addEventListener('click', (ev)=>{
   if(!ev.target.closest('#tz-equipo-search') && !ev.target.closest('#tz-equipo-results')) tzEquipoResultsBox.classList.remove('open');
 });
 
-function tzHoyAr(){ return new Date().toLocaleDateString('en-CA', { timeZone:'America/Argentina/Buenos_Aires' }); }
+function tzHoyAr(){ return hoyIso(); }
 
 let tzDataCache = null; // { equipo, tramos, contratosDelPeriodo, facturasDelPeriodo, kpis, desde, hasta }
 
@@ -11340,7 +11500,7 @@ document.getElementById('btn-tz-exportar-xls').addEventListener('click', ()=>{
     XLSX.utils.book_append_sheet(wb, wsF, 'Facturación');
   }
 
-  XLSX.writeFile(wb, `trazabilidad_${d.equipo.numero_serie}_${d.desde}_${d.hasta}.xlsx`);
+  XLSX.writeFile(wb, `trazabilidad_${d.equipo.numero_serie}_${isoToDMAguion(d.desde)}_${isoToDMAguion(d.hasta)}.xlsx`);
   showToast('Excel generado');
 });
 
@@ -11366,7 +11526,7 @@ document.getElementById('btn-tz-exportar-pdf').addEventListener('click', ()=>{
   doc.setFont('helvetica','bold'); doc.setFontSize(14);
   doc.text('TRAZABILIDAD DE MÁQUINA', pageWidth - marginX, y + 8, { align:'right' });
   doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90);
-  doc.text(`Generado: ${fmtDate(new Date().toISOString().slice(0,10))}`, pageWidth - marginX, y + 14, { align:'right' });
+  doc.text(`Generado: ${fmtDate(hoyIso())}`, pageWidth - marginX, y + 14, { align:'right' });
   doc.setTextColor(0);
   y += 24;
   doc.setDrawColor(56,189,248); doc.setLineWidth(0.8);
@@ -11451,7 +11611,7 @@ document.getElementById('btn-tz-exportar-pdf').addEventListener('click', ()=>{
     doc.setTextColor(0);
   }
 
-  doc.save(`trazabilidad_${d.equipo.numero_serie}_${d.desde}_${d.hasta}.pdf`);
+  doc.save(`trazabilidad_${d.equipo.numero_serie}_${isoToDMAguion(d.desde)}_${isoToDMAguion(d.hasta)}.pdf`);
   showToast('PDF generado');
 });
 
@@ -12138,7 +12298,7 @@ function abrirAnularConNC(pendienteId){
   document.getElementById('nc-motivo-detalle').value = '';
   document.getElementById('nc-archivo').value = '';
   document.getElementById('nc-numero').value = '';
-  document.getElementById('nc-fecha').value = new Date().toISOString().slice(0,10);
+  document.getElementById('nc-fecha').value = hoyIso();
   document.getElementById('nc-ocr-status').textContent = '';
   document.getElementById('modal-nc-overlay').classList.add('open');
 }
@@ -12405,7 +12565,7 @@ function abrirRegistrarEnvio(facturaPdfId){
   document.getElementById('ev-factura_pdf_id').value = facturaPdfId;
   document.getElementById('ev-factura-info').textContent =
     `${f.clientes?.razon_social || ''} — N° ${f.numero_factura || 'sin detectar'}`;
-  document.getElementById('ev-fecha_envio').value = new Date().toISOString().slice(0,10);
+  document.getElementById('ev-fecha_envio').value = hoyIso();
   document.getElementById('ev-email_destino').value = f.clientes?.mail_envio_factura || '';
   document.getElementById('ev-observacion').value = '';
 
@@ -12543,12 +12703,12 @@ function renderRetiros(){
 document.getElementById('ret-filter-retirada').addEventListener('change', renderRetiros);
 
 async function marcarComoRetirada(contratoId){
-  const fecha = prompt('¿Qué día se retiró la máquina? (dd/mm/aaaa o dejalo vacío para hoy)', '');
-  let fechaISO = new Date().toISOString().slice(0,10);
-  if(fecha && fecha.trim()){
-    const m = fecha.trim().match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/);
-    if(m) fechaISO = `${m[3]}-${m[2]}-${m[1]}`;
-  }
+  const fechaISO = await pizarraPedirFecha({
+    titulo: 'Confirmar retiro de la máquina',
+    texto: '¿<strong>Qué día se retiró</strong> la máquina? El contrato queda cerrado (De baja) con esa fecha.',
+    valor: hoyIso(), okTexto: 'Confirmar retiro',
+  });
+  if(!fechaISO) return;
   try{
     // el retiro de logística finaliza el contrato: pasa a "De baja" con esa misma fecha
     // (esto además libera el equipo automáticamente, por el trigger que ya tenemos en la base)
@@ -12601,7 +12761,7 @@ function mostrarAlertaRetirosSiCorresponde(){
   const urgentes = calcularRetirosUrgentes();
   if(urgentes.length === 0) return;
 
-  const hoyStr = new Date().toISOString().slice(0,10);
+  const hoyStr = hoyIso();
   const yaVistaHoy = localStorage.getItem('horizon_alerta_retiros_fecha') === hoyStr;
   if(yaVistaHoy) return;
 
@@ -12623,7 +12783,7 @@ function mostrarAlertaRetirosSiCorresponde(){
   document.getElementById('modal-alerta-retiros').classList.add('open');
 }
 document.getElementById('btn-alerta-retiros-ok').addEventListener('click', ()=>{
-  localStorage.setItem('horizon_alerta_retiros_fecha', new Date().toISOString().slice(0,10));
+  localStorage.setItem('horizon_alerta_retiros_fecha', hoyIso());
   document.getElementById('modal-alerta-retiros').classList.remove('open');
 });
 
@@ -12733,7 +12893,7 @@ function descargarContratoPDF(contratoId){
   doc.setFontSize(10);
   doc.setTextColor(90);
   doc.text(`N° de contrato: ${c.id}`, pageWidth - marginX, y + 17, { align: 'right' });
-  doc.text(`Fecha de emisión: ${fmtDate(new Date().toISOString().slice(0,10))}`, pageWidth - marginX, y + 22, { align: 'right' });
+  doc.text(`Fecha de emisión: ${fmtDate(hoyIso())}`, pageWidth - marginX, y + 22, { align: 'right' });
   doc.setTextColor(0);
 
   y += 40;
@@ -13090,7 +13250,7 @@ function resetRemitoForm(){
   populateSucursalSelectRemito();
   document.getElementById('rem-sucursal_id').value = '';
   document.getElementById('rem-numero_remito').value = '';
-  document.getElementById('rem-fecha_entrega').value = new Date().toISOString().slice(0,10);
+  document.getElementById('rem-fecha_entrega').value = hoyIso();
   document.getElementById('rem-firma_entrega_aclaracion').value = '';
   document.getElementById('rem-obra').value = '';
   document.getElementById('rem-contacto_obra').value = '';
@@ -13380,7 +13540,7 @@ function abrirRegistrarRetiro(id){
     <div class="muted" style="font-size:12px;">Equipo: ${escapeHtml(r.equipos?.numero_serie || '—')}${r.equipos?.modelo ? ' — '+escapeHtml(r.equipos.modelo) : ''}</div>
     <div class="muted" style="font-size:12px;">N° Remito: ${escapeHtml(r.numero_remito || '—')} — Entregado el ${r.fecha_entrega ? fmtDate(r.fecha_entrega) : '—'}</div>
   `;
-  document.getElementById('rrt-fecha_retiro').value = new Date().toISOString().slice(0,10);
+  document.getElementById('rrt-fecha_retiro').value = hoyIso();
   document.getElementById('rrt-firma_retiro_aclaracion').value = '';
   const fileInput = document.getElementById('rrt-archivo-retiro');
   fileInput.value = '';
@@ -14088,7 +14248,7 @@ document.getElementById('btn-buscar-tc-bna').addEventListener('click', async ()=
     if(!data.venta) throw new Error('no vino el valor de venta');
     document.getElementById('go-cotizacion_usd').value = String(data.venta).replace('.', ',');
     recalcularNetoUsdGastoObra();
-    const fechaFuente = data.timestamp ? new Date(data.timestamp).toLocaleString('es-AR') : '';
+    const fechaFuente = data.timestamp ? fmtFechaHoraTs(data.timestamp) : '';
     statusEl.textContent = `✓ TC BNA venta: $${data.venta} (${data.fuente || 'BNA'}${fechaFuente ? ' · '+fechaFuente : ''}) — podés editarlo si preferís otro valor`;
   } catch(err){
     console.error(err);
@@ -14364,7 +14524,7 @@ function gastosObraToRows(list){
 }
 document.getElementById('btn-exportar-excel-obra').addEventListener('click', ()=>{
   const { headers, rows } = gastosObraToRows(getFilteredGastosObra());
-  exportXLS(`gastos_reforma_${new Date().toISOString().slice(0,10)}`, headers, rows);
+  exportXLS(`gastos_reforma_${hoyDMA()}`, headers, rows);
 });
 
 document.getElementById('btn-exportar-reporte-obra').addEventListener('click', ()=>{
@@ -14390,7 +14550,7 @@ function descargarReporteGastosObraPDF(list){
   doc.setFont('helvetica','normal');
   doc.setFontSize(9);
   doc.setTextColor(90);
-  doc.text(`Generado: ${fmtDate(new Date().toISOString().slice(0,10))}`, pageWidth - marginX, y + 15, { align:'right' });
+  doc.text(`Generado: ${fmtDate(hoyIso())}`, pageWidth - marginX, y + 15, { align:'right' });
   doc.setTextColor(0);
   y += 26;
   doc.setDrawColor(56,189,248);
@@ -14457,7 +14617,7 @@ function descargarReporteGastosObraPDF(list){
     doc.setTextColor(0);
   }
 
-  doc.save(`Reporte_Gastos_Reforma_${new Date().toISOString().slice(0,10)}.pdf`);
+  doc.save(`Reporte_Gastos_Reforma_${hoyDMA()}.pdf`);
   showToast('Reporte generado');
 }
 
@@ -15286,7 +15446,7 @@ document.getElementById('btn-det-eq-titulo-subir').addEventListener('click', asy
     const { error: updateError } = await supabaseClient.from('equipos').update({
       dominio,
       patentamiento_realizado: true,
-      patentamiento_fecha: (equiposCache.find(x=>x.id===Number(equipoId))?.patentamiento_fecha) || new Date().toISOString().slice(0,10),
+      patentamiento_fecha: (equiposCache.find(x=>x.id===Number(equipoId))?.patentamiento_fecha) || hoyIso(),
     }).eq('id', equipoId);
     if(updateError) throw updateError;
 
@@ -15295,7 +15455,7 @@ document.getElementById('btn-det-eq-titulo-subir').addEventListener('click', asy
     if(idx !== -1){
       equiposCache[idx].dominio = dominio;
       equiposCache[idx].patentamiento_realizado = true;
-      if(!equiposCache[idx].patentamiento_fecha) equiposCache[idx].patentamiento_fecha = new Date().toISOString().slice(0,10);
+      if(!equiposCache[idx].patentamiento_fecha) equiposCache[idx].patentamiento_fecha = hoyIso();
     }
 
     statusEl.textContent = '';
@@ -15507,7 +15667,7 @@ document.getElementById('btn-venc-eq-excel').addEventListener('click', ()=>{
     const [pat, cert, seg, segRC] = documentosEquipo(e);
     return [e.numero_serie, e.modelo, nombreSucursalPorId(e.sucursal_id), pat.realizado ? 'Sí' : 'No', pat.fecha, cert.fecha, cert.vencimiento, cert.estado, seg.fecha, seg.vencimiento, seg.estado, segRC.fecha, segRC.vencimiento, segRC.estado];
   });
-  exportXLS(`vencimientos_maquinas_${new Date().toISOString().slice(0,10)}`, headers, rows);
+  exportXLS(`vencimientos_maquinas_${hoyDMA()}`, headers, rows);
 });
 document.getElementById('btn-venc-per-excel').addEventListener('click', ()=>{
   const headers = ['Nombre','Apellido','Cargo','Sucursal','Licencia Fecha','Licencia Vence','Licencia Estado','Apto Fecha','Apto Vence','Apto Estado'];
@@ -15526,7 +15686,7 @@ document.getElementById('btn-venc-per-excel').addEventListener('click', ()=>{
     });
     return fila;
   });
-  exportXLS(`vencimientos_personal_${new Date().toISOString().slice(0,10)}`, headers, rows);
+  exportXLS(`vencimientos_personal_${hoyDMA()}`, headers, rows);
 });
 
 // ---------- Exportar PDF ----------
@@ -15544,7 +15704,7 @@ function descargarPDFVencimientos(titulo, headers, rows){
   doc.setFont('helvetica','bold'); doc.setFontSize(14);
   doc.text(titulo, pageWidth - marginX, y + 8, { align:'right' });
   doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90);
-  doc.text(`Generado: ${fmtDate(new Date().toISOString().slice(0,10))}`, pageWidth - marginX, y + 14, { align:'right' });
+  doc.text(`Generado: ${fmtDate(hoyIso())}`, pageWidth - marginX, y + 14, { align:'right' });
   doc.setTextColor(0);
   y += 24;
   doc.setDrawColor(56,189,248); doc.setLineWidth(0.8);
@@ -15569,7 +15729,7 @@ function descargarPDFVencimientos(titulo, headers, rows){
     doc.text(`Página ${i} de ${totalPaginas}`, pageWidth - marginX, pageHeight - bannerH - 4, { align:'right' });
     doc.setTextColor(0);
   }
-  doc.save(`${titulo.replace(/[^a-z0-9]+/gi,'_')}_${new Date().toISOString().slice(0,10)}.pdf`);
+  doc.save(`${titulo.replace(/[^a-z0-9]+/gi,'_')}_${hoyDMA()}.pdf`);
   showToast('PDF generado');
 }
 document.getElementById('btn-venc-eq-pdf').addEventListener('click', ()=>{
@@ -15914,7 +16074,7 @@ function descargarSolicitudOCPDF(cliente, items, numero){
   doc.setFontSize(10);
   doc.setTextColor(90);
   if(numero) doc.text(`N° ${String(numero).padStart(5,'0')}`, pageWidth - marginX, y + 16, { align: 'right' });
-  doc.text(`Fecha de emisión: ${fmtDate(new Date().toISOString().slice(0,10))}`, pageWidth - marginX, y + (numero?22:17), { align: 'right' });
+  doc.text(`Fecha de emisión: ${fmtDate(hoyIso())}`, pageWidth - marginX, y + (numero?22:17), { align: 'right' });
   doc.setTextColor(0);
 
   y += 40;
@@ -16002,7 +16162,7 @@ function descargarSolicitudOCPDF(cliente, items, numero){
 
   const nombreSeguro = (cliente?.razon_social || 'cliente').replace(/[^a-z0-9]+/gi, '_').slice(0, 40);
   const prefijo = numero ? `SOC_${String(numero).padStart(5,'0')}` : 'Solicitud_OC';
-  doc.save(`${prefijo}_${nombreSeguro}_${new Date().toISOString().slice(0,10)}.pdf`);
+  doc.save(`${prefijo}_${nombreSeguro}_${hoyDMA()}.pdf`);
   showToast('PDF de solicitud generado');
 }
 
@@ -16251,7 +16411,7 @@ function resetPresupuestoForm(){
   document.getElementById('pres-contacto_telefono').value = '';
   populateSucursalSelectPresupuesto();
   document.getElementById('pres-sucursal_id').value = '';
-  document.getElementById('pres-fecha_emision').value = new Date().toISOString().slice(0,10);
+  document.getElementById('pres-fecha_emision').value = hoyIso();
   document.getElementById('pres-validez_dias').value = 7;
   document.getElementById('pres-moneda').value = 'USD';
   document.getElementById('pres-condicion_pago').value = '';
@@ -16966,7 +17126,7 @@ function renderEncuestaModalidad(){
   }
   tbody.innerHTML = list.map(r=>{
     const conf = r.modalidad_confirmada_por
-      ? `${escapeHtml(r.modalidad_confirmada_por)}<div class="muted" style="font-size:11px;">${escapeHtml(new Date(r.modalidad_confirmada_at).toLocaleDateString('es-AR'))}</div>`
+      ? `${escapeHtml(r.modalidad_confirmada_por)}<div class="muted" style="font-size:11px;">${escapeHtml(fmtFechaTs(r.modalidad_confirmada_at))}</div>`
       : '<span class="muted">—</span>';
     const activos = r.contratos_activos > 0
       ? `<span class="badge" style="color:var(--ok);border-color:var(--ok);">${r.contratos_activos} activo(s)</span> <span class="muted">/ ${r.contratos_totales}</span>`
@@ -17036,7 +17196,7 @@ document.getElementById('btn-mf-export').addEventListener('click', ()=>{
   const rows = getMfFiltrado().map(r=>[
     r.razon_social, r.numero_cliente || '', r.sucursal_nombre, r.contratos_activos, r.contratos_totales,
     modalidadLabel(r.modalidad_facturacion), r.modalidad_observaciones || '',
-    r.modalidad_confirmada_por || '', r.modalidad_confirmada_at ? new Date(r.modalidad_confirmada_at).toLocaleDateString('es-AR') : '',
+    r.modalidad_confirmada_por || '', r.modalidad_confirmada_at ? fmtFechaTs(r.modalidad_confirmada_at) : '',
   ]);
   const suc = (mfSucursales().find(x=>String(x.id)===String(mfSucursalId))?.nombre || 'sucursal').toLowerCase();
   exportXLS('modalidad_facturacion_' + suc.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,'_'), headers, rows);
@@ -17490,6 +17650,45 @@ async function comprimirPdfParaChat(file){
 }
 
 
+// ---------- Fechas DD/MM/AAAA: activar campos propios y red de seguridad en exportaciones ----------
+FechaAR.arbol(document);
+new MutationObserver((muts)=>{
+  muts.forEach(m => m.addedNodes.forEach(n=>{
+    if(n.nodeType !== 1) return;
+    if(n.matches && n.matches('input[type="date"]')) FechaAR.mejorar(n);
+    else if(n.querySelectorAll) FechaAR.arbol(n);
+  }));
+}).observe(document.body, { childList:true, subtree:true });
+
+// Excel: cualquier celda con texto AAAA-MM-DD sale como DD/MM/AAAA
+(function(){
+  const orig = XLSX.utils.aoa_to_sheet;
+  XLSX.utils.aoa_to_sheet = function(aoa, opts){
+    return orig.call(this, (aoa || []).map(row => Array.isArray(row) ? row.map(fechaCeldaExport) : row), opts);
+  };
+})();
+// PDF: lo mismo para las tablas (autoTable)
+(function(){
+  try{
+    const api = window.jspdf.jsPDF.API;
+    const orig = api.autoTable;
+    if(!orig) return;
+    const fix = (celda)=>{
+      if(typeof celda === 'string') return fechaCeldaExport(celda);
+      if(celda && typeof celda === 'object' && typeof celda.content === 'string') return { ...celda, content: fechaCeldaExport(celda.content) };
+      return celda;
+    };
+    const fixFilas = (filas)=> Array.isArray(filas) ? filas.map(f => Array.isArray(f) ? f.map(fix) : f) : filas;
+    api.autoTable = function(opts){
+      if(opts && typeof opts === 'object'){
+        opts = { ...opts, head: fixFilas(opts.head), body: fixFilas(opts.body), foot: fixFilas(opts.foot) };
+      }
+      return orig.call(this, opts);
+    };
+  }catch(e){ console.warn('No se pudo activar el formato de fechas en PDF', e); }
+})();
+
+
 // ---------- Init ----------
 (async function init(){
   console.log('[Horizon] iniciando...');
@@ -17510,6 +17709,7 @@ async function comprimirPdfParaChat(file){
     }
   }
   showLogin();
+
 })();
 </script>
 
