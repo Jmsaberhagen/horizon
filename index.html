@@ -787,6 +787,7 @@ input.fecha-ar.fecha-ar-invalida{ border-color:var(--danger) !important; color:v
 .tv-reloj{ font-size:26px; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums; }
 .tv-salir{ font:inherit; font-size:12px; padding:5px 12px; border-radius:8px; border:1px solid var(--border); background:transparent; color:var(--text-dim); cursor:pointer; }
 .tv-salir:hover{ color:var(--text); border-color:var(--text-dim); }
+.tv-auto.on{ color:var(--accent); border-color:var(--accent); }
 .tv-kpis{ display:grid; grid-template-columns:repeat(5,1fr) 1.5fr; gap:12px; margin:10px 0 12px; flex:none; }
 .tv-kpi{ background:var(--panel); border:1px solid var(--border); border-top:3px solid var(--c); border-radius:12px; padding:8px 16px; min-width:0; }
 .tv-kpi .l{ font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--text-dim); font-weight:700; }
@@ -6861,6 +6862,7 @@ function pizarraRenderTV(opts = {}){
       <div class="tv-logo">HORIZON<small>SUDAMÉRICA</small></div>
       <div class="tv-suc">${sucBtns}</div>
       <div class="tv-live" id="tv-live"><span class="dot"></span><span class="txt">Conectando…</span><span class="tv-reloj" id="tv-reloj">${pizarraHoraAr(false)}</span></div>
+      <button type="button" class="tv-salir tv-auto${pizarraTVAuto ? ' on' : ''}" id="tv-auto" title="Desplazamiento automático lento en bucle">${pizarraTVAuto ? '⏸ Auto-scroll' : '▶ Auto-scroll'}</button>
       <button type="button" class="tv-salir" id="tv-salir" title="Salir del Modo TV (Esc)">✕ Salir</button>
     </div>
     <div class="tv-kpis">${kpis}</div>
@@ -6873,7 +6875,16 @@ function pizarraRenderTV(opts = {}){
     renderPizarra();
   }));
   document.getElementById('tv-salir').addEventListener('click', pizarraSalirModoTV);
-  if(opts.conservarScroll){
+  document.getElementById('tv-auto').addEventListener('click', (ev)=>{
+    pizarraTVAuto = !pizarraTVAuto;
+    ev.currentTarget.classList.toggle('on', pizarraTVAuto);
+    ev.currentTarget.textContent = pizarraTVAuto ? '⏸ Auto-scroll' : '▶ Auto-scroll';
+    pizarraTVAutoSt = {};
+  });
+  if(pizarraTVAuto && Object.keys(pizarraTVAutoSt).length){
+    // el re-dibujado (datos en vivo) no debe mandar el scroll automático de vuelta arriba
+    cont.querySelectorAll('.tv-cards').forEach(z => { const st = pizarraTVAutoSt[z.dataset.col]; if(st && st.y) z.scrollTop = st.y; });
+  } else if(opts.conservarScroll){
     cont.querySelectorAll('.tv-cards').forEach(z => { const y = scrollPrevio[z.dataset.col]; if(y) z.scrollTop = y; });
   }
   pizarraTVActualizarEstado();
@@ -6890,6 +6901,43 @@ function pizarraTVActualizarEstado(){
     : clase === 'reconectando' ? `Reconectando… · actualizado ${hora}` : `En vivo · actualizado ${hora}`;
 }
 
+// ---- Desplazamiento automático (lento, en bucle) de cada columna del Modo TV ----
+const PIZARRA_TV_SCROLL_PX_S = 22;      // velocidad de bajada (px por segundo): bajá este número para ir más lento
+const PIZARRA_TV_PAUSA_MS = 5000;       // pausa al llegar arriba y abajo
+const PIZARRA_TV_PAUSA_MANUAL_MS = 20000; // si alguien toca el mouse/scroll, se detiene ese tiempo
+let pizarraTVAuto = true, pizarraTVAutoSt = {}, pizarraTVRaf = null, pizarraTVUlt = 0;
+function pizarraTVAutoPaso(ts){
+  if(!pizarraModoTV){ pizarraTVRaf = null; return; }
+  const dt = Math.min(0.1, Math.max(0, (ts - pizarraTVUlt) / 1000)); pizarraTVUlt = ts;
+  if(pizarraTVAuto){
+    document.querySelectorAll('#pizarra-tv .tv-cards').forEach(z => {
+      const k = z.dataset.col;
+      const st = pizarraTVAutoSt[k] || (pizarraTVAutoSt[k] = { y:0, fase:'ini', hasta: ts + PIZARRA_TV_PAUSA_MS, manual:0 });
+      const max = z.scrollHeight - z.clientHeight;
+      if(max <= 2){ st.y = 0; return; }
+      if(ts < st.manual){ st.y = z.scrollTop; st.hasta = ts + PIZARRA_TV_PAUSA_MS; if(st.fase === 'volver') st.fase = 'bajando'; return; }
+      if(st.fase === 'ini'){ if(ts >= st.hasta) st.fase = 'bajando'; }
+      else if(st.fase === 'bajando'){
+        st.y = Math.min(max, st.y + PIZARRA_TV_SCROLL_PX_S * dt);
+        z.scrollTop = st.y;
+        if(st.y >= max){ st.fase = 'fin'; st.hasta = ts + PIZARRA_TV_PAUSA_MS; }
+      }
+      else if(st.fase === 'fin'){ if(ts >= st.hasta) st.fase = 'volver'; }
+      else if(st.fase === 'volver'){
+        st.y = Math.max(0, st.y - Math.max(300, max / 1.5) * dt);
+        z.scrollTop = st.y;
+        if(st.y <= 0){ st.fase = 'ini'; st.hasta = ts + PIZARRA_TV_PAUSA_MS; }
+      }
+    });
+  }
+  pizarraTVRaf = requestAnimationFrame(pizarraTVAutoPaso);
+}
+function pizarraTVManual(ev){
+  const z = ev.target.closest && ev.target.closest('#pizarra-tv .tv-cards');
+  if(!z) return;
+  const st = pizarraTVAutoSt[z.dataset.col]; if(st) st.manual = performance.now() + PIZARRA_TV_PAUSA_MANUAL_MS;
+}
+
 function pizarraEntrarModoTV(){
   if(pizarraModoTV) return;
   pizarraModoTV = true;
@@ -6903,13 +6951,21 @@ function pizarraEntrarModoTV(){
     pizarraTVActualizarEstado();
   }, 1000);
   pizarraRefrescarDatos('abrir');
+  pizarraTVAutoSt = {};
+  cont.addEventListener('wheel', pizarraTVManual, { passive:true });
+  cont.addEventListener('pointerdown', pizarraTVManual);
+  cont.addEventListener('touchmove', pizarraTVManual, { passive:true });
+  pizarraTVUlt = performance.now();
+  if(!pizarraTVRaf) pizarraTVRaf = requestAnimationFrame(pizarraTVAutoPaso);
 }
 
 function pizarraSalirModoTV(){
   if(!pizarraModoTV) return;
   pizarraModoTV = false;
   clearInterval(pizarraTVReloj); pizarraTVReloj = null;
+  if(pizarraTVRaf){ cancelAnimationFrame(pizarraTVRaf); pizarraTVRaf = null; }
   const cont = document.getElementById('pizarra-tv');
+  cont.removeEventListener('wheel', pizarraTVManual); cont.removeEventListener('pointerdown', pizarraTVManual); cont.removeEventListener('touchmove', pizarraTVManual);
   cont.classList.remove('tv-activo');
   cont.innerHTML = '';
 }
