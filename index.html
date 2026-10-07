@@ -743,6 +743,11 @@
 @keyframes pizarraLatido { 0%{box-shadow:0 0 0 0 rgba(34,197,94,.55)} 70%{box-shadow:0 0 0 6px rgba(34,197,94,0)} 100%{box-shadow:0 0 0 0 rgba(34,197,94,0)} }
 
 /* Campos de fecha DD/MM/AAAA (FechaAR) */
+.chq-dz{ border:2px dashed var(--border); border-radius:12px; padding:26px 18px; text-align:center; cursor:pointer; transition:border-color .15s, background .15s; }
+.chq-dz:hover, .chq-dz:focus-visible, .chq-dz.over{ border-color:var(--accent); background:rgba(56,189,248,.06); outline:none; }
+.chq-kpi{ transition:transform .12s, box-shadow .12s; }
+.chq-kpi:hover{ transform:translateY(-1px); }
+.chq-kpi.on{ box-shadow:0 0 0 2px var(--accent); }
 .fecha-cal{ position:fixed; z-index:2147483000; width:252px; padding:10px; background:var(--panel-2, #1c1c1f); color:var(--text, #eee); border:1px solid var(--border, #444); border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,.45); font-size:13px; user-select:none; }
 .fecha-cal button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; border-radius:6px; }
 .fecha-cal .fc-cab{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; font-weight:600; }
@@ -938,6 +943,7 @@ input.fecha-ar.fecha-ar-invalida{ border-color:var(--danger) !important; color:v
   <button data-tab="datosbancarios">Datos Bancarios de Proveedores</button>
   <button data-tab="conciliacioncompras">Conciliación de Compras (GP vs ARCA)</button>
   <button data-tab="gastosobra">Gastos de Reforma</button>
+  <button data-tab="chequescustodia">Cheques en Custodia vs GP</button>
   <button data-tab="vencimientos">Control de Vencimientos</button>
   <button data-tab="personal">Personal</button>
   <button data-tab="usuarios" id="nav-usuarios" style="display:none;">Usuarios</button>
@@ -2370,6 +2376,44 @@ input.fecha-ar.fecha-ar-invalida{ border-color:var(--danger) !important; color:v
       </div>
       <div id="fin-ranking-container"></div>
 
+    </div>
+  </section>
+
+  <section id="tab-chequescustodia" style="display:none;">
+    <div class="muted" style="font-size:13px;margin-bottom:14px;max-width:900px;">
+      Cruzá el listado de <b>cheques en custodia</b> que bajás del banco con la <b>cartera de cheques de GP</b> para ver cuáles todavía no cargaste en el sistema.
+      Podés soltar los dos archivos juntos: la herramienta reconoce cuál es cuál. Los archivos se procesan en tu navegador y no se guardan.
+    </div>
+    <div id="chq-zonas" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-bottom:18px;">
+      <div class="chq-dz" id="chq-dz-banco" tabindex="0" role="button">
+        <div style="font-size:30px;line-height:1;margin-bottom:8px;">🏦</div>
+        <div style="font-weight:600;">Custodiados del banco</div>
+        <div class="muted" style="font-size:12px;margin-top:4px;">"Custodiados_…xlsx" — arrastralo o hacé clic</div>
+        <div class="chq-dz-estado muted" id="chq-estado-banco" style="font-size:12px;margin-top:10px;">Sin cargar</div>
+      </div>
+      <div class="chq-dz" id="chq-dz-gp" tabindex="0" role="button">
+        <div style="font-size:30px;line-height:1;margin-bottom:8px;">📒</div>
+        <div style="font-weight:600;">Cartera de cheques de GP</div>
+        <div class="muted" style="font-size:12px;margin-top:4px;">"cheques_cartera_GP.xlsx" — arrastralo o hacé clic</div>
+        <div class="chq-dz-estado muted" id="chq-estado-gp" style="font-size:12px;margin-top:10px;">Sin cargar</div>
+      </div>
+      <input type="file" id="chq-file-input" accept=".xls,.xlsx" multiple style="display:none;">
+    </div>
+    <div id="chq-error" style="display:none;color:var(--danger);margin:-6px 0 14px 0;font-size:13px;"></div>
+
+    <div id="chq-resultados" style="display:none;">
+      <div class="toolbar" style="justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <div class="muted" id="chq-info" style="font-size:12px;"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn secondary" id="btn-chq-nuevo">🔄 Cargar otros archivos</button>
+          <button class="btn secondary" id="btn-chq-xls">📊 Exportar Excel</button>
+          <button class="btn secondary" id="btn-chq-pdf">📄 PDF de faltantes</button>
+        </div>
+      </div>
+      <div id="chq-kpis" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-bottom:16px;"></div>
+      <div id="chq-tabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;"></div>
+      <div class="muted" id="chq-explica" style="font-size:12px;margin-bottom:8px;"></div>
+      <div class="table-wrap"><table><thead id="chq-thead"></thead><tbody id="chq-tbody"></tbody><tfoot id="chq-tfoot"></tfoot></table></div>
     </div>
   </section>
 
@@ -4131,6 +4175,7 @@ const TAB_TITLES = {
   datosbancarios: 'Datos Bancarios de Proveedores',
   conciliacioncompras: 'Conciliación de Compras (GP vs ARCA)',
   gastosobra: 'Gastos de Reforma',
+  chequescustodia: 'Cheques en Custodia vs GP',
 };
 
 function activarTab(tab){
@@ -7727,6 +7772,7 @@ const SECCIONES_PERMISOS = [
   { key:'panoramaproveedores', label:'Panorama de Deuda a Proveedores', acciones:[['ver','Ver / usar']] },
   { key:'datos_bancarios', label:'Datos Bancarios de Proveedores', acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
   { key:'conciliacioncompras', label:'Conciliación de Compras (GP vs ARCA)', acciones:[['ver','Ver / usar']] },
+  { key:'chequescustodia', label:'Cheques en Custodia vs GP', acciones:[['ver','Ver / usar']] },
   { key:'gastos_obra', label:'Gastos de Reforma', acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar']] },
   { key:'vencimientos', label:'Control de Vencimientos', acciones:[['ver','Ver'],['editar','Editar fechas']] },
   { key:'personal', label:'Personal', acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
@@ -8110,6 +8156,9 @@ function renderDashboard(){
       { tab:'modalidadfact', icon:'🗓️', title:'Modalidad de Facturación', count:'Adelantado / devengado por cliente', visible:puede('modalidadfact','ver'), urgencia:null },
       { tab:'reportes',   icon:'📊', title:'Reportes',   count:'Mora y facturación', visible:puede('reportes','ver'), urgencia:null },
       { tab:'enviofacturas', icon:'📧', title:'Envío de Facturas', count: puede('enviofacturas','ver') ? `${nFacturasSinEnviar} sin enviar` : '', visible:puede('enviofacturas','ver'), urgencia: nFacturasSinEnviar>0 ? 'warn' : 'ok' },
+    ]},
+    { key:'finanzas', titulo:'Finanzas', icon:'🏦', tiles:[
+      { tab:'chequescustodia', icon:'🧾', title:'Cheques en Custodia vs GP', count:'Cruzar banco vs sistema', visible:puede('chequescustodia','ver'), urgencia:null },
     ]},
     { key:'usuarios', titulo:'Usuarios', icon:'👤', tiles:[
       { tab:'usuarios',   icon:'👤', title:'Usuarios',   count:`${usuariosCache.length} cuentas`, visible:puede('usuarios','ver'), urgencia:null },
@@ -17793,6 +17842,277 @@ async function comprimirPdfParaChat(file){
   return doc.output('blob');
 }
 
+
+// =========================================================
+// MÓDULO: CHEQUES EN CUSTODIA (BANCO) vs CARTERA DE GP
+// =========================================================
+const CHQ_CUIT_HORIZON = '30705470495';
+let chqBanco = null, chqGP = null, chqResultado = null, chqVista = 'faltan';
+
+function chqNorm(h){ return String(h == null ? '' : h).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim(); }
+function chqNumero(v){ return String(v == null ? '' : v).replace(/\D/g, '').replace(/^0+/, ''); }
+function chqImporte(v){
+  if(typeof v === 'number') return v;
+  let t = String(v == null ? '' : v).replace(/[^\d,.\-]/g, '');
+  if(!t) return NaN;
+  if(t.includes(',')) t = t.replace(/\./g, '').replace(',', '.');   // 1.234,56
+  return parseFloat(t);
+}
+// Fechas del Excel: texto DD/MM/AAAA, texto AAAA-MM-DD, número de serie o Date -> AAAA-MM-DD
+function chqFecha(v){
+  if(v == null || v === '') return '';
+  if(v instanceof Date && !isNaN(v)) return new Date(v.getTime() - v.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  if(typeof v === 'number' && v > 20000 && v < 80000) return new Date(Math.round((v - 25569) * 86400000)).toISOString().slice(0,10);
+  const t = String(v).trim();
+  let m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(t);
+  if(m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  m = /^(\d{4})-(\d{2})-(\d{2})/.exec(t);
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : '';
+}
+function chqDias(isoA, isoB){ return Math.round((Date.parse(isoA + 'T00:00:00Z') - Date.parse(isoB + 'T00:00:00Z')) / 86400000); }
+
+// Lee el Excel y detecta si es el del banco o el de GP según sus columnas
+async function chqLeerArchivo(file){
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type:'array' });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const filas = XLSX.utils.sheet_to_json(ws, { header:1, raw:true, defval:'' });
+  let hi = -1, tipo = null, idx = {};
+  for(let i = 0; i < Math.min(filas.length, 15) && !tipo; i++){
+    const cols = filas[i].map(chqNorm);
+    const buscar = (...ops) => cols.findIndex(c => ops.some(o => c === o || c.startsWith(o)));
+    const iNum = buscar('numero de echeq');
+    const iImp = buscar('importe');
+    if(iNum >= 0 && iImp >= 0){
+      tipo = 'banco'; hi = i;
+      idx = { numero:iNum, importe:iImp, pago:buscar('fecha pago'), emision:buscar('fecha emision'), emisor:buscar('nombre o razon social emisor'),
+              cuit:buscar('cuit/cuil emisor'), banco:buscar('banco emision'), benef:buscar('nombre o razon social beneficiario'), historial:buscar('historial de endosos'),
+              estado:buscar('estado del cheque'), tipoEm:buscar('tipo de emision'), moneda:buscar('moneda') };
+    } else {
+      const jNum = buscar('numero de documento'), jMonto = buscar('monto de origen');
+      if(jNum >= 0 && jMonto >= 0){
+        tipo = 'gp'; hi = i;
+        idx = { numero:jNum, importe:jMonto, cliente:buscar('id. de cliente'), venc:buscar('fecha de vencimiento'), estado:buscar('estado'), benef:buscar('beneficiario') };
+      }
+    }
+  }
+  if(!tipo) throw new Error(`"${file.name}" no parece ni el listado de custodia del banco ni la cartera de cheques de GP (no encontré las columnas esperadas).`);
+  const g = (f, k) => idx[k] >= 0 ? f[idx[k]] : '';
+  const rows = [];
+  filas.slice(hi + 1).forEach(f => {
+    if(!f || !f.some(c => c !== '')) return;
+    const num = chqNumero(g(f,'numero'));
+    if(!num) return;
+    if(tipo === 'banco'){
+      rows.push({ origen:'banco', num, numTxt:String(g(f,'numero')).trim(), importe:chqImporte(g(f,'importe')), fecha:chqFecha(g(f,'pago')), emision:chqFecha(g(f,'emision')),
+        emisor:String(g(f,'emisor')).trim(), cuit:String(g(f,'cuit')).replace(/\D/g,''), banco:String(g(f,'banco')).replace(/^\d+\s*\/\s*/, '').trim(),
+        benef:String(g(f,'benef')).trim(), historial:String(g(f,'historial')).trim(), tipoEm:String(g(f,'tipoEm')).trim(), moneda:String(g(f,'moneda')).trim() || '$' });
+    } else {
+      rows.push({ origen:'gp', num, numTxt:String(g(f,'numero')).trim(), importe:chqImporte(g(f,'importe')), fecha:chqFecha(g(f,'venc')), cliente:String(g(f,'cliente')).trim(), estado:String(g(f,'estado')).trim() });
+    }
+  });
+  if(!rows.length) throw new Error(`"${file.name}" no tiene cheques cargados.`);
+  return { tipo, nombre:file.name, rows };
+}
+
+function chqCruzar(banco, gp){
+  const hoy = hoyIso();
+  banco.forEach(b => { delete b.posible; }); gp.forEach(g => { delete g.posible; });
+  const porNum = new Map();
+  banco.forEach(b => { if(!porNum.has(b.num)) porNum.set(b.num, []); porNum.get(b.num).push(b); });
+  const usadosBanco = new Set();
+  const coinciden = [], difieren = [], soloGP = [];
+  gp.forEach(g => {
+    const cands = (porNum.get(g.num) || []).filter(b => !usadosBanco.has(b));
+    if(!cands.length){ soloGP.push(g); return; }
+    const b = cands.find(c => Math.abs(c.importe - g.importe) < 0.01) || cands[0];
+    usadosBanco.add(b);
+    const difImporte = Math.abs(b.importe - g.importe) >= 0.01;
+    const difFecha = !!(b.fecha && g.fecha && b.fecha !== g.fecha);
+    const par = { banco:b, gp:g, difImporte, difFecha };
+    (difImporte || difFecha ? difieren : coinciden).push(par);
+  });
+  const soloBanco = banco.filter(b => !usadosBanco.has(b));
+
+  // Posibles coincidencias entre lo que sobra de cada lado: mismo importe y fecha cercana (puede ser un número mal tipeado)
+  const libresGP = new Set(soloGP);
+  soloBanco.forEach(b => {
+    let mejor = null, mejorD = 1e9;
+    libresGP.forEach(g => {
+      if(Math.abs(g.importe - b.importe) >= 0.01) return;
+      const d = (g.fecha && b.fecha) ? Math.abs(chqDias(g.fecha, b.fecha)) : 999;
+      if(d <= 10 && d < mejorD){ mejor = g; mejorD = d; }
+    });
+    if(mejor){ b.posible = mejor; mejor.posible = b; libresGP.delete(mejor); }
+  });
+  soloGP.forEach(g => { g.vencido = !!(g.fecha && g.fecha < hoy); });
+
+  // Datos del cliente en Horizon, buscado por CUIT del emisor
+  const porCuit = new Map();
+  (clientesCache || []).forEach(c => { const k = String(c.cuit || '').replace(/\D/g, ''); if(k) porCuit.set(k, c); });
+  banco.forEach(b => { const c = porCuit.get(b.cuit); b.clienteNro = c ? (c.numero_cliente || '') : ''; b.clienteNombre = c ? c.razon_social : ''; });
+
+  const ordenar = (arr, f) => arr.sort((x, y) => (f(x) || '9999').localeCompare(f(y) || '9999'));
+  ordenar(soloBanco, x => x.fecha); ordenar(soloGP, x => x.fecha);
+  ordenar(difieren, x => x.banco.fecha); ordenar(coinciden, x => x.banco.fecha);
+  const sum = (arr, f) => arr.reduce((a, x) => a + (Number(f(x)) || 0), 0);
+  return { soloBanco, soloGP, difieren, coinciden, totalBanco:banco.length, totalGP:gp.length, hoy,
+           montoFaltan:sum(soloBanco, x => x.importe), montoSoloGP:sum(soloGP, x => x.importe) };
+}
+
+function chqMostrarError(msg){
+  const el = document.getElementById('chq-error');
+  el.textContent = msg || '';
+  el.style.display = msg ? 'block' : 'none';
+}
+function chqActualizarEstados(){
+  const set = (id, d) => {
+    const el = document.getElementById(id);
+    el.innerHTML = d ? `✅ ${escapeHtml(d.nombre)} · <b>${d.rows.length}</b> cheques` : 'Sin cargar';
+    el.style.color = d ? 'var(--ok)' : '';
+  };
+  set('chq-estado-banco', chqBanco); set('chq-estado-gp', chqGP);
+}
+async function chqProcesarArchivos(files){
+  chqMostrarError('');
+  for(const f of files){
+    try{
+      const d = await chqLeerArchivo(f);
+      if(d.tipo === 'banco') chqBanco = d; else chqGP = d;
+    }catch(err){ console.error(err); chqMostrarError(err.message || String(err)); }
+  }
+  chqActualizarEstados();
+  if(chqBanco && chqGP){
+    chqResultado = chqCruzar(chqBanco.rows, chqGP.rows);
+    chqVista = chqResultado.soloBanco.length ? 'faltan' : (chqResultado.soloGP.length ? 'sologp' : 'coinciden');
+    chqRender();
+  } else {
+    document.getElementById('chq-resultados').style.display = 'none';
+    if(chqBanco || chqGP) showToast('Falta cargar el otro archivo para poder cruzar', false);
+  }
+}
+(function initChqDropzones(){
+  const input = document.getElementById('chq-file-input');
+  if(!input) return;
+  ['chq-dz-banco','chq-dz-gp'].forEach(id => {
+    const dz = document.getElementById(id);
+    dz.addEventListener('click', () => input.click());
+    dz.addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); input.click(); } });
+    ['dragenter','dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('over'); }));
+    ['dragleave','drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('over'); }));
+    dz.addEventListener('drop', e => { const fs = [...(e.dataTransfer?.files || [])]; if(fs.length) chqProcesarArchivos(fs); });
+  });
+  input.addEventListener('change', () => { const fs = [...input.files]; input.value = ''; if(fs.length) chqProcesarArchivos(fs); });
+  document.getElementById('btn-chq-nuevo').addEventListener('click', () => {
+    chqBanco = chqGP = chqResultado = null; chqMostrarError('');
+    chqActualizarEstados();
+    document.getElementById('chq-resultados').style.display = 'none';
+  });
+  document.getElementById('btn-chq-xls').addEventListener('click', chqExportarExcel);
+  document.getElementById('btn-chq-pdf').addEventListener('click', chqExportarPDF);
+})();
+
+const chqMoney = v => fmtMoney(v, 'ARS');
+function chqFilasVista(vista){
+  const r = chqResultado;
+  const emisorTxt = b => `${b.emisor}${b.cuit ? ` (CUIT ${b.cuit})` : ''}`;
+  const endoso = b => (b.benef && chqNumero(b.cuit) && b.benef.toUpperCase().indexOf('HORIZON') < 0) ? `Endosado a ${b.benef}` : '';
+  if(vista === 'faltan') return {
+    cols:['Nº eCheq','Emisor','Cliente en Horizon','Banco','Emisión','Pago','Importe','Observación'],
+    num:[6],
+    filas:r.soloBanco.map(b => ({ cel:[b.numTxt, emisorTxt(b), b.clienteNro ? `${b.clienteNro} — ${b.clienteNombre}` : '— no encontrado por CUIT —', b.banco, fmtDate(b.emision), fmtDate(b.fecha), b.importe,
+      [b.posible ? `¿Será el ${b.posible.numTxt} de GP? (mismo importe, vence ${fmtDate(b.posible.fecha)})` : '', endoso(b)].filter(Boolean).join(' · ')], posible:!!b.posible })),
+    exp:r.soloBanco.map(b => [b.numTxt, b.emisor, b.cuit, b.clienteNro, b.clienteNombre, b.banco, fmtDateExport(b.emision), fmtDateExport(b.fecha), b.importe, b.tipoEm,
+      b.posible ? `Posible nº ${b.posible.numTxt} en GP` : '']),
+    expCols:['Nº eCheq','Emisor','CUIT emisor','Nº cliente (Horizon)','Cliente (Horizon)','Banco','Fecha emisión','Fecha pago','Importe','Tipo','Posible coincidencia'],
+    explica:'Cheques que el banco tiene en custodia y que NO están en la cartera de GP: son los que te faltan cargar.',
+  };
+  if(vista === 'sologp') return {
+    cols:['Nº documento','Id. cliente GP','Vencimiento','Importe','Observación'], num:[3],
+    filas:r.soloGP.map(g => ({ cel:[g.numTxt, g.cliente, fmtDate(g.fecha), g.importe,
+      [g.vencido ? 'Vencido: probablemente ya fue depositado o cobrado' : 'Aún no vence: revisar si es un cheque físico o si no está en custodia',
+       g.posible ? `¿Será el ${g.posible.numTxt} del banco?` : ''].filter(Boolean).join(' · ')], posible:!!g.posible })),
+    exp:r.soloGP.map(g => [g.numTxt, g.cliente, fmtDateExport(g.fecha), g.importe, g.vencido ? 'Vencido' : 'No vencido', g.posible ? `Posible nº ${g.posible.numTxt} del banco` : '']),
+    expCols:['Nº documento','Id. cliente GP','Vencimiento','Importe','Situación','Posible coincidencia'],
+    explica:'Cheques que están en cartera en GP pero no aparecen en la custodia del banco. Los ya vencidos suelen estar depositados; el resto conviene revisarlos.',
+  };
+  if(vista === 'difieren') return {
+    cols:['Nº','Emisor','Importe banco','Importe GP','Pago (banco)','Vencimiento (GP)','Diferencia'], num:[2,3],
+    filas:r.difieren.map(p => ({ cel:[p.banco.numTxt, p.banco.emisor, p.banco.importe, p.gp.importe, fmtDate(p.banco.fecha), fmtDate(p.gp.fecha),
+      [p.difImporte ? `Importe: ${chqMoney(p.banco.importe - p.gp.importe)}` : '', p.difFecha ? `Fecha: ${chqDias(p.gp.fecha, p.banco.fecha)} día(s)` : ''].filter(Boolean).join(' · ')] })),
+    exp:r.difieren.map(p => [p.banco.numTxt, p.banco.emisor, p.banco.importe, p.gp.importe, fmtDateExport(p.banco.fecha), fmtDateExport(p.gp.fecha), p.difImporte ? 'Importe' : 'Fecha']),
+    expCols:['Nº','Emisor','Importe banco','Importe GP','Fecha pago (banco)','Vencimiento (GP)','Diferencia en'],
+    explica:'Están en los dos lados pero con el importe o la fecha distintos. Una fecha corrida unos días suele ser un fin de semana o feriado.',
+  };
+  return {
+    cols:['Nº eCheq','Emisor','Banco','Pago','Importe','Id. cliente GP'], num:[4],
+    filas:r.coinciden.map(p => ({ cel:[p.banco.numTxt, p.banco.emisor, p.banco.banco, fmtDate(p.banco.fecha), p.banco.importe, p.gp.cliente] })),
+    exp:r.coinciden.map(p => [p.banco.numTxt, p.banco.emisor, p.banco.banco, fmtDateExport(p.banco.fecha), p.banco.importe, p.gp.cliente]),
+    expCols:['Nº eCheq','Emisor','Banco','Fecha pago','Importe','Id. cliente GP'],
+    explica:'Cheques que están cargados en GP y en custodia en el banco, con mismo número, importe y fecha.',
+  };
+}
+
+function chqRender(){
+  const r = chqResultado; if(!r) return;
+  document.getElementById('chq-resultados').style.display = 'block';
+  document.getElementById('chq-info').textContent = `Banco: ${chqBanco.nombre} (${r.totalBanco}) · GP: ${chqGP.nombre} (${r.totalGP}) · cruzado el ${fmtDate(r.hoy)}`;
+  const kpi = (vista, titulo, n, sub, color) => `<div class="panel chq-kpi${chqVista === vista ? ' on' : ''}" data-chq-vista="${vista}" style="padding:14px 16px;cursor:pointer;border-left:4px solid ${color};">
+      <div class="muted" style="font-size:11px;text-transform:uppercase;">${titulo}</div>
+      <div style="font-size:26px;font-weight:800;color:${color};margin-top:2px;">${n}</div><div class="muted" style="font-size:12px;">${sub}</div></div>`;
+  document.getElementById('chq-kpis').innerHTML =
+    kpi('faltan', 'Faltan cargar en GP', r.soloBanco.length, r.soloBanco.length ? chqMoney(r.montoFaltan) : 'Todo cargado ✔', r.soloBanco.length ? 'var(--danger)' : 'var(--ok)') +
+    kpi('sologp', 'En GP, no en el banco', r.soloGP.length, r.soloGP.length ? chqMoney(r.montoSoloGP) : '—', 'var(--warn)') +
+    kpi('difieren', 'Con diferencias', r.difieren.length, 'Importe o fecha distintos', '#a78bfa') +
+    kpi('coinciden', 'Coinciden', r.coinciden.length, `de ${r.totalBanco} en custodia`, 'var(--ok)');
+  document.getElementById('chq-tabs').innerHTML = '';
+  document.querySelectorAll('#chq-kpis [data-chq-vista]').forEach(el => el.addEventListener('click', () => { chqVista = el.dataset.chqVista; chqRender(); }));
+
+  const v = chqFilasVista(chqVista);
+  document.getElementById('chq-explica').textContent = v.explica;
+  document.getElementById('chq-thead').innerHTML = `<tr>${v.cols.map((c, i) => `<th${v.num.includes(i) ? ' style="text-align:right"' : ''}>${c}</th>`).join('')}</tr>`;
+  document.getElementById('chq-tbody').innerHTML = v.filas.length ? v.filas.map(f => `<tr${f.posible ? ' style="background:rgba(255,179,71,.08)"' : ''}>${f.cel.map((c, i) =>
+      `<td${v.num.includes(i) ? ' style="text-align:right;white-space:nowrap"' : ''}>${typeof c === 'number' ? chqMoney(c) : escapeHtml(String(c))}</td>`).join('')}</tr>`).join('')
+    : `<tr><td colspan="${v.cols.length}" class="muted" style="text-align:center;padding:24px;">Nada para mostrar acá 🎉</td></tr>`;
+  const tot = v.filas.reduce((a, f) => a + (f.cel.find(c => typeof c === 'number') || 0), 0);
+  document.getElementById('chq-tfoot').innerHTML = (v.filas.length && chqVista !== 'difieren') ? `<tr><td colspan="${v.cols.length}" style="text-align:right;font-weight:700;">${v.filas.length} cheque(s) · Total ${chqMoney(tot)}</td></tr>` : '';
+}
+
+function chqExportarExcel(){
+  const r = chqResultado; if(!r) return;
+  const wb = XLSX.utils.book_new();
+  const hojas = [['Faltan cargar en GP','faltan'], ['En GP y no en banco','sologp'], ['Con diferencias','difieren'], ['Coinciden','coinciden']];
+  hojas.forEach(([nombre, vista]) => {
+    const v = chqFilasVista(vista);
+    const ws = XLSX.utils.aoa_to_sheet([v.expCols, ...v.exp]);
+    ws['!cols'] = v.expCols.map((c, i) => ({ wch: Math.max(c.length + 2, ...v.exp.slice(0, 60).map(f => String(f[i] ?? '').length + 2), 12) }));
+    XLSX.utils.book_append_sheet(wb, ws, nombre);
+  });
+  XLSX.writeFile(wb, `cheques_custodia_vs_GP_${hoyDMA()}.xlsx`);
+  showToast('Excel generado');
+}
+function chqExportarPDF(){
+  const r = chqResultado; if(!r) return;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'landscape', unit:'pt', format:'a4' });
+  const mx = 30;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+  doc.text('Cheques en custodia que faltan cargar en GP', mx, 36);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(100);
+  doc.text(`Cruce al ${fmtDate(r.hoy)} · ${r.soloBanco.length} cheque(s) · Total ${chqMoney(r.montoFaltan)} · En custodia: ${r.totalBanco} · En cartera GP: ${r.totalGP}`, mx, 52);
+  doc.setTextColor(0);
+  const v = chqFilasVista('faltan');
+  doc.autoTable({
+    startY: 64,
+    head: [['Nº eCheq','Emisor','CUIT','Cliente en Horizon','Banco','Pago','Importe']],
+    body: r.soloBanco.map(b => [b.numTxt, b.emisor, b.cuit, b.clienteNro ? `${b.clienteNro} - ${b.clienteNombre}` : '', b.banco, fmtDateExport(b.fecha), chqMoney(b.importe)]),
+    foot: [['', '', '', '', '', 'Total', chqMoney(r.montoFaltan)]],
+    theme:'grid', styles:{ fontSize:8, cellPadding:3 }, headStyles:{ fillColor:[10,26,58], textColor:255 }, footStyles:{ fillColor:[235,235,235], textColor:0, fontStyle:'bold' },
+    columnStyles:{ 6:{ halign:'right' } }, margin:{ left:mx, right:mx },
+  });
+  doc.save(`cheques_faltantes_en_GP_${hoyDMA()}.pdf`);
+  showToast('PDF generado');
+}
 
 // ---------- Fechas DD/MM/AAAA: activar campos propios y red de seguridad en exportaciones ----------
 FechaAR.arbol(document);
