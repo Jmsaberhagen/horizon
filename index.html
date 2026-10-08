@@ -7564,8 +7564,9 @@ function initPizarraDragAndDrop(){
       equipo.estado = colInfo.estado;
       renderPizarra({ conservarScroll: true });
       try{
-        const { error } = await supabaseClient.from('equipos').update({ estado: colInfo.estado }).eq('id', equipoId);
+        const { data: filasAct, error } = await supabaseClient.from('equipos').update({ estado: colInfo.estado }).eq('id', equipoId).select('id');
         if(error) throw error;
+        if(!filasAct || !filasAct.length) throw new Error('El servidor no aplicó el cambio (falta de permisos). Avisá al administrador.');
         if(fechaInicio !== pizarraHoyAr()){
           try{
             await pizarraAjustarInicio(equipoId, fechaInicio);
@@ -7581,7 +7582,7 @@ function initPizarraDragAndDrop(){
         console.error('Error moviendo equipo en pizarra:', e);
         equipo.estado = estadoAnterior;
         renderPizarra({ conservarScroll: true });
-        showToast(e && e.message && /permiso|DEMO/.test(e.message) ? e.message : 'No se pudo guardar el cambio. Reintentá.', true);
+        showToast(e && e.message && /permiso|DEMO|servidor/.test(e.message) ? e.message : 'No se pudo guardar el cambio. Reintentá.', true);
       }
     });
   });
