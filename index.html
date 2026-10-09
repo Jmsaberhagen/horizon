@@ -2397,7 +2397,7 @@ input.fecha-ar.fecha-ar-invalida{ border-color:var(--danger) !important; color:v
 
   <section id="tab-chequescustodia" style="display:none;">
     <div class="muted" style="font-size:13px;margin-bottom:14px;max-width:900px;">
-      Cruzá el listado de <b>cheques recibidos</b> que bajás del banco ("Consulta de eCheqs Recibidos", con todos los estados) con la <b>cartera de cheques de GP</b> para ver cuáles todavía no cargaste en el sistema.
+      Cruzá el listado de <b>cheques recibidos</b> que bajás del banco (también sirve "Consulta de eCheqs Recibidos": se toman solo los En Custodia) con la <b>cartera de cheques de GP</b> para ver cuáles todavía no cargaste en el sistema.
       Podés soltar los dos archivos juntos: la herramienta reconoce cuál es cuál. Los archivos se procesan en tu navegador y no se guardan.
     </div>
     <div id="chq-zonas" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-bottom:18px;">
@@ -17987,7 +17987,11 @@ function chqCruzar(banco, gp){
   ordenar(soloBanco, x => x.fecha); ordenar(soloGP, x => x.fecha);
   ordenar(difieren, x => x.banco.fecha); ordenar(coinciden, x => x.banco.fecha);
   const sum = (arr, f) => arr.reduce((a, x) => a + (Number(f(x)) || 0), 0);
-  return { soloBanco, soloGP, difieren, coinciden, totalBanco:banco.length, totalGP:gp.length, hoy,
+  // GP solo tiene cheques en cartera: del banco solo "En Custodia" debe estar cargado. Los demás estados (cobrado, depositado, aceptado...) se concilian en otra cuenta contable.
+  const enCustodia = b => !b.estado || chqNorm(b.estado) === 'en custodia';
+  const otrosEstados = soloBanco.filter(b => !enCustodia(b));
+  soloBanco.splice(0, soloBanco.length, ...soloBanco.filter(enCustodia));
+  return { soloBanco, otrosEstados, soloGP, difieren, coinciden, totalBanco:banco.length, totalGP:gp.length, hoy,
            montoFaltan:sum(soloBanco, x => x.importe), montoSoloGP:sum(soloGP, x => x.importe) };
 }
 
@@ -18056,7 +18060,7 @@ function chqFilasVista(vista){
     exp:r.soloBanco.map(b => [b.numTxt, b.emisor, b.cuit, b.clienteNro, b.clienteNombre, b.banco, fmtDateExport(b.emision), fmtDateExport(b.fecha), b.importe, b.tipoEm, b.estado,
       b.posible ? `Posible nº ${b.posible.numTxt} en GP` : '']),
     expCols:['Nº eCheq','Emisor','CUIT emisor','Nº cliente (Horizon)','Cliente (Horizon)','Banco','Fecha emisión','Fecha pago','Importe','Tipo','Estado banco','Posible coincidencia'],
-    explica:'Cheques del listado del banco (en cualquier estado: en custodia, aceptado, depositado, cobrado) que NO están en la cartera de GP: son los que nunca se cargaron.',
+    explica:'Cheques que el banco tiene en custodia y que NO están en la cartera de GP: son los que te faltan cargar.',
   };
   if(vista === 'sologp') return {
     cols:['Nº documento','Id. cliente GP','Vencimiento','Importe','Observación'], num:[3],
@@ -18087,7 +18091,7 @@ function chqFilasVista(vista){
 function chqRender(){
   const r = chqResultado; if(!r) return;
   document.getElementById('chq-resultados').style.display = 'block';
-  document.getElementById('chq-info').textContent = `Banco: ${chqBanco.nombre} (${r.totalBanco}) · GP: ${chqGP.nombre} (${r.totalGP}) · cruzado el ${fmtDate(r.hoy)}`;
+  document.getElementById('chq-info').textContent = `Banco: ${chqBanco.nombre} (${r.totalBanco}) · GP: ${chqGP.nombre} (${r.totalGP}) · cruzado el ${fmtDate(r.hoy)}` + (r.otrosEstados.length ? ` · ${r.otrosEstados.length} de otros estados (cobrado/depositado/aceptado) sin cruzar con cartera, no se cuentan` : '');
   const kpi = (vista, titulo, n, sub, color) => `<div class="panel chq-kpi${chqVista === vista ? ' on' : ''}" data-chq-vista="${vista}" style="padding:14px 16px;cursor:pointer;border-left:4px solid ${color};">
       <div class="muted" style="font-size:11px;text-transform:uppercase;">${titulo}</div>
       <div style="font-size:26px;font-weight:800;color:${color};margin-top:2px;">${n}</div><div class="muted" style="font-size:12px;">${sub}</div></div>`;
@@ -18095,7 +18099,7 @@ function chqRender(){
     kpi('faltan', 'Faltan cargar en GP', r.soloBanco.length, r.soloBanco.length ? chqMoney(r.montoFaltan) : 'Todo cargado ✔', r.soloBanco.length ? 'var(--danger)' : 'var(--ok)') +
     kpi('sologp', 'En GP, no en el banco', r.soloGP.length, r.soloGP.length ? chqMoney(r.montoSoloGP) : '—', 'var(--warn)') +
     kpi('difieren', 'Con diferencias', r.difieren.length, 'Importe o fecha distintos', '#a78bfa') +
-    kpi('coinciden', 'Coinciden', r.coinciden.length, `de ${r.totalBanco} del banco`, 'var(--ok)');
+    kpi('coinciden', 'Coinciden', r.coinciden.length, `de ${r.totalBanco} del banco (cualquier estado)`, 'var(--ok)');
   document.getElementById('chq-tabs').innerHTML = '';
   document.querySelectorAll('#chq-kpis [data-chq-vista]').forEach(el => el.addEventListener('click', () => { chqVista = el.dataset.chqVista; chqRender(); }));
 
@@ -18128,7 +18132,7 @@ function chqExportarPDF(){
   const doc = new jsPDF({ orientation:'landscape', unit:'pt', format:'a4' });
   const mx = 30;
   doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
-  doc.text('Cheques del banco que faltan cargar en GP', mx, 36);
+  doc.text('Cheques en custodia que faltan cargar en GP', mx, 36);
   doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(100);
   doc.text(`Cruce al ${fmtDate(r.hoy)} · ${r.soloBanco.length} cheque(s) · Total ${chqMoney(r.montoFaltan)} · En listado banco: ${r.totalBanco} · En cartera GP: ${r.totalGP}`, mx, 52);
   doc.setTextColor(0);
