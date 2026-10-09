@@ -2397,14 +2397,14 @@ input.fecha-ar.fecha-ar-invalida{ border-color:var(--danger) !important; color:v
 
   <section id="tab-chequescustodia" style="display:none;">
     <div class="muted" style="font-size:13px;margin-bottom:14px;max-width:900px;">
-      Cruzá el listado de <b>cheques en custodia</b> que bajás del banco con la <b>cartera de cheques de GP</b> para ver cuáles todavía no cargaste en el sistema.
+      Cruzá el listado de <b>cheques recibidos</b> que bajás del banco ("Consulta de eCheqs Recibidos", con todos los estados) con la <b>cartera de cheques de GP</b> para ver cuáles todavía no cargaste en el sistema.
       Podés soltar los dos archivos juntos: la herramienta reconoce cuál es cuál. Los archivos se procesan en tu navegador y no se guardan.
     </div>
     <div id="chq-zonas" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-bottom:18px;">
       <div class="chq-dz" id="chq-dz-banco" tabindex="0" role="button">
         <div style="font-size:30px;line-height:1;margin-bottom:8px;">🏦</div>
         <div style="font-weight:600;">Custodiados del banco</div>
-        <div class="muted" style="font-size:12px;margin-top:4px;">"Custodiados_…xlsx" — arrastralo o hacé clic</div>
+        <div class="muted" style="font-size:12px;margin-top:4px;">"Custodiados_…xlsx" o "ConsultaEcheques-Recibidos_…xls" — arrastralo o hacé clic</div>
         <div class="chq-dz-estado muted" id="chq-estado-banco" style="font-size:12px;margin-top:10px;">Sin cargar</div>
       </div>
       <div class="chq-dz" id="chq-dz-gp" tabindex="0" role="button">
@@ -17912,7 +17912,7 @@ async function chqLeerArchivo(file){
   for(let i = 0; i < Math.min(filas.length, 15) && !tipo; i++){
     const cols = filas[i].map(chqNorm);
     const buscar = (...ops) => cols.findIndex(c => ops.some(o => c === o || c.startsWith(o)));
-    const iNum = buscar('numero de echeq');
+    const iNum = buscar('numero de echeq', 'numero de cheque');
     const iImp = buscar('importe');
     if(iNum >= 0 && iImp >= 0){
       tipo = 'banco'; hi = i;
@@ -17937,7 +17937,7 @@ async function chqLeerArchivo(file){
     if(tipo === 'banco'){
       rows.push({ origen:'banco', num, numTxt:String(g(f,'numero')).trim(), importe:chqImporte(g(f,'importe')), fecha:chqFecha(g(f,'pago')), emision:chqFecha(g(f,'emision')),
         emisor:String(g(f,'emisor')).trim(), cuit:String(g(f,'cuit')).replace(/\D/g,''), banco:String(g(f,'banco')).replace(/^\d+\s*\/\s*/, '').trim(),
-        benef:String(g(f,'benef')).trim(), historial:String(g(f,'historial')).trim(), tipoEm:String(g(f,'tipoEm')).trim(), moneda:String(g(f,'moneda')).trim() || '$' });
+        benef:String(g(f,'benef')).trim(), historial:String(g(f,'historial')).trim(), tipoEm:String(g(f,'tipoEm')).trim(), estado:String(g(f,'estado')).trim(), moneda:String(g(f,'moneda')).trim() || '$' });
     } else {
       rows.push({ origen:'gp', num, numTxt:String(g(f,'numero')).trim(), importe:chqImporte(g(f,'importe')), fecha:chqFecha(g(f,'venc')), cliente:String(g(f,'cliente')).trim(), estado:String(g(f,'estado')).trim() });
     }
@@ -18049,14 +18049,14 @@ function chqFilasVista(vista){
   const emisorTxt = b => `${b.emisor}${b.cuit ? ` (CUIT ${b.cuit})` : ''}`;
   const endoso = b => (b.benef && chqNumero(b.cuit) && b.benef.toUpperCase().indexOf('HORIZON') < 0) ? `Endosado a ${b.benef}` : '';
   if(vista === 'faltan') return {
-    cols:['Nº eCheq','Emisor','Cliente en Horizon','Banco','Emisión','Pago','Importe','Observación'],
+    cols:['Nº eCheq','Emisor','Cliente en Horizon','Banco','Emisión','Pago','Importe','Estado banco','Observación'],
     num:[6],
-    filas:r.soloBanco.map(b => ({ cel:[b.numTxt, emisorTxt(b), b.clienteNro ? `${b.clienteNro} — ${b.clienteNombre}` : '— no encontrado por CUIT —', b.banco, fmtDate(b.emision), fmtDate(b.fecha), b.importe,
+    filas:r.soloBanco.map(b => ({ cel:[b.numTxt, emisorTxt(b), b.clienteNro ? `${b.clienteNro} — ${b.clienteNombre}` : '— no encontrado por CUIT —', b.banco, fmtDate(b.emision), fmtDate(b.fecha), b.importe, b.estado || '—',
       [b.posible ? `¿Será el ${b.posible.numTxt} de GP? (mismo importe, vence ${fmtDate(b.posible.fecha)})` : '', endoso(b)].filter(Boolean).join(' · ')], posible:!!b.posible })),
-    exp:r.soloBanco.map(b => [b.numTxt, b.emisor, b.cuit, b.clienteNro, b.clienteNombre, b.banco, fmtDateExport(b.emision), fmtDateExport(b.fecha), b.importe, b.tipoEm,
+    exp:r.soloBanco.map(b => [b.numTxt, b.emisor, b.cuit, b.clienteNro, b.clienteNombre, b.banco, fmtDateExport(b.emision), fmtDateExport(b.fecha), b.importe, b.tipoEm, b.estado,
       b.posible ? `Posible nº ${b.posible.numTxt} en GP` : '']),
-    expCols:['Nº eCheq','Emisor','CUIT emisor','Nº cliente (Horizon)','Cliente (Horizon)','Banco','Fecha emisión','Fecha pago','Importe','Tipo','Posible coincidencia'],
-    explica:'Cheques que el banco tiene en custodia y que NO están en la cartera de GP: son los que te faltan cargar.',
+    expCols:['Nº eCheq','Emisor','CUIT emisor','Nº cliente (Horizon)','Cliente (Horizon)','Banco','Fecha emisión','Fecha pago','Importe','Tipo','Estado banco','Posible coincidencia'],
+    explica:'Cheques del listado del banco (en cualquier estado: en custodia, aceptado, depositado, cobrado) que NO están en la cartera de GP: son los que nunca se cargaron.',
   };
   if(vista === 'sologp') return {
     cols:['Nº documento','Id. cliente GP','Vencimiento','Importe','Observación'], num:[3],
@@ -18080,7 +18080,7 @@ function chqFilasVista(vista){
     filas:r.coinciden.map(p => ({ cel:[p.banco.numTxt, p.banco.emisor, p.banco.banco, fmtDate(p.banco.fecha), p.banco.importe, p.gp.cliente] })),
     exp:r.coinciden.map(p => [p.banco.numTxt, p.banco.emisor, p.banco.banco, fmtDateExport(p.banco.fecha), p.banco.importe, p.gp.cliente]),
     expCols:['Nº eCheq','Emisor','Banco','Fecha pago','Importe','Id. cliente GP'],
-    explica:'Cheques que están cargados en GP y en custodia en el banco, con mismo número, importe y fecha.',
+    explica:'Cheques que están cargados en GP y figuran en el listado del banco, con mismo número, importe y fecha.',
   };
 }
 
@@ -18095,7 +18095,7 @@ function chqRender(){
     kpi('faltan', 'Faltan cargar en GP', r.soloBanco.length, r.soloBanco.length ? chqMoney(r.montoFaltan) : 'Todo cargado ✔', r.soloBanco.length ? 'var(--danger)' : 'var(--ok)') +
     kpi('sologp', 'En GP, no en el banco', r.soloGP.length, r.soloGP.length ? chqMoney(r.montoSoloGP) : '—', 'var(--warn)') +
     kpi('difieren', 'Con diferencias', r.difieren.length, 'Importe o fecha distintos', '#a78bfa') +
-    kpi('coinciden', 'Coinciden', r.coinciden.length, `de ${r.totalBanco} en custodia`, 'var(--ok)');
+    kpi('coinciden', 'Coinciden', r.coinciden.length, `de ${r.totalBanco} del banco`, 'var(--ok)');
   document.getElementById('chq-tabs').innerHTML = '';
   document.querySelectorAll('#chq-kpis [data-chq-vista]').forEach(el => el.addEventListener('click', () => { chqVista = el.dataset.chqVista; chqRender(); }));
 
@@ -18128,18 +18128,18 @@ function chqExportarPDF(){
   const doc = new jsPDF({ orientation:'landscape', unit:'pt', format:'a4' });
   const mx = 30;
   doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
-  doc.text('Cheques en custodia que faltan cargar en GP', mx, 36);
+  doc.text('Cheques del banco que faltan cargar en GP', mx, 36);
   doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(100);
-  doc.text(`Cruce al ${fmtDate(r.hoy)} · ${r.soloBanco.length} cheque(s) · Total ${chqMoney(r.montoFaltan)} · En custodia: ${r.totalBanco} · En cartera GP: ${r.totalGP}`, mx, 52);
+  doc.text(`Cruce al ${fmtDate(r.hoy)} · ${r.soloBanco.length} cheque(s) · Total ${chqMoney(r.montoFaltan)} · En listado banco: ${r.totalBanco} · En cartera GP: ${r.totalGP}`, mx, 52);
   doc.setTextColor(0);
   const v = chqFilasVista('faltan');
   doc.autoTable({
     startY: 64,
-    head: [['Nº eCheq','Emisor','CUIT','Cliente en Horizon','Banco','Pago','Importe']],
-    body: r.soloBanco.map(b => [b.numTxt, b.emisor, b.cuit, b.clienteNro ? `${b.clienteNro} - ${b.clienteNombre}` : '', b.banco, fmtDateExport(b.fecha), chqMoney(b.importe)]),
-    foot: [['', '', '', '', '', 'Total', chqMoney(r.montoFaltan)]],
+    head: [['Nº eCheq','Emisor','CUIT','Cliente en Horizon','Banco','Estado banco','Pago','Importe']],
+    body: r.soloBanco.map(b => [b.numTxt, b.emisor, b.cuit, b.clienteNro ? `${b.clienteNro} - ${b.clienteNombre}` : '', b.banco, b.estado || '', fmtDateExport(b.fecha), chqMoney(b.importe)]),
+    foot: [['', '', '', '', '', '', 'Total', chqMoney(r.montoFaltan)]],
     theme:'grid', styles:{ fontSize:8, cellPadding:3 }, headStyles:{ fillColor:[10,26,58], textColor:255 }, footStyles:{ fillColor:[235,235,235], textColor:0, fontStyle:'bold' },
-    columnStyles:{ 6:{ halign:'right' } }, margin:{ left:mx, right:mx },
+    columnStyles:{ 7:{ halign:'right' } }, margin:{ left:mx, right:mx },
   });
   doc.save(`cheques_faltantes_en_GP_${hoyDMA()}.pdf`);
   showToast('PDF generado');
