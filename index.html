@@ -258,6 +258,10 @@
   .row-actions{display:flex;gap:6px;}
 
   /* Modal */
+  .sync-chip{margin-left:auto;background:transparent;border:1px solid var(--border,#2a3a4a);color:var(--muted,#8aa0b4);border-radius:999px;padding:3px 12px;font-size:12px;cursor:pointer;}
+  .sync-chip:hover{color:var(--text,#fff);border-color:var(--accent,#1e9be8);}
+  .sync-chip.sync-girando .sync-ic{display:inline-block;animation:syncgiro 0.9s linear infinite;}
+  @keyframes syncgiro{to{transform:rotate(360deg);}}
   .overlay{
     position:fixed; inset:0;
     background:rgba(0,0,0,0.6);
@@ -952,6 +956,7 @@ input.fecha-ar.fecha-ar-invalida{ border-color:var(--danger) !important; color:v
 <div class="subbar" id="subbar">
   <button class="back-btn" id="btn-volver-inicio">← Volver al inicio</button>
   <span class="subbar-title" id="subbar-title"></span>
+  <button type="button" id="sync-chip" class="sync-chip" title="Actualizar ahora (se actualiza solo cada pocos minutos)" style="display:none;"><span class="sync-ic">↻</span> <span id="sync-txt">Actualizar</span></button>
 </div>
 
 <main>
@@ -4214,6 +4219,7 @@ function activarTab(tab){
     subbar.classList.add('visible');
     document.getElementById('subbar-title').textContent = TAB_TITLES[tab] || '';
   }
+  if(typeof syncAlAbrirTab === 'function') syncAlAbrirTab(tab);
 }
 
 document.querySelectorAll('nav button[data-tab]').forEach(btn=>{
@@ -4259,7 +4265,7 @@ async function loadSucursales(){
 
 async function loadClientes(){
   const tbody = document.getElementById('clientes-tbody');
-  tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Cargando clientes...</td></tr>';
+  if(!syncSilencioso) tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Cargando clientes...</td></tr>';
 
   const pageSize = 1000;
   let allData = [];
@@ -4715,7 +4721,7 @@ async function pizarraContratosMinimos(){
 
 async function loadContratos(){
   const tbody = document.getElementById('contratos-tbody');
-  tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Cargando contratos...</td></tr>';
+  if(!syncSilencioso) tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Cargando contratos...</td></tr>';
 
   const pageSize = 1000;
   let allData = [];
@@ -5740,7 +5746,7 @@ async function refrescarPendientesSiCorresponde(){
 
 async function loadPendientes(){
   const tbody = document.getElementById('pendientes-tbody');
-  tbody.innerHTML = '<tr><td colspan="10" class="empty-state">Cargando pendientes...</td></tr>';
+  if(!syncSilencioso) tbody.innerHTML = '<tr><td colspan="10" class="empty-state">Cargando pendientes...</td></tr>';
 
   const pageSize = 1000;
   let allData = [];
@@ -7896,6 +7902,7 @@ document.getElementById('login-password').addEventListener('keydown', (e)=>{
 
 document.getElementById('btn-logout').addEventListener('click', async ()=>{
   pizarraLiveDetener();
+  syncDetener();
   pizarraSalirModoTV();
   await supabaseClient.auth.signOut();
   miPerfil = null;
@@ -8017,7 +8024,7 @@ document.getElementById('btn-permisos-save').addEventListener('click', async ()=
 
 async function loadUsuarios(){
   const tbody = document.getElementById('usuarios-tbody');
-  tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Cargando usuarios...</td></tr>';
+  if(!syncSilencioso) tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Cargando usuarios...</td></tr>';
   const { data, error } = await supabaseClient.from('perfiles').select('*').order('nombre');
   if(error){
     tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Error al cargar usuarios: ${escapeHtml(error.message)}</td></tr>`;
@@ -17120,7 +17127,7 @@ function generarPresupuestoPDF(id){
 
 async function loadHaulotteRepuestos(){
   const tbody = document.getElementById('hrep-tbody');
-  if(tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Cargando artículos...</td></tr>';
+  if(tbody && !syncSilencioso) tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Cargando artículos...</td></tr>';
 
   const [{ data: repuestos, error: errR }, { data: costos, error: errC }] = await Promise.all([
     supabaseClient.from('haulotte_repuestos').select('*').order('codigo'),
@@ -17458,6 +17465,7 @@ async function initApp(){
 
     // Pizarra de Flota en vivo (televisor de operaciones): solo para quien tiene acceso a la pizarra
     if(puede('pizarra','ver')) pizarraLiveIniciar();
+    syncIniciar();
 
     populateRetirosFiltros();
     renderRetiros();
@@ -18199,6 +18207,156 @@ new MutationObserver((muts)=>{
 
 
 // ---------- Init ----------
+// =========================================================
+// SINCRONIZACIÓN GENERAL: todos los módulos se ponen al día solos
+// =========================================================
+// Cada módulo abierto se vuelve a consultar (1) al abrirlo si pasó un rato, (2) cada SYNC_INTERVALO_MS mientras se mira,
+// (3) al volver a la pestaña del navegador / recuperar internet, y (4) cuando otro usuario cambia algo (tiempo real,
+// con un pequeño margen para agrupar cambios). Se hace en silencio: se conservan filtros y búsquedas, y NO se
+// actualiza si la persona está en medio de una edición (ventana abierta, arrastrando, escribiendo en una tabla).
+const SYNC_INTERVALO_MS = 2 * 60 * 1000;   // cada cuánto se refresca el módulo abierto (bajá/subí este número)
+const SYNC_AL_ABRIR_MS  = 30 * 1000;       // al abrir un módulo, se refresca si lo último fue hace más que esto
+const SYNC_TABLAS_VIVO  = ['equipos','contratos','clientes','pendientes_facturacion','remitos','solicitudes_oc',
+  'presupuestos','personal','datos_bancarios_proveedores','gastos_obra','facturas_pdf','envios_factura_pdf','equipo_paradas'];
+let syncSilencioso = false, syncEnCurso = false, syncListo = false, syncPendiente = false;
+let syncTimer = null, syncDeb = null, syncCanal = null;
+const syncUltimoPorTab = {};
+
+async function syncNucleo(){ await loadEquipos(); await loadContratos(); }
+function syncRefiltrar(){
+  const pasos = [
+    () => applyFilters(),
+    () => { if(puede('contratos','ver')) applyContratoFilters(); },
+    () => { if(puede('pendientes','ver')) applyPendFilters(); },
+    () => renderEquipos(getFilteredEquipos()),
+  ];
+  pasos.forEach(f => { try{ f(); }catch(e){ console.warn('Sync: refiltrar', e); } });
+}
+const SYNC_TABS = {
+  inicio:        async () => { await syncNucleo(); if(puede('pendientes','ver')) await loadPendientes(); syncRefiltrar(); renderDashboard(); },
+  clientes:      async () => { await loadClientes(); applyFilters(); },
+  contratos:     async () => { await syncNucleo(); syncRefiltrar(); },
+  equipos:       async () => { await syncNucleo(); syncRefiltrar(); },
+  pendientes:    async () => { await loadContratos(); await loadPendientes(); syncRefiltrar(); },
+  retiros:       async () => { await syncNucleo(); syncRefiltrar(); renderRetiros(); },
+  remitos:       async () => { await loadRemitos(); renderRemitos(); },
+  solicitudoc:   async () => { await loadSolicitudesOC(); renderSolicitudesOCLista(); },
+  presupuestos:  async () => { await loadPresupuestos(); renderPresupuestos(); },
+  personal:      async () => { await loadPersonal(); renderPersonalCards(); },
+  datosbancarios:async () => { await loadDatosBancarios(); renderDatosBancarios(); },
+  gastosobra:    async () => { await loadGastosObra(); renderGastosObraLista(); renderStatsGastosObra(); },
+  haulotte_articulos: async () => { await loadHaulotteRepuestos(); renderHaulotteRepuestos(); },
+  usuarios:      async () => { await loadUsuarios(); },
+  enviofacturas: async () => { await syncNucleo(); await loadTodasFacturasParaEnvio(); renderEnvioFacturas(); },
+  reportes:      async () => { await syncNucleo(); await loadPendientes(); syncRefiltrar(); renderReportes(); },
+  planning:      async () => { await syncNucleo(); await loadEquipoParadas(); renderPlanning(); },
+  vencimientos:  async () => { await syncNucleo(); renderControlVencimientos(); },
+  backlogfacturacion: async () => { await loadContratos(); await loadPendientes(); syncRefiltrar(); await renderBacklog(); },
+  modalidadfact: async () => { await loadEncuestaModalidad(); },
+};   // La Pizarra tiene su propio refresco en vivo; las herramientas embebidas y de archivos no consultan datos.
+
+function syncTabActual(){
+  const s = [...document.querySelectorAll('main > section')].find(x => x.style.display === 'block');
+  return s ? s.id.replace(/^tab-/, '') : null;
+}
+function syncOcupado(){
+  if(document.hidden) return true;
+  if(document.querySelector('.overlay.open')) return true;               // hay una ventana abierta (editando / cargando)
+  if(typeof pizarraArrastrando !== 'undefined' && pizarraArrastrando) return true;
+  const a = document.activeElement;
+  if(a && a.closest && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.closest('table')) return true;   // editando dentro de una tabla
+  return false;
+}
+function syncGuardarControles(){
+  const m = new Map();
+  document.querySelectorAll('main select[id], main input[id]:not([type=file]):not([type=button])').forEach(el => {
+    m.set(el.id, (el.type === 'checkbox' || el.type === 'radio') ? el.checked : el.value);
+  });
+  return m;
+}
+function syncRestaurarControles(m){
+  m.forEach((v, id) => {
+    const el = document.getElementById(id); if(!el) return;
+    if(el.type === 'checkbox' || el.type === 'radio'){ if(el.checked !== v) el.checked = v; }
+    else if(el.value !== v) el.value = v;
+  });
+}
+function syncHora(){ return new Date().toLocaleTimeString('es-AR', { timeZone:'America/Argentina/Buenos_Aires', hour:'2-digit', minute:'2-digit', hour12:false }); }
+function syncRenderChip(estado){
+  const chip = document.getElementById('sync-chip'); if(!chip) return;
+  const tab = syncTabActual();
+  chip.style.display = (tab && SYNC_TABS[tab]) ? '' : 'none';
+  const t = document.getElementById('sync-txt'); if(!t) return;
+  const ult = syncUltimoPorTab[tab];
+  t.textContent = estado === 'cargando' ? 'Actualizando…' : (ult ? 'Actualizado ' + syncHora() : 'Actualizar');
+  chip.classList.toggle('sync-girando', estado === 'cargando');
+}
+
+async function syncEjecutar(motivo, forzar){
+  if(!syncListo || !miPerfil || syncEnCurso) return;
+  const tab = syncTabActual(); const fn = SYNC_TABS[tab];
+  if(!fn) return;
+  if(!forzar && syncOcupado()){ syncPendiente = true; return; }
+  syncEnCurso = true; syncPendiente = false;
+  syncRenderChip('cargando');
+  const controles = syncGuardarControles();
+  try{
+    // Antes de tocar nada, se verifica que haya conexión: así un corte de internet no vacía las pantallas.
+    if(navigator.onLine === false) throw new Error('sin conexión');
+    const { error } = await supabaseClient.from('sucursales').select('id').limit(1);
+    if(error) throw error;
+    syncSilencioso = true;
+    await fn();
+    syncUltimoPorTab[tab] = Date.now();
+  }catch(e){
+    console.warn('Sync (' + motivo + '):', e && e.message || e);
+    if(forzar) showToast('No se pudo actualizar: ' + (e && e.message || 'error de conexión'), true);
+  }finally{
+    syncSilencioso = false;
+    try{ syncRestaurarControles(controles); }catch(_){}
+    syncEnCurso = false;
+    syncRenderChip();
+  }
+}
+function syncAlAbrirTab(tab){
+  if(!syncListo || !SYNC_TABS[tab]) { syncRenderChip(); return; }
+  const ult = syncUltimoPorTab[tab] || 0;
+  syncRenderChip();
+  if(Date.now() - ult > SYNC_AL_ABRIR_MS) syncEjecutar('abrir', true);
+}
+function syncProgramar(){
+  clearTimeout(syncDeb);
+  syncDeb = setTimeout(() => syncEjecutar('en vivo', false), 4000);
+}
+function syncIniciar(){
+  syncDetener();
+  syncListo = true;
+  syncUltimoPorTab[syncTabActual()] = Date.now();
+  syncTimer = setInterval(() => {
+    const tab = syncTabActual();
+    if(Date.now() - (syncUltimoPorTab[tab] || 0) >= SYNC_INTERVALO_MS - 5000 || syncPendiente) syncEjecutar('sondeo', false);
+  }, 30 * 1000);
+  try{
+    let canal = supabaseClient.channel('sync-general');
+    SYNC_TABLAS_VIVO.forEach(t => { canal = canal.on('postgres_changes', { event:'*', schema:'public', table:t }, syncProgramar); });
+    syncCanal = canal.subscribe();
+  }catch(e){ console.warn('Sync: tiempo real no disponible, queda el refresco periódico', e); }
+  syncRenderChip();
+}
+function syncDetener(){
+  syncListo = false;
+  clearInterval(syncTimer); syncTimer = null; clearTimeout(syncDeb);
+  if(syncCanal){ try{ supabaseClient.removeChannel(syncCanal); }catch(_){} syncCanal = null; }
+}
+function syncSiHaceFalta(){
+  const tab = syncTabActual();
+  if(Date.now() - (syncUltimoPorTab[tab] || 0) > 30 * 1000) syncEjecutar('volver', false);
+}
+document.addEventListener('visibilitychange', () => { if(!document.hidden) syncSiHaceFalta(); });
+window.addEventListener('online', syncSiHaceFalta);
+window.addEventListener('focus', syncSiHaceFalta);
+document.getElementById('sync-chip')?.addEventListener('click', () => syncEjecutar('manual', true));
+
 (async function init(){
   console.log('[Horizon] iniciando...');
   if(!initSupabase()) return;
