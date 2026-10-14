@@ -18304,7 +18304,8 @@ function renderAutorizaciones(){
           <div class="muted" style="font-size:12.5px;margin-top:4px;">${escapeHtml(equipo)} · ${escapeHtml(c.sucursales?.nombre || '—')}
             · Salida ${fmtDate(c.fecha_salida)} → ${fmtDate(c.fecha_vencimiento)} · Remito ${escapeHtml(c.remito || '—')}
             · ${precio != null ? fmtMoney(precio, c.moneda) : 'sin precio'}${c.obra ? ' · Obra: ' + escapeHtml(c.obra) : ''}</div>
-          <div class="muted" style="font-size:12px;margin-top:3px;">Cargado por <b>${escapeHtml(c.autorizacion_solicitada_nombre || c.creador?.nombre || '—')}</b> · ${autFechaHora(c.autorizacion_solicitada_at || c.created_at)}</div>
+          <div class="muted" style="font-size:12px;margin-top:3px;">Cargado por <b>${escapeHtml(c.creador?.nombre || (tipo === 'nuevo' ? c.autorizacion_solicitada_nombre : '') || '—')}</b> · ${autFechaHora(c.created_at)}</div>
+          ${tipo === 'nuevo' ? '' : `<div class="muted" style="font-size:12px;margin-top:2px;">${tipo === 'edicion' ? '✏️ Editado por' : '🔎 Enviado a revisión por'} <b>${escapeHtml(c.autorizacion_solicitada_nombre || '—')}</b> · ${autFechaHora(c.autorizacion_solicitada_at)}</div>`}
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn small" onclick="autAutorizar(${c.id})">✔ Autorizar</button>
