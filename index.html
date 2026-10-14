@@ -1019,6 +1019,10 @@ input.fecha-ar.fecha-ar-invalida{ border-color:var(--danger) !important; color:v
         al rechazar una edición, el contrato vuelve a como estaba.
       </div>
     </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <button class="btn secondary" id="btn-export-aut-xls">Exportar XLSX</button>
+      <button class="btn secondary" id="btn-export-aut-pdf">Exportar PDF</button>
+    </div>
     <div id="aut-lista"></div>
     <div class="panel" style="padding:14px 16px;margin-top:16px;">
       <div id="email-dest-autorizacion_contratos-header" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
@@ -18356,6 +18360,81 @@ document.getElementById('btn-contrato-enviar-aut')?.addEventListener('click', as
   await autPostAccion();
 });
 document.querySelector('nav button[data-tab="autorizaciones"]')?.addEventListener('click', renderAutorizaciones);
+// ---------- Exportar pendientes de autorización (Excel / PDF) ----------
+const AUT_TIPO_TXT = { nuevo:'Contrato nuevo', edicion:'Contrato editado', manual:'En revisión' };
+function autFilasExport(){
+  return contratosCache.filter(c => c.autorizacion === 'pendiente')
+    .sort((a,b) => String(a.autorizacion_solicitada_at || '').localeCompare(String(b.autorizacion_solicitada_at || '')))
+    .map(c => {
+      const tipo = c.autorizacion_tipo;
+      const precio = c.precio_mensual_con_descuento ?? c.precio_mensual_sin_descuento;
+      const cambios = (tipo === 'edicion' && c.autorizacion_cambios)
+        ? Object.entries(c.autorizacion_cambios).map(([k,v]) => `${AUT_ETIQUETAS[k] || k}: ${autValor(k, v.antes)} → ${autValor(k, v.despues)}`).join(' | ') : '';
+      return {
+        tipo: AUT_TIPO_TXT[tipo] || tipo || '',
+        cliente: c.clientes?.razon_social || '',
+        serie: c.equipos?.numero_serie || '', modelo: c.equipos?.modelo || '',
+        sucursal: c.sucursales?.nombre || '',
+        estado: c.estado === 'baja' ? 'De baja' + (c.fecha_baja ? ' ' + fmtDate(c.fecha_baja) : '') : (c.es_demo ? 'Activo (DEMO)' : 'Activo'),
+        salida: c.fecha_salida ? fmtDate(c.fecha_salida) : '', vence: c.fecha_vencimiento ? fmtDate(c.fecha_vencimiento) : '',
+        remito: c.remito || '', moneda: c.moneda || '', precio: precio ?? '', obra: c.obra || '',
+        creador: c.creador?.nombre || (tipo === 'nuevo' ? c.autorizacion_solicitada_nombre : '') || '',
+        creado: autFechaHora(c.created_at),
+        solicito: tipo === 'nuevo' ? '' : (c.autorizacion_solicitada_nombre || ''),
+        solicitado: tipo === 'nuevo' ? '' : autFechaHora(c.autorizacion_solicitada_at),
+        motivo: c.autorizacion_motivo || '', cambios,
+      };
+    });
+}
+function autExportarExcel(){
+  if(!puede('contratos','autorizar')) return;
+  const f = autFilasExport();
+  if(!f.length){ showToast('No hay contratos pendientes de autorización', true); return; }
+  const head = ['Tipo','Cliente','Serie','Modelo','Sucursal','Estado','Salida','Vencimiento','Remito','Moneda','Precio mensual','Obra','Cargado por','Fecha de carga','Editado / enviado a revisión por','Fecha','Motivo','Cambios (antes → ahora)'];
+  const rows = f.map(x => [x.tipo,x.cliente,x.serie,x.modelo,x.sucursal,x.estado,x.salida,x.vence,x.remito,x.moneda,x.precio,x.obra,x.creador,x.creado,x.solicito,x.solicitado,x.motivo,x.cambios]);
+  const ws = XLSX.utils.aoa_to_sheet([head, ...rows]);
+  ws['!cols'] = head.map((h,i) => ({ wch: Math.min(60, Math.max(h.length + 2, ...rows.slice(0,60).map(r => String(r[i] ?? '').length + 2), 10)) }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Pendientes de autorización');
+  XLSX.writeFile(wb, `contratos_pendientes_autorizacion_${hoyDMA()}.xlsx`);
+  showToast('Excel generado');
+}
+function autExportarPDF(){
+  if(!puede('contratos','autorizar')) return;
+  const f = autFilasExport();
+  if(!f.length){ showToast('No hay contratos pendientes de autorización', true); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'landscape', unit:'pt', format:'a4' });
+  const mx = 30;
+  doc.setFont('helvetica','bold'); doc.setFontSize(15);
+  doc.text('Contratos pendientes de autorización', mx, 36);
+  doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(100);
+  doc.text(`Al ${hoyDMA()} · ${f.length} contrato(s): ${f.filter(x=>x.tipo===AUT_TIPO_TXT.nuevo).length} nuevo(s), ${f.filter(x=>x.tipo===AUT_TIPO_TXT.edicion).length} editado(s), ${f.filter(x=>x.tipo===AUT_TIPO_TXT.manual).length} en revisión`, mx, 52);
+  doc.setTextColor(0);
+  doc.autoTable({
+    startY: 64,
+    head: [['Tipo','Cliente','Equipo','Sucursal','Salida → Vence','Remito','Precio','Cargado por','Revisión / edición','Motivo / cambios']],
+    body: f.map(x => [
+      x.tipo + (x.estado.startsWith('De baja') ? '\n' + x.estado : ''),
+      x.cliente,
+      `${x.modelo}\n${x.serie}`,
+      x.sucursal,
+      `${x.salida || '—'} → ${x.vence || '—'}`,
+      x.remito || '—',
+      x.precio !== '' ? fmtMoney(x.precio, x.moneda) : 'sin precio',
+      `${x.creador}\n${x.creado}`,
+      x.solicito ? `${x.solicito}\n${x.solicitado}` : '—',
+      [x.motivo ? 'Motivo: ' + x.motivo : '', x.cambios].filter(Boolean).join('\n') || '—',
+    ]),
+    theme:'grid', styles:{ fontSize:7.5, cellPadding:3, valign:'top' }, headStyles:{ fillColor:[10,26,58], textColor:255 },
+    columnStyles:{ 9:{ cellWidth:170 } }, margin:{ left:mx, right:mx },
+  });
+  doc.save(`contratos_pendientes_autorizacion_${hoyDMA()}.pdf`);
+  showToast('PDF generado');
+}
+document.getElementById('btn-export-aut-xls')?.addEventListener('click', autExportarExcel);
+document.getElementById('btn-export-aut-pdf')?.addEventListener('click', autExportarPDF);
+
 
 // =========================================================
 // SINCRONIZACIÓN GENERAL: todos los módulos se ponen al día solos
