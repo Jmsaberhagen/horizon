@@ -923,6 +923,7 @@ input.fecha-ar.fecha-ar-invalida{ border-color:var(--danger) !important; color:v
   <button class="active" data-tab="inicio">Inicio</button>
   <button data-tab="clientes">Clientes</button>
   <button data-tab="contratos">Contratos</button>
+  <button data-tab="autorizaciones">Contratos pendientes de autorización</button>
   <button data-tab="equipos">Equipos</button>
   <button data-tab="pizarra">Pizarra de Flota</button>
   <button data-tab="trazabilidad">Trazabilidad</button>
@@ -1006,6 +1007,26 @@ input.fecha-ar.fecha-ar-invalida{ border-color:var(--danger) !important; color:v
       </div>
     </div>
     <div class="muted" id="results-count" style="margin-top:10px;font-size:12px;"></div>
+  </section>
+
+  <section id="tab-autorizaciones" style="display:none;">
+    <div class="panel" style="padding:14px 18px;margin-bottom:14px;">
+      <div style="font-weight:700;font-size:15px;margin-bottom:4px;">🛡️ Contratos pendientes de autorización</div>
+      <div class="muted" style="font-size:12.5px;line-height:1.5;">
+        Acá quedan los contratos que necesitan el visto bueno de un maestro: los <b>nuevos</b> cargados por usuarios con autorización obligatoria,
+        los que alguien <b>editó</b>, y los que un maestro <b>mandó a revisar</b>. Mientras estén acá <b>no generan pendientes de facturación</b>;
+        la máquina figura como Alquilada en la Pizarra. Al <b>autorizar</b> siguen el circuito normal. Al <b>rechazar</b> un contrato nuevo se anula y la máquina se libera;
+        al rechazar una edición, el contrato vuelve a como estaba.
+      </div>
+    </div>
+    <div id="aut-lista"></div>
+    <div class="panel" style="padding:14px 16px;margin-top:16px;">
+      <div id="email-dest-autorizacion_contratos-header" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-weight:700;font-size:13.5px;">📧 Aviso por mail de contratos para autorizar — destinatarios</div>
+        <div class="muted" id="email-dest-autorizacion_contratos-hint" style="font-size:12px;">▸ desplegar</div>
+      </div>
+      <div id="email-dest-autorizacion_contratos-body" style="display:none;margin-top:10px;"></div>
+    </div>
   </section>
 
   <section id="tab-contratos" style="display:none;">
@@ -3715,6 +3736,7 @@ input.fecha-ar.fecha-ar-invalida{ border-color:var(--danger) !important; color:v
 
     <div class="modal-actions">
       <button class="btn secondary" id="btn-contrato-cancel">Cancelar</button>
+      <button class="btn secondary" id="btn-contrato-enviar-aut" style="display:none;" title="Lo saca de Pendientes de Facturación hasta que un maestro lo autorice">🛡️ Mandar a autorización</button>
       <button class="btn danger" id="btn-contrato-delete" style="display:none;">Eliminar contrato</button>
       <button class="btn" id="btn-contrato-save">Guardar</button>
     </div>
@@ -4197,6 +4219,7 @@ const TAB_TITLES = {
   conciliacioncompras: 'Conciliación de Compras (GP vs ARCA)',
   gastosobra: 'Gastos de Reforma',
   chequescustodia: 'Cheques en Custodia vs GP',
+  autorizaciones: 'Contratos pendientes de autorización',
 };
 
 function activarTab(tab){
@@ -5052,7 +5075,7 @@ function calcularProyeccionProximoMes(){
   const [desdeProx, hastaProx] = primerYUltimoDiaMes(proxAnio, proxMesIdx);
 
   return (contratosCache || [])
-    .filter(c => c.estado === 'activo' && !c.es_demo)
+    .filter(c => c.estado === 'activo' && !c.es_demo && c.autorizacion !== 'pendiente')
     // La fecha de vencimiento ya no corta la facturación (es solo alerta para
     // logística) — un contrato activo sigue proyectándose aunque ya haya vencido,
     // salvo que se haya dado de baja de verdad. "vencePronto" queda como aviso.
@@ -5244,7 +5267,7 @@ function renderContratos(list){
     const creadoPor = c.creador?.nombre || '—';
     return `
       <tr>
-        <td>${escapeHtml(cliente)}${c.es_demo ? ' <span class="badge" style="color:#38BDF8;border-color:#38BDF8;">🎁 DEMO</span>' : ''}${c.datos_confirmados ? '' : ' <span class="badge" style="color:#ff9f43;border-color:#ff9f43;" title="Falta confirmar periodicidad / último período facturado">⚠ a confirmar</span>'}</td>
+        <td>${escapeHtml(cliente)}${c.es_demo ? ' <span class="badge" style="color:#38BDF8;border-color:#38BDF8;">🎁 DEMO</span>' : ''}${c.autorizacion === 'pendiente' ? ' <span class="badge" style="color:#f43f5e;border-color:#f43f5e;" title="Espera la autorización de un maestro: no genera facturación">⏳ Pend. autorización</span>' : ''}${c.datos_confirmados ? '' : ' <span class="badge" style="color:#ff9f43;border-color:#ff9f43;" title="Falta confirmar periodicidad / último período facturado">⚠ a confirmar</span>'}</td>
         <td class="muted">${escapeHtml(equipo)}${c.tiene_flete_entrega && !c.flete_entrega_facturado ? ` <span class="badge" style="color:var(--accent);border-color:var(--accent-dim);" title="Flete de entrega sin facturar: ${fmtMoney(c.costo_flete_entrega,'USD')}">🚚 entrega</span>` : ''}${c.tiene_flete_retiro && !c.flete_retiro_facturado ? ` <span class="badge" style="color:#ff9f43;border-color:#ff9f43;" title="Flete de retiro sin facturar: ${fmtMoney(c.costo_flete_retiro,'USD')}">🚚 retiro</span>` : ''}</td>
         <td>${sucursal !== '—' ? `<span class="badge">${sucursal}</span>` : '—'}</td>
         <td class="muted">${fmtDate(c.fecha_salida)} → ${fmtDate(c.fecha_vencimiento)}</td>
@@ -5544,6 +5567,7 @@ document.getElementById('btn-new-contrato').addEventListener('click', ()=>{
   populateSucursalSelectContrato();
   document.getElementById('modal-contrato-title').textContent = 'Nuevo contrato';
   document.getElementById('btn-contrato-delete').style.display = 'none';
+  { const b = document.getElementById('btn-contrato-enviar-aut'); if(b) b.style.display = 'none'; }
   openContratoOverlay();
 });
 document.getElementById('btn-contrato-cancel').addEventListener('click', closeContratoOverlay);
@@ -5561,6 +5585,7 @@ function openEditContrato(id){
   document.getElementById('contrato-paso2').style.display = 'block';
   document.getElementById('btn-toggle-paso2').textContent = '▴ Ocultar detalles para confirmar';
   document.getElementById('btn-contrato-delete').style.display = 'inline-block';
+  { const b = document.getElementById('btn-contrato-enviar-aut'); if(b) b.style.display = (puede('contratos','autorizar') && c.estado === 'activo' && c.autorizacion !== 'pendiente') ? 'inline-block' : 'none'; }
 
   document.getElementById('c-id').value = c.id;
   document.getElementById('c-cliente_id').value = c.cliente_id;
@@ -5666,13 +5691,16 @@ document.getElementById('btn-contrato-save').addEventListener('click', async ()=
 
   try{
     let contratoId = id;
+    let avisoAut = '';
     if(id){
-      const { error } = await supabaseClient.from('contratos').update(payload).eq('id', id);
+      const { data: act, error } = await supabaseClient.from('contratos').update(payload).eq('id', id).select('id, autorizacion, autorizacion_tipo').maybeSingle();
       if(error) throw error;
+      if(act && act.autorizacion === 'pendiente' && act.autorizacion_tipo === 'edicion') avisoAut = 'Los cambios se guardaron y quedaron pendientes de autorización de un maestro (se le avisó por mail).';
     } else {
       const { data, error } = await supabaseClient.from('contratos').insert({ ...payload, created_by: miPerfil?.id || null }).select().single();
       if(error) throw error;
       contratoId = data.id;
+      if(data.autorizacion === 'pendiente') avisoAut = 'Contrato guardado: queda pendiente de autorización de un maestro. No se factura hasta que lo autorice (se le avisó por mail).';
     }
 
     // si se confirmó "último período facturado", limpiamos pendientes sin facturar
@@ -5695,7 +5723,7 @@ document.getElementById('btn-contrato-save').addEventListener('click', async ()=
       if(errLimpiar) console.error('No se pudieron limpiar pendientes viejos:', errLimpiar);
     }
 
-    showToast('Contrato guardado correctamente');
+    showToast(avisoAut || 'Contrato guardado correctamente');
     closeContratoOverlay();
     await loadContratos();
     renderEquipos(getFilteredEquipos());
@@ -5755,7 +5783,7 @@ async function loadPendientes(){
     const { data, error } = await supabaseClient
       .from('pendientes_facturacion')
       .select(`*, contratos(
-          id, moneda, cliente_id, fecha_salida, estado,
+          id, moneda, cliente_id, fecha_salida, estado, autorizacion,
           tiene_flete_entrega, costo_flete_entrega, flete_entrega_facturado,
           tiene_flete_retiro, costo_flete_retiro, flete_retiro_facturado,
           remito, orden_de_compra, obra, contacto_obra, observacion,
@@ -5774,6 +5802,7 @@ async function loadPendientes(){
     if(data.length < pageSize) break;
     from += pageSize;
   }
+  allData = allData.filter(p => p.contratos?.autorizacion !== 'pendiente');   // los contratos en autorización no se facturan
   pendientesCache = allData;
   populatePendFilters();
   renderPendientes(filterPendientesDefault(allData));
@@ -6056,7 +6085,7 @@ async function autoGenerarPendientesDelMes(){
   // - De baja: se genera hasta la fecha de baja nomás (esa renta corta igual
   //   se tiene que facturar, aunque la máquina ya se haya devuelto).
   const contratosAGenerar = contratosCache.filter(c =>
-    !c.es_demo &&
+    !c.es_demo && c.autorizacion !== 'pendiente' &&
     c.datos_confirmados && c.ultimo_periodo_facturado_hasta &&
     (c.estado === 'activo' || (c.estado === 'baja' && c.fecha_baja))
   );
@@ -7793,7 +7822,7 @@ function puede(seccion, accion){
 
 const SECCIONES_PERMISOS = [
   { key:'clientes',      label:'Clientes',      acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
-  { key:'contratos',     label:'Contratos',     acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar'],['editar_precio','Editar precio ya guardado']] },
+  { key:'contratos',     label:'Contratos',     acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar'],['editar_precio','Editar precio ya guardado'],['requiere_autorizacion','⚠ Sus contratos nuevos requieren autorización de un maestro'],['autorizar','Autorizar contratos (y ver Contratos pendientes de autorización)']] },
   { key:'equipos',       label:'Equipos',       acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
   { key:'pizarra',       label:'Pizarra de Flota', acciones:[['ver','Ver'],['mover_disponible','Arrastrar a Disponible'],['mover_pdi','Arrastrar a PDI'],['mover_vor','Arrastrar a VOR'],['editar_fecha','Corregir fecha de inicio (📅)']] },
   { key:'trazabilidad',  label:'Trazabilidad',    acciones:[['ver','Ver / usar']] },
@@ -8164,6 +8193,7 @@ function renderDashboard(){
   document.getElementById('dash-saludo').textContent = `Hola, ${miPerfil.nombre.split(' ')[0]}`;
 
   const nContratosSinConfirmar = contratosCache.filter(c=>!c.datos_confirmados).length;
+  const nContratosPendAut = contratosCache.filter(c=>c.autorizacion === 'pendiente').length;
   const nPendientesFacturar = pendientesCache.filter(p=>p.estado==='pendiente').length;
   const nRetirosUrgentes = calcularRetirosUrgentes().length;
   const nFacturasSinEnviar = todasFacturasPdfCache.filter(f=>!f._enviada).length;
@@ -8174,6 +8204,7 @@ function renderDashboard(){
     { key:'ventas', titulo:'Ventas', icon:'💵', tiles:[
       { tab:'clientes',   icon:'🏢', title:'Clientes',   count:`${clientesCache.length} cargados`, visible:puede('clientes','ver'), urgencia:null },
       { tab:'contratos',  icon:'📄', title:'Contratos',  count:`${contratosCache.length} totales${nContratosSinConfirmar>0 ? ` — ⚠ ${nContratosSinConfirmar} a confirmar` : ''}`, visible:puede('contratos','ver'), urgencia: nContratosSinConfirmar>0 ? 'warn' : 'ok' },
+      { tab:'autorizaciones', icon:'🛡️', title:'Contratos pendientes de autorización', count: puede('contratos','autorizar') ? (nContratosPendAut>0 ? `⏳ ${nContratosPendAut} esperando autorización` : 'Nada pendiente') : '', visible:puede('contratos','autorizar'), urgencia: nContratosPendAut>0 ? 'danger' : 'ok' },
       { tab:'pendientes', icon:'💰', title:'Pendientes de Facturación', count: puede('pendientes','ver') ? `${nPendientesFacturar} sin facturar` : '', visible:puede('pendientes','ver'), urgencia: nPendientesFacturar>0 ? 'warn' : 'ok' },
       { tab:'presupuestos', icon:'🧾', title:'Presupuestos', count: puede('presupuestos','ver') ? `${presupuestosCache.filter(p=>p.estado==='vigente').length} vigente(s)` : '', visible:puede('presupuestos','ver'), urgencia:null },
       { tab:'solicitudoc', icon:'📝', title:'Solicitud de OC', count: puede('solicitudoc','ver') ? `${solicitudesOCCache.filter(s=>s.estado==='vigente').length} vigente(s)` : '', visible:puede('solicitudoc','ver'), urgencia:null },
@@ -11865,6 +11896,8 @@ const EMAIL_DEST_CONFIG = {
   vencimientos: { headerId: 'email-dest-vencimientos-header', bodyId: 'email-dest-vencimientos-body', hintId: 'email-dest-vencimientos-hint' },
   pdi_vor: { headerId: 'email-dest-pdi_vor-header', bodyId: 'email-dest-pdi_vor-body', hintId: 'email-dest-pdi_vor-hint',
     descripcion: 'Todos los días a las 21:00 se envía un mail con las máquinas que están en PDI y en VOR (sucursal, desde cuándo, días parada y último cliente), con PDF y Excel adjuntos, a las direcciones activas de abajo.' },
+  autorizacion_contratos: { headerId: 'email-dest-autorizacion_contratos-header', bodyId: 'email-dest-autorizacion_contratos-body', hintId: 'email-dest-autorizacion_contratos-hint',
+    descripcion: 'Cada vez que un contrato nuevo queda pendiente de autorización, o alguien edita un contrato, se envía enseguida un mail a las direcciones activas de abajo con quién lo hizo y qué dato cambió (antes y ahora).' },
   baja_pdi: { headerId: 'email-dest-baja_pdi-header', bodyId: 'email-dest-baja_pdi-body', hintId: 'email-dest-baja_pdi-hint',
     descripcion: 'Cuando se da de baja un contrato, la máquina entra a PDI y se envía enseguida un mail de aviso (equipo, cliente, sucursal y fecha de retiro) a las direcciones activas de abajo.' },
 };
@@ -11989,6 +12022,7 @@ initPanelDestinatarios('retiros');
 initPanelDestinatarios('vencimientos');
 initPanelDestinatarios('pdi_vor');
 initPanelDestinatarios('baja_pdi');
+initPanelDestinatarios('autorizacion_contratos');
 
 
 // =========================================================
@@ -18208,6 +18242,121 @@ new MutationObserver((muts)=>{
 
 // ---------- Init ----------
 // =========================================================
+// CONTRATOS PENDIENTES DE AUTORIZACIÓN
+// =========================================================
+const AUT_ETIQUETAS = {
+  cliente_id:'Cliente', equipo_id:'Equipo', sucursal_id:'Sucursal', remito:'Remito', fecha_salida:'Fecha de salida',
+  fecha_vencimiento:'Fecha de vencimiento', moneda:'Moneda', precio_mensual_sin_descuento:'Precio mensual (sin descuento)',
+  porcentaje_descuento:'% de descuento', precio_mensual_con_descuento:'Precio mensual (con descuento)',
+  orden_de_compra:'Orden de compra', obra:'Obra', contacto_obra:'Contacto de obra', observacion:'Observación',
+  tiene_flete_entrega:'Flete de entrega', costo_flete_entrega:'Costo flete de entrega', tiene_flete_retiro:'Flete de retiro',
+  costo_flete_retiro:'Costo flete de retiro', periodicidad:'Periodicidad', es_demo:'Es DEMO',
+  ultimo_periodo_facturado_hasta:'Último período facturado hasta',
+};
+function autValor(campo, v){
+  if(v === null || v === undefined || v === '') return '—';
+  if(campo === 'cliente_id') return clientesCache.find(c => c.id === Number(v))?.razon_social || ('#' + v);
+  if(campo === 'equipo_id'){ const e = equiposCache.find(x => x.id === Number(v)); return e ? `${e.modelo || ''} ${e.numero_serie || ''}`.trim() : ('#' + v); }
+  if(campo === 'sucursal_id') return sucursales.find(x => x.id === Number(v))?.nombre || ('#' + v);
+  if(typeof v === 'boolean') return v ? 'Sí' : 'No';
+  if(/^\d{4}-\d{2}-\d{2}/.test(String(v))) return fmtDate(String(v).slice(0,10));
+  return String(v);
+}
+function autFechaHora(iso){
+  if(!iso) return '—';
+  return new Date(iso).toLocaleString('es-AR', { timeZone:'America/Argentina/Buenos_Aires', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false });
+}
+function renderAutorizaciones(){
+  const cont = document.getElementById('aut-lista');
+  if(!cont) return;
+  if(!puede('contratos','autorizar')){ cont.innerHTML = '<div class="panel muted" style="padding:18px;">No tenés permiso para ver esta sección.</div>'; return; }
+  const lista = contratosCache.filter(c => c.autorizacion === 'pendiente')
+    .sort((a,b) => String(a.autorizacion_solicitada_at || '').localeCompare(String(b.autorizacion_solicitada_at || '')));
+  if(!lista.length){
+    cont.innerHTML = '<div class="panel" style="padding:30px;text-align:center;"><div style="font-size:30px;">✅</div><div style="font-weight:700;margin-top:6px;">No hay contratos pendientes de autorización</div></div>';
+    return;
+  }
+  cont.innerHTML = lista.map(c => {
+    const cliente = c.clientes?.razon_social || '—';
+    const equipo = c.equipos ? `${c.equipos.modelo || ''} · ${c.equipos.numero_serie || ''}`.trim() : '—';
+    const precio = c.precio_mensual_con_descuento ?? c.precio_mensual_sin_descuento;
+    const tipo = c.autorizacion_tipo;
+    const badge = tipo === 'nuevo' ? ['#d97706','🆕 CONTRATO NUEVO'] : tipo === 'edicion' ? ['#2563eb','✏️ CONTRATO EDITADO'] : ['#7c3aed','🔎 EN REVISIÓN'];
+    let detalle = '';
+    if(tipo === 'edicion' && c.autorizacion_cambios){
+      const filas = Object.entries(c.autorizacion_cambios).map(([k,v]) => `
+        <tr><td style="padding:5px 10px;font-weight:600;">${escapeHtml(AUT_ETIQUETAS[k] || k)}</td>
+            <td style="padding:5px 10px;color:#ef4444;">${escapeHtml(autValor(k, v.antes))}</td>
+            <td style="padding:5px 10px;color:#22c55e;font-weight:700;">${escapeHtml(autValor(k, v.despues))}</td></tr>`).join('');
+      detalle = `<table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:12.5px;"><thead><tr class="muted" style="text-align:left;">
+        <th style="padding:5px 10px;">Dato</th><th style="padding:5px 10px;">Antes</th><th style="padding:5px 10px;">Ahora</th></tr></thead><tbody>${filas || '<tr><td colspan="3" class="muted" style="padding:6px 10px;">Sin diferencias.</td></tr>'}</tbody></table>`;
+    }
+    if(tipo === 'manual' && c.autorizacion_motivo) detalle = `<div class="muted" style="margin-top:8px;font-size:12.5px;">Motivo: ${escapeHtml(c.autorizacion_motivo)}</div>`;
+    const btnRechazar = tipo === 'manual' ? '' :
+      `<button class="btn danger small" onclick="autRechazar(${c.id})">${tipo === 'nuevo' ? '✖ Rechazar (anular contrato)' : '↩ Rechazar (volver a los datos anteriores)'}</button>`;
+    return `
+    <div class="panel" style="padding:14px 18px;margin-bottom:12px;border-left:4px solid ${badge[0]};">
+      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start;">
+        <div>
+          <span class="badge" style="color:${badge[0]};border-color:${badge[0]};">${badge[1]}</span>
+          <span style="font-weight:700;font-size:14.5px;margin-left:8px;">${escapeHtml(cliente)}</span>
+          ${c.es_demo ? ' <span class="badge" style="color:#38BDF8;border-color:#38BDF8;">🎁 DEMO</span>' : ''}
+          <div class="muted" style="font-size:12.5px;margin-top:4px;">${escapeHtml(equipo)} · ${escapeHtml(c.sucursales?.nombre || '—')}
+            · Salida ${fmtDate(c.fecha_salida)} → ${fmtDate(c.fecha_vencimiento)} · Remito ${escapeHtml(c.remito || '—')}
+            · ${precio != null ? fmtMoney(precio, c.moneda) : 'sin precio'}${c.obra ? ' · Obra: ' + escapeHtml(c.obra) : ''}</div>
+          <div class="muted" style="font-size:12px;margin-top:3px;">Cargado por <b>${escapeHtml(c.autorizacion_solicitada_nombre || c.creador?.nombre || '—')}</b> · ${autFechaHora(c.autorizacion_solicitada_at || c.created_at)}</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn small" onclick="autAutorizar(${c.id})">✔ Autorizar</button>
+          ${btnRechazar}
+          <button class="btn secondary small" onclick="openEditContrato(${c.id})">Ver / editar</button>
+        </div>
+      </div>
+      ${detalle}
+    </div>`;
+  }).join('');
+}
+async function autPostAccion(){
+  await loadContratos();
+  renderEquipos(getFilteredEquipos());
+  renderAutorizaciones();
+  try{ await autoGenerarPendientesDelMes(); await refrescarPendientesSiCorresponde(); }catch(e){ console.warn('Autorización: refresco de pendientes', e); }
+  renderDashboard();
+}
+async function autAutorizar(id){
+  const c = contratosCache.find(x => x.id === id); if(!c) return;
+  if(!confirm(`¿Autorizar el contrato de ${c.clientes?.razon_social || ''}?\n\nDesde ahora entra al circuito normal y se genera su facturación.`)) return;
+  const { error } = await supabaseClient.rpc('contrato_autorizar', { p_id: id });
+  if(error){ showToast('No se pudo autorizar: ' + error.message, true); return; }
+  showToast('Contrato autorizado');
+  await autPostAccion();
+}
+async function autRechazar(id){
+  const c = contratosCache.find(x => x.id === id); if(!c) return;
+  const nuevo = c.autorizacion_tipo === 'nuevo';
+  const msg = nuevo
+    ? `¿Rechazar el contrato nuevo de ${c.clientes?.razon_social || ''}?\n\nSe ANULA el contrato y la máquina se libera (vuelve a Disponible). Para alquilarla tendrán que cargar otro contrato.\n\nMotivo (opcional):`
+    : `¿Rechazar los cambios hechos a este contrato?\n\nEl contrato vuelve a los datos que tenía antes de la edición.\n\nMotivo (opcional):`;
+  const motivo = window.prompt(msg, '');
+  if(motivo === null) return;
+  const { data, error } = await supabaseClient.rpc('contrato_rechazar', { p_id: id, p_motivo: motivo });
+  if(error){ showToast('No se pudo rechazar: ' + error.message, true); return; }
+  showToast(data === 'anulado' ? 'Contrato anulado y máquina liberada' : 'Cambios rechazados: el contrato volvió a sus datos anteriores');
+  await autPostAccion();
+}
+document.getElementById('btn-contrato-enviar-aut')?.addEventListener('click', async () => {
+  const id = Number(document.getElementById('c-id').value); if(!id) return;
+  const motivo = window.prompt('Mandar este contrato a "Pendientes de autorización".\n\nNo generará facturación hasta que un maestro lo autorice.\n\nMotivo (ej.: faltan confirmar datos):', '');
+  if(motivo === null) return;
+  const { error } = await supabaseClient.rpc('contrato_enviar_a_autorizacion', { p_id: id, p_motivo: motivo });
+  if(error){ showToast('No se pudo enviar: ' + error.message, true); return; }
+  showToast('Contrato enviado a pendientes de autorización');
+  closeContratoOverlay();
+  await autPostAccion();
+});
+document.querySelector('nav button[data-tab="autorizaciones"]')?.addEventListener('click', renderAutorizaciones);
+
+// =========================================================
 // SINCRONIZACIÓN GENERAL: todos los módulos se ponen al día solos
 // =========================================================
 // Cada módulo abierto se vuelve a consultar (1) al abrirlo si pasó un rato, (2) cada SYNC_INTERVALO_MS mientras se mira,
@@ -18236,6 +18385,7 @@ const SYNC_TABS = {
   inicio:        async () => { await syncNucleo(); if(puede('pendientes','ver')) await loadPendientes(); syncRefiltrar(); renderDashboard(); },
   clientes:      async () => { await loadClientes(); applyFilters(); },
   contratos:     async () => { await syncNucleo(); syncRefiltrar(); },
+  autorizaciones:async () => { await syncNucleo(); renderAutorizaciones(); },
   equipos:       async () => { await syncNucleo(); syncRefiltrar(); },
   pendientes:    async () => { await loadContratos(); await loadPendientes(); syncRefiltrar(); },
   retiros:       async () => { await syncNucleo(); syncRefiltrar(); renderRetiros(); },
