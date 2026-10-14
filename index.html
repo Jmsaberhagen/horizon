@@ -5585,7 +5585,7 @@ function openEditContrato(id){
   document.getElementById('contrato-paso2').style.display = 'block';
   document.getElementById('btn-toggle-paso2').textContent = '▴ Ocultar detalles para confirmar';
   document.getElementById('btn-contrato-delete').style.display = 'inline-block';
-  { const b = document.getElementById('btn-contrato-enviar-aut'); if(b) b.style.display = (puede('contratos','autorizar') && c.estado === 'activo' && c.autorizacion !== 'pendiente') ? 'inline-block' : 'none'; }
+  { const b = document.getElementById('btn-contrato-enviar-aut'); if(b) b.style.display = (puede('contratos','autorizar') && c.autorizacion !== 'pendiente') ? 'inline-block' : 'none'; }
 
   document.getElementById('c-id').value = c.id;
   document.getElementById('c-cliente_id').value = c.cliente_id;
@@ -18300,7 +18300,7 @@ function renderAutorizaciones(){
         <div>
           <span class="badge" style="color:${badge[0]};border-color:${badge[0]};">${badge[1]}</span>
           <span style="font-weight:700;font-size:14.5px;margin-left:8px;">${escapeHtml(cliente)}</span>
-          ${c.es_demo ? ' <span class="badge" style="color:#38BDF8;border-color:#38BDF8;">🎁 DEMO</span>' : ''}
+          ${c.es_demo ? ' <span class="badge" style="color:#38BDF8;border-color:#38BDF8;">🎁 DEMO</span>' : ''}${c.estado === 'baja' ? ' <span class="badge" style="color:var(--danger);border-color:var(--danger);">DE BAJA' + (c.fecha_baja ? ' ' + fmtDate(c.fecha_baja) : '') + '</span>' : ''}
           <div class="muted" style="font-size:12.5px;margin-top:4px;">${escapeHtml(equipo)} · ${escapeHtml(c.sucursales?.nombre || '—')}
             · Salida ${fmtDate(c.fecha_salida)} → ${fmtDate(c.fecha_vencimiento)} · Remito ${escapeHtml(c.remito || '—')}
             · ${precio != null ? fmtMoney(precio, c.moneda) : 'sin precio'}${c.obra ? ' · Obra: ' + escapeHtml(c.obra) : ''}</div>
