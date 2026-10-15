@@ -1013,9 +1013,12 @@ function downloadClientPDF(c){
     doc.setTextColor(...GREY_TEXT);
     doc.text(k[0], x+9, y+17, {maxWidth: kpiW-14});
     doc.setFont("helvetica","bold");
-    doc.setFontSize(11.5);
     doc.setTextColor(...k[2]);
-    doc.text(k[1], x+9, y+38, {maxWidth: kpiW-14});
+    // el valor va siempre en UNA línea: se achica la letra hasta que entre en la tarjeta
+    let kfs = 11.5;
+    doc.setFontSize(kfs);
+    while(kfs > 6.5 && doc.getTextWidth(k[1]) > kpiW-16){ kfs -= 0.25; doc.setFontSize(kfs); }
+    doc.text(k[1], x+9, y+38);
   });
 
   y += 80;
