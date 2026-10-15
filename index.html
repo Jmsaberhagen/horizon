@@ -17632,6 +17632,9 @@ async function initApp(){
       renderReportes();
       await loadTodasFacturasParaEnvio();
       renderEnvioFacturas();
+    } else if(puede('cuentacliente','ver')){
+      // Cuenta Cliente se arma con los pendientes/facturados del cliente: se cargan aunque no tenga la card de Pendientes
+      await loadPendientes();
     }
     if(puede('usuarios','ver')){
       await loadUsuarios();
@@ -18408,7 +18411,8 @@ function renderAutorizaciones(){
       detalle = `<table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:12.5px;"><thead><tr class="muted" style="text-align:left;">
         <th style="padding:5px 10px;">Dato</th><th style="padding:5px 10px;">Antes</th><th style="padding:5px 10px;">Ahora</th></tr></thead><tbody>${filas || '<tr><td colspan="3" class="muted" style="padding:6px 10px;">Sin diferencias.</td></tr>'}</tbody></table>`;
     }
-    if(tipo === 'manual' && c.autorizacion_motivo) detalle = `<div class="muted" style="margin-top:8px;font-size:12.5px;">Motivo: ${escapeHtml(c.autorizacion_motivo)}</div>`;
+    if(tipo !== 'edicion' && c.autorizacion_motivo) detalle = `<div class="muted" style="margin-top:8px;font-size:12.5px;">Motivo: ${escapeHtml(c.autorizacion_motivo)}</div>`;
+    if(tipo === 'edicion' && c.autorizacion_motivo) detalle += `<div class="muted" style="margin-top:8px;font-size:12.5px;">Motivo: ${escapeHtml(c.autorizacion_motivo)}</div>`;
     const btnRechazar = tipo === 'manual' ? '' :
       `<button class="btn danger small" onclick="autRechazar(${c.id})">${tipo === 'nuevo' ? '✖ Rechazar (anular contrato)' : '↩ Rechazar (volver a los datos anteriores)'}</button>`;
     return `
@@ -18427,6 +18431,7 @@ function renderAutorizaciones(){
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn small" onclick="autAutorizar(${c.id})">✔ Autorizar</button>
           ${btnRechazar}
+          <button class="btn secondary small" onclick="autEditarMotivo(${c.id})">📝 ${c.autorizacion_motivo ? 'Editar motivo' : 'Agregar motivo'}</button>
           <button class="btn secondary small" onclick="openEditContrato(${c.id})">Ver / editar</button>
         </div>
       </div>
@@ -18440,6 +18445,16 @@ async function autPostAccion(){
   renderAutorizaciones();
   try{ await autoGenerarPendientesDelMes(); await refrescarPendientesSiCorresponde(); }catch(e){ console.warn('Autorización: refresco de pendientes', e); }
   renderDashboard();
+}
+async function autEditarMotivo(id){
+  const c = contratosCache.find(x => x.id === id); if(!c) return;
+  const motivo = window.prompt(`Motivo por el que "${c.clientes?.razon_social || 'este contrato'}" queda en pendientes de autorización.\n\n(Dejalo vacío para borrar el motivo.)`, c.autorizacion_motivo || '');
+  if(motivo === null) return;
+  const { error } = await supabaseClient.rpc('contrato_set_motivo', { p_id: id, p_motivo: motivo });
+  if(error){ showToast('No se pudo guardar el motivo: ' + error.message, true); return; }
+  showToast('Motivo guardado');
+  await loadContratos();
+  renderAutorizaciones();
 }
 async function autAutorizar(id){
   const c = contratosCache.find(x => x.id === id); if(!c) return;
@@ -18590,6 +18605,7 @@ const SYNC_TABS = {
   gastosobra:    async () => { await loadGastosObra(); renderGastosObraLista(); renderStatsGastosObra(); },
   haulotte_articulos: async () => { await loadHaulotteRepuestos(); renderHaulotteRepuestos(); },
   usuarios:      async () => { await loadUsuarios(); },
+  cuentacliente: async () => { await syncNucleo(); if(puede('pendientes','ver') || puede('cuentacliente','ver')) await loadPendientes(); if(cuentaClienteActivaId) await mostrarCuentaCliente(cuentaClienteActivaId); },
   enviofacturas: async () => { await syncNucleo(); await loadTodasFacturasParaEnvio(); renderEnvioFacturas(); },
   reportes:      async () => { await syncNucleo(); await loadPendientes(); syncRefiltrar(); renderReportes(); },
   planning:      async () => { await syncNucleo(); await loadEquipoParadas(); renderPlanning(); },
