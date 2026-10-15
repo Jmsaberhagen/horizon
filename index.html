@@ -3490,7 +3490,11 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
 
           <div class="field">
             <label>Tipo de cambio aplicado</label>
-            <input type="number" step="0.0001" id="p-tc_aplicado">
+            <div style="display:flex;gap:6px;">
+              <input type="number" step="0.0001" id="p-tc_aplicado" style="flex:1;">
+              <button type="button" class="btn secondary small" id="btn-buscar-tc-bna-pend" title="Traer el TC BNA (venta) del día automáticamente">🔄 TC BNA</button>
+            </div>
+            <div class="muted" id="p-tc-bna-status" style="font-size:11px;margin-top:4px;"></div>
           </div>
           <div class="field">
             <label>Potencial facturación (ARS)</label>
@@ -6331,6 +6335,7 @@ function openEditPendiente(id){
   document.getElementById('p-valor_alquiler_usd').value = p.valor_alquiler_usd ?? '';
   document.getElementById('p-flete_usd').value = p.flete_usd ?? '';
   document.getElementById('p-tc_aplicado').value = p.tc_aplicado ?? '';
+  { const st = document.getElementById('p-tc-bna-status'); if(st) st.textContent = ''; }
   document.getElementById('p-potencial_facturacion').value = p.potencial_facturacion ?? '';
   document.getElementById('p-estado').value = p.estado;
   document.getElementById('p-numero_factura').value = p.numero_factura || '';
@@ -14604,6 +14609,30 @@ function recalcularNetoUsdGastoObra(){
 }
 document.getElementById('go-neto').addEventListener('input', recalcularNetoUsdGastoObra);
 document.getElementById('go-cotizacion_usd').addEventListener('input', recalcularNetoUsdGastoObra);
+
+
+// Pendientes de facturación: traer el TC BNA (venta) del día al campo "Tipo de cambio aplicado"
+document.getElementById('btn-buscar-tc-bna-pend')?.addEventListener('click', async () => {
+  const statusEl = document.getElementById('p-tc-bna-status');
+  const btn = document.getElementById('btn-buscar-tc-bna-pend');
+  statusEl.textContent = 'Consultando TC BNA...';
+  btn.disabled = true;
+  try{
+    const resp = await fetch('https://dolar-bna.vercel.app/api/cotizacion');
+    if(!resp.ok) throw new Error('respuesta ' + resp.status);
+    const data = await resp.json();
+    const venta = Number(String(data.venta).replace(',', '.'));
+    if(!venta || !isFinite(venta)) throw new Error('no vino el valor de venta');
+    const campo = document.getElementById('p-tc_aplicado');
+    campo.value = String(venta);
+    campo.dispatchEvent(new Event('input', { bubbles:true }));
+    const fechaFuente = data.timestamp && typeof fmtFechaHoraTs === 'function' ? fmtFechaHoraTs(data.timestamp) : '';
+    statusEl.textContent = `✓ TC BNA venta: $${venta} (${data.fuente || 'BNA'}${fechaFuente ? ' · ' + fechaFuente : ''}) — podés editarlo si preferís otro valor`;
+  }catch(err){
+    console.error(err);
+    statusEl.textContent = '✕ No se pudo consultar el TC BNA automáticamente — completalo a mano.';
+  }finally{ btn.disabled = false; }
+});
 
 document.getElementById('btn-buscar-tc-bna').addEventListener('click', async ()=>{
   const statusEl = document.getElementById('go-tc-bna-status');
