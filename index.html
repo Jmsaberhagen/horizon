@@ -828,6 +828,9 @@ input.fecha-ar.fecha-ar-invalida{ border-color:var(--danger) !important; color:v
 .tv-pie .sw{ display:inline-flex; align-items:center; gap:5px; }
 .tv-pie .sw i{ width:10px; height:10px; border-radius:3px; display:inline-block; }
 .tv-pie .x{ margin-left:auto; }
+
+.panel-solo-maestro{display:none !important;}
+body.es-maestro .panel-solo-maestro{display:block !important;}
 </style>
 </head>
 <body>
@@ -1024,7 +1027,7 @@ input.fecha-ar.fecha-ar-invalida{ border-color:var(--danger) !important; color:v
       <button class="btn secondary" id="btn-export-aut-pdf">Exportar PDF</button>
     </div>
     <div id="aut-lista"></div>
-    <div class="panel" style="padding:14px 16px;margin-top:16px;">
+    <div class="panel panel-solo-maestro" style="padding:14px 16px;margin-top:16px;">
       <div id="email-dest-autorizacion_contratos-header" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
         <div style="font-weight:700;font-size:13.5px;">📧 Aviso por mail de contratos para autorizar — destinatarios</div>
         <div class="muted" id="email-dest-autorizacion_contratos-hint" style="font-size:12px;">▸ desplegar</div>
@@ -1432,7 +1435,7 @@ input.fecha-ar.fecha-ar-invalida{ border-color:var(--danger) !important; color:v
 
     <div class="stats-row" id="venc-stats-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px;"></div>
 
-    <div class="panel" style="padding:14px 16px;margin-bottom:16px;">
+    <div class="panel panel-solo-maestro" style="padding:14px 16px;margin-bottom:16px;">
       <div id="email-dest-vencimientos-header" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
         <div style="font-weight:700;font-size:13.5px;">📧 Destinatarios del reporte diario por mail</div>
         <div class="muted" id="email-dest-vencimientos-hint" style="font-size:12px;">▸ desplegar</div>
@@ -1880,7 +1883,7 @@ input.fecha-ar.fecha-ar-invalida{ border-color:var(--danger) !important; color:v
     <div style="overflow-x:auto;">
       <div id="pizarra-board" style="display:grid;grid-template-columns:minmax(170px,1fr) minmax(230px,1.5fr) minmax(150px,.8fr) minmax(160px,.9fr) minmax(210px,1.3fr);gap:12px;"></div>
     </div>
-    <div id="pizarra-mail-panels" style="display:none;">
+    <div id="pizarra-mail-panels" class="panel-solo-maestro" style="display:none;">
     <div class="panel" style="padding:14px 16px;margin-top:16px;">
       <div id="email-dest-pdi_vor-header" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
         <div style="font-weight:700;font-size:13.5px;">📧 Informe diario de PDI y VOR — destinatarios</div>
@@ -2049,7 +2052,7 @@ input.fecha-ar.fecha-ar-invalida{ border-color:var(--danger) !important; color:v
       <div class="sub">La "fecha de vencimiento" del contrato es el día que hay que retirar la máquina del cliente</div>
     </div>
 
-    <div class="panel" style="padding:14px 16px;margin-bottom:16px;">
+    <div class="panel panel-solo-maestro" style="padding:14px 16px;margin-bottom:16px;">
       <div id="email-dest-retiros-header" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
         <div style="font-weight:700;font-size:13.5px;">📧 Destinatarios del reporte diario por mail</div>
         <div class="muted" id="email-dest-retiros-hint" style="font-size:12px;">▸ desplegar</div>
@@ -6798,7 +6801,7 @@ function renderPizarra(opts = {}){
   pizarraRenderLeyenda();
 
   const board = document.getElementById('pizarra-board');
-  document.getElementById('pizarra-mail-panels').style.display = (miPerfil && ['maestro','admin'].includes(miPerfil.rol)) ? 'block' : 'none';
+  document.getElementById('pizarra-mail-panels').style.display = (miPerfil && miPerfil.rol === 'maestro') ? 'block' : 'none';
 
   board.innerHTML = PIZARRA_COLUMNAS.map(col=>{
     const items = equiposDeLaSucursal.filter(e => estadoActualEquipo(e) === col.estado)
@@ -7865,6 +7868,7 @@ function aplicarPermisosUI(){
   pill.style.display = 'inline-block';
 
   const rol = miPerfil.rol;
+  document.body.classList.toggle('es-maestro', rol === 'maestro');
   document.getElementById('panel-herramientas-maestro').style.display = (rol === 'maestro') ? 'block' : 'none';
 
   document.querySelectorAll('nav button[data-tab]').forEach(btn=>{
@@ -11908,6 +11912,7 @@ const EMAIL_DEST_CONFIG = {
 
 async function renderDestinatariosReporte(tipoReporte){
   const cfg = EMAIL_DEST_CONFIG[tipoReporte];
+  if(!miPerfil || miPerfil.rol !== 'maestro') return; // los destinatarios de avisos y reportes son solo para maestros
   const body = document.getElementById(cfg.bodyId);
   body.innerHTML = '<div class="muted" style="font-size:12px;">Cargando...</div>';
 
