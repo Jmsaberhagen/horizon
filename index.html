@@ -11913,6 +11913,7 @@ const EMAIL_DEST_CONFIG = {
 async function renderDestinatariosReporte(tipoReporte){
   const cfg = EMAIL_DEST_CONFIG[tipoReporte];
   if(!miPerfil || miPerfil.rol !== 'maestro') return; // los destinatarios de avisos y reportes son solo para maestros
+  if(tipoReporte === 'autorizacion_contratos') return renderDestAutorizacion();
   const body = document.getElementById(cfg.bodyId);
   body.innerHTML = '<div class="muted" style="font-size:12px;">Cargando...</div>';
 
@@ -12007,6 +12008,84 @@ async function eliminarDestinatarioReporte(id, tipoReporte){
     console.error(e);
     showToast('Error: ' + e.message, true);
   }
+}
+
+
+// ---- Destinatarios de Contratos pendientes de autorización: cada mail elige alerta inmediata, reporte diario o ambos ----
+const AUT_DEST_TIPOS = { alerta:'autorizacion_contratos', diario:'autorizacion_contratos_diario' };
+async function renderDestAutorizacion(){
+  const cfg = EMAIL_DEST_CONFIG.autorizacion_contratos;
+  const body = document.getElementById(cfg.bodyId);
+  body.innerHTML = '<div class="muted" style="font-size:12px;">Cargando...</div>';
+  const { data, error } = await supabaseClient.from('reportes_email_destinatarios').select('*')
+    .in('tipo_reporte', [AUT_DEST_TIPOS.alerta, AUT_DEST_TIPOS.diario]).order('email', { ascending:true });
+  if(error){ body.innerHTML = `<div class="muted" style="color:var(--danger);font-size:12px;">Error al cargar: ${escapeHtml(error.message)}</div>`; return; }
+  const porMail = new Map();
+  (data || []).forEach(r => {
+    const m = porMail.get(r.email) || { email:r.email, alerta:null, diario:null };
+    if(r.tipo_reporte === AUT_DEST_TIPOS.alerta) m.alerta = r; else m.diario = r;
+    porMail.set(r.email, m);
+  });
+  const lista = [...porMail.values()];
+  body.innerHTML = `
+    <div class="muted" style="font-size:11.5px;margin-bottom:10px;line-height:1.5;">
+      Elegí qué recibe cada dirección:<br>
+      <b>⚡ Alerta inmediata</b>: un mail en el momento en que un contrato queda pendiente de autorización o alguien edita uno (quién lo hizo y qué cambió).<br>
+      <b>📅 Reporte diario</b>: todos los días a las 21:00, el listado de los contratos que siguen pendientes y sus motivos, con PDF y Excel.
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <input type="email" id="email-dest-input-autorizacion_contratos" placeholder="nombre@empresa.com" style="flex:1;">
+      <button class="btn secondary small" id="btn-email-dest-agregar-autorizacion_contratos">+ Agregar</button>
+    </div>
+    <div>
+      ${lista.length === 0 ? '<div class="muted" style="font-size:12px;">Todavía no hay destinatarios cargados.</div>' : lista.map(m => {
+        const e = encodeURIComponent(m.email);
+        const nada = !(m.alerta && m.alerta.activo) && !(m.diario && m.diario.activo);
+        return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--border);">
+          <span style="font-size:13px;${nada ? 'color:var(--muted);text-decoration:line-through;' : ''}">${escapeHtml(m.email)}</span>
+          <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;">
+            <label style="display:flex;align-items:center;gap:4px;font-size:11.5px;" class="muted"><input type="checkbox" ${m.alerta && m.alerta.activo ? 'checked' : ''} onchange="autDestToggle('${e}','alerta',this.checked)"> ⚡ Alerta inmediata</label>
+            <label style="display:flex;align-items:center;gap:4px;font-size:11.5px;" class="muted"><input type="checkbox" ${m.diario && m.diario.activo ? 'checked' : ''} onchange="autDestToggle('${e}','diario',this.checked)"> 📅 Reporte diario</label>
+            <button class="btn secondary small" onclick="autDestQuitar('${e}')">Quitar</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  document.getElementById('btn-email-dest-agregar-autorizacion_contratos').addEventListener('click', autDestAgregar);
+  document.getElementById('email-dest-input-autorizacion_contratos').addEventListener('keydown', ev => { if(ev.key === 'Enter') autDestAgregar(); });
+}
+async function autDestAgregar(){
+  const input = document.getElementById('email-dest-input-autorizacion_contratos');
+  const email = input.value.trim().toLowerCase();
+  if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ showToast('Ingresá un mail válido', true); return; }
+  const { data: ya } = await supabaseClient.from('reportes_email_destinatarios').select('id').in('tipo_reporte', Object.values(AUT_DEST_TIPOS)).eq('email', email);
+  if(ya && ya.length){ showToast('Ese mail ya está en la lista', true); return; }
+  const { error } = await supabaseClient.from('reportes_email_destinatarios').insert([
+    { tipo_reporte: AUT_DEST_TIPOS.alerta, email, activo:true }, { tipo_reporte: AUT_DEST_TIPOS.diario, email, activo:true }]);
+  if(error){ showToast('Error al agregar: ' + error.message, true); return; }
+  showToast('Destinatario agregado (recibe alerta y reporte diario; podés destildar lo que no quiera)');
+  renderDestAutorizacion();
+}
+async function autDestToggle(emailEnc, cual, activo){
+  const email = decodeURIComponent(emailEnc), tipo = AUT_DEST_TIPOS[cual];
+  try{
+    const { data: fila, error: e1 } = await supabaseClient.from('reportes_email_destinatarios').select('id').eq('tipo_reporte', tipo).eq('email', email).maybeSingle();
+    if(e1) throw e1;
+    const r = fila
+      ? await supabaseClient.from('reportes_email_destinatarios').update({ activo }).eq('id', fila.id)
+      : await supabaseClient.from('reportes_email_destinatarios').insert({ tipo_reporte: tipo, email, activo });
+    if(r.error) throw r.error;
+    showToast(`${email}: ${cual === 'alerta' ? 'alerta inmediata' : 'reporte diario'} ${activo ? 'activado' : 'desactivado'}`);
+    renderDestAutorizacion();
+  }catch(e){ console.error(e); showToast('Error: ' + e.message, true); renderDestAutorizacion(); }
+}
+async function autDestQuitar(emailEnc){
+  const email = decodeURIComponent(emailEnc);
+  if(!confirm(`¿Quitar a ${email} de los avisos y del reporte de contratos pendientes de autorización?`)) return;
+  const { error } = await supabaseClient.from('reportes_email_destinatarios').delete().in('tipo_reporte', Object.values(AUT_DEST_TIPOS)).eq('email', email);
+  if(error){ showToast('Error: ' + error.message, true); return; }
+  showToast('Destinatario eliminado');
+  renderDestAutorizacion();
 }
 
 function initPanelDestinatarios(tipoReporte){
