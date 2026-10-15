@@ -18592,6 +18592,88 @@ window.addEventListener('online', syncSiHaceFalta);
 window.addEventListener('focus', syncSiHaceFalta);
 document.getElementById('sync-chip')?.addEventListener('click', () => syncEjecutar('manual', true));
 
+// =========================================================
+// VERSIÓN NUEVA DE LA APP: detectar que se subió otro index.html y actualizar a todos
+// =========================================================
+// La app guarda la "huella" (ETag / fecha / tamaño) del index.html con el que se abrió y la compara cada
+// VERSION_SONDEO_MS con la que hay publicada. Si cambió: si la persona NO está haciendo nada (sin ventanas abiertas,
+// sin escribir, sin arrastrar) la página se recarga sola; si está ocupada aparece un cartel arriba y se recarga
+// apenas quede libre (o cuando toque "Actualizar ahora").
+const VERSION_SONDEO_MS = 2 * 60 * 1000;   // cada cuánto se consulta si hay versión nueva
+const VERSION_OCIO_MS   = 45 * 1000;       // sin tocar el teclado este tiempo = se considera libre
+let versionBase = null, versionNueva = false, versionRecargando = false, versionUltimaEntrada = 0, versionTimerEspera = null;
+const VERSION_URL = location.href.split('#')[0].split('?')[0];
+function versionHuella(resp){
+  if(!resp || !resp.ok) return null;
+  const h = (resp.headers.get('etag') || '') + '|' + (resp.headers.get('last-modified') || '') + '|' + (resp.headers.get('content-length') || '');
+  return h === '||' ? null : h;
+}
+async function versionTomarBase(){
+  try{
+    // se lee de la copia que el navegador ya tiene (la misma con la que se abrió la página): no descarga nada nuevo
+    const r = await fetch(VERSION_URL, { method:'GET', cache:'force-cache' });
+    versionBase = versionHuella(r);
+  }catch(_){ versionBase = null; }
+}
+function versionLibre(){
+  if(document.querySelector('.overlay.open')) return false;
+  if(typeof pizarraArrastrando !== 'undefined' && pizarraArrastrando) return false;
+  const a = document.activeElement;
+  if(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.id !== 'sync-chip' && a.type !== 'button') return false;
+  if(Date.now() - versionUltimaEntrada < VERSION_OCIO_MS) return false;
+  if(typeof syncEnCurso !== 'undefined' && syncEnCurso) return false;
+  return true;
+}
+function versionCartel(mostrar){
+  let el = document.getElementById('version-cartel');
+  if(!mostrar){ if(el) el.remove(); return; }
+  if(el) return;
+  el = document.createElement('div');
+  el.id = 'version-cartel';
+  el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#1e9be8;color:#fff;padding:9px 16px;display:flex;gap:12px;align-items:center;justify-content:center;font-size:13.5px;box-shadow:0 2px 10px rgba(0,0,0,.35);';
+  el.innerHTML = '<span>🔄 Hay una <b>versión nueva</b> de Horizon. Se actualiza sola cuando termines lo que estás haciendo.</span>' +
+    '<button type="button" id="version-btn" style="background:#fff;color:#0a1a3a;border:0;border-radius:6px;padding:5px 12px;font-weight:700;cursor:pointer;">Actualizar ahora</button>';
+  document.body.appendChild(el);
+  document.getElementById('version-btn').addEventListener('click', () => versionRecargar(true));
+}
+function versionRecargar(forzado){
+  if(versionRecargando) return;
+  // freno anti-bucle: no más de una recarga automática por minuto
+  try{
+    const ult = Number(sessionStorage.getItem('horizon_ver_reload') || 0);
+    if(!forzado && Date.now() - ult < 60 * 1000) return;
+    sessionStorage.setItem('horizon_ver_reload', String(Date.now()));
+  }catch(_){}
+  versionRecargando = true;
+  try{ showToast('Actualizando a la versión nueva…'); }catch(_){}
+  setTimeout(() => location.reload(), 1200);
+}
+function versionEvaluar(){
+  if(!versionNueva || versionRecargando) return;
+  if(versionLibre()){ versionRecargar(false); return; }
+  versionCartel(true);
+  clearTimeout(versionTimerEspera);
+  versionTimerEspera = setTimeout(versionEvaluar, 10 * 1000);
+}
+async function versionConsultar(){
+  if(versionNueva){ versionEvaluar(); return; }
+  try{
+    const r = await fetch(VERSION_URL, { method:'HEAD', cache:'no-store' });
+    const h = versionHuella(r);
+    if(!h) return;
+    if(versionBase === null){ versionBase = h; return; }   // no se pudo leer la base: se toma esta como referencia
+    if(h !== versionBase){ versionNueva = true; versionEvaluar(); }
+  }catch(_){ /* sin internet o abierto como archivo local: se ignora */ }
+}
+['keydown','input','pointerdown'].forEach(ev => document.addEventListener(ev, () => { versionUltimaEntrada = Date.now(); }, true));
+if(/^https?:$/.test(location.protocol)){
+  versionTomarBase();
+  setInterval(versionConsultar, VERSION_SONDEO_MS);
+  document.addEventListener('visibilitychange', () => { if(!document.hidden) versionConsultar(); });
+  window.addEventListener('focus', versionConsultar);
+  window.addEventListener('online', versionConsultar);
+}
+
 (async function init(){
   console.log('[Horizon] iniciando...');
   if(!initSupabase()) return;
