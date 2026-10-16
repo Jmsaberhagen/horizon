@@ -348,14 +348,18 @@
   .pm-mf{display:flex;align-items:center;gap:12px;padding:14px 24px;border-top:1px solid var(--border);background:var(--panel);}
   .pm-mf .st{flex:1;font-size:12.5px;color:var(--text-dim);}
   .pm-mf .st b{color:var(--warn);}
-  /* Tabla de contratos: columnas parejas; los avisos viven en su propia columna */
-  .tabla-contratos td{vertical-align:middle;}
-  .tabla-contratos .c-cliente{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;}
-  .tabla-contratos .c-equipo{white-space:nowrap;}
+  /* Tabla de contratos: columnas parejas; los avisos viven en su propia columna; entra en pantalla sin scroll lateral */
+  .tabla-contratos{width:100%;}
+  .tabla-contratos th,.tabla-contratos td{padding-left:8px;padding-right:8px;vertical-align:middle;}
+  .tabla-contratos .c-cliente{max-width:215px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;}
+  .tabla-contratos .c-equipo{max-width:170px;}
   .tabla-contratos .c-nowrap{white-space:nowrap;}
+  .tabla-contratos .c-fechas{white-space:nowrap;line-height:1.35;font-size:12.5px;}
+  .tabla-contratos .c-creador{max-width:125px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .tabla-contratos .badge{white-space:nowrap;}
-  .tabla-contratos .c-avisos{min-width:225px;max-width:250px;}
+  .tabla-contratos .c-avisos{width:175px;max-width:175px;}
   .tabla-contratos .avisos-wrap{display:flex;flex-wrap:wrap;gap:4px;}
+  .tabla-contratos .row-actions{flex-wrap:nowrap;}
   .overlay.open{display:flex;}
   .modal{
     position:relative;
@@ -5381,11 +5385,11 @@ function renderContratos(list){
         <td class="c-cliente" title="${escapeHtml(cliente)}">${escapeHtml(cliente)}</td>
         <td class="muted c-equipo">${escapeHtml(equipo)}</td>
         <td class="c-nowrap">${sucursal !== '—' ? `<span class="badge">${sucursal}</span>` : '—'}</td>
-        <td class="muted c-nowrap">${fmtDate(c.fecha_salida)} → ${fmtDate(c.fecha_vencimiento)}</td>
+        <td class="muted c-fechas">${fmtDate(c.fecha_salida)} →<br>${fmtDate(c.fecha_vencimiento)}</td>
         <td class="muted c-nowrap">${fmtMoney(precio, c.moneda)}</td>
         <td class="c-nowrap">${c.estado === 'activo' ? '<span class="badge" style="color:var(--ok);border-color:var(--ok);">Activo</span>' : '<span class="badge" style="color:var(--danger);border-color:var(--danger);">De baja</span>'}</td>
         <td class="c-avisos"><div class="avisos-wrap">${c.es_demo ? '<span class="badge" style="color:#38BDF8;border-color:#38BDF8;">🎁 DEMO</span>' : ''}${c.autorizacion === 'pendiente' ? '<span class="badge" style="color:#f43f5e;border-color:#f43f5e;" title="Espera la autorización de un maestro: no genera facturación">⏳ Autorización</span>' : ''}${c.datos_confirmados ? '' : '<span class="badge" style="color:#ff9f43;border-color:#ff9f43;" title="Falta confirmar periodicidad / último período facturado">⚠ A confirmar</span>'}${c.tiene_flete_entrega && !c.flete_entrega_facturado ? `<span class="badge" style="color:var(--accent);border-color:var(--accent-dim);" title="Flete de entrega sin facturar: ${fmtMoney(c.costo_flete_entrega,'USD')}">🚚 Entrega</span>` : ''}${c.tiene_flete_retiro && !c.flete_retiro_facturado ? `<span class="badge" style="color:#ff9f43;border-color:#ff9f43;" title="Flete de retiro sin facturar: ${fmtMoney(c.costo_flete_retiro,'USD')}">🚚 Retiro</span>` : ''}</div></td>
-        <td class="muted">${escapeHtml(creadoPor)}</td>
+        <td class="muted c-creador" title="${escapeHtml(creadoPor)}">${escapeHtml(creadoPor)}</td>
         <td>
           <div class="row-actions">
             <button class="btn secondary small" onclick="openEditContrato(${c.id})">Editar</button>
