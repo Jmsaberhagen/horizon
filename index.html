@@ -360,6 +360,30 @@
   .tabla-contratos .c-avisos{width:175px;max-width:175px;}
   .tabla-contratos .avisos-wrap{display:flex;flex-wrap:wrap;gap:4px;}
   .tabla-contratos .row-actions{flex-wrap:nowrap;}
+  /* ---- Usuarios y Claves Web ---- */
+  .aw-banner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12.5px;color:var(--text-dim);margin-bottom:14px;}
+  .aw-lock{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--warn);border:1px solid var(--warn);border-radius:999px;padding:2px 10px;}
+  .aw-tabs{display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .aw-tab{padding:9px 16px;font-weight:700;font-size:13px;color:var(--text-dim);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;background:none;border-top:0;border-left:0;border-right:0;}
+  .aw-tab.on{color:var(--accent);border-bottom-color:var(--accent);}
+  .aw-tab small{font-family:var(--font-mono);margin-left:6px;color:var(--text-dim);}
+  .aw-tbl td{white-space:nowrap;vertical-align:middle;}
+  .aw-nombre{font-weight:700;max-width:190px;overflow:hidden;text-overflow:ellipsis;}
+  .aw-sub{color:var(--text-dim);font-size:11.5px;font-family:var(--font-mono);}
+  .aw-user{font-family:var(--font-mono);font-size:12.5px;max-width:150px;overflow:hidden;text-overflow:ellipsis;display:inline-block;vertical-align:middle;}
+  .aw-pw{font-family:var(--font-mono);letter-spacing:2px;color:var(--text-dim);}
+  .aw-pw.show{letter-spacing:.5px;color:var(--text);}
+  .aw-ic{background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:5px;min-width:26px;height:24px;cursor:pointer;font-size:12px;padding:0 6px;}
+  .aw-ic:hover{color:var(--accent);border-color:var(--accent);}
+  .aw-link{color:var(--accent);font-size:12.5px;max-width:170px;overflow:hidden;text-overflow:ellipsis;display:inline-block;vertical-align:middle;}
+  .aw-obs{color:var(--text-dim);font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;}
+  .aw-drawer{position:fixed;top:0;right:0;bottom:0;width:440px;max-width:100%;background:var(--bg);border-left:1px solid var(--accent);box-shadow:-20px 0 50px rgba(0,0,0,.5);padding:22px;overflow:auto;display:none;z-index:60;}
+  .aw-drawer.open{display:block;}
+  .aw-fld{margin:14px 0;}
+  .aw-fld>label{display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--text-dim);margin-bottom:5px;}
+  .aw-box{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:9px 12px;display:flex;align-items:center;gap:8px;justify-content:space-between;font-size:13px;word-break:break-all;}
+  .aw-log{font-size:12px;color:var(--text-dim);border-left:2px solid var(--border);padding-left:12px;margin:6px 0;}
+  .aw-log b{color:var(--text);}
   .overlay.open{display:flex;}
   .modal{
     position:relative;
@@ -1037,6 +1061,7 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
   <button data-tab="panoramacobranzas">Panorama de Cobranzas</button>
   <button data-tab="panoramaproveedores">Panorama de Deuda a Proveedores</button>
   <button data-tab="datosbancarios">Datos Bancarios de Proveedores</button>
+  <button data-tab="accesosweb">Usuarios y Claves Web</button>
   <button data-tab="conciliacioncompras">Conciliación de Compras (GP vs ARCA)</button>
   <button data-tab="gastosobra">Gastos de Reforma</button>
   <button data-tab="chequescustodia">Cheques en Custodia vs GP</button>
@@ -2892,6 +2917,95 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
     </div>
   </div>
 
+  <section id="tab-accesosweb" style="display:none;">
+    <div class="aw-banner"><span class="aw-lock">🔒 ACCESO RESTRINGIDO</span><span>Accesos a portales de clientes y proveedores. Las claves están cifradas y ocultas: cada vez que se ve o se copia una queda registrado.</span></div>
+    <div class="aw-tabs" id="aw-tabs"></div>
+    <div class="toolbar">
+      <input type="text" id="aw-search-input" placeholder="Buscar cliente, usuario, link, observaciones...">
+      <select id="aw-filter-estado">
+        <option value="">Todas</option>
+        <option value="sin_clave">Sin clave cargada</option>
+        <option value="vieja">Clave sin actualizar +6 meses</option>
+      </select>
+      <div style="flex:1"></div>
+      <button class="btn secondary" id="btn-aw-log" style="display:none;">📜 Registro de uso</button>
+      <button class="btn secondary" id="btn-aw-export">Exportar XLSX</button>
+      <button class="btn" id="btn-aw-new">+ Nuevo acceso</button>
+    </div>
+    <div class="panel">
+      <div class="table-wrap">
+        <table class="aw-tbl">
+          <thead id="aw-thead"></thead>
+          <tbody id="aw-tbody"><tr><td class="empty-state">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="muted" id="aw-results-count" style="margin-top:10px;font-size:12px;"></div>
+  </section>
+
+  <div class="aw-drawer" id="aw-drawer"></div>
+
+  <div class="overlay" id="modal-aw-overlay">
+    <div class="modal">
+      <h2 id="aw-modal-title">Nuevo acceso</h2>
+      <input type="hidden" id="aw-id">
+      <div class="field-grid">
+        <div class="field full"><label>Nombre (cliente / proveedor) *</label><input type="text" id="aw-nombre"></div>
+        <div class="field"><label>Tipo</label>
+          <select id="aw-tipo">
+            <option value="cliente_horizon">Cliente · Horizon</option>
+            <option value="cliente_haulotte">Cliente · Haulotte</option>
+            <option value="proveedor">Proveedor</option>
+            <option value="control_doc">Control documental</option>
+          </select></div>
+        <div class="field"><label>Empresa</label>
+          <select id="aw-empresa"><option value="">—</option><option>HORIZON</option><option>HAULOTTE</option></select></div>
+        <div class="field"><label>CUIT</label><input type="text" id="aw-cuit"></div>
+        <div class="field"><label>ID cliente / proveedor</label><input type="text" id="aw-id_cliente"></div>
+        <div class="field"><label>Usuario</label><input type="text" id="aw-usuario" autocomplete="off"></div>
+        <div class="field"><label>Clave</label><input type="text" id="aw-clave" autocomplete="off" placeholder="(vacía = sin cambios)"></div>
+        <div class="field full" id="aw-borrar-clave-field" style="display:none;"><label style="text-transform:none;"><input type="checkbox" id="aw-borrar-clave" style="width:auto;"> Quitar la clave guardada</label></div>
+        <div class="field full"><label>Link del portal</label><input type="text" id="aw-link"></div>
+        <div class="field full"><label>Observaciones</label><textarea id="aw-observaciones" rows="2"></textarea></div>
+        <div class="field full"><label>Observaciones II</label><textarea id="aw-observaciones2" rows="2"></textarea></div>
+        <div class="field full"><label>Forma de pago</label><input type="text" id="aw-forma_pago"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn danger" id="btn-aw-delete" style="display:none;margin-right:auto;">Eliminar</button>
+        <button class="btn secondary" id="btn-aw-cancel">Cancelar</button>
+        <button class="btn" id="btn-aw-save">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="modal-awc-overlay">
+    <div class="modal">
+      <h2 id="awc-modal-title">Nuevo contacto de cobranzas</h2>
+      <input type="hidden" id="awc-id">
+      <div class="field-grid">
+        <div class="field full"><label>Cliente *</label><input type="text" id="awc-cliente"></div>
+        <div class="field"><label>Contacto</label><input type="text" id="awc-contacto"></div>
+        <div class="field"><label>Teléfono</label><input type="text" id="awc-telefono"></div>
+        <div class="field full"><label>Días y horarios</label><input type="text" id="awc-dias_horarios"></div>
+        <div class="field full"><label>Mail de reclamo de pago</label><textarea id="awc-mail_reclamo" rows="2"></textarea></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn danger" id="btn-awc-delete" style="display:none;margin-right:auto;">Eliminar</button>
+        <button class="btn secondary" id="btn-awc-cancel">Cancelar</button>
+        <button class="btn" id="btn-awc-save">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="modal-awlog-overlay">
+    <div class="modal wide">
+      <h2>Registro de uso de claves</h2>
+      <div class="muted" style="font-size:12px;margin-bottom:12px;">Últimos 200 movimientos: quién vio, copió o cambió una clave.</div>
+      <div class="table-wrap" style="max-height:60vh;overflow:auto;"><table><thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Acceso</th></tr></thead><tbody id="awlog-tbody"></tbody></table></div>
+      <div class="modal-actions"><button class="btn secondary" id="btn-awlog-close">Cerrar</button></div>
+    </div>
+  </div>
+
   <section id="tab-datosbancarios" style="display:none;">
     <div class="toolbar">
       <input type="text" id="dbp-search-input" placeholder="Buscar por nombre, CUIT, alias o CBU...">
@@ -4331,6 +4445,7 @@ const TAB_TITLES = {
   panoramacobranzas: 'Panorama de Cobranzas',
   panoramaproveedores: 'Panorama de Deuda a Proveedores',
   datosbancarios: 'Datos Bancarios de Proveedores',
+  accesosweb: 'Usuarios y Claves Web',
   conciliacioncompras: 'Conciliación de Compras (GP vs ARCA)',
   gastosobra: 'Gastos de Reforma',
   chequescustodia: 'Cheques en Custodia vs GP',
@@ -7961,6 +8076,7 @@ const SECCIONES_PERMISOS = [
   { key:'haulotte_repuestos', label:'Artículos Haulotte', acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
   { key:'panoramacobranzas',  label:'Panorama de Cobranzas',   acciones:[['ver','Ver / usar']] },
   { key:'panoramaproveedores', label:'Panorama de Deuda a Proveedores', acciones:[['ver','Ver / usar']] },
+  { key:'accesos_web', label:'Usuarios y Claves Web', acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar'],['ver_claves','Ver y copiar claves']] },
   { key:'datos_bancarios', label:'Datos Bancarios de Proveedores', acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
   { key:'conciliacioncompras', label:'Conciliación de Compras (GP vs ARCA)', acciones:[['ver','Ver / usar']] },
   { key:'chequescustodia', label:'Cheques en Custodia vs GP', acciones:[['ver','Ver / usar']] },
@@ -8118,6 +8234,312 @@ document.getElementById('btn-limpiar-facturas').addEventListener('click', async 
   }
 });
 
+// =========================================================
+// MÓDULO: Usuarios y Claves Web
+// Las claves se guardan cifradas en la base (tabla aparte, sin lectura directa):
+// solo se ven / copian con las funciones acceso_ver_clave (permiso "ver_claves"), que dejan registro.
+// =========================================================
+let accesosWebCache = [];
+let contactosCobrCache = [];
+let awTabActual = 'hz';
+const AW_TABS = [
+  { k:'hz', t:'Clientes · Horizon', tipo:'cliente_horizon' },
+  { k:'ha', t:'Clientes · Haulotte', tipo:'cliente_haulotte' },
+  { k:'pr', t:'Proveedores', tipo:'proveedor' },
+  { k:'cd', t:'Control documental', tipo:'control_doc' },
+  { k:'co', t:'Contactos de cobranzas', tipo:null },
+];
+
+async function loadAccesosWeb(){
+  const [a, c] = await Promise.all([
+    supabaseClient.from('accesos_web').select('*').order('nombre'),
+    supabaseClient.from('contactos_cobranzas').select('*').order('cliente'),
+  ]);
+  if(a.error){ console.error('Error cargando accesos web:', a.error); accesosWebCache = []; } else accesosWebCache = a.data || [];
+  if(c.error){ console.error('Error cargando contactos de cobranzas:', c.error); contactosCobrCache = []; } else contactosCobrCache = c.data || [];
+}
+
+function awAntig(r){
+  if(!r.tiene_clave) return { txt:'—', cls:'', dias:null };
+  if(!r.clave_actualizada_at) return { txt:'sin fecha', cls:'', dias:null };
+  const d = Math.floor((Date.now() - new Date(r.clave_actualizada_at).getTime()) / 86400000);
+  const txt = d < 1 ? 'hoy' : d < 31 ? `hace ${d} d` : d < 365 ? `hace ${Math.round(d/30)} meses` : `hace ${(d/365).toFixed(1).replace('.0','')} años`;
+  return { txt, cls: d > 180 ? 'warn' : 'ok', dias:d };
+}
+function awBadge(r){
+  const a = awAntig(r);
+  const col = a.cls === 'ok' ? 'var(--ok)' : a.cls === 'warn' ? 'var(--warn)' : 'var(--border)';
+  const txtCol = a.cls ? col : 'var(--text-dim)';
+  return `<span class="badge" style="color:${txtCol};border-color:${col};">${a.txt}</span>`;
+}
+
+function awLista(){
+  const tab = AW_TABS.find(t => t.k === awTabActual);
+  const q = document.getElementById('aw-search-input').value.trim().toLowerCase();
+  const est = document.getElementById('aw-filter-estado').value;
+  if(!tab.tipo){
+    return contactosCobrCache.filter(c => !q || [c.cliente,c.contacto,c.telefono,c.dias_horarios,c.mail_reclamo].some(v => (v||'').toLowerCase().includes(q)));
+  }
+  return accesosWebCache.filter(r => {
+    if(r.tipo !== tab.tipo) return false;
+    if(est === 'sin_clave' && r.tiene_clave) return false;
+    if(est === 'vieja'){ const a = awAntig(r); if(!(r.tiene_clave && (a.dias === null || a.dias > 180))) return false; }
+    if(q && ![r.nombre,r.cuit,r.id_cliente,r.usuario,r.link,r.empresa,r.observaciones,r.observaciones2,r.forma_pago].some(v => (v||'').toLowerCase().includes(q))) return false;
+    return true;
+  });
+}
+
+function renderAccesosWeb(){
+  // pestañas con contador
+  document.getElementById('aw-tabs').innerHTML = AW_TABS.map(t => {
+    const n = t.tipo ? accesosWebCache.filter(r => r.tipo === t.tipo).length : contactosCobrCache.length;
+    return `<button class="aw-tab ${t.k === awTabActual ? 'on' : ''}" data-awtab="${t.k}">${t.t}<small>${n}</small></button>`;
+  }).join('');
+  const tab = AW_TABS.find(t => t.k === awTabActual);
+  const thead = document.getElementById('aw-thead'), tbody = document.getElementById('aw-tbody');
+  const list = awLista();
+  const puedeEd = puede('accesos_web','editar');
+  document.getElementById('aw-filter-estado').style.display = tab.tipo ? '' : 'none';
+  document.getElementById('btn-aw-export').style.display = '';
+  document.getElementById('btn-aw-new').textContent = tab.tipo ? '+ Nuevo acceso' : '+ Nuevo contacto';
+  if(!tab.tipo){
+    thead.innerHTML = '<tr><th>Cliente</th><th>Contacto</th><th>Teléfono</th><th>Días y horarios</th><th>Mail de reclamo de pago</th><th style="width:90px;">Acciones</th></tr>';
+    tbody.innerHTML = list.length ? list.map(c => `<tr>
+      <td class="aw-nombre">${escapeHtml(c.cliente)}</td><td>${escapeHtml(c.contacto||'—')}</td><td>${escapeHtml(c.telefono||'—')}</td>
+      <td class="muted">${escapeHtml(c.dias_horarios||'—')}</td>
+      <td class="aw-obs" style="max-width:340px;" title="${escapeHtml(c.mail_reclamo||'')}">${escapeHtml(c.mail_reclamo||'—')}</td>
+      <td><button class="btn secondary small" onclick="awAbrirContacto(${c.id})">${puedeEd ? 'Editar' : 'Ver'}</button></td></tr>`).join('')
+      : '<tr><td colspan="6" class="empty-state">Sin resultados.</td></tr>';
+    document.getElementById('aw-results-count').textContent = `${list.length} contacto(s)`;
+    return;
+  }
+  const esCli = tab.tipo.startsWith('cliente_');
+  thead.innerHTML = `<tr><th>${esCli ? 'Cliente' : 'Nombre'}</th><th>Usuario</th><th>Clave</th><th>Portal</th><th>${esCli ? 'Observaciones' : 'Empresa / obs.'}</th><th>Clave actualizada</th><th style="width:110px;">Acciones</th></tr>`;
+  const verClaves = puede('accesos_web','ver_claves');
+  tbody.innerHTML = list.length ? list.map(r => {
+    const href = awHref(r.link);
+    return `<tr>
+      <td><div class="aw-nombre" title="${escapeHtml(r.nombre)}">${escapeHtml(r.nombre)}</div>${r.cuit ? `<div class="aw-sub">${escapeHtml(r.cuit)}</div>` : ''}</td>
+      <td>${r.usuario ? `<span class="aw-user" title="${escapeHtml(r.usuario)}">${escapeHtml(r.usuario)}</span> <button class="aw-ic" title="Copiar usuario" onclick="awCopiarUsuario(${r.id})">⧉</button>` : '<span class="muted">—</span>'}</td>
+      <td>${r.tiene_clave ? `<span class="aw-pw" id="aw-pw-${r.id}">••••••••</span>${verClaves ? ` <button class="aw-ic" title="Mostrar clave" onclick="awVerClave(${r.id})">👁</button> <button class="aw-ic" title="Copiar clave" onclick="awCopiarClave(${r.id})">⧉</button>` : ''}` : '<span class="muted">—</span>'}</td>
+      <td>${href ? `<a class="aw-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(r.link)}">${escapeHtml(r.link.replace(/^https?:\/\//,''))} ↗</a>` : (r.link ? `<span class="muted aw-obs">${escapeHtml(r.link)}</span>` : '<span class="muted">—</span>')}</td>
+      <td class="aw-obs" title="${escapeHtml((r.observaciones||''))}">${!esCli && r.empresa ? `<span class="badge">${escapeHtml(r.empresa)}</span> ` : ''}${escapeHtml(r.observaciones||'')}</td>
+      <td>${awBadge(r)}</td>
+      <td><button class="btn secondary small" onclick="awAbrirFicha(${r.id})">Abrir ficha</button></td></tr>`;
+  }).join('') : '<tr><td colspan="7" class="empty-state">Sin resultados.</td></tr>';
+  document.getElementById('aw-results-count').textContent = `${list.length} acceso(s)`;
+}
+function awHref(link){
+  if(!link) return '';
+  const m = link.trim().match(/^(https?:\/\/\S+)/i);
+  if(m) return m[1];
+  if(/^(www\.)?[\w-]+(\.[\w-]+)+(\/\S*)?$/i.test(link.trim())) return 'https://' + link.trim();
+  return '';
+}
+
+document.getElementById('aw-tabs').addEventListener('click', e => {
+  const b = e.target.closest('[data-awtab]'); if(!b) return;
+  awTabActual = b.dataset.awtab; renderAccesosWeb();
+});
+document.getElementById('aw-search-input').addEventListener('input', renderAccesosWeb);
+document.getElementById('aw-filter-estado').addEventListener('change', renderAccesosWeb);
+
+async function awClaveRpc(id, accion){
+  const { data, error } = await supabaseClient.rpc('acceso_ver_clave', { p_id: id, p_accion: accion });
+  if(error){ showToast('No se pudo obtener la clave: ' + error.message, true); return null; }
+  return data;
+}
+async function awVerClave(id){
+  const el = document.getElementById('aw-pw-' + id);
+  if(!el) return;
+  if(el.classList.contains('show')){ el.textContent = '••••••••'; el.classList.remove('show'); return; }
+  const c = await awClaveRpc(id, 'ver');
+  if(c === null) return;
+  el.textContent = c; el.classList.add('show');
+  setTimeout(()=>{ if(el.classList.contains('show')){ el.textContent = '••••••••'; el.classList.remove('show'); } }, 15000);
+}
+async function awCopiarTexto(txt, msg){
+  try{ await navigator.clipboard.writeText(txt); showToast(msg); }
+  catch(e){ showToast('No se pudo copiar automáticamente', true); }
+}
+async function awCopiarClave(id){
+  const c = await awClaveRpc(id, 'copiar');
+  if(c === null) return;
+  await awCopiarTexto(c, 'Clave copiada al portapapeles');
+}
+function awCopiarUsuario(id){
+  const r = accesosWebCache.find(x => x.id === id); if(!r || !r.usuario) return;
+  awCopiarTexto(r.usuario, 'Usuario copiado');
+}
+
+// ---- Ficha (panel lateral) ----
+async function awAbrirFicha(id){
+  const r = accesosWebCache.find(x => x.id === id); if(!r) return;
+  const dr = document.getElementById('aw-drawer');
+  const verClaves = puede('accesos_web','ver_claves'), puedeEd = puede('accesos_web','editar');
+  const href = awHref(r.link);
+  const tipoTxt = { cliente_horizon:'Cliente · Horizon', cliente_haulotte:'Cliente · Haulotte', proveedor:'Proveedor', control_doc:'Control documental' }[r.tipo];
+  const quien = r.clave_actualizada_por ? (usuariosCache.find(u => u.id === r.clave_actualizada_por)?.nombre || '') : '';
+  dr.innerHTML = `
+    <div style="display:flex;justify-content:space-between;gap:10px;"><div><h2 style="margin:0 0 2px;font-size:18px;">${escapeHtml(r.nombre)}</h2>
+      <div class="aw-sub">${escapeHtml(tipoTxt)}${r.empresa ? ' · ' + escapeHtml(r.empresa) : ''}${r.cuit ? ' · CUIT ' + escapeHtml(r.cuit) : ''}${r.id_cliente ? ' · ID ' + escapeHtml(r.id_cliente) : ''}</div></div>
+      <button class="btn secondary small" onclick="awCerrarFicha()">✕</button></div>
+    <div class="aw-fld"><label>Portal</label><div class="aw-box"><span>${href ? `<a class="aw-link" style="max-width:260px;" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(r.link)}</a>` : escapeHtml(r.link || '—')}</span>${href ? `<a class="btn secondary small" style="color:var(--text);text-decoration:none;" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">Abrir ↗</a>` : ''}</div></div>
+    <div class="aw-fld"><label>Usuario</label><div class="aw-box"><span class="aw-user" style="max-width:280px;">${escapeHtml(r.usuario || '—')}</span>${r.usuario ? `<button class="btn secondary small" onclick="awCopiarUsuario(${r.id})">Copiar</button>` : ''}</div></div>
+    <div class="aw-fld"><label>Clave</label><div class="aw-box"><span class="aw-pw" id="aw-pw-${r.id}">${r.tiene_clave ? '••••••••••' : '—'}</span>${r.tiene_clave && verClaves ? `<span><button class="btn secondary small" onclick="awVerClave(${r.id})">👁 Ver</button> <button class="btn secondary small" onclick="awCopiarClave(${r.id})">Copiar</button></span>` : (r.tiene_clave ? '<span class="muted" style="font-size:11px;">sin permiso para verla</span>' : '')}</div></div>
+    ${r.forma_pago ? `<div class="aw-fld"><label>Forma de pago</label><div class="aw-box">${escapeHtml(r.forma_pago)}</div></div>` : ''}
+    ${r.observaciones ? `<div class="aw-fld"><label>Observaciones</label><div class="aw-box" style="display:block;line-height:1.5;white-space:pre-wrap;">${escapeHtml(r.observaciones)}</div></div>` : ''}
+    ${r.observaciones2 ? `<div class="aw-fld"><label>Observaciones II</label><div class="aw-box" style="display:block;line-height:1.5;white-space:pre-wrap;">${escapeHtml(r.observaciones2)}</div></div>` : ''}
+    <div class="aw-fld"><label>Última actualización de la clave</label><div class="aw-box"><span>${r.clave_actualizada_at ? fmtDate(r.clave_actualizada_at.slice(0,10)) + (quien ? ' · ' + escapeHtml(quien) : '') : 'Sin fecha registrada'}</span>${awBadge(r)}</div></div>
+    ${miPerfil.rol === 'maestro' ? '<div class="aw-fld"><label>Registro de uso</label><div id="aw-drawer-log" class="muted" style="font-size:12px;">Cargando...</div></div>' : ''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:18px;">
+      ${puedeEd ? `<button class="btn" onclick="awEditar(${r.id})">Editar</button>` : ''}
+      ${puedeEd && r.tiene_clave ? `<button class="btn secondary" onclick="awMarcarActualizada(${r.id})">Marcar clave actualizada hoy</button>` : ''}
+    </div>`;
+  dr.classList.add('open');
+  if(miPerfil.rol === 'maestro'){
+    const { data } = await supabaseClient.from('accesos_web_log').select('*').eq('acceso_id', id).order('created_at', { ascending:false }).limit(8);
+    const box = document.getElementById('aw-drawer-log'); if(!box) return;
+    const acc = { ver:'vio la clave', copiar:'copió la clave', cambio_clave:'cambió la clave' };
+    box.innerHTML = (data && data.length) ? data.map(l => `<div class="aw-log"><b>${escapeHtml(l.usuario_nombre || '—')}</b> ${acc[l.accion] || l.accion} · ${new Date(l.created_at).toLocaleString('es-AR')}</div>`).join('') : 'Sin movimientos registrados.';
+  }
+}
+function awCerrarFicha(){ document.getElementById('aw-drawer').classList.remove('open'); }
+async function awMarcarActualizada(id){
+  const { error } = await supabaseClient.from('accesos_web').update({ clave_actualizada_at: new Date().toISOString(), clave_actualizada_por: miPerfil.id, updated_at: new Date().toISOString(), updated_by: miPerfil.id }).eq('id', id);
+  if(error){ showToast('Error: ' + error.message, true); return; }
+  showToast('Clave marcada como actualizada hoy');
+  await loadAccesosWeb(); renderAccesosWeb(); awAbrirFicha(id);
+}
+
+// ---- Alta / edición ----
+const AW_CAMPOS = ['nombre','cuit','id_cliente','usuario','link','observaciones','observaciones2','forma_pago'];
+function awNuevo(){
+  const tab = AW_TABS.find(t => t.k === awTabActual);
+  if(!tab.tipo){ awAbrirContacto(null); return; }
+  document.getElementById('aw-id').value = '';
+  AW_CAMPOS.forEach(c => document.getElementById('aw-' + c).value = '');
+  document.getElementById('aw-clave').value = '';
+  document.getElementById('aw-tipo').value = tab.tipo;
+  document.getElementById('aw-empresa').value = tab.k === 'hz' ? 'HORIZON' : tab.k === 'ha' ? 'HAULOTTE' : '';
+  document.getElementById('aw-borrar-clave-field').style.display = 'none';
+  document.getElementById('aw-borrar-clave').checked = false;
+  document.getElementById('aw-modal-title').textContent = 'Nuevo acceso';
+  document.getElementById('btn-aw-delete').style.display = 'none';
+  document.getElementById('modal-aw-overlay').classList.add('open');
+}
+function awEditar(id){
+  const r = accesosWebCache.find(x => x.id === id); if(!r) return;
+  awCerrarFicha();
+  document.getElementById('aw-id').value = r.id;
+  AW_CAMPOS.forEach(c => document.getElementById('aw-' + c).value = r[c] || '');
+  document.getElementById('aw-clave').value = '';
+  document.getElementById('aw-tipo').value = r.tipo;
+  document.getElementById('aw-empresa').value = (r.empresa || '').toUpperCase();
+  document.getElementById('aw-borrar-clave-field').style.display = r.tiene_clave ? '' : 'none';
+  document.getElementById('aw-borrar-clave').checked = false;
+  document.getElementById('aw-modal-title').textContent = 'Editar acceso';
+  document.getElementById('btn-aw-delete').style.display = puede('accesos_web','eliminar') ? 'inline-block' : 'none';
+  document.getElementById('modal-aw-overlay').classList.add('open');
+}
+document.getElementById('btn-aw-new').addEventListener('click', awNuevo);
+document.getElementById('btn-aw-cancel').addEventListener('click', ()=> document.getElementById('modal-aw-overlay').classList.remove('open'));
+document.getElementById('modal-aw-overlay').addEventListener('click', e => { if(e.target.id === 'modal-aw-overlay') e.target.classList.remove('open'); });
+document.getElementById('btn-aw-save').addEventListener('click', async ()=>{
+  const id = document.getElementById('aw-id').value;
+  const g = c => (document.getElementById('aw-' + c).value || '').trim() || null;
+  const nombre = g('nombre');
+  if(!nombre){ showToast('El nombre es obligatorio', true); return; }
+  const payload = { tipo: document.getElementById('aw-tipo').value, empresa: g('empresa'), updated_at: new Date().toISOString(), updated_by: miPerfil.id };
+  AW_CAMPOS.forEach(c => payload[c] = g(c));
+  const clave = document.getElementById('aw-clave').value;
+  try{
+    let rid = id ? Number(id) : null;
+    if(rid){
+      const { error } = await supabaseClient.from('accesos_web').update(payload).eq('id', rid); if(error) throw error;
+    } else {
+      const { data, error } = await supabaseClient.from('accesos_web').insert(payload).select('id').single(); if(error) throw error;
+      rid = data.id;
+    }
+    if(clave){
+      const { error } = await supabaseClient.rpc('acceso_set_clave', { p_id: rid, p_clave: clave }); if(error) throw error;
+    } else if(document.getElementById('aw-borrar-clave').checked){
+      const { error } = await supabaseClient.rpc('acceso_set_clave', { p_id: rid, p_clave: null }); if(error) throw error;
+    }
+    showToast('Acceso guardado');
+    document.getElementById('modal-aw-overlay').classList.remove('open');
+    await loadAccesosWeb(); renderAccesosWeb();
+  } catch(err){ console.error(err); showToast('Error: ' + err.message, true); }
+});
+document.getElementById('btn-aw-delete').addEventListener('click', async ()=>{
+  const id = document.getElementById('aw-id').value; if(!id) return;
+  if(!confirm('¿Eliminar este acceso y su clave? No se puede deshacer.')) return;
+  const { error } = await supabaseClient.from('accesos_web').delete().eq('id', Number(id));
+  if(error){ showToast('Error: ' + error.message, true); return; }
+  showToast('Acceso eliminado');
+  document.getElementById('modal-aw-overlay').classList.remove('open');
+  await loadAccesosWeb(); renderAccesosWeb();
+});
+
+// ---- Contactos de cobranzas ----
+const AWC_CAMPOS = ['cliente','contacto','telefono','dias_horarios','mail_reclamo'];
+function awAbrirContacto(id){
+  const c = id ? contactosCobrCache.find(x => x.id === id) : null;
+  document.getElementById('awc-id').value = c ? c.id : '';
+  AWC_CAMPOS.forEach(k => document.getElementById('awc-' + k).value = c ? (c[k] || '') : '');
+  document.getElementById('awc-modal-title').textContent = c ? 'Editar contacto de cobranzas' : 'Nuevo contacto de cobranzas';
+  document.getElementById('btn-awc-delete').style.display = (c && puede('accesos_web','eliminar')) ? 'inline-block' : 'none';
+  document.getElementById('modal-awc-overlay').classList.add('open');
+}
+document.getElementById('btn-awc-cancel').addEventListener('click', ()=> document.getElementById('modal-awc-overlay').classList.remove('open'));
+document.getElementById('modal-awc-overlay').addEventListener('click', e => { if(e.target.id === 'modal-awc-overlay') e.target.classList.remove('open'); });
+document.getElementById('btn-awc-save').addEventListener('click', async ()=>{
+  const id = document.getElementById('awc-id').value;
+  const g = k => (document.getElementById('awc-' + k).value || '').trim() || null;
+  if(!g('cliente')){ showToast('El cliente es obligatorio', true); return; }
+  const payload = { updated_at: new Date().toISOString() };
+  AWC_CAMPOS.forEach(k => payload[k] = g(k));
+  const q = id ? supabaseClient.from('contactos_cobranzas').update(payload).eq('id', Number(id)) : supabaseClient.from('contactos_cobranzas').insert(payload);
+  const { error } = await q;
+  if(error){ showToast('Error: ' + error.message, true); return; }
+  showToast('Contacto guardado');
+  document.getElementById('modal-awc-overlay').classList.remove('open');
+  await loadAccesosWeb(); renderAccesosWeb();
+});
+document.getElementById('btn-awc-delete').addEventListener('click', async ()=>{
+  const id = document.getElementById('awc-id').value; if(!id) return;
+  if(!confirm('¿Eliminar este contacto?')) return;
+  const { error } = await supabaseClient.from('contactos_cobranzas').delete().eq('id', Number(id));
+  if(error){ showToast('Error: ' + error.message, true); return; }
+  showToast('Contacto eliminado');
+  document.getElementById('modal-awc-overlay').classList.remove('open');
+  await loadAccesosWeb(); renderAccesosWeb();
+});
+
+// ---- Exportar (sin claves) / registro de uso ----
+document.getElementById('btn-aw-export').addEventListener('click', ()=>{
+  const tab = AW_TABS.find(t => t.k === awTabActual);
+  const list = awLista();
+  if(!tab.tipo){
+    exportXLS('contactos_cobranzas', ['Cliente','Contacto','Teléfono','Días y horarios','Mail de reclamo de pago'], list.map(c => [c.cliente,c.contacto||'',c.telefono||'',c.dias_horarios||'',c.mail_reclamo||'']));
+    return;
+  }
+  exportXLS('accesos_web_' + tab.tipo, ['Nombre','CUIT','ID','Usuario','Link','Empresa','Observaciones','Observaciones II','Forma de pago','Tiene clave'],
+    list.map(r => [r.nombre,r.cuit||'',r.id_cliente||'',r.usuario||'',r.link||'',r.empresa||'',r.observaciones||'',r.observaciones2||'',r.forma_pago||'',r.tiene_clave ? 'Sí' : 'No']));
+  showToast('Exportado sin contraseñas');
+});
+document.getElementById('btn-aw-log').addEventListener('click', async ()=>{
+  const tb = document.getElementById('awlog-tbody');
+  tb.innerHTML = '<tr><td colspan="4" class="empty-state">Cargando...</td></tr>';
+  document.getElementById('modal-awlog-overlay').classList.add('open');
+  const { data, error } = await supabaseClient.from('accesos_web_log').select('*').order('created_at', { ascending:false }).limit(200);
+  if(error){ tb.innerHTML = `<tr><td colspan="4" class="empty-state">Error: ${escapeHtml(error.message)}</td></tr>`; return; }
+  const acc = { ver:'Vio la clave', copiar:'Copió la clave', cambio_clave:'Cambió la clave' };
+  tb.innerHTML = data.length ? data.map(l => `<tr><td class="muted">${new Date(l.created_at).toLocaleString('es-AR')}</td><td>${escapeHtml(l.usuario_nombre||'—')}</td><td>${acc[l.accion]||escapeHtml(l.accion)}</td><td>${escapeHtml(l.nombre||'—')}</td></tr>`).join('') : '<tr><td colspan="4" class="empty-state">Sin movimientos.</td></tr>';
+});
+document.getElementById('btn-awlog-close').addEventListener('click', ()=> document.getElementById('modal-awlog-overlay').classList.remove('open'));
+document.getElementById('modal-awlog-overlay').addEventListener('click', e => { if(e.target.id === 'modal-awlog-overlay') e.target.classList.remove('open'); });
+
 // ---------- Gestión de Permisos granulares (solo maestro) ----------
 // Menú de permisos: mismas categorías/cards que el menú de la app. Las acciones salen de SECCIONES_PERMISOS
 // (fuente de verdad); acá solo se agrupan, con ícono y descripción. La forma guardada en perfiles.permisos no cambia.
@@ -8140,7 +8562,7 @@ const PM_CATEGORIAS = [
     {sk:'modalidadfact', t:'Modalidad de Facturación', i:'🗓️'}, {sk:'reportes', t:'Reportes', i:'📊'}, {sk:'enviofacturas', t:'Envío de Facturas', i:'📧'} ]},
   { k:'finanzas', t:'Finanzas', i:'🏦', e:'horizon', mods:[ {sk:'chequescustodia', t:'Cheques en Custodia vs GP', i:'🧾'} ]},
   { k:'rrhh', t:'RRHH / Cumplimiento', i:'🪪', e:'horizon', mods:[ {sk:'vencimientos', t:'Control de Vencimientos', i:'⏰'}, {sk:'personal', t:'Personal', i:'🧑‍🔧'} ]},
-  { k:'usuarios', t:'Usuarios', i:'👤', e:'horizon', mods:[ {sk:'usuarios', t:'Usuarios', i:'👤'} ]},
+  { k:'usuarios', t:'Usuarios', i:'👤', e:'horizon', mods:[ {sk:'usuarios', t:'Usuarios', i:'👤'}, {sk:'accesos_web', t:'Usuarios y Claves Web', i:'🔐'} ]},
   { k:'haulotte_rep', t:'Reportes Haulotte', i:'🟠', e:'haulotte', mods:[ {sk:'stockvalorizado', t:'Stock Valorizado', i:'📦'} ]},
   { k:'haulotte_art', t:'Artículos Haulotte', i:'🔧', e:'haulotte', mods:[ {sk:'haulotte_repuestos', t:'Artículos', i:'🔧'} ]},
 ];
@@ -8149,6 +8571,7 @@ const PM_DESC = {
   'contratos.editar_precio':'Cambiar el precio de un contrato que ya tiene precio',
   'contratos.requiere_autorizacion':'Cada contrato que cargue queda en “Pendientes de autorización” hasta que un maestro lo apruebe',
   'contratos.autorizar':'Ver la card y autorizar / rechazar contratos pendientes (solo maestros de confianza)',
+  'accesos_web.ver_claves':'Mostrar y copiar las contraseñas (cada uso queda registrado). Sin esto ve los portales pero no las claves',
   'pizarra.editar_fecha':'Cambiar la fecha de inicio de una máquina ya movida',
 };
 // Resuelve cada módulo del menú contra SECCIONES_PERMISOS
@@ -8490,6 +8913,7 @@ function renderDashboard(){
     ]},
     { key:'usuarios', titulo:'Usuarios', icon:'👤', tiles:[
       { tab:'usuarios',   icon:'👤', title:'Usuarios',   count:`${usuariosCache.length} cuentas`, visible:puede('usuarios','ver'), urgencia:null },
+      { tab:'accesosweb', icon:'🔐', title:'Usuarios y Claves Web', count: puede('accesos_web','ver') ? `${accesosWebCache.length} accesos` : '', visible:puede('accesos_web','ver'), urgencia:null },
     ]},
     { key:'rrhh', titulo:'RRHH / Cumplimiento', icon:'🪪', tiles:[
       { tab:'vencimientos', icon:'⏰', title:'Control de Vencimientos', count: puede('vencimientos','ver') ? `${nVencimientosUrgentes} atención` : '', visible:puede('vencimientos','ver'), urgencia: resumenVenc.vencidos>0 ? 'danger' : (resumenVenc.porVencer>0 ? 'warn' : 'ok') },
@@ -17941,6 +18365,14 @@ async function initApp(){
       renderDatosBancarios();
     }
     document.getElementById('btn-new-dbp').style.display = puede('datos_bancarios','crear') ? '' : 'none';
+
+    if(puede('accesos_web','ver')){
+      console.log('[Horizon] cargando usuarios y claves web...');
+      await loadAccesosWeb();
+      renderAccesosWeb();
+    }
+    document.getElementById('btn-aw-new').style.display = puede('accesos_web','crear') ? '' : 'none';
+    document.getElementById('btn-aw-log').style.display = miPerfil.rol === 'maestro' ? '' : 'none';
 
     if(puede('haulotte_repuestos','ver')){
       console.log('[Horizon] cargando artículos Haulotte...');
