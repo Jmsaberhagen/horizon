@@ -3960,14 +3960,49 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
           <label>Observaciones</label>
           <textarea id="c-observacion" rows="2"></textarea>
         </div>
+        <div class="field full" id="c-cambios-serie-box" style="display:none;">
+          <label>Series anteriores de este contrato</label>
+          <div id="c-cambios-serie" class="muted" style="font-size:12px;line-height:1.6;"></div>
+        </div>
       </div>
     </div>
 
     <div class="modal-actions">
       <button class="btn secondary" id="btn-contrato-cancel">Cancelar</button>
+      <button class="btn secondary" id="btn-contrato-cambiar-serie" style="display:none;" title="Reemplaza la máquina de este contrato por otra serie, sin dar de baja el contrato ni tocar la facturación">🔄 Cambiar serie</button>
       <button class="btn secondary" id="btn-contrato-enviar-aut" style="display:none;" title="Lo saca de Pendientes de Facturación hasta que un maestro lo autorice">🛡️ Mandar a autorización</button>
       <button class="btn danger" id="btn-contrato-delete" style="display:none;">Eliminar contrato</button>
       <button class="btn" id="btn-contrato-save">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CAMBIAR SERIE DE UN CONTRATO ACTIVO -->
+<div class="overlay" id="modal-cs-overlay">
+  <div class="modal">
+    <h2>🔄 Cambiar serie de la máquina</h2>
+    <input type="hidden" id="cs-contrato-id">
+    <input type="hidden" id="cs-equipo-id">
+    <div class="muted" style="font-size:12px;margin-bottom:14px;">
+      El contrato sigue activo con el mismo precio y la misma facturación. La máquina actual deja de figurar alquilada en la fecha del cambio y la nueva toma su lugar. Queda todo anotado en Observaciones.
+    </div>
+    <div class="field-grid">
+      <div class="field full"><label>Cliente / contrato</label><input type="text" id="cs-cliente" disabled></div>
+      <div class="field"><label>Serie actual (se retira)</label><input type="text" id="cs-actual" disabled></div>
+      <div class="field" style="position:relative;"><label>Serie nueva (disponible) *</label>
+        <input type="text" id="cs-nueva-search" placeholder="Buscar por serie o modelo..." autocomplete="off">
+        <div class="autocomplete-list" id="cs-nueva-results"></div>
+        <div class="muted" id="cs-nueva-info" style="font-size:12px;margin-top:4px;"></div></div>
+      <div class="field"><label>Fecha del cambio *</label><input type="date" id="cs-fecha"></div>
+      <div class="field"><label>La serie que se retira pasa a *</label>
+        <select id="cs-destino"><option value="pdi">PDI (inspección / cobro de daños)</option><option value="vor">VOR (fuera de servicio)</option></select></div>
+      <div class="field full"><label>Motivo del cambio *</label><textarea id="cs-motivo" rows="2" placeholder="Ej: la máquina se averió en obra, se reemplaza sin costo para el cliente"></textarea></div>
+      <div class="field full"><label>Remito de entrega de la serie nueva (opcional)</label><input type="text" id="cs-remito"></div>
+    </div>
+    <div class="muted" id="cs-aviso-aut" style="font-size:12px;margin-top:10px;color:var(--warn);display:none;">Como cualquier edición de un contrato, el cambio queda pendiente de autorización de un maestro (se le avisa por mail).</div>
+    <div class="modal-actions">
+      <button class="btn secondary" id="btn-cs-cancel">Cancelar</button>
+      <button class="btn" id="btn-cs-confirm">Confirmar cambio de serie</button>
     </div>
   </div>
 </div>
@@ -5751,6 +5786,7 @@ document.getElementById('c-tiene_flete_retiro').addEventListener('change', (e)=>
 });
 
 function resetContratoForm(){
+  { const b = document.getElementById('btn-contrato-cambiar-serie'); if(b) b.style.display = 'none'; const bx = document.getElementById('c-cambios-serie-box'); if(bx) bx.style.display = 'none'; }
   ['id','cliente_id','equipo_id','remito','fecha_salida','fecha_vencimiento',
    'porcentaje_descuento','precio_sin_descuento','precio_con_descuento',
    'orden_de_compra','obra','contacto_obra','observacion','fecha_baja',
@@ -5818,6 +5854,8 @@ function openEditContrato(id){
   document.getElementById('btn-contrato-delete').style.display = 'inline-block';
   { const b = document.getElementById('btn-contrato-enviar-aut'); if(b) b.style.display = (puede('contratos','autorizar') && c.autorizacion !== 'pendiente') ? 'inline-block' : 'none'; }
 
+  { const b = document.getElementById('btn-contrato-cambiar-serie'); if(b) b.style.display = (puede('contratos','cambiar_serie') && c.estado === 'activo' && !c.fecha_baja) ? 'inline-block' : 'none'; }
+  cargarCambiosSerieContrato(c.id);
   document.getElementById('c-id').value = c.id;
   document.getElementById('c-cliente_id').value = c.cliente_id;
   clienteSearchInput.value = c.clientes ? c.clientes.razon_social : '';
@@ -5968,6 +6006,102 @@ document.getElementById('btn-contrato-save').addEventListener('click', async ()=
       showToast('Error al guardar: ' + err.message, true);
     }
   }
+});
+
+// ---------- Cambiar serie de la máquina en un contrato activo ----------
+async function cargarCambiosSerieContrato(contratoId){
+  const box = document.getElementById('c-cambios-serie-box'), list = document.getElementById('c-cambios-serie');
+  if(!box || !list) return;
+  box.style.display = 'none';
+  try{
+    const { data, error } = await supabaseClient.from('contratos_cambios_serie').select('*').eq('contrato_id', contratoId).order('created_at', { ascending:true });
+    if(error || !data || !data.length) return;
+    list.innerHTML = data.map(x => `<div>${x.revertido ? '<s>' : ''}🔄 ${fmtDate(x.fecha_cambio)} · <b>${escapeHtml(x.serie_anterior||'—')}</b> → <b>${escapeHtml(x.serie_nueva||'—')}</b> · ${escapeHtml(x.usuario_nombre||'—')} · ${escapeHtml(x.motivo||'')}${x.revertido ? '</s> <span style="color:var(--warn);">(revertido)</span>' : ''}</div>`).join('');
+    box.style.display = '';
+  } catch(e){ console.warn('No se pudieron cargar los cambios de serie', e); }
+}
+
+function csAbrir(){
+  const id = document.getElementById('c-id').value;
+  const c = contratosCache.find(x => String(x.id) === String(id));
+  if(!c) return;
+  document.getElementById('cs-contrato-id').value = c.id;
+  document.getElementById('cs-equipo-id').value = '';
+  document.getElementById('cs-cliente').value = `${c.clientes ? c.clientes.razon_social : '—'} · Remito ${c.remito || '—'}`;
+  document.getElementById('cs-actual').value = c.equipos ? `${c.equipos.numero_serie}${c.equipos.modelo ? ' — ' + c.equipos.modelo : ''}` : '—';
+  document.getElementById('cs-nueva-search').value = '';
+  document.getElementById('cs-nueva-info').textContent = '';
+  document.getElementById('cs-nueva-info').style.color = '';
+  const f = document.getElementById('cs-fecha'); f.value = hoyIso(); f.max = hoyIso(); f.min = c.fecha_salida || '';
+  document.getElementById('cs-destino').value = 'pdi';
+  document.getElementById('cs-motivo').value = '';
+  document.getElementById('cs-remito').value = '';
+  document.getElementById('cs-aviso-aut').style.display = puede('contratos','autorizar') ? 'none' : 'block';
+  document.getElementById('modal-cs-overlay').classList.add('open');
+}
+document.getElementById('btn-contrato-cambiar-serie').addEventListener('click', csAbrir);
+document.getElementById('btn-cs-cancel').addEventListener('click', ()=> document.getElementById('modal-cs-overlay').classList.remove('open'));
+document.getElementById('modal-cs-overlay').addEventListener('click', e => { if(e.target.id === 'modal-cs-overlay') e.target.classList.remove('open'); });
+
+const csSearch = document.getElementById('cs-nueva-search'), csResults = document.getElementById('cs-nueva-results');
+function csRenderResultados(){
+  const q = csSearch.value.trim().toLowerCase();
+  document.getElementById('cs-equipo-id').value = '';
+  document.getElementById('cs-nueva-info').textContent = '';
+  const actualId = Number((contratosCache.find(x => String(x.id) === document.getElementById('cs-contrato-id').value) || {}).equipo_id);
+  const disp = equiposCache.filter(e => e.id !== actualId && estadoActualEquipo(e) === 'disponible' &&
+    (!q || (e.numero_serie||'').toLowerCase().includes(q) || (e.modelo||'').toLowerCase().includes(q))).slice(0, 40);
+  csResults.innerHTML = disp.length ? disp.map(e => `<div class="autocomplete-item" data-id="${e.id}">${escapeHtml(e.numero_serie)}<span class="sub">${escapeHtml(e.modelo || '')} — ${escapeHtml((sucursales.find(s => String(s.id) === String(e.sucursal_id)) || {}).nombre || '—')}</span></div>`).join('')
+    : '<div class="autocomplete-item muted">No hay máquinas disponibles con ese criterio</div>';
+  csResults.classList.add('open');
+}
+csSearch.addEventListener('input', csRenderResultados);
+csSearch.addEventListener('focus', csRenderResultados);
+csResults.addEventListener('click', ev => {
+  const item = ev.target.closest('.autocomplete-item'); if(!item || !item.dataset.id) return;
+  const e = equiposCache.find(x => String(x.id) === item.dataset.id); if(!e) return;
+  const c = contratosCache.find(x => String(x.id) === document.getElementById('cs-contrato-id').value);
+  document.getElementById('cs-equipo-id').value = e.id;
+  csSearch.value = e.numero_serie;
+  csResults.classList.remove('open');
+  const info = document.getElementById('cs-nueva-info');
+  const avisos = [];
+  if(c && c.equipos && (c.equipos.modelo || '') !== (e.modelo || '')) avisos.push(`⚠ Modelo distinto (${c.equipos.modelo || '—'} → ${e.modelo || '—'}); el precio del contrato no cambia`);
+  if(c && c.sucursal_id && e.sucursal_id && String(c.sucursal_id) !== String(e.sucursal_id)) avisos.push('⚠ La máquina es de otra sucursal');
+  info.textContent = `✓ ${e.modelo || ''}` + (avisos.length ? ' — ' + avisos.join(' · ') : '');
+  info.style.color = avisos.length ? 'var(--warn)' : '';
+});
+document.addEventListener('click', ev => { if(!ev.target.closest('#cs-nueva-search') && !ev.target.closest('#cs-nueva-results')) csResults.classList.remove('open'); });
+
+document.getElementById('btn-cs-confirm').addEventListener('click', async ()=>{
+  const btn = document.getElementById('btn-cs-confirm');
+  const contratoId = Number(document.getElementById('cs-contrato-id').value);
+  const equipoNuevo = document.getElementById('cs-equipo-id').value;
+  const fecha = document.getElementById('cs-fecha').value;
+  const destino = document.getElementById('cs-destino').value;
+  const motivo = document.getElementById('cs-motivo').value.trim();
+  const remito = document.getElementById('cs-remito').value.trim();
+  if(!equipoNuevo){ showToast('Elegí la serie nueva de la lista', true); return; }
+  if(!fecha){ showToast('Indicá la fecha del cambio', true); return; }
+  if(!motivo){ showToast('Indicá el motivo del cambio', true); return; }
+  const nueva = equiposCache.find(x => String(x.id) === equipoNuevo);
+  if(!confirm(`¿Confirmás el cambio de serie?\n\n${document.getElementById('cs-actual').value}  →  ${nueva ? nueva.numero_serie : ''}\nFecha: ${fmtDate(fecha)}\nLa serie actual pasa a ${destino.toUpperCase()}.`)) return;
+  btn.disabled = true;
+  try{
+    const { data, error } = await supabaseClient.rpc('contrato_cambiar_serie', { p_contrato: contratoId, p_equipo_nuevo: Number(equipoNuevo), p_fecha: fecha, p_destino: destino, p_motivo: motivo, p_remito: remito || null });
+    if(error) throw error;
+    showToast(data && data.pendiente_autorizacion ? 'Serie cambiada. Quedó pendiente de autorización de un maestro (se le avisó por mail).' : 'Serie cambiada correctamente');
+    document.getElementById('modal-cs-overlay').classList.remove('open');
+    closeContratoOverlay();
+    await loadContratos();
+    if(typeof loadEquipos === 'function') { try{ await loadEquipos(); }catch(e){} }
+    renderEquipos(getFilteredEquipos());
+    await refrescarPendientesSiCorresponde();
+    if(typeof renderDashboard === 'function') renderDashboard();
+  } catch(err){
+    console.error(err);
+    showToast('No se pudo cambiar la serie: ' + err.message, true);
+  } finally { btn.disabled = false; }
 });
 
 document.getElementById('btn-contrato-delete').addEventListener('click', async ()=>{
@@ -8054,7 +8188,7 @@ function puede(seccion, accion){
 
 const SECCIONES_PERMISOS = [
   { key:'clientes',      label:'Clientes',      acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
-  { key:'contratos',     label:'Contratos',     acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar'],['editar_precio','Editar precio ya guardado'],['requiere_autorizacion','⚠ Sus contratos nuevos requieren autorización de un maestro'],['autorizar','Autorizar contratos (y ver Contratos pendientes de autorización)']] },
+  { key:'contratos',     label:'Contratos',     acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar'],['editar_precio','Editar precio ya guardado'],['cambiar_serie','Cambiar la serie de la máquina en un contrato activo'],['requiere_autorizacion','⚠ Sus contratos nuevos requieren autorización de un maestro'],['autorizar','Autorizar contratos (y ver Contratos pendientes de autorización)']] },
   { key:'equipos',       label:'Equipos',       acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
   { key:'pizarra',       label:'Pizarra de Flota', acciones:[['ver','Ver'],['mover_disponible','Arrastrar a Disponible'],['mover_pdi','Arrastrar a PDI'],['mover_vor','Arrastrar a VOR'],['editar_fecha','Corregir fecha de inicio (📅)']] },
   { key:'trazabilidad',  label:'Trazabilidad',    acciones:[['ver','Ver / usar']] },
@@ -8572,6 +8706,7 @@ const PM_DESC = {
   'contratos.requiere_autorizacion':'Cada contrato que cargue queda en “Pendientes de autorización” hasta que un maestro lo apruebe',
   'contratos.autorizar':'Ver la card y autorizar / rechazar contratos pendientes (solo maestros de confianza)',
   'accesos_web.ver_claves':'Mostrar y copiar las contraseñas (cada uso queda registrado). Sin esto ve los portales pero no las claves',
+  'contratos.cambiar_serie':'Reemplaza la máquina de un contrato activo por otra serie sin dar de baja el contrato ni tocar la facturación',
   'pizarra.editar_fecha':'Cambiar la fecha de inicio de una máquina ya movida',
 };
 // Resuelve cada módulo del menú contra SECCIONES_PERMISOS
