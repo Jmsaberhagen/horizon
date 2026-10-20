@@ -8234,7 +8234,7 @@ function aplicarPermisosUI(){
   document.querySelectorAll('nav button[data-tab]').forEach(btn=>{
     const tab = btn.dataset.tab;
     if(tab === 'inicio' || tab === 'usuarios') return;
-    btn.style.display = puede(tab, 'ver') ? '' : 'none';
+    btn.style.display = puede(tab === 'accesosweb' ? 'accesos_web' : tab, 'ver') ? '' : 'none';
   });
 
   document.getElementById('nav-usuarios').style.display = puede('usuarios','ver') ? 'inline-block' : 'none';
@@ -8243,7 +8243,7 @@ function aplicarPermisosUI(){
   const activeTab = document.querySelector('nav button.active');
   if(activeTab){
     const tab = activeTab.dataset.tab;
-    const permitido = tab === 'inicio' || (tab === 'usuarios' && puede('usuarios','ver')) || puede(tab,'ver');
+    const permitido = tab === 'inicio' || (tab === 'usuarios' && puede('usuarios','ver')) || puede(tab === 'accesosweb' ? 'accesos_web' : tab,'ver');
     if(!permitido) activarTab('inicio');
   }
 }
