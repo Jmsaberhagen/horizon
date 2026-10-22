@@ -2406,6 +2406,7 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
       </select>
       <button class="btn secondary small" id="btn-pres-limpiar-filtros" type="button">Limpiar filtros</button>
       <div style="flex:1"></div>
+      <button class="btn secondary" id="btn-pres-fotos" style="display:none;" title="Subir la foto de cada modelo (miniatura y PDF)">📷 Fotos de modelos</button>
       <button class="btn secondary" id="btn-export-presupuestos-csv">Exportar CSV</button>
       <button class="btn" id="btn-nuevo-presupuesto">+ Nuevo presupuesto</button>
     </div>
@@ -6968,6 +6969,165 @@ function buscarFichaTecnica(modeloEquipo){
   return catalogoTecnicoCache.find(c => normalizarModelo(c.modelo) === norm) || null;
 }
 
+// ---------- Fotos de modelos (miniatura en presupuestos + foto en el PDF) ----------
+const FOTOS_BUCKET = 'fotos-modelos';
+const _fotoPdfCache = new Map();   // url -> { data, w, h } (para no bajar la misma foto en cada PDF)
+const SVG_SIN_FOTO = '📷';
+
+function fotoUrlDeModelo(modelo){ const f = buscarFichaTecnica(modelo); return f && f.imagen_url ? f.imagen_url : ''; }
+function fotoRutaDeModelo(modelo){ return String(modelo).trim().replace(/[^A-Za-z0-9]+/g, '_') + '.jpg'; }
+
+// Baja la foto y la devuelve como dataURL + medidas, lista para jsPDF
+async function fotoComoDataUrl(url){
+  if(_fotoPdfCache.has(url)) return _fotoPdfCache.get(url);
+  const resp = await fetch(url);
+  if(!resp.ok) throw new Error('No se pudo bajar la foto');
+  const blob = await resp.blob();
+  const data = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
+  const dim = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res({ w: im.naturalWidth, h: im.naturalHeight }); im.onerror = rej; im.src = data; });
+  const out = { data, w: dim.w, h: dim.h };
+  _fotoPdfCache.set(url, out);
+  return out;
+}
+
+// Achica la imagen (lado mayor 800 px), la pasa a JPEG sobre fondo blanco y la deja liviana
+async function fotoPrepararArchivo(file){
+  const bmpUrl = URL.createObjectURL(file);
+  try{
+    const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error('No se pudo leer la imagen')); im.src = bmpUrl; });
+    const escala = Math.min(1, 800 / Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.max(1, Math.round(img.naturalWidth * escala)), h = Math.max(1, Math.round(img.naturalHeight * escala));
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, w, h);
+    let q = 0.85, blob = null;
+    for(let i = 0; i < 5; i++){
+      blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', q));
+      if(blob && blob.size <= 150 * 1024) break;
+      q -= 0.12;
+    }
+    return { blob, w, h };
+  } finally { URL.revokeObjectURL(bmpUrl); }
+}
+
+async function fotoSubirModelo(modelo, file){
+  const { blob, w, h } = await fotoPrepararArchivo(file);
+  const ruta = fotoRutaDeModelo(modelo);
+  const { error: upErr } = await supabaseClient.storage.from(FOTOS_BUCKET).upload(ruta, blob, { upsert: true, contentType: 'image/jpeg', cacheControl: '3600' });
+  if(upErr) throw upErr;
+  const url = supabaseClient.storage.from(FOTOS_BUCKET).getPublicUrl(ruta).data.publicUrl + '?v=' + Date.now();
+  const { error } = await supabaseClient.rpc('catalogo_set_foto', { p_modelo: modelo, p_url: url });
+  if(error) throw error;
+  const f = catalogoTecnicoCache.find(c => c.modelo === modelo);
+  if(f){ f.imagen_url = url; f._foto_kb = Math.round(blob.size / 1024); f._foto_dim = `${w}×${h}`; }
+  return url;
+}
+
+async function fotoQuitarModelo(modelo){
+  await supabaseClient.storage.from(FOTOS_BUCKET).remove([fotoRutaDeModelo(modelo)]);
+  const { error } = await supabaseClient.rpc('catalogo_set_foto', { p_modelo: modelo, p_url: '' });
+  if(error) throw error;
+  const f = catalogoTecnicoCache.find(c => c.modelo === modelo);
+  if(f){ f.imagen_url = null; delete f._foto_kb; delete f._foto_dim; }
+}
+
+// Ventana del cargador (catálogo de modelos)
+function abrirCargadorFotos(){
+  if(!puede('presupuestos','fotos')){ showToast('No tenés permiso para cargar fotos de modelos', true); return; }
+  const fondo = document.createElement('div');
+  fondo.className = 'pizarra-dlg-fondo';
+  fondo.innerHTML = `
+    <div class="pizarra-dlg" role="dialog" aria-modal="true" style="width:min(1000px,100%);max-height:92vh;overflow-y:auto;">
+      <h3>📷 Fotos de modelos</h3>
+      <p>La foto se usa como miniatura al armar el presupuesto y en el PDF (junto al equipo y en la ficha técnica). Se achica sola y se guarda liviana.</p>
+      <div id="fm-drop" style="border:2px dashed var(--accent);border-radius:10px;padding:18px;text-align:center;color:var(--accent);font-weight:700;cursor:pointer;background:rgba(56,189,248,.06);">
+        ⬆ Arrastrá acá una o varias fotos, o hacé clic para elegirlas
+        <div style="font-weight:400;font-size:12px;color:var(--text-dim);margin-top:4px;">Se asignan por el nombre del archivo (ej. HA16RTJPRO.jpg). Mayúsculas, espacios y guiones no importan.</div>
+      </div>
+      <input type="file" id="fm-input" accept="image/*" multiple style="display:none;">
+      <div id="fm-resumen" style="font-size:12.5px;margin:10px 0;line-height:1.5;"></div>
+      <label style="font-size:12.5px;display:flex;gap:6px;align-items:center;margin-bottom:10px;"><input type="checkbox" id="fm-solo-sin"> Solo modelos sin foto</label>
+      <div id="fm-grilla" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;"></div>
+      <div class="acc" style="margin-top:14px;"><button type="button" class="btn secondary" id="fm-cerrar">Cerrar</button></div>
+    </div>`;
+  document.body.appendChild(fondo);
+  const grilla = fondo.querySelector('#fm-grilla'), resumen = fondo.querySelector('#fm-resumen'), soloSin = fondo.querySelector('#fm-solo-sin');
+  const onKey = (ev)=>{ if(ev.key === 'Escape'){ ev.stopPropagation(); cerrar(); } };
+  const cerrar = ()=>{ document.removeEventListener('keydown', onKey, true); fondo.remove(); };
+  document.addEventListener('keydown', onKey, true);
+  fondo.querySelector('#fm-cerrar').addEventListener('click', cerrar);
+  fondo.addEventListener('mousedown', (ev)=>{ if(ev.target === fondo) cerrar(); });
+
+  const pintar = ()=>{
+    const modelos = catalogoTecnicoCache.slice().sort((a,b)=> a.modelo.localeCompare(b.modelo));
+    const con = modelos.filter(m => m.imagen_url).length;
+    const lista = soloSin.checked ? modelos.filter(m => !m.imagen_url) : modelos;
+    fondo.querySelector('h3').textContent = `📷 Fotos de modelos (${con} de ${modelos.length} con foto)`;
+    grilla.innerHTML = lista.map(m => `
+      <div style="background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:8px;">
+        <div style="height:96px;background:${m.imagen_url ? '#fff' : 'var(--bg)'};border-radius:6px;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:22px;color:var(--text-dim);">
+          ${m.imagen_url ? `<img src="${escapeHtml(m.imagen_url)}" alt="" style="max-width:100%;max-height:100%;object-fit:contain;">` : SVG_SIN_FOTO}
+        </div>
+        <div style="font-size:12px;font-weight:700;margin-top:6px;overflow-wrap:anywhere;">${escapeHtml(m.modelo)}</div>
+        <div style="font-size:10.5px;margin:2px 0 6px;color:${m.imagen_url ? 'var(--ok)' : '#EF9F27'};font-weight:700;">● ${m.imagen_url ? 'Con foto' : 'Sin foto'}${m._foto_kb ? ` <span class="muted" style="font-weight:400;">· ${m._foto_kb} KB · ${m._foto_dim}</span>` : ''}</div>
+        <div style="display:flex;gap:6px;">
+          <button type="button" class="btn secondary small" data-fm-sub="${escapeHtml(m.modelo)}">${m.imagen_url ? 'Reemplazar' : 'Subir'}</button>
+          ${m.imagen_url ? `<button type="button" class="btn secondary small" data-fm-del="${escapeHtml(m.modelo)}">Quitar</button>` : ''}
+        </div>
+      </div>`).join('') || '<div class="muted">No hay modelos para mostrar.</div>';
+  };
+  pintar();
+  soloSin.addEventListener('change', pintar);
+
+  const procesarLote = async (archivos)=>{
+    const ok = [], sinModelo = [], fallas = [];
+    let n = 0;
+    for(const f of archivos){
+      n++;
+      resumen.textContent = `Subiendo ${n} de ${archivos.length}…`;
+      const base = f.name.replace(/\.[^.]+$/, '');
+      const m = buscarFichaTecnica(base);
+      if(!m){ sinModelo.push(f.name); continue; }
+      try{ await fotoSubirModelo(m.modelo, f); ok.push(m.modelo); }
+      catch(err){ console.error('Foto', f.name, err); fallas.push(`${f.name} (${err.message || 'error'})`); }
+    }
+    resumen.innerHTML = `<strong>${ok.length}</strong> foto(s) cargada(s).`
+      + (sinModelo.length ? `<br><span style="color:#EF9F27;">Sin coincidencia con ningún modelo: ${escapeHtml(sinModelo.join(', '))}</span>` : '')
+      + (fallas.length ? `<br><span style="color:var(--danger,#ff5c5c);">Con error: ${escapeHtml(fallas.join(', '))}</span>` : '');
+    pintar();
+    if(typeof renderPresItemsTabla === 'function' && document.getElementById('modal-presupuesto-overlay')?.classList.contains('open')) renderPresItemsTabla();
+  };
+
+  const drop = fondo.querySelector('#fm-drop'), input = fondo.querySelector('#fm-input');
+  drop.addEventListener('click', ()=> input.click());
+  input.addEventListener('change', ()=>{ const a = [...input.files]; input.value = ''; if(a.length) procesarLote(a); });
+  drop.addEventListener('dragover', (ev)=>{ ev.preventDefault(); drop.style.background = 'rgba(56,189,248,.18)'; });
+  drop.addEventListener('dragleave', ()=>{ drop.style.background = 'rgba(56,189,248,.06)'; });
+  drop.addEventListener('drop', (ev)=>{
+    ev.preventDefault(); drop.style.background = 'rgba(56,189,248,.06)';
+    const a = [...ev.dataTransfer.files].filter(f => f.type.startsWith('image/'));
+    if(a.length) procesarLote(a);
+  });
+
+  grilla.addEventListener('click', async (ev)=>{
+    const sub = ev.target.closest('[data-fm-sub]'), del = ev.target.closest('[data-fm-del]');
+    if(sub){
+      const modelo = sub.dataset.fmSub;
+      const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
+      inp.addEventListener('change', async ()=>{
+        if(!inp.files[0]) return;
+        try{ resumen.textContent = `Subiendo foto de ${modelo}…`; await fotoSubirModelo(modelo, inp.files[0]); resumen.textContent = `Foto de ${modelo} actualizada.`; pintar(); }
+        catch(err){ console.error(err); showToast(err.message || 'No se pudo subir la foto', true); resumen.textContent = ''; }
+      });
+      inp.click();
+    } else if(del){
+      try{ await fotoQuitarModelo(del.dataset.fmDel); pintar(); showToast('Foto quitada'); }
+      catch(err){ console.error(err); showToast(err.message || 'No se pudo quitar la foto', true); }
+    }
+  });
+}
+
 function abrirFichaTecnica(equipoId){
   const e = equiposCache.find(x => x.id === equipoId);
   if(!e) return;
@@ -8436,7 +8596,7 @@ const SECCIONES_PERMISOS = [
   { key:'retiros',       label:'Pendientes de Retiro', acciones:[['ver','Ver'],['marcar_retirada','Marcar retirada']] },
   { key:'enviofacturas', label:'Envío de Facturas', acciones:[['ver','Ver'],['marcar_enviada','Marcar enviada']] },
   { key:'remitos',       label:'Remitos',           acciones:[['ver','Ver'],['crear','Crear / cargar entrega'],['registrar_retiro','Registrar retiro'],['eliminar','Eliminar']] },
-  { key:'presupuestos',  label:'Presupuestos',      acciones:[['ver','Ver'],['crear','Crear / editar'],['anular','Anular']] },
+  { key:'presupuestos',  label:'Presupuestos',      acciones:[['ver','Ver'],['crear','Crear / editar'],['anular','Anular'],['fotos','Cargar fotos de modelos (📷)']] },
   { key:'solicitudoc',   label:'Solicitud de OC',   acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['anular','Anular']] },
   { key:'editorobs',          label:'Editor de Observaciones', acciones:[['ver','Ver / usar']] },
   { key:'resumenerp',         label:'Resumen de Alquileres (ERP)', acciones:[['ver','Ver / usar']] },
@@ -17746,6 +17906,30 @@ function calcularTotalPresupuestoForm(){
 function actualizarTotalPresupuestoPreview(){
   document.getElementById('pres-total-preview').textContent = fmtMoney(calcularTotalPresupuestoForm(), document.getElementById('pres-moneda').value);
 }
+function presThumbHtml(modelo){
+  const u = fotoUrlDeModelo(modelo);
+  return u
+    ? `<img src="${escapeHtml(u)}" alt="" loading="lazy" style="width:64px;height:48px;object-fit:contain;background:#fff;border:1px solid var(--border);border-radius:6px;display:block;cursor:zoom-in;">`
+    : `<span style="width:64px;height:48px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-size:18px;">📷</span>`;
+}
+// Foto ampliada al pasar el mouse por la miniatura (una sola capa fija, para que no la recorte la tabla)
+(function(){
+  let pop = null;
+  const quitar = ()=>{ if(pop){ pop.remove(); pop = null; } };
+  document.addEventListener('mouseover', (ev)=>{
+    const img = ev.target.closest && ev.target.closest('.pres-thumb img');
+    if(!img){ quitar(); return; }
+    if(pop) return;
+    const r = img.getBoundingClientRect();
+    pop = document.createElement('div');
+    const top = Math.min(window.innerHeight - 250, Math.max(8, r.top - 90));
+    pop.style.cssText = `position:fixed;z-index:7000;left:${r.right + 10}px;top:${top}px;width:300px;background:#fff;border-radius:10px;padding:10px;box-shadow:0 14px 40px rgba(0,0,0,.6);pointer-events:none;`;
+    pop.innerHTML = `<img src="${img.src}" alt="" style="width:100%;height:auto;display:block;">`;
+    document.body.appendChild(pop);
+  });
+})();
+document.getElementById('btn-pres-fotos').addEventListener('click', abrirCargadorFotos);
+
 function renderPresItemsTabla(){
   const tbody = document.getElementById('pres-items-tbody');
   if(presupuestoItemsState.length === 0){
@@ -17755,7 +17939,10 @@ function renderPresItemsTabla(){
       const subtotal = (Number(it.cantidad)||0) * (Number(it.precio_unitario)||0);
       return `
         <tr data-idx="${idx}">
-          <td><input type="text" class="pres-item-modelo" data-idx="${idx}" list="pres-modelos-datalist" value="${escapeHtml(it.modelo||'')}" placeholder="Ej: HA20RTJPRO" style="min-width:180px;"></td>
+          <td><div style="display:flex;align-items:center;gap:8px;">
+            <span class="pres-thumb" data-idx="${idx}" title="${fotoUrlDeModelo(it.modelo) ? '' : 'Este modelo todavía no tiene foto'}">${presThumbHtml(it.modelo)}</span>
+            <input type="text" class="pres-item-modelo" data-idx="${idx}" list="pres-modelos-datalist" value="${escapeHtml(it.modelo||'')}" placeholder="Ej: HA20RTJPRO" style="min-width:180px;">
+          </div></td>
           <td><input type="number" class="pres-item-cantidad" data-idx="${idx}" value="${it.cantidad}" min="1" style="width:70px;"></td>
           <td>
             <select class="pres-item-periodo" data-idx="${idx}">
@@ -17785,6 +17972,8 @@ document.getElementById('pres-items-tbody').addEventListener('input', (e)=>{
     presupuestoItemsState[idx].modelo = e.target.value;
     const ficha = buscarFichaTecnica(e.target.value);
     presupuestoItemsState[idx].categoria = ficha ? ficha.categoria : '';
+    const th = e.target.closest('tr')?.querySelector('.pres-thumb');
+    if(th) th.innerHTML = presThumbHtml(e.target.value);
   }
   if(e.target.classList.contains('pres-item-cantidad')) presupuestoItemsState[idx].cantidad = e.target.value;
   if(e.target.classList.contains('pres-item-precio')) presupuestoItemsState[idx].precio_unitario = e.target.value;
@@ -18033,10 +18222,24 @@ document.getElementById('btn-anular-presupuesto-confirmar').addEventListener('cl
 });
 
 // ---------- Generar el PDF del presupuesto (con fichas técnicas de anexo + links internos) ----------
-function generarPresupuestoPDF(id){
+async function generarPresupuestoPDF(id){
   const p = presupuestosCache.find(x => x.id === id);
   if(!p) return;
   const items = (p.presupuesto_items || []).slice().sort((a,b)=>(a.orden||0)-(b.orden||0));
+  // Fotos de los modelos cotizados (si alguna falla, el PDF sale igual, sin esa foto)
+  const fotos = {};
+  await Promise.all([...new Set(items.map(it => it.modelo).filter(Boolean))].map(async m => {
+    const u = fotoUrlDeModelo(m);
+    if(!u) return;
+    try{ fotos[m] = await fotoComoDataUrl(u); } catch(e){ console.warn('Foto no disponible para el PDF:', m, e); }
+  }));
+  const dibujarFoto = (doc, foto, x, yTop, bw, bh, marco) => {
+    const esc = Math.min(bw / foto.w, bh / foto.h);
+    const w = foto.w * esc, h = foto.h * esc;
+    const fx = x + (bw - w) / 2, fy2 = yTop + (bh - h) / 2;
+    try{ doc.addImage(foto.data, 'JPEG', fx, fy2, w, h); } catch(e){ console.error('No se pudo insertar la foto:', e); return; }
+    if(marco){ doc.setDrawColor(210, 218, 230); doc.setLineWidth(0.25); doc.rect(x, yTop, bw, bh, 'S'); }
+  };
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit:'mm', format:'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -18110,17 +18313,21 @@ function generarPresupuestoPDF(id){
 
   grupos.forEach((grupo) => {
     const ficha = buscarFichaTecnica(grupo.modelo);
+    const fotoG = fotos[grupo.modelo];
+    const yTopGrupo = y;
+    const xTexto = fotoG ? colModelo + 27 : colModelo + 2;
+    if(fotoG) dibujarFoto(doc, fotoG, colModelo + 2, y - 4, 22, 16.5, true);
 
     doc.setFont('helvetica','bold');
     doc.setFontSize(9);
-    doc.text(grupo.descripcion || grupo.modelo, colModelo + 2, y);
+    doc.text(grupo.descripcion || grupo.modelo, xTexto, y);
     y += 5;
 
     if(ficha && ficha.especificaciones && ficha.especificaciones.length){
       doc.setTextColor(30, 100, 200);
       doc.setFontSize(8);
-      doc.textWithLink('Ver ficha técnica', colModelo + 2, y, { url: undefined });
-      linksAFichas.push({ y: y - 3, modelo: grupo.modelo, ficha });
+      doc.textWithLink('Ver ficha técnica', xTexto, y, { url: undefined });
+      linksAFichas.push({ y: y - 3, x: xTexto, modelo: grupo.modelo, ficha });
       doc.setTextColor(0,0,0);
       y += 6;
     } else {
@@ -18139,6 +18346,7 @@ function generarPresupuestoPDF(id){
       y += 5.5;
     });
 
+    if(fotoG) y = Math.max(y, yTopGrupo + 14);   // que la fila tenga lugar para la foto
     y += 1;
     doc.setDrawColor(220,220,220);
     doc.line(marginX, y, pageWidth - marginX, y);
@@ -18248,6 +18456,12 @@ function generarPresupuestoPDF(id){
     }
     fy += 10;
 
+    // Foto grande del modelo, centrada arriba de la tabla de especificaciones
+    if(fotos[modelo]){
+      dibujarFoto(doc, fotos[modelo], (pageWidth - 64) / 2, fy - 5, 64, 48, false);
+      fy += 52;
+    }
+
     const filaAltura = 9;
     const tablaTop = fy - 6.5;
     ficha.especificaciones.forEach((spec, idx) => {
@@ -18283,7 +18497,7 @@ function generarPresupuestoPDF(id){
   linksAFichas.forEach(l => {
     const pagina = paginaDeModelo[l.modelo];
     if(pagina){
-      doc.link(colModelo + 2, l.y, 40, 4, { pageNumber: pagina });
+      doc.link(l.x || (colModelo + 2), l.y, 40, 4, { pageNumber: pagina });
     }
   });
 
@@ -18694,6 +18908,7 @@ async function initApp(){
       renderPresupuestos();
     }
     document.getElementById('btn-nuevo-presupuesto').style.display = puede('presupuestos','crear') ? '' : 'none';
+    document.getElementById('btn-pres-fotos').style.display = puede('presupuestos','fotos') ? '' : 'none';
 
     if(puede('solicitudoc','ver')){
       console.log('[Horizon] cargando solicitudes de OC...');
