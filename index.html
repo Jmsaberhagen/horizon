@@ -910,6 +910,23 @@ input.fecha-ar.fecha-ar-invalida{ border-color:var(--danger) !important; color:v
 .pizarra-dlg input[type=date]{ width:100%; margin-bottom:6px; }
 .pizarra-dlg .dias{ font-size:12px; color:var(--text-dim); margin-bottom:14px; min-height:16px; }
 .pizarra-dlg .acc{ display:flex; gap:8px; justify-content:flex-end; }
+.pizarra-dlg label.lbl{ display:block; font-size:11.5px; color:var(--text-dim); margin:10px 0 4px; font-weight:600; }
+.pizarra-dlg input[type=text], .pizarra-dlg textarea{ width:100%; }
+.pizarra-dlg .res-lista{ border:1px solid var(--border); border-radius:8px; max-height:150px; overflow-y:auto; margin-top:4px; background:var(--bg); }
+.pizarra-dlg .res-lista div{ padding:6px 10px; font-size:12.5px; cursor:pointer; }
+.pizarra-dlg .res-lista div:hover{ background:var(--panel-2); }
+.pizarra-dlg .res-chips{ display:flex; gap:6px; flex-wrap:wrap; }
+.pizarra-dlg .res-chips button{ border:1px solid var(--border); background:var(--panel-2); color:var(--text); border-radius:999px; padding:4px 12px; font-size:12px; cursor:pointer; }
+.pizarra-dlg .res-chips button.on{ background:var(--accent); border-color:var(--accent); color:#fff; font-weight:700; }
+.pizarra-dlg .res-sel{ font-size:12px; color:var(--ok); margin-top:4px; min-height:16px; }
+.pizarra-reserva-btn{ border:1px dashed var(--border); background:transparent; color:var(--text-dim); cursor:pointer; font-size:10.5px; padding:1px 7px; border-radius:5px; margin-top:5px; }
+.pizarra-reserva-btn:hover{ color:var(--text); border-color:var(--accent); }
+.pizarra-reserva{ margin-top:5px; font-size:10.5px; font-weight:700; line-height:1.3; border:1px solid rgba(232,184,74,.55); background:rgba(232,184,74,.14); color:#e8b84a; border-radius:5px; padding:3px 6px; cursor:pointer; overflow-wrap:anywhere; }
+.pizarra-reserva small{ display:block; font-weight:500; opacity:.85; }
+.tv-card.reservada{ border-color:rgba(232,184,74,.6); }
+.tv-card .rsv{ margin-top:2px; display:flex; align-items:center; gap:6px; min-width:0; font-size:12px; font-weight:800; color:#e8b84a; }
+.tv-card .rsv b{ background:rgba(232,184,74,.2); border-radius:4px; padding:0 6px; flex:none; letter-spacing:.04em; }
+.tv-card .rsv span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
 
 /* ===== Pizarra: MODO TV (solo lectura, pensada para televisores) ===== */
 #pizarra-tv.tv-activo{ position:fixed; inset:0; z-index:5000; background:var(--bg); display:flex !important; flex-direction:column; padding:14px 22px 14px; color:var(--text); overflow:hidden; }
@@ -1999,6 +2016,7 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <span id="pizarra-live-estado" class="muted" title="La pizarra se actualiza sola cuando alguien cambia un equipo o un contrato"><span class="dot"></span><span class="txt">Conectando…</span></span>
         <div class="muted" id="pizarra-conteo" style="font-size:12px;white-space:nowrap;"></div>
+        <button class="btn secondary" id="btn-pizarra-solo-reservadas" title="Mostrar solo las máquinas reservadas">🔖 Solo reservadas</button>
         <select id="pizarra-export-alcance" title="Qué sucursales incluir en la exportación" style="font-size:12px;">
           <option value="actual">Sucursal actual</option>
           <option value="todas">Todas las sucursales</option>
@@ -5782,7 +5800,7 @@ equipoSearchInput.addEventListener('input', ()=>{
     equipoResultsBox.innerHTML = matches.map(e=>`
       <div class="autocomplete-item" data-id="${e.id}" data-serie="${escapeHtml(e.numero_serie)}" data-modelo="${escapeHtml(e.modelo || '')}">
         ${escapeHtml(e.numero_serie)}
-        <span class="sub">${escapeHtml(e.modelo || '')} — ${estadoActualEquipo(e)}</span>
+        <span class="sub">${escapeHtml(e.modelo || '')} — ${estadoActualEquipo(e)}${reservaDeEquipo(e.id) ? ' · 🔖 reservada para ' + escapeHtml(reservaDeEquipo(e.id).cliente_nombre || '') : ''}</span>
       </div>`).join('');
   }
   equipoResultsBox.classList.add('open');
@@ -5795,6 +5813,15 @@ equipoResultsBox.addEventListener('click', (e)=>{
   equipoSearchInput.value = item.dataset.serie;
   document.getElementById('c-equipo-modelo').value = item.dataset.modelo || '';
   document.getElementById('c-equipo-selected').textContent = '✓ Equipo seleccionado';
+  const rsvSel = reservaDeEquipo(Number(item.dataset.id));
+  if(rsvSel){
+    const cid = document.getElementById('c-cliente_id').value;
+    if(!cid || String(cid) !== String(rsvSel.cliente_id)){
+      document.getElementById('c-equipo-selected').textContent = `⚠ Equipo reservado para ${rsvSel.cliente_nombre || 'otro cliente'}. Solo se puede usar para ese cliente o eliminando la reserva en la Pizarra.`;
+    } else {
+      document.getElementById('c-equipo-selected').textContent = '✓ Equipo seleccionado (reservado para este cliente)';
+    }
+  }
   equipoResultsBox.classList.remove('open');
 });
 
@@ -5956,6 +5983,11 @@ document.getElementById('btn-contrato-save').addEventListener('click', async ()=
   const estadoNuevo = document.getElementById('c-estado').value;
 
   if(estadoNuevo === 'activo'){
+    const rsvEq = reservaDeEquipo(Number(equipoId));
+    if(rsvEq && String(rsvEq.cliente_id) !== String(clienteId)){
+      showToast(`Esta máquina está reservada para otro cliente (${rsvEq.cliente_nombre || '—'}). Para usarla, primero eliminá la reserva desde la Pizarra de Flota.`, true);
+      return;
+    }
     const otroContratoActivo = contratosCache.find(c =>
       c.equipo_id === Number(equipoId) &&
       c.estado === 'activo' &&
@@ -7191,7 +7223,7 @@ function renderPizarra(opts = {}){
   const ahora = Date.now();
   const esTodas = pizarraSucursalActual === PIZARRA_TODAS;
   const equiposDelAmbito = equiposCache.filter(e => (esTodas || String(e.sucursal_id) === String(pizarraSucursalActual)) && e.estado !== 'baja');
-  const equiposDeLaSucursal = equiposDelAmbito.filter(pizarraTipoVisible);
+  const equiposDeLaSucursal = equiposDelAmbito.filter(pizarraTipoVisible).filter(e => !pizarraSoloReservadas || reservaDeEquipo(e.id));
   const ocultos = equiposDelAmbito.length - equiposDeLaSucursal.length;
   document.getElementById('pizarra-conteo').textContent = (esTodas
     ? `${equiposDeLaSucursal.length} equipo(s) en toda la flota`
@@ -7216,6 +7248,12 @@ function renderPizarra(opts = {}){
       const sinContrato = !equipoTieneContratoActivo(e.id);
       const draggable = col.arrastrable && sinContrato && ['disponible','pdi','vor'].some(t => t !== col.estado && pizarraPuedeMoverA(t));
       const fechaEditable = ['disponible','pdi','vor'].includes(col.estado) && sinContrato && puede('pizarra','editar_fecha');
+      // Reserva: condición adicional de una máquina Disponible o en PDI (la tarjeta no cambia de columna)
+      const res = ['disponible','pdi'].includes(col.estado) && sinContrato ? reservaDeEquipo(e.id) : null;
+      const puedeReservar = ['disponible','pdi'].includes(col.estado) && sinContrato && puede('pizarra','reservar');
+      const reservaHtml = res
+        ? `<div class="pizarra-reserva" data-reserva-equipo="${e.id}" title="Reservada${res.creada_por_nombre ? ' por ' + escapeHtml(res.creada_por_nombre) : ''}${res.nota ? ' — ' + escapeHtml(res.nota) : ''}">🔖 RESERVADA · ${escapeHtml(res.cliente_nombre || 'Cliente')}<small>${res.vence_el ? 'hasta ' + fmtDate(res.vence_el) : 'sin vencimiento'}</small></div>`
+        : (puedeReservar ? `<button type="button" class="pizarra-reserva-btn" data-reserva-equipo="${e.id}" draggable="false">🔖 Reservar</button>` : '');
       return `
         <div class="pizarra-card${(pizarraCambiosRecientes.get(e.id) || 0) > ahora ? ' pizarra-flash' : ''}" data-equipo-id="${e.id}" ${draggable?'draggable="true"':''}
              style="background:var(--panel);border:1px solid var(--border);border-left:3px solid ${cat.color};border-radius:6px;padding:7px 9px;margin-bottom:6px;${draggable?'cursor:grab;':'cursor:default;opacity:0.92;'}"
@@ -7229,6 +7267,7 @@ function renderPizarra(opts = {}){
           </div>
           <div class="muted" style="font-size:10.5px;font-family:var(--font-mono);margin-top:1px;overflow-wrap:anywhere;">${escapeHtml(e.numero_serie || '')}</div>
           ${cliente ? `<div style="font-size:10.5px;color:var(--accent);font-weight:600;margin-top:3px;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere;">${escapeHtml(cliente)}</div>` : ''}
+          ${reservaHtml}
         </div>`;
     }).join('') || '<div class="muted" style="text-align:center;padding:18px 0;font-size:11.5px;">Sin equipos</div>';
 
@@ -7345,7 +7384,10 @@ function pizarraRenderTV(opts = {}){
   const nDemo = porEstado.demo.length;   // una máquina en DEMO también está afuera, en uso de un cliente: suma a la utilización
   const util = total ? ((nAlq + nDemo) / total * 100) : 0;
 
-  const kpis = cols.map(c => `<div class="tv-kpi" style="--c:${c.color}"><div class="l">${c.titulo}</div><div class="n">${porEstado[c.estado].length}</div></div>`).join('')
+  const kpis = cols.map(c => {
+    const nRes = (c.estado === 'disponible' || c.estado === 'pdi') ? porEstado[c.estado].filter(e => reservaDeEquipo(e.id)).length : 0;
+    return `<div class="tv-kpi" style="--c:${c.color}"><div class="l">${c.titulo}</div><div class="n">${porEstado[c.estado].length}</div>${nRes ? `<div class="s" style="color:#e8b84a;font-weight:700;">🔖 ${nRes} reservada${nRes === 1 ? '' : 's'}</div>` : ''}</div>`;
+  }).join('')
     + `<div class="tv-kpi util"><div class="l">Utilización de flota</div><div class="n">${util.toFixed(1).replace('.', ',')}%</div><div class="bar"><i style="width:${util.toFixed(1)}%"></i></div><div class="s">${total} equipos · ${nAlq} alquilados · ${nDemo} demo</div></div>`;
 
   const tarjetas = (col)=> porEstado[col.estado].map(e=>{
@@ -7360,9 +7402,10 @@ function pizarraRenderTV(opts = {}){
     const linea2 = conCliente
       ? `<span class="c">${escapeHtml(cliente || '—')}</span>${tagHtml}`
       : `<span class="s">${escapeHtml(e.numero_serie || '')}</span>${tagHtml}`;
-    return `<div class="tv-card${conCliente && tag?.clase === 'rojo' ? ' alerta' : ''}${(pizarraCambiosRecientes.get(e.id) || 0) > ahora ? ' pizarra-flash' : ''}" style="--t:${cat.color}" title="${escapeHtml(cat.label)}${cliente ? ' — ' + escapeHtml(cliente) : ''}">
+    const rsv = (col.estado === 'disponible' || col.estado === 'pdi') ? reservaDeEquipo(e.id) : null;
+    return `<div class="tv-card${rsv ? ' reservada' : ''}${conCliente && tag?.clase === 'rojo' ? ' alerta' : ''}${(pizarraCambiosRecientes.get(e.id) || 0) > ahora ? ' pizarra-flash' : ''}" style="--t:${cat.color}" title="${escapeHtml(cat.label)}${cliente ? ' — ' + escapeHtml(cliente) : ''}">
       <div class="r1"><span class="m">${escapeHtml(e.modelo || '—')}</span>${conCliente ? `<span class="s">${escapeHtml(e.numero_serie || '')}</span>` : ''}${sigla ? `<span class="sg">${escapeHtml(sigla)}</span>` : ''}</div>
-      <div class="r2">${linea2}</div></div>`;
+      <div class="r2">${linea2}</div>${rsv ? `<div class="rsv"><b>RESERVADA</b><span>${escapeHtml(rsv.cliente_nombre || '')}</span></div>` : ''}</div>`;
   }).join('') || '<div class="vacio">Sin equipos</div>';
 
   const board = cols.map(c => `<div class="tv-col" style="--c:${c.color}"><div class="tv-ch"><b>${c.titulo}</b><span class="ct">${porEstado[c.estado].length}</span></div><div class="tv-cards" data-col="${c.estado}" style="--w:${c.w}">${tarjetas(c)}</div></div>`).join('');
@@ -7510,6 +7553,17 @@ document.addEventListener('keydown', (ev)=>{ if(ev.key === 'Escape' && pizarraMo
 // modificadas pulsan unos segundos para que se note qué se movió.
 const PIZARRA_SONDEO_MS = 60000;
 const PIZARRA_FLASH_MS = 20000;
+
+// ---------- Reservas de máquinas ----------
+let reservasCache = [];            // reservas activas (la vigencia se evalúa al leer)
+let pizarraSoloReservadas = false;
+function reservaVigente(r){ return !!r && r.estado === 'activa' && (!r.vence_el || r.vence_el >= hoyIso()); }
+function reservaDeEquipo(equipoId){ return reservasCache.find(r => r.equipo_id === equipoId && reservaVigente(r)) || null; }
+async function pizarraCargarReservas(){
+  const { data, error } = await supabaseClient.from('equipos_reservas').select('*').eq('estado', 'activa');
+  if(error){ console.error('No se pudieron leer las reservas', error); return; }
+  reservasCache = data || [];
+}
 const PIZARRA_FALLAS_PARA_RECARGAR = 5;
 let pizarraCambiosRecientes = new Map();   // equipo_id -> hasta cuándo resaltar (ms)
 let pizarraLiveCanal = null;
@@ -7535,7 +7589,7 @@ function pizarraHuellas(){
   const m = new Map();
   equiposCache.forEach(e=>{
     if(e.estado === 'baja') return;
-    m.set(e.id, [estadoActualEquipo(e), e.sucursal_id, e.modelo, e.numero_serie, e.categoria_color, clienteActualDeEquipo(e.id) || ''].join('|'));
+    m.set(e.id, [estadoActualEquipo(e), e.sucursal_id, e.modelo, e.numero_serie, e.categoria_color, clienteActualDeEquipo(e.id) || '', (() => { const r = reservaDeEquipo(e.id); return r ? 'R' + r.id : ''; })()].join('|'));
   });
   return m;
 }
@@ -7589,6 +7643,7 @@ async function pizarraRefrescarDatos(motivo){
     if(nuevos.length) contratosCache = nuevos.concat(contratosCache);
 
     equiposCache = equipos;
+    await pizarraCargarReservas();
 
     // ¿Cambió algo de lo que se ve?
     const despues = pizarraHuellas();
@@ -7654,6 +7709,7 @@ function pizarraLiveIniciar(){
   pizarraLiveCanal = supabaseClient.channel('pizarra-en-vivo')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'equipos' }, pizarraProgramarRefresco)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'contratos' }, pizarraProgramarRefresco)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'equipos_reservas' }, pizarraProgramarRefresco)
     .subscribe((status) => {
       pizarraLiveRealtimeOk = (status === 'SUBSCRIBED');
       if(status === 'SUBSCRIBED'){
@@ -7959,7 +8015,149 @@ async function pizarraEditarFechaEstado(equipoId){
   }
 }
 
+// ---------- Reservas: diálogos ----------
+function pizarraCerrarDlg(fondo, onKey){ document.removeEventListener('keydown', onKey, true); fondo.remove(); }
+
+function pizarraAbrirReservar(equipoId){
+  const equipo = equiposCache.find(e => e.id === equipoId);
+  if(!equipo) return;
+  if(!puede('pizarra','reservar')){ showToast('No tenés permiso para reservar máquinas', true); return; }
+  let clienteSel = null, vigencia = 15;
+  const fondo = document.createElement('div');
+  fondo.className = 'pizarra-dlg-fondo';
+  fondo.innerHTML = `
+    <div class="pizarra-dlg" role="dialog" aria-modal="true">
+      <h3>🔖 Reservar máquina</h3>
+      <p><strong>${escapeHtml(equipo.modelo || '')}</strong> · <span style="font-family:var(--font-mono);">${escapeHtml(equipo.numero_serie || '')}</span><br>La máquina sigue en su columna; solo queda marcada como reservada.</p>
+      <label class="lbl">Cliente</label>
+      <input type="text" id="rsv-cli" placeholder="Buscar cliente por nombre…" autocomplete="off">
+      <div class="res-lista" id="rsv-lista" style="display:none;"></div>
+      <div class="res-sel" id="rsv-sel"></div>
+      <label class="lbl">Vigencia</label>
+      <div class="res-chips" id="rsv-chips">
+        <button type="button" data-d="7">7 días</button><button type="button" data-d="15" class="on">15 días</button><button type="button" data-d="30">30 días</button><button type="button" data-d="0">Sin vencimiento</button>
+      </div>
+      <div class="muted" id="rsv-hasta" style="font-size:12px;margin-top:6px;"></div>
+      <label class="lbl">Nota (opcional)</label>
+      <textarea id="rsv-nota" rows="2" placeholder="Ej.: obra Pilar, entrega la semana próxima"></textarea>
+      <div class="acc" style="margin-top:14px;">
+        <button type="button" class="btn secondary" id="rsv-cancelar">Cancelar</button>
+        <button type="button" class="btn" id="rsv-ok" disabled>Reservar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(fondo);
+  const q = fondo.querySelector('#rsv-cli'), lista = fondo.querySelector('#rsv-lista'), sel = fondo.querySelector('#rsv-sel'), ok = fondo.querySelector('#rsv-ok'), hasta = fondo.querySelector('#rsv-hasta');
+  const onKey = (ev)=>{ if(ev.key === 'Escape'){ ev.stopPropagation(); pizarraCerrarDlg(fondo, onKey); } };
+  document.addEventListener('keydown', onKey, true);
+  const actHasta = ()=>{
+    if(!vigencia) { hasta.textContent = 'Se mantiene hasta que alguien la libere.'; return; }
+    const d = new Date(hoyIso() + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + vigencia);
+    hasta.textContent = 'Vigente hasta el ' + fmtDate(d.toISOString().slice(0,10)) + ' (inclusive).';
+  };
+  actHasta();
+  q.addEventListener('input', ()=>{
+    clienteSel = null; ok.disabled = true; sel.textContent = '';
+    const t = q.value.trim().toLowerCase();
+    if(t.length < 2){ lista.style.display = 'none'; return; }
+    const m = clientesCache.filter(c => (c.razon_social || '').toLowerCase().includes(t)).slice(0, 12);
+    lista.innerHTML = m.length ? m.map(c => `<div data-id="${c.id}">${escapeHtml(c.razon_social)}</div>`).join('') : '<div class="muted">Sin resultados en la base de clientes</div>';
+    lista.style.display = 'block';
+  });
+  lista.addEventListener('click', (ev)=>{
+    const it = ev.target.closest('[data-id]'); if(!it) return;
+    clienteSel = clientesCache.find(c => String(c.id) === it.dataset.id);
+    q.value = clienteSel.razon_social; lista.style.display = 'none';
+    sel.textContent = '✓ Cliente seleccionado'; ok.disabled = false;
+  });
+  fondo.querySelector('#rsv-chips').addEventListener('click', (ev)=>{
+    const b = ev.target.closest('button'); if(!b) return;
+    vigencia = Number(b.dataset.d);
+    fondo.querySelectorAll('#rsv-chips button').forEach(x => x.classList.toggle('on', x === b));
+    actHasta();
+  });
+  fondo.querySelector('#rsv-cancelar').addEventListener('click', ()=> pizarraCerrarDlg(fondo, onKey));
+  fondo.addEventListener('mousedown', (ev)=>{ if(ev.target === fondo) pizarraCerrarDlg(fondo, onKey); });
+  ok.addEventListener('click', async ()=>{
+    if(!clienteSel) return;
+    ok.disabled = true;
+    try{
+      const { error } = await supabaseClient.rpc('equipo_reservar', {
+        p_equipo: equipoId, p_cliente: clienteSel.id,
+        p_nota: fondo.querySelector('#rsv-nota').value, p_vigencia_dias: vigencia || null,
+      });
+      if(error) throw error;
+      pizarraCerrarDlg(fondo, onKey);
+      await pizarraCargarReservas();
+      renderPizarra({ conservarScroll:true });
+      showToast('Máquina reservada');
+    }catch(err){
+      console.error('Error reservando:', err);
+      showToast(err.message || 'No se pudo reservar', true);
+      ok.disabled = false;
+    }
+  });
+  q.focus();
+}
+
+function pizarraAbrirReserva(equipoId){
+  const equipo = equiposCache.find(e => e.id === equipoId);
+  const r = reservaDeEquipo(equipoId);
+  if(!equipo || !r) return;
+  const puedeLiberar = puede('pizarra','reservar');
+  const fondo = document.createElement('div');
+  fondo.className = 'pizarra-dlg-fondo';
+  fondo.innerHTML = `
+    <div class="pizarra-dlg" role="dialog" aria-modal="true">
+      <h3>🔖 Máquina reservada</h3>
+      <p><strong>${escapeHtml(equipo.modelo || '')}</strong> · <span style="font-family:var(--font-mono);">${escapeHtml(equipo.numero_serie || '')}</span></p>
+      <div style="font-size:13px;line-height:1.7;margin-bottom:14px;">
+        <div><span class="muted">Cliente:</span> <strong>${escapeHtml(r.cliente_nombre || '—')}</strong></div>
+        <div><span class="muted">Vigencia:</span> ${r.vence_el ? 'hasta el ' + fmtDate(r.vence_el) : 'sin vencimiento'}</div>
+        <div><span class="muted">Reservada por:</span> ${escapeHtml(r.creada_por_nombre || '—')} · ${escapeHtml(fmtDate(String(r.creada_at || '').slice(0,10)))}</div>
+        ${r.nota ? `<div><span class="muted">Nota:</span> ${escapeHtml(r.nota)}</div>` : ''}
+      </div>
+      <div class="acc">
+        <button type="button" class="btn secondary" id="rsv-cerrar">Cerrar</button>
+        ${puedeLiberar ? '<button type="button" class="btn" id="rsv-liberar" style="background:var(--danger,#ff5c5c);border-color:var(--danger,#ff5c5c);">Liberar reserva</button>' : ''}
+      </div>
+    </div>`;
+  document.body.appendChild(fondo);
+  const onKey = (ev)=>{ if(ev.key === 'Escape'){ ev.stopPropagation(); pizarraCerrarDlg(fondo, onKey); } };
+  document.addEventListener('keydown', onKey, true);
+  fondo.querySelector('#rsv-cerrar').addEventListener('click', ()=> pizarraCerrarDlg(fondo, onKey));
+  fondo.addEventListener('mousedown', (ev)=>{ if(ev.target === fondo) pizarraCerrarDlg(fondo, onKey); });
+  fondo.querySelector('#rsv-liberar')?.addEventListener('click', async (ev)=>{
+    ev.target.disabled = true;
+    try{
+      const { error } = await supabaseClient.rpc('equipo_liberar_reserva', { p_reserva: r.id });
+      if(error) throw error;
+      pizarraCerrarDlg(fondo, onKey);
+      await pizarraCargarReservas();
+      renderPizarra({ conservarScroll:true });
+      showToast('Reserva liberada');
+    }catch(err){
+      console.error('Error liberando reserva:', err);
+      showToast(err.message || 'No se pudo liberar la reserva', true);
+      ev.target.disabled = false;
+    }
+  });
+}
+
+document.getElementById('btn-pizarra-solo-reservadas').addEventListener('click', (ev)=>{
+  pizarraSoloReservadas = !pizarraSoloReservadas;
+  ev.currentTarget.classList.toggle('secondary', !pizarraSoloReservadas);
+  renderPizarra({ conservarScroll:true });
+});
+
 function initPizarraDragAndDrop(){
+  document.querySelectorAll('[data-reserva-equipo]').forEach(el=>{
+    el.addEventListener('click', (ev)=>{
+      ev.stopPropagation();
+      const id = Number(el.dataset.reservaEquipo);
+      if(reservaDeEquipo(id)) pizarraAbrirReserva(id); else pizarraAbrirReservar(id);
+    });
+    el.addEventListener('mousedown', (ev)=> ev.stopPropagation());
+  });
   document.querySelectorAll('.pizarra-fecha-btn').forEach(btn=>{
     btn.addEventListener('click', (ev)=>{ ev.stopPropagation(); pizarraEditarFechaEstado(Number(btn.dataset.equipoId)); });
     btn.addEventListener('mousedown', (ev)=> ev.stopPropagation());
@@ -8229,7 +8427,7 @@ const SECCIONES_PERMISOS = [
   { key:'clientes',      label:'Clientes',      acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
   { key:'contratos',     label:'Contratos',     acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar'],['editar_precio','Editar precio ya guardado'],['cambiar_serie','Cambiar la serie de la máquina en un contrato activo'],['requiere_autorizacion','⚠ Sus contratos nuevos requieren autorización de un maestro'],['autorizar','Autorizar contratos (y ver Contratos pendientes de autorización)']] },
   { key:'equipos',       label:'Equipos',       acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
-  { key:'pizarra',       label:'Pizarra de Flota', acciones:[['ver','Ver'],['mover_disponible','Arrastrar a Disponible'],['mover_pdi','Arrastrar a PDI'],['mover_vor','Arrastrar a VOR'],['editar_fecha','Corregir fecha de inicio (📅)']] },
+  { key:'pizarra',       label:'Pizarra de Flota', acciones:[['ver','Ver'],['mover_disponible','Arrastrar a Disponible'],['mover_pdi','Arrastrar a PDI'],['mover_vor','Arrastrar a VOR'],['editar_fecha','Corregir fecha de inicio (📅)'],['reservar','Reservar / liberar máquinas (🔖)']] },
   { key:'trazabilidad',  label:'Trazabilidad',    acciones:[['ver','Ver / usar']] },
   { key:'pendientes',    label:'Pendientes de Facturación', acciones:[['ver','Ver'],['facturar','Facturar'],['eliminar','Eliminar']] },
   { key:'reportes',      label:'Reportes',      acciones:[['ver','Ver']] },
@@ -18455,6 +18653,7 @@ async function initApp(){
     renderEquipos(getFilteredEquipos());
 
     // Pizarra de Flota en vivo (televisor de operaciones): solo para quien tiene acceso a la pizarra
+    await pizarraCargarReservas();
     if(puede('pizarra','ver')) pizarraLiveIniciar();
     syncIniciar();
 
