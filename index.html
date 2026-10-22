@@ -6983,9 +6983,18 @@ async function fotoComoDataUrl(url){
   const resp = await fetch(url);
   if(!resp.ok) throw new Error('No se pudo bajar la foto');
   const blob = await resp.blob();
-  const data = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
-  const dim = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res({ w: im.naturalWidth, h: im.naturalHeight }); im.onerror = rej; im.src = data; });
-  const out = { data, w: dim.w, h: dim.h };
+  let data = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
+  const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = data; });
+  let w = img.naturalWidth, h = img.naturalHeight;
+  // Si la foto es grande, se reduce acá para que el PDF no pese de más (y se asegura el formato JPEG)
+  if(blob.size > 120 * 1024 || blob.type !== 'image/jpeg'){
+    const esc = Math.min(1, 800 / Math.max(w, h));
+    const cw = Math.round(w * esc), ch = Math.round(h * esc);
+    const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
+    const cx = cv.getContext('2d'); cx.fillStyle = '#ffffff'; cx.fillRect(0, 0, cw, ch); cx.drawImage(img, 0, 0, cw, ch);
+    data = cv.toDataURL('image/jpeg', 0.8); w = cw; h = ch;
+  }
+  const out = { data, w, h };
   _fotoPdfCache.set(url, out);
   return out;
 }
@@ -18315,8 +18324,8 @@ async function generarPresupuestoPDF(id){
     const ficha = buscarFichaTecnica(grupo.modelo);
     const fotoG = fotos[grupo.modelo];
     const yTopGrupo = y;
-    const xTexto = fotoG ? colModelo + 27 : colModelo + 2;
-    if(fotoG) dibujarFoto(doc, fotoG, colModelo + 2, y - 4, 22, 16.5, true);
+    const xTexto = fotoG ? colModelo + 26 : colModelo + 2;
+    if(fotoG) dibujarFoto(doc, fotoG, colModelo + 2, y - 4, 21, 19, true);
 
     doc.setFont('helvetica','bold');
     doc.setFontSize(9);
@@ -18346,7 +18355,7 @@ async function generarPresupuestoPDF(id){
       y += 5.5;
     });
 
-    if(fotoG) y = Math.max(y, yTopGrupo + 14);   // que la fila tenga lugar para la foto
+    if(fotoG) y = Math.max(y, yTopGrupo + 16);   // que la fila tenga lugar para la foto
     y += 1;
     doc.setDrawColor(220,220,220);
     doc.line(marginX, y, pageWidth - marginX, y);
