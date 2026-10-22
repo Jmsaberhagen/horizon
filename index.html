@@ -3732,7 +3732,7 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
             <label>Tipo de cambio aplicado</label>
             <div style="display:flex;gap:6px;">
               <input type="number" step="0.0001" id="p-tc_aplicado" style="flex:1;">
-              <button type="button" class="btn secondary small" id="btn-buscar-tc-bna-pend" title="Traer el TC BNA (venta) del día automáticamente">🔄 TC BNA</button>
+              <button type="button" class="btn secondary small" id="btn-buscar-tc-bna-pend" title="Traer el TC BNA (venta) del último día hábil anterior">🔄 TC BNA</button>
             </div>
             <div class="muted" id="p-tc-bna-status" style="font-size:11px;margin-top:4px;"></div>
           </div>
@@ -8345,6 +8345,9 @@ document.getElementById('btn-logout').addEventListener('click', async ()=>{
   document.getElementById('login-email').value = '';
   document.getElementById('login-password').value = '';
   showLogin();
+  // Recarga completa: así no queda en memoria ni en pantalla nada del usuario anterior
+  // (cards, pestaña abierta, categoría, tablas) y el siguiente usuario arranca limpio.
+  location.reload();
 });
 
 // ---------- Módulo Usuarios (solo maestro/admin) ----------
@@ -15447,26 +15450,27 @@ document.getElementById('go-neto').addEventListener('input', recalcularNetoUsdGa
 document.getElementById('go-cotizacion_usd').addEventListener('input', recalcularNetoUsdGastoObra);
 
 
-// Pendientes de facturación: traer el TC BNA (venta) del día al campo "Tipo de cambio aplicado"
+// Pendientes de facturación: traer el TC BNA (venta) del último día hábil ANTERIOR a hoy
+// (el acuerdo con los clientes es facturar al TC BNA del día anterior). Sale de la tabla
+// tc_bna_diario, que se completa sola todos los días hábiles a las 18:30.
 document.getElementById('btn-buscar-tc-bna-pend')?.addEventListener('click', async () => {
   const statusEl = document.getElementById('p-tc-bna-status');
   const btn = document.getElementById('btn-buscar-tc-bna-pend');
-  statusEl.textContent = 'Consultando TC BNA...';
+  statusEl.textContent = 'Consultando TC BNA del día anterior...';
   btn.disabled = true;
   try{
-    const resp = await fetch('https://dolar-bna.vercel.app/api/cotizacion');
-    if(!resp.ok) throw new Error('respuesta ' + resp.status);
-    const data = await resp.json();
-    const venta = Number(String(data.venta).replace(',', '.'));
-    if(!venta || !isFinite(venta)) throw new Error('no vino el valor de venta');
+    const { data, error } = await supabaseClient.rpc('tc_bna_anterior', { p_fecha: hoyIso() });
+    if(error) throw error;
+    const fila = Array.isArray(data) ? data[0] : data;
+    const venta = fila ? Number(fila.venta) : NaN;
+    if(!venta || !isFinite(venta)) throw new Error('no hay un valor guardado para el día anterior');
     const campo = document.getElementById('p-tc_aplicado');
     campo.value = String(venta);
     campo.dispatchEvent(new Event('input', { bubbles:true }));
-    const fechaFuente = data.timestamp && typeof fmtFechaHoraTs === 'function' ? fmtFechaHoraTs(data.timestamp) : '';
-    statusEl.textContent = `✓ TC BNA venta: $${venta} (${data.fuente || 'BNA'}${fechaFuente ? ' · ' + fechaFuente : ''}) — podés editarlo si preferís otro valor`;
+    statusEl.textContent = `✓ TC BNA venta del ${fmtDate(fila.fecha)}: $${venta} (último día hábil anterior) — podés editarlo si preferís otro valor`;
   }catch(err){
     console.error(err);
-    statusEl.textContent = '✕ No se pudo consultar el TC BNA automáticamente — completalo a mano.';
+    statusEl.textContent = '✕ No hay un TC BNA del día anterior guardado — completalo a mano.';
   }finally{ btn.disabled = false; }
 });
 
