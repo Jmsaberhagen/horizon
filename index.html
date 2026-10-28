@@ -810,6 +810,43 @@
     display:flex; align-items:center; gap:8px;
     padding:12px; background:var(--panel-2); border-bottom:1px solid var(--border);
   }
+
+  /* ===== Avatares / menú de usuario / perfil ===== */
+  .av{position:relative;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;font-weight:700;flex:none;user-select:none;line-height:1;}
+  .av img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
+  .av-dot{position:absolute;right:-2px;bottom:-2px;width:11px;height:11px;border-radius:50%;background:var(--text-dim);border:2px solid var(--panel);box-sizing:border-box;}
+  .av-dot.on{background:var(--ok);}
+  .um-wrap{position:relative;}
+  .um-bubble{padding:0;border:2px solid var(--border);border-radius:50%;background:transparent;cursor:pointer;display:flex;}
+  .um-bubble:hover,.um-bubble.open{border-color:var(--accent);}
+  .um-menu{display:none;position:absolute;right:0;top:calc(100% + 8px);min-width:240px;background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:0 14px 40px rgba(0,0,0,.45);z-index:5000;padding:6px;}
+  .um-menu.open{display:block;}
+  .um-head{display:flex;gap:10px;align-items:center;padding:8px 10px 10px;border-bottom:1px solid var(--border);margin-bottom:4px;}
+  .um-head b{display:block;font-size:13px;color:var(--text);}
+  .um-head small{display:block;color:var(--text-dim);font-size:11px;}
+  .um-menu button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:transparent;border:none;color:var(--text);padding:8px 10px;border-radius:6px;cursor:pointer;font-size:13px;margin:0;}
+  .um-menu button:hover{background:var(--panel-2);}
+  .um-menu .um-sep{height:1px;background:var(--border);margin:4px 0;}
+  .pf-dlg{width:min(520px,100%);max-height:92vh;overflow-y:auto;}
+  .pf-dlg h3{margin:0 0 14px;font-size:16px;}
+  .pf-foto{display:flex;align-items:center;gap:16px;margin-bottom:16px;}
+  .pf-foto .pf-btns{display:flex;flex-direction:column;gap:6px;align-items:flex-start;}
+  .pf-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;}
+  .pf-grid .pf-full{grid-column:1 / -1;}
+  .pf-grid label,.pf-lbl{display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px;}
+  .pf-grid input,.pf-grid select,.pf-dlg input[type=password],.pf-dlg input[type=text]{width:100%;}
+  .pf-acciones{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
+  .pf-msg{font-size:12px;margin-top:10px;min-height:16px;}
+  .pf-msg.err{color:var(--danger);} .pf-msg.ok{color:var(--ok);}
+  .pf-sec{border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;}
+  .pf-sec h4{margin:0 0 10px;font-size:13px;}
+  .pf-code{font-size:26px;letter-spacing:10px;text-align:center;font-weight:700;}
+  .login-link{display:block;text-align:center;margin-top:12px;font-size:12px;color:var(--accent);cursor:pointer;text-decoration:none;}
+  .login-link:hover{text-decoration:underline;}
+  .login-info{color:var(--ok);font-size:12px;margin-top:10px;display:none;}
+  .chat-user-sub{font-size:10.5px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .chat-msg-row .av{margin-right:6px;align-self:flex-end;}
+  @media (max-width:560px){ .pf-grid{grid-template-columns:1fr;} }
   .chat-icon-btn{
     background:transparent; border:none; color:var(--text-dim); cursor:pointer;
     font-size:15px; padding:4px 6px; border-radius:6px;
@@ -1003,9 +1040,11 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
   <div id="chat-panel-conversacion" style="display:none;flex-direction:column;height:100%;">
     <div class="chat-panel-header">
       <button id="btn-chat-volver" class="chat-icon-btn">←</button>
-      <div style="flex:1;">
+      <span id="chat-conv-avatar"></span>
+      <div style="flex:1;min-width:0;">
         <div id="chat-conv-nombre" style="font-weight:700;font-size:13.5px;"></div>
         <div id="chat-conv-estado" style="font-size:10.5px;color:var(--text-dim);"></div>
+        <div id="chat-conv-frase" style="font-size:10.5px;color:var(--text-dim);font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
       </div>
       <button id="btn-chat-cerrar-2" class="chat-icon-btn">✕</button>
     </div>
@@ -1026,6 +1065,7 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
 <div class="login-screen" id="login-screen">
   <div class="login-box">
     <div class="apex-mark"><svg width="46" height="46" aria-hidden="true"><use href="#apex-pk"/></svg><div class="apex-word"><b>APEX</b><small>RENTAL MANAGER</small></div></div>
+    <div id="login-principal">
     <div class="sub">Iniciá sesión para continuar</div>
     <div class="field">
       <label style="font-size:11px;color:var(--text-dim);">Email</label>
@@ -1037,6 +1077,24 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
     </div>
     <button class="btn" id="btn-login">Ingresar</button>
     <div class="login-error" id="login-error"></div>
+    <div class="login-info" id="login-info"></div>
+    <a class="login-link" id="login-olvide">¿Olvidaste tu clave?</a>
+    </div>
+    <div id="login-recuperar" style="display:none;">
+      <div class="sub" id="rec-sub">Te mandamos un código de 6 dígitos a tu mail</div>
+      <div id="rec-paso1">
+        <div class="field"><label style="font-size:11px;color:var(--text-dim);">Email</label><input type="email" id="rec-email" autocomplete="username"></div>
+        <button class="btn" id="btn-rec-enviar">Enviarme el código</button>
+      </div>
+      <div id="rec-paso2" style="display:none;">
+        <div class="field"><label style="font-size:11px;color:var(--text-dim);">Código de 6 dígitos</label><input type="text" id="rec-codigo" inputmode="numeric" maxlength="6" autocomplete="one-time-code" class="pf-code"></div>
+        <div class="field"><label style="font-size:11px;color:var(--text-dim);">Nueva clave (mínimo 8 caracteres)</label><input type="password" id="rec-nueva" autocomplete="new-password"></div>
+        <div class="field"><label style="font-size:11px;color:var(--text-dim);">Repetí la nueva clave</label><input type="password" id="rec-nueva2" autocomplete="new-password"></div>
+        <button class="btn" id="btn-rec-cambiar">Cambiar clave</button>
+      </div>
+      <div class="login-error" id="rec-error"></div>
+      <a class="login-link" id="rec-volver">← Volver al inicio de sesión</a>
+    </div>
   </div>
   <div class="login-foot">APEX Rental Manager · Gestión de flota, contratos y facturación</div>
 </div>
@@ -1061,7 +1119,6 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
   <div class="user-badge">
     <span class="status" id="conn-status">conectando...</span>
     <span class="role-pill" id="user-role-pill" style="display:none;"></span>
-    <span class="muted" id="user-name" style="font-size:12px;"></span>
     <div class="empresa-switch" id="empresa-switch">
       <button type="button" data-empresa="horizon" class="active">HORIZON</button>
       <button type="button" data-empresa="haulotte">HAULOTTE</button>
@@ -1069,7 +1126,16 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
     <button class="theme-toggle" id="btn-theme-toggle" title="Cambiar modo claro/oscuro" aria-label="Cambiar modo claro/oscuro">
       <span class="theme-toggle-icon">🌙</span>
     </button>
-    <button id="btn-logout">Cerrar sesión</button>
+    <div class="um-wrap" id="um-wrap">
+      <button type="button" class="um-bubble" id="um-bubble" title="Mi cuenta" aria-haspopup="true"><span id="um-avatar"></span></button>
+      <div class="um-menu" id="um-menu">
+        <div class="um-head"><span id="um-head-avatar"></span><div style="min-width:0;"><b id="user-name"></b><small id="um-head-puesto"></small></div></div>
+        <button type="button" id="um-perfil">👤 Mi perfil</button>
+        <button type="button" id="um-cuenta">🔐 Mi cuenta</button>
+        <div class="um-sep"></div>
+        <button type="button" id="btn-logout">⎋ Cerrar sesión</button>
+      </div>
+    </div>
   </div>
 </header>
 
@@ -8628,7 +8694,7 @@ const SECCIONES_PERMISOS = [
 
 function aplicarPermisosUI(){
   if(!miPerfil) return;
-  document.getElementById('user-name').textContent = miPerfil.nombre;
+  refrescarUIPerfil();
   const pill = document.getElementById('user-role-pill');
   pill.textContent = miPerfil.rol;
   pill.style.display = 'inline-block';
@@ -8716,6 +8782,266 @@ document.getElementById('btn-logout').addEventListener('click', async ()=>{
   // (cards, pestaña abierta, categoría, tablas) y el siguiente usuario arranca limpio.
   location.reload();
 });
+
+
+// =========================================================
+// MI PERFIL / MI CUENTA / RECUPERAR CLAVE
+// =========================================================
+const AV_COLORES = ['#0ea5e9','#8b5cf6','#d97706','#059669','#dc2626','#db2777','#0d9488','#4f46e5'];
+function nombreVisible(p){ return (p && (p.nombre_mostrar || p.nombre)) || ''; }
+function inicialesDe(n){
+  const t = String(n||'?').trim().split(/\s+/).filter(Boolean);
+  return ((t[0]||'?')[0] + (t.length>1 ? t[t.length-1][0] : '')).toUpperCase();
+}
+function colorAvatar(id){
+  let h = 0; const s = String(id||'');
+  for(let i=0;i<s.length;i++) h = (h*31 + s.charCodeAt(i)) >>> 0;
+  return AV_COLORES[h % AV_COLORES.length];
+}
+function avatarHtml(p, px, online){
+  px = px || 32;
+  const dot = online === undefined ? '' : `<span class="av-dot ${online?'on':''}"></span>`;
+  const inner = (p && p.foto_url) ? `<img src="${escapeHtml(p.foto_url)}" alt="" loading="lazy">` : escapeHtml(inicialesDe(nombreVisible(p)));
+  return `<span class="av" style="width:${px}px;height:${px}px;font-size:${Math.round(px*0.4)}px;background:${colorAvatar(p && p.id)};">${inner}${dot}</span>`;
+}
+function refrescarUIPerfil(){
+  if(!miPerfil) return;
+  document.getElementById('user-name').textContent = nombreVisible(miPerfil);
+  document.getElementById('um-avatar').innerHTML = avatarHtml(miPerfil, 32);
+  document.getElementById('um-head-avatar').innerHTML = avatarHtml(miPerfil, 40);
+  document.getElementById('um-head-puesto').textContent = miPerfil.puesto || miPerfil.email || '';
+}
+
+// ----- menú desplegable del header -----
+(function(){
+  const bub = document.getElementById('um-bubble'), menu = document.getElementById('um-menu');
+  const cerrar = ()=>{ menu.classList.remove('open'); bub.classList.remove('open'); };
+  bub.addEventListener('click', (e)=>{ e.stopPropagation(); const ab = menu.classList.toggle('open'); bub.classList.toggle('open', ab); });
+  document.addEventListener('click', (e)=>{ if(!menu.contains(e.target)) cerrar(); });
+  document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') cerrar(); });
+  document.getElementById('um-perfil').addEventListener('click', ()=>{ cerrar(); abrirMiPerfil(); });
+  document.getElementById('um-cuenta').addEventListener('click', ()=>{ cerrar(); abrirMiCuenta(); });
+})();
+
+function pfAbrirDialogo(inner){
+  const f = document.createElement('div');
+  f.className = 'pizarra-dlg-fondo';
+  f.innerHTML = `<div class="pizarra-dlg pf-dlg">${inner}</div>`;
+  const cerrar = ()=>{ f.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = (e)=>{ if(e.key === 'Escape') cerrar(); };
+  f.addEventListener('mousedown', (e)=>{ if(e.target === f) cerrar(); });
+  document.addEventListener('keydown', onKey);
+  document.body.appendChild(f);
+  f._cerrar = cerrar;
+  return f;
+}
+function pfMsg(el, texto, tipo){ el.textContent = texto || ''; el.className = 'pf-msg' + (tipo ? ' ' + tipo : ''); }
+
+async function avatarPrepararArchivo(file){
+  const img = await new Promise((res, rej)=>{
+    const u = URL.createObjectURL(file); const i = new Image();
+    i.onload = ()=>{ URL.revokeObjectURL(u); res(i); };
+    i.onerror = ()=>{ URL.revokeObjectURL(u); rej(new Error('No se pudo leer la imagen')); };
+    i.src = u;
+  });
+  const lado = Math.min(img.naturalWidth, img.naturalHeight);
+  const sx = (img.naturalWidth - lado)/2, sy = (img.naturalHeight - lado)/2;
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0,0,256,256);
+  x.drawImage(img, sx, sy, lado, lado, 0, 0, 256, 256);
+  return await new Promise(r => c.toBlob(r, 'image/jpeg', 0.85));
+}
+
+// ----- Mi perfil -----
+function abrirMiPerfil(){
+  const p = miPerfil;
+  let blobNuevo = null, quitar = false;
+  const sucursales = ['BUENOS AIRES','CORDOBA','NEUQUEN'];
+  const dlg = pfAbrirDialogo(`
+    <h3>👤 Mi perfil</h3>
+    <div class="pf-foto"><span id="pf-av"></span>
+      <div class="pf-btns">
+        <button type="button" class="btn secondary" id="pf-subir">📷 Cambiar foto</button>
+        <button type="button" class="btn secondary" id="pf-quitar" style="${p.foto_url?'':'display:none;'}">Quitar foto</button>
+        <input type="file" id="pf-file" accept="image/*" style="display:none;">
+        <span class="muted" style="font-size:11px;">Se recorta cuadrada y se achica sola.</span>
+      </div>
+    </div>
+    <div class="pf-grid">
+      <div class="pf-full"><label>Nombre para mostrar</label><input type="text" id="pf-nombre" maxlength="60" value="${escapeHtml(p.nombre_mostrar || p.nombre || '')}"></div>
+      <div><label>Puesto</label><input type="text" id="pf-puesto" maxlength="60" placeholder="Ej: Facturación" value="${escapeHtml(p.puesto||'')}"></div>
+      <div><label>Sucursal</label><select id="pf-sucursal"><option value="">—</option>${sucursales.map(s=>`<option ${p.sucursal===s?'selected':''}>${s}</option>`).join('')}</select></div>
+      <div><label>Teléfono / interno</label><input type="text" id="pf-tel" maxlength="40" value="${escapeHtml(p.telefono||'')}"></div>
+      <div><label>Fecha de cumpleaños</label><input type="date" id="pf-cumple" value="${p.fecha_cumpleanos||''}"></div>
+      <div class="pf-full"><label>Estado (se ve en el chat)</label><input type="text" id="pf-estado" maxlength="80" placeholder="Ej: En reunión hasta las 15" value="${escapeHtml(p.estado_texto||'')}"></div>
+    </div>
+    <div class="pf-msg" id="pf-msg"></div>
+    <div class="pf-acciones"><button type="button" class="btn secondary" id="pf-cancelar">Cancelar</button><button type="button" class="btn" id="pf-guardar">Guardar</button></div>`);
+  const $ = (id)=>dlg.querySelector('#'+id);
+  const pintarAv = (src)=>{ $('pf-av').innerHTML = avatarHtml({ id:p.id, nombre:p.nombre, nombre_mostrar:$('pf-nombre').value || p.nombre, foto_url: src }, 76); };
+  pintarAv(p.foto_url);
+  $('pf-nombre').addEventListener('input', ()=>{ if(!blobNuevo && (quitar || !p.foto_url)) pintarAv(null); });
+  $('pf-subir').addEventListener('click', ()=>$('pf-file').click());
+  $('pf-file').addEventListener('change', async (e)=>{
+    const f = e.target.files[0]; if(!f) return;
+    if(!/^image\//.test(f.type)){ pfMsg($('pf-msg'), 'Elegí una imagen (JPG o PNG).', 'err'); return; }
+    try{
+      blobNuevo = await avatarPrepararArchivo(f); quitar = false;
+      pintarAv(URL.createObjectURL(blobNuevo)); $('pf-quitar').style.display = '';
+      pfMsg($('pf-msg'), '');
+    }catch(err){ pfMsg($('pf-msg'), err.message, 'err'); }
+  });
+  $('pf-quitar').addEventListener('click', ()=>{ blobNuevo = null; quitar = true; pintarAv(null); $('pf-quitar').style.display = 'none'; });
+  $('pf-cancelar').addEventListener('click', ()=>dlg._cerrar());
+  $('pf-guardar').addEventListener('click', async ()=>{
+    const btn = $('pf-guardar'); btn.disabled = true; btn.textContent = 'Guardando...';
+    try{
+      let foto = p.foto_url || null;
+      if(quitar){
+        await supabaseClient.storage.from('avatares').remove([`${p.id}/avatar.jpg`]);
+        foto = null;
+      } else if(blobNuevo){
+        const path = `${p.id}/avatar.jpg`;
+        const { error: upErr } = await supabaseClient.storage.from('avatares').upload(path, blobNuevo, { contentType:'image/jpeg', upsert:true });
+        if(upErr) throw upErr;
+        foto = supabaseClient.storage.from('avatares').getPublicUrl(path).data.publicUrl + '?v=' + Date.now();
+      }
+      const nombre = $('pf-nombre').value.trim();
+      const { error } = await supabaseClient.rpc('perfil_actualizar', { p: {
+        nombre_mostrar: (nombre && nombre !== p.nombre) ? nombre : '',
+        puesto: $('pf-puesto').value, sucursal: $('pf-sucursal').value, telefono: $('pf-tel').value,
+        fecha_cumpleanos: $('pf-cumple').value, estado_texto: $('pf-estado').value, foto_url: foto || ''
+      }});
+      if(error) throw error;
+      const np = await cargarMiPerfil(p.id); if(np) miPerfil = np;
+      refrescarUIPerfil();
+      showToast('Perfil actualizado');
+      dlg._cerrar();
+    }catch(err){
+      console.error(err);
+      pfMsg($('pf-msg'), 'No se pudo guardar: ' + (err.message || err), 'err');
+      btn.disabled = false; btn.textContent = 'Guardar';
+    }
+  });
+}
+
+// ----- llamada a la función de seguridad -----
+async function cuentaLlamar(body){
+  const { data, error } = await supabaseClient.functions.invoke('cuenta-seguridad', { body });
+  if(error){
+    try{ const j = await error.context.json(); if(j && j.msg) return j; }catch(_){}
+    return { ok:false, msg:'No se pudo conectar con el servidor. Probá de nuevo.' };
+  }
+  return data || { ok:false, msg:'Respuesta vacía del servidor.' };
+}
+
+// ----- Mi cuenta -----
+function abrirMiCuenta(){
+  const dlg = pfAbrirDialogo(`
+    <h3>🔐 Mi cuenta</h3>
+    <div class="pf-sec"><label class="pf-lbl">Mail de ingreso</label><div style="font-size:14px;font-weight:600;">${escapeHtml(miPerfil.email || '')}</div>
+      <div class="muted" style="font-size:11px;margin-top:4px;">El mail lo administra el administrador del sistema.</div></div>
+    <div class="pf-sec">
+      <h4>Cambiar mi clave</h4>
+      <div id="cta-paso1">
+        <label class="pf-lbl">Clave actual</label><input type="password" id="cta-actual" autocomplete="current-password">
+        <label class="pf-lbl" style="margin-top:8px;">Nueva clave (mínimo 8 caracteres)</label><input type="password" id="cta-nueva" autocomplete="new-password">
+        <label class="pf-lbl" style="margin-top:8px;">Repetí la nueva clave</label><input type="password" id="cta-nueva2" autocomplete="new-password">
+        <div class="pf-acciones" style="margin-top:12px;"><button type="button" class="btn" id="cta-enviar">Enviarme el código por mail</button></div>
+      </div>
+      <div id="cta-paso2" style="display:none;">
+        <div class="muted" style="font-size:12px;margin-bottom:8px;">Te mandamos un código de 6 dígitos a <b>${escapeHtml(miPerfil.email||'')}</b>. Vence en 10 minutos.</div>
+        <input type="text" id="cta-codigo" class="pf-code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000">
+        <div class="pf-acciones" style="margin-top:12px;justify-content:space-between;"><button type="button" class="btn secondary" id="cta-reenviar">Reenviar código</button><button type="button" class="btn" id="cta-confirmar">Confirmar cambio</button></div>
+      </div>
+      <div class="pf-msg" id="cta-msg"></div>
+    </div>
+    <div class="pf-sec">
+      <h4>Sesiones</h4>
+      <div class="muted" style="font-size:12px;margin-bottom:8px;">Si te dejaste la sesión abierta en otra compu o en un celular, podés cerrarla desde acá. También se cierra esta.</div>
+      <button type="button" class="btn secondary" id="cta-cerrar-todas">Cerrar sesión en todos los dispositivos</button>
+    </div>
+    <div class="pf-acciones"><button type="button" class="btn secondary" id="cta-cerrar">Cerrar</button></div>`);
+  const $ = (id)=>dlg.querySelector('#'+id);
+  const msg = $('cta-msg');
+  async function pedirCodigo(){
+    const actual = $('cta-actual').value, n1 = $('cta-nueva').value, n2 = $('cta-nueva2').value;
+    if(!actual){ pfMsg(msg, 'Ingresá tu clave actual.', 'err'); return false; }
+    if(n1.length < 8){ pfMsg(msg, 'La clave nueva debe tener al menos 8 caracteres.', 'err'); return false; }
+    if(n1 !== n2){ pfMsg(msg, 'Las dos claves nuevas no coinciden.', 'err'); return false; }
+    if(n1 === actual){ pfMsg(msg, 'La clave nueva tiene que ser distinta de la actual.', 'err'); return false; }
+    pfMsg(msg, 'Enviando código...');
+    const r = await cuentaLlamar({ accion:'enviar_codigo', proposito:'cambio_clave', clave_actual: actual });
+    if(!r.ok){ pfMsg(msg, r.msg, 'err'); return false; }
+    pfMsg(msg, 'Código enviado. Revisá tu mail (y la carpeta de spam).', 'ok');
+    return true;
+  }
+  $('cta-enviar').addEventListener('click', async ()=>{
+    const b = $('cta-enviar'); b.disabled = true;
+    if(await pedirCodigo()){ $('cta-paso1').style.display = 'none'; $('cta-paso2').style.display = 'block'; $('cta-codigo').focus(); }
+    b.disabled = false;
+  });
+  $('cta-reenviar').addEventListener('click', async ()=>{ const b = $('cta-reenviar'); b.disabled = true; await pedirCodigo(); setTimeout(()=>{ b.disabled = false; }, 45000); });
+  $('cta-confirmar').addEventListener('click', async ()=>{
+    const codigo = $('cta-codigo').value.replace(/\D/g,'');
+    if(codigo.length !== 6){ pfMsg(msg, 'Ingresá el código de 6 dígitos.', 'err'); return; }
+    const b = $('cta-confirmar'); b.disabled = true; pfMsg(msg, 'Verificando...');
+    const r = await cuentaLlamar({ accion:'cambiar_clave', proposito:'cambio_clave', codigo, nueva_clave: $('cta-nueva').value });
+    b.disabled = false;
+    if(!r.ok){ pfMsg(msg, r.msg, 'err'); return; }
+    pfMsg(msg, '✓ Listo, tu clave se cambió. Las sesiones abiertas en otros dispositivos se cerraron.', 'ok');
+    $('cta-paso2').style.display = 'none';
+    showToast('Clave actualizada');
+  });
+  $('cta-cerrar').addEventListener('click', ()=>dlg._cerrar());
+  $('cta-cerrar-todas').addEventListener('click', async ()=>{
+    if(!confirm('Se va a cerrar tu sesión en todos los dispositivos, incluido este. ¿Seguimos?')) return;
+    const r = await cuentaLlamar({ accion:'cerrar_todas' });
+    if(!r.ok){ pfMsg(msg, r.msg, 'err'); return; }
+    document.getElementById('btn-logout').click();
+  });
+}
+
+// ----- Login: ¿Olvidaste tu clave? -----
+(function(){
+  const $ = (id)=>document.getElementById(id);
+  const err = $('rec-error');
+  const mostrarErr = (t)=>{ err.textContent = t || ''; err.style.display = t ? 'block' : 'none'; };
+  const irRecuperar = ()=>{
+    $('login-principal').style.display = 'none'; $('login-recuperar').style.display = 'block';
+    $('rec-paso1').style.display = 'block'; $('rec-paso2').style.display = 'none';
+    $('rec-email').value = $('login-email').value.trim(); mostrarErr('');
+  };
+  const irLogin = (info)=>{
+    $('login-recuperar').style.display = 'none'; $('login-principal').style.display = 'block';
+    const i = $('login-info'); i.textContent = info || ''; i.style.display = info ? 'block' : 'none';
+  };
+  $('login-olvide').addEventListener('click', irRecuperar);
+  $('rec-volver').addEventListener('click', ()=>irLogin(''));
+  $('btn-rec-enviar').addEventListener('click', async ()=>{
+    const email = $('rec-email').value.trim();
+    if(!email){ mostrarErr('Ingresá tu mail.'); return; }
+    const b = $('btn-rec-enviar'); b.disabled = true; mostrarErr('');
+    const r = await cuentaLlamar({ accion:'enviar_codigo', proposito:'recuperar', email });
+    b.disabled = false;
+    if(!r.ok){ mostrarErr(r.msg); return; }
+    $('rec-sub').textContent = 'Si el mail está registrado, te llegó un código de 6 dígitos. Vence en 10 minutos.';
+    $('rec-paso1').style.display = 'none'; $('rec-paso2').style.display = 'block'; $('rec-codigo').focus();
+  });
+  $('btn-rec-cambiar').addEventListener('click', async ()=>{
+    const codigo = $('rec-codigo').value.replace(/\D/g,''), n1 = $('rec-nueva').value, n2 = $('rec-nueva2').value;
+    if(codigo.length !== 6){ mostrarErr('Ingresá el código de 6 dígitos.'); return; }
+    if(n1.length < 8){ mostrarErr('La clave nueva debe tener al menos 8 caracteres.'); return; }
+    if(n1 !== n2){ mostrarErr('Las dos claves no coinciden.'); return; }
+    const b = $('btn-rec-cambiar'); b.disabled = true; mostrarErr('');
+    const r = await cuentaLlamar({ accion:'cambiar_clave', proposito:'recuperar', email: $('rec-email').value.trim(), codigo, nueva_clave: n1 });
+    b.disabled = false;
+    if(!r.ok){ mostrarErr(r.msg); return; }
+    $('rec-codigo').value = $('rec-nueva').value = $('rec-nueva2').value = '';
+    $('login-email').value = $('rec-email').value.trim(); $('login-password').value = '';
+    irLogin('✓ Clave cambiada. Ya podés ingresar con la nueva.');
+  });
+})();
 
 // ---------- Módulo Usuarios (solo maestro/admin) ----------
 let usuariosCache = [];
@@ -19065,7 +19391,7 @@ async function initChatInterno(){
 async function loadChatContactos(){
   const { data, error } = await supabaseClient
     .from('perfiles')
-    .select('id, nombre, activo')
+    .select('id, nombre, nombre_mostrar, foto_url, puesto, estado_texto, sucursal, activo')
     .eq('activo', true)
     .neq('id', miPerfil.id)
     .order('nombre');
@@ -19129,7 +19455,7 @@ async function refrescarBadgeChat(){
 async function renderChatListaUsuarios(){
   const q = document.getElementById('chat-buscar-usuario').value.trim().toLowerCase();
   const cont = document.getElementById('chat-lista-usuarios');
-  const lista = q ? chatContactosCache.filter(c => c.nombre.toLowerCase().includes(q)) : chatContactosCache;
+  const lista = q ? chatContactosCache.filter(c => nombreVisible(c).toLowerCase().includes(q)) : chatContactosCache;
 
   // Traer no-leídos por remitente para mostrar el numerito en cada contacto
   const { data: noLeidos } = await supabaseClient
@@ -19141,9 +19467,9 @@ async function renderChatListaUsuarios(){
   (noLeidos||[]).forEach(m => { conteoPorRemitente[m.remitente_id] = (conteoPorRemitente[m.remitente_id]||0) + 1; });
 
   cont.innerHTML = lista.map(u => `
-    <div class="chat-user-item" onclick="abrirConversacionChat('${u.id}','${escapeHtml(u.nombre)}')">
-      <span class="chat-user-dot ${chatUsuariosOnline.has(u.id) ? 'online' : ''}"></span>
-      <span class="chat-user-name">${escapeHtml(u.nombre)}</span>
+    <div class="chat-user-item" onclick="abrirConversacionChat('${u.id}','${escapeHtml(nombreVisible(u))}')">
+      ${avatarHtml(u, 34, chatUsuariosOnline.has(u.id))}
+      <span style="flex:1;min-width:0;"><span class="chat-user-name" style="display:block;">${escapeHtml(nombreVisible(u))}</span>${(u.estado_texto||u.puesto) ? `<span class="chat-user-sub" style="display:block;">${escapeHtml(u.estado_texto || u.puesto)}</span>` : ''}</span>
       ${conteoPorRemitente[u.id] ? `<span class="chat-unread-badge">${conteoPorRemitente[u.id]}</span>` : ''}
     </div>`).join('') || '<div class="muted" style="padding:16px;text-align:center;font-size:12px;">Sin usuarios.</div>';
 }
@@ -19152,7 +19478,11 @@ document.getElementById('chat-buscar-usuario').addEventListener('input', renderC
 function actualizarEstadoConversacionAbierta(){
   if(!chatConversacionActual) return;
   const el = document.getElementById('chat-conv-estado');
-  el.textContent = chatUsuariosOnline.has(chatConversacionActual) ? 'En línea' : 'Desconectado';
+  const c = chatContactosCache.find(x => x.id === chatConversacionActual);
+  const on = chatUsuariosOnline.has(chatConversacionActual);
+  el.textContent = (on ? 'En línea' : 'Desconectado') + (c && c.puesto ? ' · ' + c.puesto : '');
+  document.getElementById('chat-conv-avatar').innerHTML = avatarHtml(c || {id:chatConversacionActual, nombre:'?'}, 34, on);
+  document.getElementById('chat-conv-frase').textContent = c && c.estado_texto ? '“' + c.estado_texto + '”' : '';
 }
 
 // ---------- UI: abrir/cerrar panel ----------
@@ -19160,7 +19490,7 @@ document.getElementById('chat-bubble').addEventListener('click', ()=>{
   const panel = document.getElementById('chat-panel');
   const abierto = panel.style.display === 'flex';
   panel.style.display = abierto ? 'none' : 'flex';
-  if(!abierto) renderChatListaUsuarios();
+  if(!abierto){ renderChatListaUsuarios(); loadChatContactos().then(()=>{ renderChatListaUsuarios(); actualizarEstadoConversacionAbierta(); }); }
 });
 function cerrarChatPanel(){ document.getElementById('chat-panel').style.display = 'none'; }
 document.getElementById('btn-chat-cerrar').addEventListener('click', cerrarChatPanel);
@@ -19213,7 +19543,9 @@ function renderChatMensajes(){
     if(m.archivo_url){
       contenido += `<a class="chat-msg-pdf" href="${m.archivo_url}" target="_blank" rel="noopener">📄 ${escapeHtml(m.archivo_nombre||'Adjunto.pdf')}</a>`;
     }
+    const cOtro = mia ? null : chatContactosCache.find(x => x.id === m.remitente_id);
     return `<div class="chat-msg-row ${mia?'mine':''}">
+      ${mia ? '' : avatarHtml(cOtro || {id:m.remitente_id}, 24)}
       <div class="chat-msg-bubble">${contenido}<span class="chat-msg-time">${hora}</span></div>
     </div>`;
   }).join('');
