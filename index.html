@@ -1167,6 +1167,7 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
   <button data-tab="backlogfacturacion">Backlog de Facturación</button>
   <button data-tab="stockvalorizado">Stock Valorizado</button>
   <button data-tab="haulotte_articulos">Artículos Haulotte</button>
+  <button data-tab="haulotte_ventas">Cotizador de Máquinas</button>
   <button data-tab="cuentacliente">Cuenta Cliente</button>
   <button data-tab="enviofacturas">Envío de Facturas</button>
   <button data-tab="planning">Planning</button>
@@ -2783,6 +2784,49 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
     </div>
   </section>
 
+  <section id="tab-haulotte_ventas" style="display:none;">
+    <div class="dash-hero" style="margin-bottom:14px;">
+      <h1 style="font-size:16px;">Cotizador de Máquinas (Haulotte)</h1>
+      <div class="sub">Presupuestos de venta en dólares con plan de cuotas en pesos — numeración correlativa propia; un presupuesto nunca se borra, solo se anula.</div>
+    </div>
+    <div class="toolbar" style="flex-wrap:wrap;">
+      <input type="text" id="hv-search" placeholder="Buscar por N°, empresa o contacto...">
+      <select id="hv-filter-estado">
+        <option value="">Todos los estados</option>
+        <option value="vigente">Vigente</option>
+        <option value="aceptado">Aceptado</option>
+        <option value="vencido">Vencido</option>
+        <option value="anulado">Anulado</option>
+      </select>
+      <button class="btn secondary small" id="btn-hv-limpiar" type="button">Limpiar filtros</button>
+      <div style="flex:1"></div>
+      <button class="btn secondary" id="btn-hv-export-csv">Exportar CSV</button>
+      <button class="btn" id="btn-hv-nuevo">+ Nuevo presupuesto de venta</button>
+    </div>
+    <div class="panel">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>N°</th>
+              <th>Fecha</th>
+              <th>Cliente / Empresa</th>
+              <th>Equipos</th>
+              <th>Total proforma</th>
+              <th>Plan</th>
+              <th>Estado</th>
+              <th style="width:190px;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="hv-tbody">
+            <tr><td colspan="8" class="empty-state">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="muted" id="hv-results-count" style="margin-top:10px;font-size:12px;"></div>
+  </section>
+
   <section id="tab-haulotte_articulos" style="display:none;">
     <div class="toolbar">
       <input type="text" id="hrep-search-input" placeholder="Buscar por código, descripción o categoría...">
@@ -4308,6 +4352,117 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
 </div>
 
 <!-- MODAL PRESUPUESTO (nuevo / editar) -->
+<div class="overlay" id="modal-hventa-overlay">
+  <div class="modal wide">
+    <h2 id="hv-modal-titulo">Nuevo presupuesto de venta</h2>
+    <input type="hidden" id="hv-id">
+    <div class="muted" id="hv-modal-numero" style="font-size:12px;margin-top:-10px;margin-bottom:14px;"></div>
+
+    <div class="field-grid cols-3">
+      <div class="field full" style="position:relative;">
+        <label>Cliente (buscar en la base)</label>
+        <input type="text" id="hv-cliente-search" placeholder="Buscar por razón social, CUIT o N° de cliente... (dejalo vacío si es un prospecto nuevo)">
+        <input type="hidden" id="hv-cliente_id">
+        <div class="autocomplete-list" id="hv-cliente-results"></div>
+      </div>
+      <div class="field"><label>Empresa (si es prospecto nuevo)</label><input type="text" id="hv-empresa_nombre"></div>
+      <div class="field"><label>Contacto</label><input type="text" id="hv-contacto_nombre"></div>
+      <div class="field"><label>Email</label><input type="text" id="hv-contacto_email"></div>
+      <div class="field"><label>Teléfono</label><input type="text" id="hv-contacto_telefono"></div>
+      <div class="field"><label>Fecha de emisión</label><input type="date" id="hv-fecha_emision"></div>
+      <div class="field"><label>Validez (días)</label><input type="number" id="hv-validez_dias" value="7"></div>
+    </div>
+
+    <h3 style="margin:20px 0 10px 0;font-size:13px;color:var(--accent);">Equipos cotizados (precios netos en U$D)</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Modelo (catálogo o escribilo a mano)</th>
+            <th>Descripción adicional (opcional)</th>
+            <th style="width:90px;">Cantidad</th>
+            <th style="width:140px;">Precio neto unit. U$D</th>
+            <th style="width:120px;">Subtotal neto</th>
+            <th style="width:40px;"></th>
+          </tr>
+        </thead>
+        <tbody id="hv-items-tbody"></tbody>
+      </table>
+    </div>
+    <datalist id="hv-modelos-datalist"></datalist>
+    <button class="btn secondary small" id="btn-hv-agregar-item" type="button" style="margin-top:10px;">+ Agregar equipo</button>
+
+    <h3 style="margin:20px 0 10px 0;font-size:13px;color:var(--accent);">Condiciones de pago</h3>
+    <div class="field-grid cols-3">
+      <div class="field">
+        <label>Tipo de cambio ($ por U$D) *</label>
+        <div style="display:flex;gap:8px;">
+          <input type="number" step="0.01" id="hv-tc" style="flex:1;">
+          <button type="button" class="btn secondary small" id="btn-hv-tc-bna" title="Traer el TC BNA (venta) del último día hábil anterior">🔄 TC BNA</button>
+        </div>
+        <div class="muted" id="hv-tc-status" style="font-size:11px;margin-top:4px;"></div>
+      </div>
+      <div class="field">
+        <label>Plan de cuotas</label>
+        <select id="hv-plan">
+          <option value="3">3 cuotas (sin interés)</option>
+          <option value="6">6 cuotas (sin interés)</option>
+          <option value="7">7 cuotas (6 sin interés + 1 con interés)</option>
+          <option value="8">8 cuotas (6 sin interés + 2 con interés)</option>
+          <option value="12" selected>12 cuotas (6 sin interés + 6 con interés)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Tasa de interés (% nominal anual, sobre saldo)</label>
+        <input type="number" step="0.01" id="hv-tasa_anual" value="8">
+      </div>
+      <div class="field">
+        <label>Anticipo</label>
+        <div style="display:flex;gap:8px;">
+          <input type="number" step="0.01" min="0" id="hv-anticipo_valor" value="0" style="flex:1;">
+          <select id="hv-anticipo_tipo" style="width:90px;"><option value="pct">%</option><option value="usd">U$D</option></select>
+        </div>
+      </div>
+      <div class="field"><label>IVA máquinas</label><input type="text" id="hv-iva" value="10,5 %" disabled></div>
+    </div>
+
+    <div id="hv-resumen" style="margin-top:16px;padding:12px 14px;border:1px solid var(--border);border-radius:8px;font-size:13px;"></div>
+    <div class="table-wrap" style="margin-top:12px;">
+      <table>
+        <thead><tr><th>Cuota</th><th style="text-align:right;">Capital U$D</th><th style="text-align:right;">Interés U$D</th><th style="text-align:right;">Cuota U$D</th><th style="text-align:right;">Cuota en $</th></tr></thead>
+        <tbody id="hv-cuotas-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="field full" style="margin-top:14px;">
+      <label>Notas (salen en el PDF)</label>
+      <textarea id="hv-notas" rows="3"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn secondary" id="btn-hv-cancel">Cancelar</button>
+      <button class="btn secondary" id="btn-hv-pdf-previo" title="Ver cómo queda el PDF sin guardar">Vista previa PDF</button>
+      <button class="btn" id="btn-hv-save">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="modal-hventa-anular-overlay">
+  <div class="modal">
+    <h2>Anular presupuesto de venta</h2>
+    <input type="hidden" id="hva-id">
+    <div class="muted" id="hva-resumen" style="font-size:13px;margin-bottom:14px;"></div>
+    <div class="field full">
+      <label>Motivo de la anulación</label>
+      <textarea id="hva-motivo" rows="3" placeholder="Ej: el cliente eligió otra opción / reemplazado por el presupuesto N°..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn secondary" id="btn-hva-cancel">Cancelar</button>
+      <button class="btn danger" id="btn-hva-confirmar">Anular presupuesto</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="modal-presupuesto-overlay">
   <div class="modal wide">
     <h2 id="pres-modal-titulo">Nuevo presupuesto</h2>
@@ -4600,6 +4755,7 @@ const TAB_TITLES = {
   backlogfacturacion: 'Backlog de Facturación',
   stockvalorizado: 'Stock Valorizado (Haulotte)',
   haulotte_articulos: 'Artículos Haulotte',
+  haulotte_ventas: 'Cotizador de Máquinas (Haulotte)',
   cuentacliente: 'Cuenta Cliente',
   enviofacturas: 'Envío de Facturas',
   planning: 'Planning',
@@ -8840,6 +8996,7 @@ const SECCIONES_PERMISOS = [
   { key:'modalidadfact',      label:'Modalidad de Facturación (encuesta a comerciales)', acciones:[['ver','Ver'],['editar','Completar / editar']] },
   { key:'stockvalorizado',    label:'Stock Valorizado (Haulotte)', acciones:[['ver','Ver / usar']] },
   { key:'haulotte_repuestos', label:'Artículos Haulotte', acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
+  { key:'haulotte_ventas', label:'Cotizador de Máquinas (Haulotte)', acciones:[['ver','Ver'],['crear','Crear / editar'],['anular','Anular']] },
   { key:'panoramacobranzas',  label:'Panorama de Cobranzas',   acciones:[['ver','Ver / usar']] },
   { key:'panoramaproveedores', label:'Panorama de Deuda a Proveedores', acciones:[['ver','Ver / usar']] },
   { key:'accesos_web', label:'Usuarios y Claves Web', acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar'],['ver_claves','Ver y copiar claves']] },
@@ -9594,6 +9751,7 @@ const PM_CATEGORIAS = [
   { k:'usuarios', t:'Usuarios', i:'👤', e:'horizon', mods:[ {sk:'usuarios', t:'Usuarios', i:'👤'}, {sk:'accesos_web', t:'Usuarios y Claves Web', i:'🔐'} ]},
   { k:'haulotte_rep', t:'Reportes Haulotte', i:'🟠', e:'haulotte', mods:[ {sk:'stockvalorizado', t:'Stock Valorizado', i:'📦'} ]},
   { k:'haulotte_art', t:'Artículos Haulotte', i:'🔧', e:'haulotte', mods:[ {sk:'haulotte_repuestos', t:'Artículos', i:'🔧'} ]},
+  { k:'haulotte_vta', t:'Ventas Haulotte', i:'💼', e:'haulotte', mods:[ {sk:'haulotte_ventas', t:'Cotizador de Máquinas', i:'💼'} ]},
 ];
 const PM_DESC = {
   'clientes.ver':'Entrar y consultar la lista de clientes', 'contratos.ver':'Entrar y consultar contratos',
@@ -9958,6 +10116,9 @@ function renderDashboard(){
     ]},
     { key:'haulotte_articulos_cat', titulo:'Artículos Haulotte', icon:'🔧', tiles:[
       { tab:'haulotte_articulos', icon:'🔧', title:'Artículos', count:`${haulotteRepuestosCache.length} repuesto(s)`, visible:puede('haulotte_repuestos','ver'), urgencia:null },
+    ]},
+    { key:'haulotte_ventas_cat', titulo:'Ventas Haulotte', icon:'💼', tiles:[
+      { tab:'haulotte_ventas', icon:'💼', title:'Cotizador de Máquinas', count: puede('haulotte_ventas','ver') ? `${hventasCache.filter(v=>hvEstadoMostrado(v)==='vigente').length} vigente(s)` : '', visible:puede('haulotte_ventas','ver'), urgencia:null },
     ]},
   ];
 
@@ -19482,6 +19643,12 @@ async function initApp(){
     }
     document.getElementById('btn-new-hrep').style.display = puede('haulotte_repuestos','crear') ? '' : 'none';
 
+    if(puede('haulotte_ventas','ver')){
+      console.log('[Horizon] cargando presupuestos de venta Haulotte...');
+      await loadHaulotteVentas();
+    }
+    document.getElementById('btn-hv-nuevo').style.display = puede('haulotte_ventas','crear') ? '' : 'none';
+
     console.log('[Horizon] listo.');
     await initChatInterno();
     renderDashboard();
@@ -20380,6 +20547,7 @@ const SYNC_TABS = {
   datosbancarios:async () => { await loadDatosBancarios(); renderDatosBancarios(); },
   gastosobra:    async () => { await loadGastosObra(); renderGastosObraLista(); renderStatsGastosObra(); },
   haulotte_articulos: async () => { await loadHaulotteRepuestos(); renderHaulotteRepuestos(); },
+  haulotte_ventas: async () => { await loadHaulotteVentas(); renderHaulotteVentas(); },
   usuarios:      async () => { await loadUsuarios(); },
   cuentacliente: async () => { await syncNucleo(); if(puede('pendientes','ver') || puede('cuentacliente','ver')) await loadPendientes(); if(cuentaClienteActivaId) await mostrarCuentaCliente(cuentaClienteActivaId); },
   enviofacturas: async () => { await syncNucleo(); await loadTodasFacturasParaEnvio(); renderEnvioFacturas(); },
@@ -20573,6 +20741,633 @@ if(/^https?:$/.test(location.protocol)){
   window.addEventListener('focus', versionConsultar);
   window.addEventListener('online', versionConsultar);
 }
+
+
+// =========================================================
+// MÓDULO: Cotizador de máquinas Haulotte (presupuestos de venta en U$D, cuotas en pesos)
+// Tablas propias: haulotte_ventas / haulotte_venta_items (numeración correlativa propia).
+// Plan: las primeras 6 cuotas sin interés; las siguientes con interés nominal anual sobre saldo
+// (3 y 6 cuotas: todas sin interés). El cliente paga en pesos; si hay diferencia de cambio al
+// momento del pago, se emite nota de débito.
+// =========================================================
+const LOGO_HAULOTTE_BASE64 = 'data:image/png;base64,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';
+const LOGO_HAULOTTE_RATIO = 932/150;
+const PLANES_VENTA = {
+  3:  { cuotas: 3,  sinInteres: 3 },
+  6:  { cuotas: 6,  sinInteres: 6 },
+  7:  { cuotas: 7,  sinInteres: 6 },
+  8:  { cuotas: 8,  sinInteres: 6 },
+  12: { cuotas: 12, sinInteres: 6 },
+};
+const IVA_MAQUINAS = 10.5;
+const TASA_ANUAL_DEFECTO = 8;
+
+// Saldo calculado sobre lo financiado (descuenta el anticipo). Cada cuota en $ se redondea al peso.
+function calcularPlanVenta(o){
+  const items = (o.items || []).filter(i => Number(i.cantidad) > 0);
+  const neto = items.reduce((a, i) => a + Number(i.cantidad) * Number(i.precio_neto || 0), 0);
+  const ivaPct = o.iva_pct == null ? IVA_MAQUINAS : Number(o.iva_pct);
+  const iva = neto * ivaPct / 100;
+  const proforma = neto + iva;
+  const tc = Number(o.tc) || 0;
+  const plan = PLANES_VENTA[o.plan] || { cuotas: Number(o.plan) || 12, sinInteres: Math.min(Number(o.plan) || 12, 6) };
+  const tasa = (o.tasa_anual == null || o.tasa_anual === '' ? TASA_ANUAL_DEFECTO : Number(o.tasa_anual)) / 100;
+  let anticipo = o.anticipo_tipo === 'usd' ? (Number(o.anticipo_valor) || 0) : proforma * (Number(o.anticipo_valor) || 0) / 100;
+  anticipo = Math.min(Math.max(anticipo, 0), proforma);
+  const financiado = proforma - anticipo;
+  const capital = financiado / plan.cuotas;
+  let saldo = financiado, interesTotal = 0;
+  const cuotas = [];
+  for(let k = 1; k <= plan.cuotas; k++){
+    const interes = k > plan.sinInteres ? saldo * tasa / 12 : 0;
+    const usd = capital + interes;
+    cuotas.push({ n: k, capital, interes, usd, ars: Math.round(usd * tc), conInteres: k > plan.sinInteres });
+    interesTotal += interes;
+    saldo -= capital;
+  }
+  const anticipoArs = Math.round(anticipo * tc);
+  const totalUsd = anticipo + cuotas.reduce((a, c) => a + c.usd, 0);
+  const totalArs = anticipoArs + cuotas.reduce((a, c) => a + c.ars, 0);
+  return { neto, iva, ivaPct, proforma, tc, proformaArs: Math.round(proforma * tc), anticipo, anticipoArs, financiado,
+    plan, tasa: tasa * 100, cuotas, interesTotal, totalUsd, totalArs };
+}
+const hvN2 = v => Number(v).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const hvN0 = v => Number(v).toLocaleString('es-AR', { maximumFractionDigits: 0 });
+
+// cot: { numero, fecha_emision, validez_dias, cliente:{razon_social}, empresa_nombre, contacto_*, items:[{modelo, descripcion, cantidad, precio_neto, foto?:{data,w,h}}],
+//        iva_pct, tc, tc_fecha, anticipo_tipo, anticipo_valor, plan, tasa_anual, notas }
+function generarCotizacionVentaPDF(cot){
+  const calc = calcularPlanVenta(cot);
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const marginX = 18;
+  const R = pageWidth - marginX;
+  const ROJO = [226, 35, 41], NEGRO = [24, 24, 26];
+  const bannerH = pageWidth / (2475 / 406);
+  const LIM = 297 - bannerH - 9;   // el contenido no puede pasar de acá (queda el pie con banner)
+  const empresa = (cot.cliente && cot.cliente.razon_social) || cot.empresa_nombre || '—';
+  const numero = cot.numero ? String(cot.numero).padStart(5, '0') : 'BORRADOR';
+  const logoW = 56, logoH = logoW / LOGO_HAULOTTE_RATIO;
+
+  const encabezado = () => {
+    let y = 15;
+    try{ doc.addImage(LOGO_HAULOTTE_BASE64, 'PNG', marginX, y, logoW, logoH); } catch(e){ console.error(e); }
+    doc.setTextColor(0);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(14);
+    doc.text(`PRESUPUESTO DE VENTA N° ${numero}`, R, y + 5, { align: 'right' });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+    doc.text(`Fecha de emisión: ${fmtDate(cot.fecha_emision)}`, R, y + 11, { align: 'right' });
+    doc.text(`Válido por ${cot.validez_dias || 7} días`, R, y + 16, { align: 'right' });
+    y += 24;
+    doc.setDrawColor(...ROJO); doc.setLineWidth(0.9);
+    doc.line(marginX, y, R, y);
+    return y + 8;
+  };
+  const titulo = (txt, y) => { doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(0); doc.text(txt, marginX, y); return y + 6; };
+  const encTabla = (y, cols) => {
+    doc.setFillColor(...NEGRO); doc.rect(marginX, y - 5, pageWidth - marginX * 2, 7, 'F');
+    doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
+    cols.forEach(c => doc.text(c.t, c.x, y, c.right ? { align: 'right' } : undefined));
+    doc.setTextColor(0);
+    return y + 8;
+  };
+
+  let y = encabezado();
+
+  y = titulo('DATOS DEL CLIENTE', y);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+  doc.text(`Empresa: ${empresa}`, marginX, y); y += 5;
+  if(cot.contacto_nombre){ doc.text(`Contacto: ${cot.contacto_nombre}`, marginX, y); y += 5; }
+  if(cot.contacto_email){ doc.text(`Email: ${cot.contacto_email}`, marginX, y); y += 5; }
+  if(cot.contacto_telefono){ doc.text(`Teléfono: ${cot.contacto_telefono}`, marginX, y); y += 5; }
+
+  y += 6;
+  y = titulo('EQUIPOS COTIZADOS', y) + 2;
+  const cabEquipos = () => encTabla(y, [{ t: 'Equipo', x: marginX + 2 }, { t: 'Cant.', x: 112, right: true }, { t: 'Precio unit. neto', x: 152, right: true }, { t: 'Subtotal neto', x: R - 2, right: true }]);
+  y = cabEquipos();
+  (cot.items || []).filter(it => Number(it.cantidad) > 0).forEach(it => {
+    if(y + 18 > LIM){ doc.addPage(); y = encabezado(); y = cabEquipos(); }
+    const sub = Number(it.cantidad) * Number(it.precio_neto || 0);
+    const top = y;
+    const f = it.foto;
+    const xT = f ? marginX + 28 : marginX + 2;
+    if(f){
+      const bw = 22, bh = 18, esc = Math.min(bw / f.w, bh / f.h), w = f.w * esc, h = f.h * esc;
+      try{ doc.addImage(f.data, 'JPEG', marginX + 2 + (bw - w) / 2, y - 4 + (bh - h) / 2, w, h); } catch(e){ console.error(e); }
+      doc.setDrawColor(210, 218, 230); doc.setLineWidth(0.25); doc.rect(marginX + 2, y - 4, bw, bh, 'S');
+    }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
+    doc.text(it.modelo || it.descripcion || '', xT, y + 1);
+    if(it.descripcion && it.modelo){
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(100);
+      doc.text(doc.splitTextToSize(it.descripcion, 80).slice(0, 2), xT, y + 6); doc.setTextColor(0);
+    }
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+    doc.text(String(it.cantidad), 112, y + 1, { align: 'right' });
+    doc.text(fmtMoney(it.precio_neto, 'USD'), 152, y + 1, { align: 'right' });
+    doc.text(fmtMoney(sub, 'USD'), R - 2, y + 1, { align: 'right' });
+    y = Math.max(y + 12, top + (f ? 17 : 0));
+    doc.setDrawColor(222); doc.setLineWidth(0.2); doc.line(marginX, y, R, y);
+    y += 6;
+  });
+
+  // ---------- Resumen económico ----------
+  if(y + 40 > LIM){ doc.addPage(); y = encabezado(); }
+  y += 1;
+  const bx = R - 92, bw = 92;
+  const filas = [
+    ['Total neto', fmtMoney(calc.neto, 'USD')],
+    [`IVA ${String(calc.ivaPct).replace('.', ',')}%`, fmtMoney(calc.iva, 'USD')],
+    ['Total proforma', fmtMoney(calc.proforma, 'USD'), true],
+    ['Tipo de cambio de referencia', '$ ' + hvN2(calc.tc)],
+    ['Total proforma en pesos', '$ ' + hvN0(calc.proformaArs), true],
+  ];
+  doc.setFillColor(244, 245, 247); doc.setDrawColor(222); doc.setLineWidth(0.2);
+  doc.roundedRect(bx, y - 4, bw, filas.length * 6.4 + 4, 1.5, 1.5, 'FD');
+  filas.forEach((f, i) => {
+    const yy = y + i * 6.4 + 1;
+    doc.setFont('helvetica', f[2] ? 'bold' : 'normal'); doc.setFontSize(f[2] ? 9.5 : 9); doc.setTextColor(f[2] ? 0 : 70);
+    doc.text(f[0], bx + 4, yy);
+    doc.setTextColor(0); doc.text(f[1], bx + bw - 4, yy, { align: 'right' });
+  });
+  y += filas.length * 6.4 + 10;
+
+  // ---------- Plan de pago ----------
+  const nFilas = calc.cuotas.length + (calc.anticipo > 0 ? 1 : 0) + 1;
+  const alto = 22 + nFilas * 5.9 + 4;
+  if(y + alto > LIM){ doc.addPage(); y = encabezado(); }
+  y = titulo(`PLAN DE PAGO — ${calc.plan.cuotas} CUOTAS MENSUALES`, y);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(70);
+  const descr = calc.plan.sinInteres >= calc.plan.cuotas
+    ? `Las ${calc.plan.cuotas} cuotas son sin interés.`
+    : `Cuotas 1 a ${calc.plan.sinInteres} sin interés. Cuotas ${calc.plan.sinInteres + 1} a ${calc.plan.cuotas} con interés del ${String(calc.tasa).replace('.', ',')}% nominal anual sobre saldo.`;
+  doc.text(descr, marginX, y); doc.setTextColor(0);
+  y += 6;
+  const C = { n: marginX + 2, cap: 82, int: 110, usd: 146, ars: R - 2 };
+  y = encTabla(y, [{ t: 'Cuota', x: C.n }, { t: 'Capital U$D', x: C.cap, right: true }, { t: 'Interés U$D', x: C.int, right: true }, { t: 'Cuota U$D', x: C.usd, right: true }, { t: 'Cuota en $', x: C.ars, right: true }]);
+  let z = 0;
+  const fila = (n, cap, inte, usd, ars, negrita) => {
+    if(z++ % 2 === 0){ doc.setFillColor(246, 247, 249); doc.rect(marginX, y - 4.2, pageWidth - marginX * 2, 5.7, 'F'); }
+    doc.setFont('helvetica', negrita ? 'bold' : 'normal'); doc.setFontSize(8.8);
+    doc.text(String(n), C.n, y);
+    doc.text(cap, C.cap, y, { align: 'right' });
+    doc.text(inte, C.int, y, { align: 'right' });
+    doc.text(usd, C.usd, y, { align: 'right' });
+    doc.text(ars, C.ars, y, { align: 'right' });
+    y += 5.9;
+  };
+  if(calc.anticipo > 0) fila('Anticipo', hvN2(calc.anticipo), '—', hvN2(calc.anticipo), hvN0(calc.anticipoArs));
+  calc.cuotas.forEach(c => fila(c.n, hvN2(c.capital), c.interes > 0 ? hvN2(c.interes) : '—', hvN2(c.usd), hvN0(c.ars)));
+  doc.setDrawColor(...NEGRO); doc.setLineWidth(0.5); doc.line(marginX, y - 4, R, y - 4);
+  y += 1;
+  fila('TOTAL', hvN2(calc.proforma), calc.interesTotal > 0 ? hvN2(calc.interesTotal) : '—', hvN2(calc.totalUsd), hvN0(calc.totalArs), true);
+  y += 5;
+
+  // ---------- Condiciones ----------
+  const notasLs = cot.notas ? doc.splitTextToSize(cot.notas, pageWidth - marginX * 2) : [];
+  if(y + 28 + (notasLs.length ? 8 + notasLs.length * 4.6 : 0) > LIM){ doc.addPage(); y = encabezado(); }
+  y = titulo('CONDICIONES COMERCIALES', y);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+  const fechaTc = cot.tc_fecha ? ` (${fmtDate(cot.tc_fecha)})` : '';
+  const conds = [
+    `Los equipos se cotizan en dólares estadounidenses. El IVA (${String(calc.ivaPct).replace('.', ',')}%) está incluido en el total proforma.`,
+    `El pago se realiza en pesos, al tipo de cambio de referencia de $ ${hvN2(calc.tc)} por U$D${fechaTc}.`,
+    'Si al momento del pago existiera diferencia de cambio, se emitirá una nota de débito por dicha diferencia.',
+    `Validez de la oferta: ${cot.validez_dias || 7} días desde la fecha de emisión.`,
+  ];
+  conds.forEach(l => { const ls = doc.splitTextToSize('• ' + l, pageWidth - marginX * 2); doc.text(ls, marginX, y); y += ls.length * 4.6 + 0.8; });
+  if(notasLs.length){
+    y += 3; doc.setFont('helvetica', 'bold'); doc.text('Notas:', marginX, y); y += 5;
+    doc.setFont('helvetica', 'normal'); doc.text(notasLs, marginX, y); y += notasLs.length * 4.6;
+  }
+
+  // ---------- Pie: mismo banner y dirección que los presupuestos de alquiler ----------
+  const total = doc.internal.getNumberOfPages();
+  for(let p = 1; p <= total; p++){
+    doc.setPage(p);
+    try{ doc.addImage(FOOTER_BANNER_BASE64, 'JPEG', 0, 297 - bannerH, pageWidth, bannerH); } catch(e){ console.error('No se pudo insertar el banner decorativo:', e); }
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(150);
+    doc.text('Haulotte Argentina — Panamericana Km. 34.300 Colectora Oeste, Ramal Escobar, Grand Bourg, Buenos Aires', marginX, 297 - bannerH - 3);
+    doc.text(`Página ${p} de ${total}`, R, 297 - bannerH - 3, { align: 'right' });
+    doc.setTextColor(0);
+  }
+  return { doc, calc, fileName: `Presupuesto_Venta_${numero}_${empresa.replace(/[^a-zA-Z0-9]/g, '_')}.pdf` };
+}
+
+// ---------- Datos y listado ----------
+let hventasCache = [];
+let hventaItemsState = [];
+let hvTcFuente = null, hvTcFecha = null;
+
+async function loadHaulotteVentas(){
+  const { data, error } = await supabaseClient
+    .from('haulotte_ventas')
+    .select('*, clientes(razon_social), haulotte_venta_items(*)')
+    .order('numero', { ascending: false });
+  if(error){ console.error('Error cargando presupuestos de venta Haulotte:', error); hventasCache = []; return; }
+  hventasCache = data;
+}
+function hvCalcDesdeRegistro(v){
+  return calcularPlanVenta({
+    items: (v.haulotte_venta_items || []).map(i => ({ cantidad: i.cantidad, precio_neto: i.precio_neto })),
+    iva_pct: v.iva_pct, tc: v.tipo_cambio, plan: v.plan, tasa_anual: v.tasa_anual,
+    anticipo_tipo: v.anticipo_tipo, anticipo_valor: v.anticipo_valor,
+  });
+}
+function hvEstadoMostrado(v){
+  if(v.estado !== 'vigente') return v.estado;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v.fecha_emision || ''));
+  if(!m) return v.estado;
+  const vence = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3] + (Number(v.validez_dias) || 7)));
+  const h = hoyIso().split('-').map(Number);
+  return Date.UTC(h[0], h[1] - 1, h[2]) > vence.getTime() ? 'vencido' : 'vigente';
+}
+function getHventasFiltradas(){
+  const q = document.getElementById('hv-search').value.trim().toLowerCase();
+  const estado = document.getElementById('hv-filter-estado').value;
+  let list = hventasCache;
+  if(estado) list = list.filter(v => hvEstadoMostrado(v) === estado);
+  if(q) list = list.filter(v =>
+    String(v.numero).includes(q) ||
+    (v.clientes?.razon_social || '').toLowerCase().includes(q) ||
+    (v.empresa_nombre || '').toLowerCase().includes(q) ||
+    (v.contacto_nombre || '').toLowerCase().includes(q));
+  return list;
+}
+function renderHaulotteVentas(){
+  const list = getHventasFiltradas();
+  const tbody = document.getElementById('hv-tbody');
+  if(list.length === 0){
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No hay presupuestos de venta con este filtro.</td></tr>';
+    document.getElementById('hv-results-count').textContent = '';
+    return;
+  }
+  const estadoColor = { vigente: 'var(--accent)', aceptado: 'var(--ok)', vencido: '#ff9f43', anulado: 'var(--danger)' };
+  tbody.innerHTML = list.map(v => {
+    const empresa = v.clientes?.razon_social || v.empresa_nombre || '—';
+    const est = hvEstadoMostrado(v);
+    const color = estadoColor[est] || 'var(--text-dim)';
+    const c = hvCalcDesdeRegistro(v);
+    const nEq = (v.haulotte_venta_items || []).length;
+    return `
+      <tr>
+        <td style="font-weight:600;">N° ${String(v.numero).padStart(5,'0')}</td>
+        <td class="muted">${fmtDate(v.fecha_emision)}</td>
+        <td>${escapeHtml(empresa)}${v.contacto_nombre ? ` <span class="muted" style="font-size:11px;">— ${escapeHtml(v.contacto_nombre)}</span>` : ''}</td>
+        <td class="muted">${nEq} equipo(s)</td>
+        <td class="muted">${fmtMoney(c.proforma, 'USD')}</td>
+        <td class="muted">${v.plan} cuotas</td>
+        <td><span class="badge" style="color:${color};border-color:${color};">${est}</span></td>
+        <td><div class="row-actions">
+          <button class="btn secondary small" onclick="abrirEditarHventa(${v.id})">${v.estado === 'anulado' || !puede('haulotte_ventas','crear') ? 'Ver' : 'Editar'}</button>
+          <button class="btn secondary small" onclick="descargarHventaPDF(${v.id})">PDF</button>
+          ${v.estado !== 'anulado' && puede('haulotte_ventas','anular') ? `<button class="btn danger small" onclick="abrirAnularHventa(${v.id})">Anular</button>` : ''}
+        </div></td>
+      </tr>`;
+  }).join('');
+  document.getElementById('hv-results-count').textContent = `${list.length} presupuesto(s) de venta`;
+}
+document.getElementById('hv-search').addEventListener('input', renderHaulotteVentas);
+document.getElementById('hv-filter-estado').addEventListener('change', renderHaulotteVentas);
+document.getElementById('btn-hv-limpiar').addEventListener('click', ()=>{
+  document.getElementById('hv-search').value = '';
+  document.getElementById('hv-filter-estado').value = '';
+  renderHaulotteVentas();
+});
+document.getElementById('btn-hv-export-csv').addEventListener('click', ()=>{
+  const headers = ['Numero','Fecha','Cliente Empresa','Contacto','Equipos','Total neto USD','Total proforma USD','TC','Plan','Estado'];
+  const rows = getHventasFiltradas().map(v => {
+    const c = hvCalcDesdeRegistro(v);
+    return [v.numero, v.fecha_emision, v.clientes?.razon_social || v.empresa_nombre || '', v.contacto_nombre || '',
+      (v.haulotte_venta_items || []).length, c.neto, c.proforma, v.tipo_cambio, v.plan, hvEstadoMostrado(v)];
+  });
+  exportCSV('presupuestos_venta_haulotte', headers, rows);
+});
+
+// ---------- Cliente (autocompletar) ----------
+const hvClienteInput = document.getElementById('hv-cliente-search');
+const hvClienteBox = document.getElementById('hv-cliente-results');
+hvClienteInput.addEventListener('input', ()=>{
+  const q = hvClienteInput.value.trim().toLowerCase();
+  document.getElementById('hv-cliente_id').value = '';
+  if(q.length < 2){ hvClienteBox.classList.remove('open'); return; }
+  const matches = clientesCache.filter(c =>
+    (c.razon_social||'').toLowerCase().includes(q) || (c.cuit||'').toLowerCase().includes(q) || (c.numero_cliente||'').toLowerCase().includes(q)
+  ).slice(0, 30);
+  hvClienteBox.innerHTML = matches.length === 0
+    ? '<div class="autocomplete-item muted">Sin resultados — dejalo así si es un prospecto nuevo y completá "Empresa" abajo</div>'
+    : matches.map(c=>`<div class="autocomplete-item" data-id="${c.id}" data-nombre="${escapeHtml(c.razon_social)}">${escapeHtml(c.razon_social)}</div>`).join('');
+  hvClienteBox.classList.add('open');
+});
+hvClienteBox.addEventListener('click', (e)=>{
+  const item = e.target.closest('.autocomplete-item');
+  if(!item || !item.dataset.id) return;
+  document.getElementById('hv-cliente_id').value = item.dataset.id;
+  hvClienteInput.value = item.dataset.nombre;
+  hvClienteBox.classList.remove('open');
+});
+document.addEventListener('click', (e)=>{
+  if(!e.target.closest('#hv-cliente-search') && !e.target.closest('#hv-cliente-results')) hvClienteBox.classList.remove('open');
+});
+
+// ---------- Ítems + cálculo en vivo ----------
+function hvLeerForm(){
+  return {
+    items: hventaItemsState,
+    iva_pct: IVA_MAQUINAS,
+    tc: document.getElementById('hv-tc').value,
+    plan: Number(document.getElementById('hv-plan').value),
+    tasa_anual: document.getElementById('hv-tasa_anual').value,
+    anticipo_tipo: document.getElementById('hv-anticipo_tipo').value,
+    anticipo_valor: document.getElementById('hv-anticipo_valor').value,
+  };
+}
+function hvRecalcular(){
+  const c = calcularPlanVenta(hvLeerForm());
+  document.getElementById('hv-resumen').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px 24px;">
+      <div><span class="muted">Total neto</span><br><b>${fmtMoney(c.neto,'USD')}</b></div>
+      <div><span class="muted">IVA ${String(c.ivaPct).replace('.',',')} %</span><br><b>${fmtMoney(c.iva,'USD')}</b></div>
+      <div><span class="muted">Total proforma</span><br><b>${fmtMoney(c.proforma,'USD')}</b></div>
+      <div><span class="muted">Proforma en pesos (TC $ ${c.tc ? hvN2(c.tc) : '—'})</span><br><b>$ ${hvN0(c.proformaArs)}</b></div>
+      ${c.anticipo > 0 ? `<div><span class="muted">Anticipo</span><br><b>${fmtMoney(c.anticipo,'USD')} · $ ${hvN0(c.anticipoArs)}</b></div>` : ''}
+      <div><span class="muted">Intereses totales</span><br><b>${fmtMoney(c.interesTotal,'USD')}</b></div>
+      <div><span class="muted">Total a pagar</span><br><b>${fmtMoney(c.totalUsd,'USD')} · $ ${hvN0(c.totalArs)}</b></div>
+    </div>`;
+  document.getElementById('hv-cuotas-tbody').innerHTML = c.cuotas.map(q => `
+    <tr style="${q.conInteres ? 'background:rgba(226,35,41,.10);' : ''}">
+      <td>${q.n}${q.conInteres ? ' <span class="muted" style="font-size:11px;">con interés</span>' : ''}</td>
+      <td style="text-align:right;">${hvN2(q.capital)}</td><td style="text-align:right;">${q.interes > 0 ? hvN2(q.interes) : '—'}</td>
+      <td style="text-align:right;">${hvN2(q.usd)}</td><td style="text-align:right;">${hvN0(q.ars)}</td>
+    </tr>`).join('');
+}
+function renderHvItemsTabla(){
+  const tbody = document.getElementById('hv-items-tbody');
+  tbody.innerHTML = hventaItemsState.length === 0
+    ? '<tr><td colspan="6" class="empty-state">Agregá al menos un equipo.</td></tr>'
+    : hventaItemsState.map((it, idx) => {
+      const sub = (Number(it.cantidad)||0) * (Number(it.precio_neto)||0);
+      return `
+      <tr data-idx="${idx}">
+        <td><div style="display:flex;align-items:center;gap:8px;">
+          <span class="pres-thumb" data-idx="${idx}">${presThumbHtml(it.modelo)}</span>
+          <input type="text" class="hv-item-modelo" data-idx="${idx}" list="hv-modelos-datalist" value="${escapeHtml(it.modelo||'')}" placeholder="Elegí del catálogo o escribilo" style="min-width:200px;">
+        </div></td>
+        <td><input type="text" class="hv-item-desc" data-idx="${idx}" value="${escapeHtml(it.descripcion||'')}" placeholder="Opcional"></td>
+        <td><input type="number" class="hv-item-cantidad" data-idx="${idx}" value="${it.cantidad}" min="1" style="width:70px;"></td>
+        <td><input type="number" class="hv-item-precio" data-idx="${idx}" value="${it.precio_neto}" step="0.01" style="width:120px;"></td>
+        <td class="muted hv-item-subtotal" data-idx="${idx}">${fmtMoney(sub, 'USD')}</td>
+        <td><button type="button" class="btn secondary small" onclick="quitarItemHventa(${idx})">✕</button></td>
+      </tr>`;
+    }).join('');
+  hvRecalcular();
+}
+// Al tipear no se reconstruye la tabla (para no perder el cursor): se actualiza el estado y el subtotal puntual.
+document.getElementById('hv-items-tbody').addEventListener('input', (e)=>{
+  const idx = Number(e.target.dataset.idx);
+  if(Number.isNaN(idx) || !hventaItemsState[idx]) return;
+  const it = hventaItemsState[idx];
+  if(e.target.classList.contains('hv-item-modelo')){
+    it.modelo = e.target.value;
+    const th = e.target.closest('tr')?.querySelector('.pres-thumb');
+    if(th) th.innerHTML = presThumbHtml(e.target.value);
+  }
+  if(e.target.classList.contains('hv-item-desc')) it.descripcion = e.target.value;
+  if(e.target.classList.contains('hv-item-cantidad')) it.cantidad = e.target.value;
+  if(e.target.classList.contains('hv-item-precio')) it.precio_neto = e.target.value;
+  if(e.target.classList.contains('hv-item-cantidad') || e.target.classList.contains('hv-item-precio')){
+    const celda = document.querySelector(`#hv-items-tbody .hv-item-subtotal[data-idx="${idx}"]`);
+    if(celda) celda.textContent = fmtMoney((Number(it.cantidad)||0) * (Number(it.precio_neto)||0), 'USD');
+    hvRecalcular();
+  }
+});
+function quitarItemHventa(idx){ hventaItemsState.splice(idx, 1); renderHvItemsTabla(); }
+document.getElementById('btn-hv-agregar-item').addEventListener('click', ()=>{
+  hventaItemsState.push({ modelo:'', descripcion:'', cantidad:1, precio_neto:0 });
+  renderHvItemsTabla();
+});
+['hv-plan','hv-tasa_anual','hv-anticipo_valor','hv-anticipo_tipo'].forEach(id => document.getElementById(id).addEventListener('input', hvRecalcular));
+document.getElementById('hv-tc').addEventListener('input', ()=>{
+  hvTcFuente = 'Manual'; hvTcFecha = null;
+  document.getElementById('hv-tc-status').textContent = 'Valor cargado a mano';
+  hvRecalcular();
+});
+document.getElementById('btn-hv-tc-bna').addEventListener('click', async ()=>{
+  const st = document.getElementById('hv-tc-status'), btn = document.getElementById('btn-hv-tc-bna');
+  st.textContent = 'Consultando TC BNA del día anterior...';
+  btn.disabled = true;
+  try{
+    const { data, error } = await supabaseClient.rpc('tc_bna_anterior', { p_fecha: hoyIso() });
+    if(error) throw error;
+    const fila = Array.isArray(data) ? data[0] : data;
+    const venta = fila ? Number(fila.venta) : NaN;
+    if(!venta || !isFinite(venta)) throw new Error('sin valor');
+    document.getElementById('hv-tc').value = String(venta);
+    hvTcFuente = 'BNA venta'; hvTcFecha = fila.fecha;
+    st.textContent = `✓ TC BNA venta del ${fmtDate(fila.fecha)}: $${venta} — podés editarlo si preferís otro valor`;
+    hvRecalcular();
+  }catch(err){
+    console.error(err);
+    st.textContent = '✕ No hay un TC BNA del día anterior guardado — completalo a mano.';
+  }finally{ btn.disabled = false; }
+});
+
+// ---------- Modal: alta / edición ----------
+function resetHventaForm(){
+  ['hv-id','hv-cliente_id','hv-empresa_nombre','hv-contacto_nombre','hv-contacto_email','hv-contacto_telefono','hv-notas','hv-tc'].forEach(id => document.getElementById(id).value = '');
+  hvClienteInput.value = '';
+  document.getElementById('hv-modal-numero').textContent = '';
+  document.getElementById('hv-fecha_emision').value = hoyIso();
+  document.getElementById('hv-validez_dias').value = 7;
+  document.getElementById('hv-plan').value = 12;
+  document.getElementById('hv-tasa_anual').value = TASA_ANUAL_DEFECTO;
+  document.getElementById('hv-anticipo_valor').value = 0;
+  document.getElementById('hv-anticipo_tipo').value = 'pct';
+  document.getElementById('hv-tc-status').textContent = '';
+  hvTcFuente = null; hvTcFecha = null;
+  document.getElementById('hv-modelos-datalist').innerHTML =
+    catalogoTecnicoCache.map(c => `<option value="${escapeHtml(c.modelo)}">`).join('');
+  hventaItemsState = [{ modelo:'', descripcion:'', cantidad:1, precio_neto:0 }];
+  renderHvItemsTabla();
+}
+function hvSoloLectura(ro){
+  document.querySelectorAll('#modal-hventa-overlay input, #modal-hventa-overlay select, #modal-hventa-overlay textarea').forEach(el => { if(el.id !== 'hv-iva') el.disabled = ro; });
+  ['btn-hv-save','btn-hv-agregar-item','btn-hv-tc-bna'].forEach(id => document.getElementById(id).style.display = ro ? 'none' : '');
+}
+document.getElementById('btn-hv-nuevo').addEventListener('click', ()=>{
+  resetHventaForm(); hvSoloLectura(false);
+  document.getElementById('hv-modal-titulo').textContent = 'Nuevo presupuesto de venta';
+  document.getElementById('modal-hventa-overlay').classList.add('open');
+});
+document.getElementById('btn-hv-cancel').addEventListener('click', ()=> document.getElementById('modal-hventa-overlay').classList.remove('open'));
+document.getElementById('modal-hventa-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'modal-hventa-overlay') document.getElementById('modal-hventa-overlay').classList.remove('open');
+});
+function abrirEditarHventa(id){
+  const v = hventasCache.find(x => x.id === id);
+  if(!v) return;
+  resetHventaForm();
+  const ro = v.estado === 'anulado' || !puede('haulotte_ventas','crear');
+  document.getElementById('hv-modal-titulo').textContent = v.estado === 'anulado' ? 'Presupuesto de venta (anulado — solo lectura)' : (ro ? 'Presupuesto de venta (solo lectura)' : 'Editar presupuesto de venta');
+  document.getElementById('hv-modal-numero').textContent = `N° ${String(v.numero).padStart(5,'0')}`;
+  document.getElementById('hv-id').value = v.id;
+  document.getElementById('hv-cliente_id').value = v.cliente_id || '';
+  hvClienteInput.value = v.clientes ? v.clientes.razon_social : '';
+  document.getElementById('hv-empresa_nombre').value = v.empresa_nombre || '';
+  document.getElementById('hv-contacto_nombre').value = v.contacto_nombre || '';
+  document.getElementById('hv-contacto_email').value = v.contacto_email || '';
+  document.getElementById('hv-contacto_telefono').value = v.contacto_telefono || '';
+  document.getElementById('hv-fecha_emision').value = v.fecha_emision || '';
+  document.getElementById('hv-validez_dias').value = v.validez_dias || 7;
+  document.getElementById('hv-tc').value = v.tipo_cambio || '';
+  hvTcFuente = v.tipo_cambio_fuente || null; hvTcFecha = v.tipo_cambio_fecha || null;
+  document.getElementById('hv-tc-status').textContent = hvTcFuente ? `${hvTcFuente}${hvTcFecha ? ' del ' + fmtDate(hvTcFecha) : ''}` : '';
+  document.getElementById('hv-plan').value = v.plan;
+  document.getElementById('hv-tasa_anual').value = v.tasa_anual;
+  document.getElementById('hv-anticipo_valor').value = v.anticipo_valor || 0;
+  document.getElementById('hv-anticipo_tipo').value = v.anticipo_tipo || 'pct';
+  document.getElementById('hv-notas').value = v.notas || '';
+  const items = (v.haulotte_venta_items || []).slice().sort((a,b)=>(a.orden||0)-(b.orden||0));
+  hventaItemsState = items.length ? items.map(i => ({ modelo: i.modelo||'', descripcion: i.descripcion||'', cantidad: i.cantidad, precio_neto: i.precio_neto }))
+    : [{ modelo:'', descripcion:'', cantidad:1, precio_neto:0 }];
+  renderHvItemsTabla();
+  hvSoloLectura(ro);
+  document.getElementById('modal-hventa-overlay').classList.add('open');
+}
+
+function hvArmarPayload(){
+  return {
+    cliente_id: document.getElementById('hv-cliente_id').value ? Number(document.getElementById('hv-cliente_id').value) : null,
+    empresa_nombre: document.getElementById('hv-empresa_nombre').value || null,
+    contacto_nombre: document.getElementById('hv-contacto_nombre').value || null,
+    contacto_email: document.getElementById('hv-contacto_email').value || null,
+    contacto_telefono: document.getElementById('hv-contacto_telefono').value || null,
+    fecha_emision: document.getElementById('hv-fecha_emision').value || hoyIso(),
+    validez_dias: Number(document.getElementById('hv-validez_dias').value) || 7,
+    iva_pct: IVA_MAQUINAS,
+    tipo_cambio: Number(document.getElementById('hv-tc').value),
+    tipo_cambio_fuente: hvTcFuente || 'Manual',
+    tipo_cambio_fecha: hvTcFecha || null,
+    plan: Number(document.getElementById('hv-plan').value),
+    tasa_anual: Number(document.getElementById('hv-tasa_anual').value) || 0,
+    anticipo_tipo: document.getElementById('hv-anticipo_tipo').value,
+    anticipo_valor: Number(document.getElementById('hv-anticipo_valor').value) || 0,
+    notas: document.getElementById('hv-notas').value || null,
+  };
+}
+function hvValidar(){
+  const items = hventaItemsState.filter(it => (it.modelo||'').trim() && Number(it.cantidad) > 0);
+  if(items.length === 0){ showToast('Agregá al menos un equipo con modelo y cantidad', true); return null; }
+  if(!(Number(document.getElementById('hv-tc').value) > 0)){ showToast('Cargá el tipo de cambio', true); return null; }
+  if(!document.getElementById('hv-cliente_id').value && !document.getElementById('hv-empresa_nombre').value.trim()){
+    showToast('Elegí un cliente o escribí el nombre de la empresa', true); return null;
+  }
+  return items;
+}
+document.getElementById('btn-hv-save').addEventListener('click', async ()=>{
+  const items = hvValidar();
+  if(!items) return;
+  const id = document.getElementById('hv-id').value;
+  const payload = hvArmarPayload();
+  try{
+    let ventaId = id ? Number(id) : null;
+    if(ventaId){
+      const { error } = await supabaseClient.from('haulotte_ventas').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', ventaId);
+      if(error) throw error;
+      const { error: delError } = await supabaseClient.from('haulotte_venta_items').delete().eq('venta_id', ventaId);
+      if(delError) throw delError;
+    } else {
+      const { data, error } = await supabaseClient.from('haulotte_ventas').insert(payload).select().single();
+      if(error) throw error;
+      ventaId = data.id;
+    }
+    const { error: itemsError } = await supabaseClient.from('haulotte_venta_items').insert(items.map((it, i) => ({
+      venta_id: ventaId, modelo: it.modelo.trim(), descripcion: (it.descripcion||'').trim() || null,
+      cantidad: Number(it.cantidad), precio_neto: Number(it.precio_neto) || 0, orden: i,
+    })));
+    if(itemsError) throw itemsError;
+    showToast(id ? 'Presupuesto de venta actualizado' : 'Presupuesto de venta creado');
+    document.getElementById('modal-hventa-overlay').classList.remove('open');
+    await loadHaulotteVentas();
+    renderHaulotteVentas();
+    renderDashboard();
+  } catch(err){
+    console.error(err);
+    showToast('Error al guardar el presupuesto de venta: ' + err.message, true);
+  }
+});
+
+// ---------- Anular (nunca se borra) ----------
+function abrirAnularHventa(id){
+  const v = hventasCache.find(x => x.id === id);
+  if(!v) return;
+  document.getElementById('hva-id').value = v.id;
+  document.getElementById('hva-resumen').innerHTML = `<strong>N° ${String(v.numero).padStart(5,'0')}</strong> — ${escapeHtml(v.clientes?.razon_social || v.empresa_nombre || '—')}<br>${fmtMoney(hvCalcDesdeRegistro(v).proforma, 'USD')}`;
+  document.getElementById('hva-motivo').value = '';
+  document.getElementById('modal-hventa-anular-overlay').classList.add('open');
+}
+document.getElementById('btn-hva-cancel').addEventListener('click', ()=> document.getElementById('modal-hventa-anular-overlay').classList.remove('open'));
+document.getElementById('btn-hva-confirmar').addEventListener('click', async ()=>{
+  const id = document.getElementById('hva-id').value;
+  if(!id) return;
+  try{
+    const { error } = await supabaseClient.from('haulotte_ventas').update({ estado: 'anulado', motivo_anulacion: document.getElementById('hva-motivo').value || null, updated_at: new Date().toISOString() }).eq('id', id);
+    if(error) throw error;
+    document.getElementById('modal-hventa-anular-overlay').classList.remove('open');
+    await loadHaulotteVentas(); renderHaulotteVentas(); renderDashboard();
+    showToast('Presupuesto anulado. Sigue en el listado con historial completo.');
+  } catch(err){ console.error(err); showToast('Error al anular: ' + err.message, true); }
+});
+
+// ---------- PDF ----------
+async function hvFotosDeItems(items){
+  const fotos = {};
+  await Promise.all([...new Set(items.map(it => it.modelo).filter(Boolean))].map(async m => {
+    const u = fotoUrlDeModelo(m);
+    if(!u) return;
+    try{ fotos[m] = await fotoComoDataUrl(u); } catch(e){ console.warn('Foto no disponible para el PDF:', m, e); }
+  }));
+  return fotos;
+}
+async function hvGenerarPDF(cot, accion){
+  const fotos = await hvFotosDeItems(cot.items);
+  cot.items = cot.items.map(it => ({ ...it, foto: fotos[it.modelo] || null }));
+  const { doc, fileName } = generarCotizacionVentaPDF(cot);
+  if(accion === 'preview'){
+    window.open(doc.output('bloburl'), '_blank');
+  } else {
+    doc.save(fileName);
+  }
+}
+async function descargarHventaPDF(id){
+  const v = hventasCache.find(x => x.id === id);
+  if(!v) return;
+  const items = (v.haulotte_venta_items || []).slice().sort((a,b)=>(a.orden||0)-(b.orden||0));
+  await hvGenerarPDF({
+    numero: v.numero, fecha_emision: v.fecha_emision, validez_dias: v.validez_dias,
+    cliente: v.clientes, empresa_nombre: v.empresa_nombre,
+    contacto_nombre: v.contacto_nombre, contacto_email: v.contacto_email, contacto_telefono: v.contacto_telefono,
+    items: items.map(i => ({ modelo: i.modelo, descripcion: i.descripcion, cantidad: i.cantidad, precio_neto: i.precio_neto })),
+    iva_pct: v.iva_pct, tc: v.tipo_cambio, tc_fecha: v.tipo_cambio_fecha,
+    anticipo_tipo: v.anticipo_tipo, anticipo_valor: v.anticipo_valor, plan: v.plan, tasa_anual: v.tasa_anual, notas: v.notas,
+  }, 'save');
+}
+document.getElementById('btn-hv-pdf-previo').addEventListener('click', async ()=>{
+  const items = hvValidar();
+  if(!items) return;
+  const p = hvArmarPayload();
+  const cli = p.cliente_id ? clientesCache.find(c => c.id === p.cliente_id) : null;
+  await hvGenerarPDF({
+    numero: document.getElementById('hv-id').value ? (hventasCache.find(x => x.id === Number(document.getElementById('hv-id').value))?.numero) : null,
+    fecha_emision: p.fecha_emision, validez_dias: p.validez_dias, cliente: cli, empresa_nombre: p.empresa_nombre,
+    contacto_nombre: p.contacto_nombre, contacto_email: p.contacto_email, contacto_telefono: p.contacto_telefono,
+    items: items.map(i => ({ modelo: i.modelo.trim(), descripcion: (i.descripcion||'').trim(), cantidad: i.cantidad, precio_neto: i.precio_neto })),
+    iva_pct: p.iva_pct, tc: p.tipo_cambio, tc_fecha: p.tipo_cambio_fecha,
+    anticipo_tipo: p.anticipo_tipo, anticipo_valor: p.anticipo_valor, plan: p.plan, tasa_anual: p.tasa_anual, notas: p.notas,
+  }, 'preview');
+});
+
 
 (async function init(){
   console.log('[Horizon] iniciando...');
