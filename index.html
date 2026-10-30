@@ -958,6 +958,18 @@ input.fecha-ar.fecha-ar-invalida{ border-color:var(--danger) !important; color:v
 .pizarra-dlg .res-sel{ font-size:12px; color:var(--ok); margin-top:4px; min-height:16px; }
 .pizarra-reserva-btn{ border:1px dashed var(--border); background:transparent; color:var(--text-dim); cursor:pointer; font-size:10.5px; padding:1px 7px; border-radius:5px; margin-top:5px; }
 .pizarra-reserva-btn:hover{ color:var(--text); border-color:var(--accent); }
+.pizarra-transito{ margin-top:5px; padding-top:5px; border-top:1px dashed var(--border); font-size:10.5px; line-height:1.35; }
+.pizarra-transito .l{ font-size:9.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--text-dim); }
+.pizarra-transito .cl{ font-weight:700; overflow-wrap:anywhere; }
+.pizarra-transito .m{ color:var(--text-dim); overflow-wrap:anywhere; }
+.pizarra-dias{ display:inline-block; margin-top:4px; font-size:10.5px; font-weight:700; border-radius:999px; padding:1px 8px; background:rgba(34,197,94,.15); color:var(--ok); }
+.pizarra-dias.a{ background:rgba(255,179,71,.18); color:#ffc36e; }
+.pizarra-dias.r{ background:rgba(255,92,92,.18); color:#ff8a8a; }
+.baja-opt{ display:flex; gap:10px; align-items:flex-start; border:1px solid var(--border); border-radius:8px; padding:9px 11px; margin-top:8px; cursor:pointer; background:var(--panel-2); text-align:left; }
+.baja-opt.on{ border-color:#2DD4BF; background:rgba(45,212,191,.08); }
+.baja-opt b{ display:block; font-size:13px; }
+.baja-opt small{ color:var(--text-dim); font-size:11.5px; }
+.baja-opt input{ margin-top:3px; }
 .pizarra-reserva{ margin-top:5px; font-size:10.5px; font-weight:700; line-height:1.3; border:1px solid rgba(232,184,74,.55); background:rgba(232,184,74,.14); color:#e8b84a; border-radius:5px; padding:3px 6px; cursor:pointer; overflow-wrap:anywhere; }
 .pizarra-reserva small{ display:block; font-weight:500; opacity:.85; }
 .tv-card.reservada{ border-color:rgba(232,184,74,.6); }
@@ -983,7 +995,7 @@ input.fecha-ar.fecha-ar-invalida{ border-color:var(--danger) !important; color:v
 .tv-salir{ font:inherit; font-size:12px; padding:5px 12px; border-radius:8px; border:1px solid var(--border); background:transparent; color:var(--text-dim); cursor:pointer; }
 .tv-salir:hover{ color:var(--text); border-color:var(--text-dim); }
 .tv-auto.on{ color:var(--accent); border-color:var(--accent); }
-.tv-kpis{ display:grid; grid-template-columns:repeat(5,1fr) 1.5fr; gap:12px; margin:10px 0 12px; flex:none; }
+.tv-kpis{ display:grid; grid-template-columns:repeat(6,1fr) 1.5fr; gap:12px; margin:10px 0 12px; flex:none; }
 .tv-kpi{ background:var(--panel); border:1px solid var(--border); border-top:3px solid var(--c); border-radius:12px; padding:8px 16px; min-width:0; }
 .tv-kpi .l{ font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--text-dim); font-weight:700; }
 .tv-kpi .n{ font-size:clamp(30px,3.4vw,46px); font-weight:800; line-height:1.05; font-variant-numeric:tabular-nums; color:var(--c); }
@@ -991,7 +1003,7 @@ input.fecha-ar.fecha-ar-invalida{ border-color:var(--danger) !important; color:v
 .tv-kpi .bar{ height:6px; border-radius:4px; background:var(--panel-2); margin-top:6px; overflow:hidden; }
 .tv-kpi .bar i{ display:block; height:100%; background:var(--accent); }
 .tv-kpi .s{ font-size:12px; color:var(--text-dim); margin-top:3px; }
-.tv-board{ flex:1; display:grid; grid-template-columns:1.5fr 1.75fr .62fr .7fr .85fr; gap:12px; min-height:0; }
+.tv-board{ flex:1; display:grid; grid-template-columns:1.5fr 1.75fr 1.1fr .62fr .7fr .85fr; gap:12px; min-height:0; }
 .tv-col{ display:flex; flex-direction:column; min-height:0; min-width:0; background:var(--panel); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
 .tv-ch{ display:flex; align-items:center; gap:8px; padding:9px 14px; border-bottom:3px solid var(--c); background:var(--panel-2); flex:none; }
 .tv-ch b{ font-size:15px; letter-spacing:.08em; text-transform:uppercase; }
@@ -2101,22 +2113,29 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
          Alquilada y Demo son más anchas porque llevan el nombre del cliente. Si la ventana es
          muy angosta, el tablero hace scroll horizontal en vez de aplastar las columnas. -->
     <div style="overflow-x:auto;">
-      <div id="pizarra-board" style="display:grid;grid-template-columns:minmax(170px,1fr) minmax(230px,1.5fr) minmax(150px,.8fr) minmax(160px,.9fr) minmax(210px,1.3fr);gap:12px;"></div>
+      <div id="pizarra-board" style="display:grid;grid-template-columns:minmax(170px,1fr) minmax(230px,1.5fr) minmax(210px,1.2fr) minmax(150px,.8fr) minmax(160px,.9fr) minmax(210px,1.3fr);gap:12px;"></div>
     </div>
     <div id="pizarra-mail-panels" class="panel-solo-maestro" style="display:none;">
     <div class="panel" style="padding:14px 16px;margin-top:16px;">
       <div id="email-dest-pdi_vor-header" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
-        <div style="font-weight:700;font-size:13.5px;">📧 Informe diario de PDI y VOR — destinatarios</div>
+        <div style="font-weight:700;font-size:13.5px;">📧 Informe diario de tránsito, PDI y VOR — destinatarios</div>
         <div class="muted" id="email-dest-pdi_vor-hint" style="font-size:12px;">▸ desplegar</div>
       </div>
       <div id="email-dest-pdi_vor-body" style="display:none;margin-top:10px;"></div>
     </div>
     <div class="panel" style="padding:14px 16px;margin-top:16px;">
       <div id="email-dest-baja_pdi-header" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
-        <div style="font-weight:700;font-size:13.5px;">🔔 Alerta cuando una máquina entra a PDI por baja de contrato — destinatarios</div>
+        <div style="font-weight:700;font-size:13.5px;">🔔 Alerta cuando una máquina ingresa a PDI (servicios) — destinatarios</div>
         <div class="muted" id="email-dest-baja_pdi-hint" style="font-size:12px;">▸ desplegar</div>
       </div>
       <div id="email-dest-baja_pdi-body" style="display:none;margin-top:10px;"></div>
+    </div>
+    <div class="panel" style="padding:14px 16px;margin-top:16px;">
+      <div id="email-dest-baja_contrato-header" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-weight:700;font-size:13.5px;">🔔 Alerta cuando se da de baja un contrato (finanzas) — destinatarios</div>
+        <div class="muted" id="email-dest-baja_contrato-hint" style="font-size:12px;">▸ desplegar</div>
+      </div>
+      <div id="email-dest-baja_contrato-body" style="display:none;margin-top:10px;"></div>
     </div>
     </div>
   </section>
@@ -2162,6 +2181,10 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
         <div class="panel" style="padding:14px;">
           <div class="muted" style="font-size:10.5px;text-transform:uppercase;">Días disponible</div>
           <div id="tz-kpi-disponible" style="font-size:20px;font-weight:700;color:var(--ok);margin-top:4px;">0</div>
+        </div>
+        <div class="panel" style="padding:14px;">
+          <div class="muted" style="font-size:10.5px;text-transform:uppercase;">Días en tránsito</div>
+          <div id="tz-kpi-transito" style="font-size:20px;font-weight:700;color:#2DD4BF;margin-top:4px;">0</div>
         </div>
         <div class="panel" style="padding:14px;">
           <div class="muted" style="font-size:10.5px;text-transform:uppercase;">Días VOR</div>
@@ -3640,6 +3663,7 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
           <option value="disponible">Disponible</option>
           <option value="vor">VOR</option>
           <option value="pdi">PDI</option>
+          <option value="transito">En tránsito</option>
           <option value="demo" disabled>Demo (se asigna desde el contrato)</option>
           <option value="baja">De baja</option>
         </select>
@@ -6096,6 +6120,24 @@ document.getElementById('btn-contrato-save').addEventListener('click', async ()=
     es_demo: document.getElementById('c-es_demo').checked,
   };
 
+  // Al pasar un contrato activo a "De baja" se pregunta si la máquina ya ingresó a base o sigue en tránsito
+  const contratoPrevio = id ? contratosCache.find(c => String(c.id) === String(id)) : null;
+  if(id && estadoNuevo === 'baja' && contratoPrevio && contratoPrevio.estado === 'activo'){
+    const bajaInfo = await pizarraPedirBaja({
+      titulo: 'Dar de baja el contrato',
+      texto: 'Al guardar, el contrato queda <strong>De baja</strong> y la máquina se libera.',
+      pedirFecha: false,
+    });
+    if(!bajaInfo) return;
+    payload.baja_en_transito = bajaInfo.enTransito;
+    payload.baja_transporte = bajaInfo.transporte;
+    payload.baja_llegada_estimada = bajaInfo.llegada;
+  } else if(estadoNuevo === 'activo'){
+    payload.baja_en_transito = false;
+    payload.baja_transporte = null;
+    payload.baja_llegada_estimada = null;
+  }
+
   try{
     let contratoId = id;
     let avisoAut = '';
@@ -7246,8 +7288,20 @@ function estadoActualEquipo(equipo){
     return contratosActivos.some(c => !c.es_demo) ? 'alquilada' : 'demo';
   }
   // vor/pdi/demo son estados manuales que se cargan desde la Pizarra de Flota
-  if(equipo.estado === 'vor' || equipo.estado === 'pdi' || equipo.estado === 'demo') return equipo.estado;
+  if(equipo.estado === 'vor' || equipo.estado === 'pdi' || equipo.estado === 'demo' || equipo.estado === 'transito') return equipo.estado;
   return 'disponible';
+}
+
+// Último cliente que tuvo una máquina (contrato dado de baja más reciente). Se muestra en las tarjetas de "En tránsito".
+function ultimaBajaDeEquipo(equipoId){
+  const bajas = contratosCache.filter(c => c.equipo_id === equipoId && c.estado === 'baja');
+  if(!bajas.length) return null;
+  const f = c => c.fecha_retiro_real || c.fecha_baja || '';
+  bajas.sort((a,b)=> f(b).localeCompare(f(a)) || (b.id - a.id));
+  return bajas[0];
+}
+function ultimoClienteDeEquipo(equipoId){
+  return ultimaBajaDeEquipo(equipoId)?.clientes?.razon_social || null;
 }
 
 function renderEquipos(list){
@@ -7255,6 +7309,7 @@ function renderEquipos(list){
   const columnas = [
     { estado:'disponible', titulo:'Disponible', color:'var(--ok)' },
     { estado:'alquilada',  titulo:'Alquilada',  color:'var(--accent)' },
+    { estado:'transito',   titulo:'En tránsito', color:'#2DD4BF' },
     { estado:'vor',        titulo:'VOR',        color:'#EF9F27' },
     { estado:'pdi',        titulo:'PDI',        color:'#7F77DD' },
     { estado:'demo',       titulo:'Demo',       color:'#D4537E' },
@@ -7266,7 +7321,8 @@ function renderEquipos(list){
     const tarjetas = items.map(e=>{
       const suc = sucursales.find(s => s.id === e.sucursal_id);
       const tieneFicha = !!buscarFichaTecnica(e.modelo);
-      const cliente = (col.estado === 'alquilada' || col.estado === 'demo') ? clienteActualDeEquipo(e.id) : null;
+      const cliente = (col.estado === 'alquilada' || col.estado === 'demo') ? clienteActualDeEquipo(e.id)
+        : (col.estado === 'transito' ? ultimoClienteDeEquipo(e.id) : null);
 
       // Semáforo de vencimientos: 4 puntitos (Patentamiento, Certificación, Seg. Técnico, Seg. RC)
       const docs = documentosEquipo(e);
@@ -7360,6 +7416,7 @@ document.getElementById('equipo-filter-tipo').addEventListener('change', applyEq
 const PIZARRA_COLUMNAS = [
   { estado:'disponible', titulo:'Disponible', color:'var(--ok)',        arrastrable:true  },
   { estado:'alquilada',  titulo:'Alquilada',  color:'var(--accent)',    arrastrable:false },
+  { estado:'transito',   titulo:'En tránsito', color:'#2DD4BF',         arrastrable:true  },   // entra sola al dar de baja un contrato con la máquina aún en camino; también se puede arrastrar a mano
   { estado:'vor',        titulo:'VOR',        color:'#EF9F27',          arrastrable:true  },
   { estado:'pdi',        titulo:'PDI',        color:'#7F77DD',          arrastrable:true  },
   { estado:'demo',       titulo:'Demo',       color:'#D4537E',          arrastrable:false },   // DEMO se asigna tildando "Demo" en el contrato, nunca arrastrando
@@ -7465,6 +7522,12 @@ function renderPizarra(opts = {}){
     : `${equiposDeLaSucursal.length} equipo(s) en esta sucursal`);
   pizarraRenderLeyenda();
 
+  // Los días en tránsito salen del historial: se pide si falta alguno o pasó más de un minuto
+  if(!opts.sinCargar){
+    const faltanTr = equiposDeLaSucursal.some(e => estadoActualEquipo(e) === 'transito' && !pizarraTVDesde.has(e.id));
+    if((faltanTr && ahora - pizarraTVDesdeTs > 5000) || (equiposDeLaSucursal.some(e => estadoActualEquipo(e) === 'transito') && ahora - pizarraTVDesdeTs > 60000)) pizarraTVCargarDesde();
+  }
+
   const board = document.getElementById('pizarra-board');
   document.getElementById('pizarra-mail-panels').style.display = (miPerfil && miPerfil.rol === 'maestro') ? 'block' : 'none';
 
@@ -7476,13 +7539,29 @@ function renderPizarra(opts = {}){
       const cat = PIZARRA_CATEGORIAS[e.categoria_color] || PIZARRA_CATEGORIAS.accesorio;
       // En Alquilada y Demo se muestra, al lado de la serie, el cliente que tiene la máquina
       const cliente = (col.estado === 'alquilada' || col.estado === 'demo') ? clienteActualDeEquipo(e.id) : null;
+      // En tránsito: último cliente que la tuvo, fecha de baja, transporte y cuántos días lleva en camino
+      let transitoHtml = '';
+      if(col.estado === 'transito'){
+        const ub = ultimaBajaDeEquipo(e.id);
+        const desdeT = pizarraTVDesde.get(e.id) || ub?.fecha_retiro_real || ub?.fecha_baja || null;
+        const dT = desdeT ? Math.max(0, pizarraDiasEntreIso(desdeT, pizarraHoyAr())) : null;
+        const clsT = dT === null ? '' : (dT >= PIZARRA_TV_ROJO_DIAS ? 'r' : (dT >= PIZARRA_TV_VENCE_AMBAR ? 'a' : ''));
+        transitoHtml = `<div class="pizarra-transito">
+            <div class="l">Último cliente</div>
+            <div class="cl">${escapeHtml(ub?.clientes?.razon_social || '—')}</div>
+            ${ub && (ub.fecha_retiro_real || ub.fecha_baja) ? `<div class="m">Baja ${escapeHtml(fmtDate(ub.fecha_retiro_real || ub.fecha_baja))}</div>` : ''}
+            ${e.transito_transporte ? `<div class="m">🚚 ${escapeHtml(e.transito_transporte)}</div>` : ''}
+            ${e.transito_llegada_estimada ? `<div class="m">Llegada estimada ${escapeHtml(fmtDate(e.transito_llegada_estimada))}</div>` : ''}
+            ${dT === null ? '' : `<span class="pizarra-dias ${clsT}">${dT === 0 ? 'Hoy' : dT + (dT === 1 ? ' día' : ' días')} en tránsito</span>`}
+          </div>`;
+      }
       // En la vista TODAS se indica a qué sucursal pertenece cada equipo
       const sucNombre = esTodas ? (sucursales.find(s => String(s.id) === String(e.sucursal_id))?.nombre || '') : '';
       const sucSigla = sucNombre ? pizarraSiglaSucursal(sucNombre) : '';
       // Si está en un contrato activo (alquiler o DEMO) no se arrastra: se libera cerrando el contrato
       const sinContrato = !equipoTieneContratoActivo(e.id);
-      const draggable = col.arrastrable && sinContrato && ['disponible','pdi','vor'].some(t => t !== col.estado && pizarraPuedeMoverA(t));
-      const fechaEditable = ['disponible','pdi','vor'].includes(col.estado) && sinContrato && puede('pizarra','editar_fecha');
+      const draggable = col.arrastrable && sinContrato && ['disponible','pdi','vor','transito'].some(t => t !== col.estado && pizarraPuedeMoverA(t));
+      const fechaEditable = ['disponible','pdi','vor','transito'].includes(col.estado) && sinContrato && puede('pizarra','editar_fecha');
       // Reserva: condición adicional de una máquina Disponible o en PDI (la tarjeta no cambia de columna)
       const res = ['disponible','pdi'].includes(col.estado) && sinContrato ? reservaDeEquipo(e.id) : null;
       const puedeReservar = ['disponible','pdi'].includes(col.estado) && sinContrato && puede('pizarra','reservar');
@@ -7502,6 +7581,7 @@ function renderPizarra(opts = {}){
           </div>
           <div class="muted" style="font-size:10.5px;font-family:var(--font-mono);margin-top:1px;overflow-wrap:anywhere;">${escapeHtml(e.numero_serie || '')}</div>
           ${cliente ? `<div style="font-size:10.5px;color:var(--accent);font-weight:600;margin-top:3px;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere;">${escapeHtml(cliente)}</div>` : ''}
+          ${transitoHtml}
           ${reservaHtml}
         </div>`;
     }).join('') || '<div class="muted" style="text-align:center;padding:18px 0;font-size:11.5px;">Sin equipos</div>';
@@ -7513,7 +7593,7 @@ function renderPizarra(opts = {}){
           <span style="font-weight:700;font-size:12px;letter-spacing:.3px;text-transform:uppercase;">${col.titulo}</span>
           <span class="muted" style="font-size:11px;margin-left:auto;">${items.length}</span>
         </div>
-        <div class="pizarra-dropzone" data-pizarra-col="${col.estado}" ${col.estado === 'demo' ? 'title="Una máquina pasa a DEMO tildando &quot;Demo&quot; en su contrato; no se arrastra."' : ''} style="flex:1;min-height:200px;max-height:calc(100vh - 380px);overflow-y:auto;padding:10px;background:var(--panel);border:1px dashed transparent;border-radius:0 0 8px 8px;">
+        <div class="pizarra-dropzone" data-pizarra-col="${col.estado}" ${col.estado === 'demo' ? 'title="Una máquina pasa a DEMO tildando &quot;Demo&quot; en su contrato; no se arrastra."' : (col.estado === 'transito' ? 'title="Entra sola al dar de baja un contrato con la máquina todavía en camino. También podés arrastrar acá una máquina que aún no llegó a la base."' : '')} style="flex:1;min-height:200px;max-height:calc(100vh - 380px);overflow-y:auto;padding:10px;background:var(--panel);border:1px dashed transparent;border-radius:0 0 8px 8px;">
           ${tarjetas}
         </div>
       </div>`;
@@ -7553,13 +7633,14 @@ async function pizarraTVCargarDesde(){
   pizarraTVDesdeCargando = true;
   try{
     const { data, error } = await supabaseClient.from('equipos_historial_estado')
-      .select('equipo_id, estado, fecha_desde').is('fecha_hasta', null).in('estado', ['vor','pdi']);
+      .select('equipo_id, estado, fecha_desde').is('fecha_hasta', null).in('estado', ['vor','pdi','transito']);
     if(error) throw error;
     const m = new Map();
     (data || []).forEach(r => m.set(r.equipo_id, r.fecha_desde));
     pizarraTVDesde = m;
     pizarraTVDesdeTs = Date.now();
     if(pizarraModoTV) pizarraRenderTV({ conservarScroll:true, sinCargar:true });
+    else if(document.getElementById('pizarra-board')?.offsetParent) renderPizarra({ conservarScroll:true, sinCargar:true });
   }catch(err){
     console.error('Modo TV: no se pudo leer la antigüedad en VOR/PDI', err);
     pizarraTVDesdeTs = Date.now();
@@ -7596,7 +7677,7 @@ function pizarraRenderTV(opts = {}){
 
   // La antigüedad en VOR/PDI se lee del historial; se pide de nuevo si falta algún equipo o pasó un minuto
   if(!opts.sinCargar){
-    const faltan = equipos.some(e => { const st = estadoActualEquipo(e); return (st === 'vor' || st === 'pdi') && !pizarraTVDesde.has(e.id); });
+    const faltan = equipos.some(e => { const st = estadoActualEquipo(e); return (st === 'vor' || st === 'pdi' || st === 'transito') && !pizarraTVDesde.has(e.id); });
     if((faltan && ahora - pizarraTVDesdeTs > 5000) || ahora - pizarraTVDesdeTs > 60000) pizarraTVCargarDesde();
   }
 
@@ -7608,6 +7689,7 @@ function pizarraRenderTV(opts = {}){
   const cols = [
     { estado:'disponible', titulo:'Disponible', color:'var(--ok)',     w:'150px' },
     { estado:'alquilada',  titulo:'Alquilada',  color:'var(--accent)', w:'265px' },
+    { estado:'transito',   titulo:'En tránsito', color:'#2DD4BF',      w:'210px' },
     { estado:'vor',        titulo:'VOR',        color:'#EF9F27',       w:'150px' },
     { estado:'pdi',        titulo:'PDI',        color:'#7F77DD',       w:'150px' },
     { estado:'demo',       titulo:'Demo',       color:'#D4537E',       w:'210px' },
@@ -7627,10 +7709,11 @@ function pizarraRenderTV(opts = {}){
 
   const tarjetas = (col)=> porEstado[col.estado].map(e=>{
     const cat = PIZARRA_CATEGORIAS[pizarraClaveTipo(e)];
-    const conCliente = col.estado === 'alquilada' || col.estado === 'demo';
-    const cliente = conCliente ? clienteActualDeEquipo(e.id) : null;
+    const conCliente = col.estado === 'alquilada' || col.estado === 'demo' || col.estado === 'transito';
+    const cliente = col.estado === 'transito' ? ultimoClienteDeEquipo(e.id) : (conCliente ? clienteActualDeEquipo(e.id) : null);
     let tag = null;
-    if(conCliente) tag = pizarraTVEtiquetaVence(e.id);
+    if(col.estado === 'transito') tag = pizarraTVEtiquetaEspera(e);
+    else if(conCliente) tag = pizarraTVEtiquetaVence(e.id);
     else if(col.estado === 'vor' || col.estado === 'pdi') tag = pizarraTVEtiquetaEspera(e);
     const sigla = esTodas ? pizarraSiglaSucursal(sucursales.find(s => String(s.id) === String(e.sucursal_id))?.nombre || '') : '';
     const tagHtml = tag ? `<span class="tag ${tag.clase}">${escapeHtml(tag.texto)}</span>` : '';
@@ -7651,7 +7734,7 @@ function pizarraRenderTV(opts = {}){
   const tiposVisibles = Object.entries(PIZARRA_CATEGORIAS).filter(([k]) => !pizarraTiposOcultos.has(k));
   const ocultosTxt = pizarraTiposOcultos.size ? `Filtro activo: sin ${[...pizarraTiposOcultos].map(k => PIZARRA_CATEGORIAS[k].corto || PIZARRA_CATEGORIAS[k].label).join(', ')}` : '';
   const pie = tiposVisibles.map(([k, c]) => `<span class="sw"><i style="background:${c.color}"></i>${escapeHtml(c.corto || c.label)}</span>`).join('')
-    + `<span class="x">${ocultosTxt ? escapeHtml(ocultosTxt) + ' · ' : ''}Rojo: vencido / vence hoy / ${PIZARRA_TV_ROJO_DIAS}+ días en VOR o PDI</span>`;
+    + `<span class="x">${ocultosTxt ? escapeHtml(ocultosTxt) + ' · ' : ''}Rojo: vencido / vence hoy / ${PIZARRA_TV_ROJO_DIAS}+ días en tránsito, VOR o PDI</span>`;
 
   cont.innerHTML = `
     <div class="tv-top">
@@ -8008,7 +8091,7 @@ function pizarraDatosExport(){
             modelo: e.modelo || '',
             serie: e.numero_serie || '',
             tipo: cat.label,
-            cliente: ct?.clientes?.razon_social || '',
+            cliente: ct?.clientes?.razon_social || (col.estado === 'transito' ? (ultimoClienteDeEquipo(e.id) || '') : ''),
             remito: ct?.remito || '',
             vence: ct?.fecha_vencimiento || '',
           };
@@ -8073,7 +8156,7 @@ function exportarPizarraPDF(){
   const bannerRatio = 406/2475;
   const bannerH = pageWidth * bannerRatio;
   const margenTabla = { left: marginX, right: marginX, top: 15, bottom: bannerH + 10 };
-  const colorEstado = { disponible:[34,160,90], alquilada:[56,189,248], vor:[239,159,39], pdi:[127,119,221], demo:[212,83,126] };
+  const colorEstado = { disponible:[34,160,90], alquilada:[56,189,248], transito:[45,212,191], vor:[239,159,39], pdi:[127,119,221], demo:[212,83,126] };
   let y = 15;
 
   const encabezado = ()=>{
@@ -8130,6 +8213,7 @@ function exportarPizarraPDF(){
     if(items.length === 0) return;
     nuevaPaginaSiNecesario(30);
     const esAlq = col.estado === 'alquilada' || col.estado === 'demo';
+    const esTr = col.estado === 'transito';
     doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(0);
     doc.text(`${col.titulo} (${items.length})`, marginX, y);
     y += 3;
@@ -8138,12 +8222,12 @@ function exportarPizarraPDF(){
     const head = [
       ...(multi ? ['Sucursal'] : []),
       'Modelo', 'N° de serie',
-      ...(esAlq ? ['Cliente', 'Tipo', 'Remito', 'Vence'] : ['Tipo de equipo']),
+      ...(esAlq ? ['Cliente', 'Tipo', 'Remito', 'Vence'] : (esTr ? ['Último cliente', 'Tipo de equipo'] : ['Tipo de equipo'])),
     ];
     const body = items.map(x => [
       ...(multi ? [x.sucursal] : []),
       x.modelo, x.serie,
-      ...(esAlq ? [x.cliente || '—', x.tipo, x.remito || '—', fmtDate(x.vence)] : [x.tipo]),
+      ...(esAlq ? [x.cliente || '—', x.tipo, x.remito || '—', fmtDate(x.vence)] : (esTr ? [x.cliente || '—', x.tipo] : [x.tipo])),
     ]);
     doc.autoTable({
       startY: y,
@@ -8217,13 +8301,80 @@ function pizarraPedirFecha({ titulo, texto, valor, okTexto }){
   });
 }
 
+// ---------- Baja de contrato: ¿la máquina ya ingresó a base o sigue en tránsito? ----------
+// Devuelve { fecha, enTransito, transporte, llegada } o null si cancelan. Con pedirFecha:false solo pregunta dónde está la máquina
+// (la fecha ya está en el formulario del contrato) y devuelve fecha:null.
+function pizarraPedirBaja({ titulo, texto, valor, pedirFecha = true }){
+  return new Promise(resolve=>{
+    const hoy = pizarraHoyAr();
+    const fondo = document.createElement('div');
+    fondo.className = 'pizarra-dlg-fondo';
+    fondo.innerHTML = `
+      <div class="pizarra-dlg" role="dialog" aria-modal="true">
+        <h3>${escapeHtml(titulo)}</h3>
+        <p>${texto}</p>
+        ${pedirFecha ? `<input type="date" id="baja-fecha" max="${hoy}" value="${valor || hoy}"><div class="dias" id="baja-dias"></div>` : ''}
+        <div style="font-size:12px;font-weight:700;margin-top:12px;">¿Dónde está la máquina?</div>
+        <label class="baja-opt" id="baja-o1"><input type="radio" name="baja-dest" value="base"><div><b>Ya ingresó a base</b><small>Pasa a PDI. Se avisa a finanzas (baja) y a servicios (ingreso a PDI).</small></div></label>
+        <label class="baja-opt" id="baja-o2"><input type="radio" name="baja-dest" value="transito"><div><b>Sigue en tránsito 🚚</b><small>Queda en la columna "En tránsito" con el último cliente. Se avisa a finanzas ahora y a servicios cuando la pasen a PDI.</small></div></label>
+        <div id="baja-extra" style="display:none;margin-top:8px;">
+          <input type="text" id="baja-transporte" placeholder="Transporte (opcional)" maxlength="120">
+          <div class="muted" style="font-size:11px;margin:8px 0 3px;">Llegada estimada (opcional)</div>
+          <input type="date" id="baja-llegada" min="${hoy}">
+        </div>
+        <div class="acc" style="margin-top:14px;">
+          <button type="button" class="btn secondary" id="baja-cancelar">Cancelar</button>
+          <button type="button" class="btn" id="baja-ok" disabled>Confirmar</button>
+        </div>
+      </div>`;
+    document.body.appendChild(fondo);
+    FechaAR.arbol(fondo);
+    const fecha = fondo.querySelector('#baja-fecha'), dias = fondo.querySelector('#baja-dias'), ok = fondo.querySelector('#baja-ok');
+    const radios = [...fondo.querySelectorAll('input[name="baja-dest"]')];
+    const sel = ()=> (radios.find(r => r.checked) || {}).value || null;
+    const actualizar = ()=>{
+      const d = sel();
+      fondo.querySelector('#baja-o1').classList.toggle('on', d === 'base');
+      fondo.querySelector('#baja-o2').classList.toggle('on', d === 'transito');
+      fondo.querySelector('#baja-extra').style.display = d === 'transito' ? 'block' : 'none';
+      let fechaOk = true;
+      if(fecha){
+        const v = fecha.value;
+        if(!v){ dias.textContent = ''; fechaOk = false; }
+        else if(v > hoy){ dias.textContent = 'La fecha no puede ser futura'; fechaOk = false; }
+        else { const n = pizarraDiasEntreIso(v, hoy); dias.textContent = n === 0 ? 'Hoy' : `Hace ${n} día${n === 1 ? '' : 's'}`; }
+      }
+      ok.disabled = !(d && fechaOk);
+    };
+    const cerrar = (res)=>{ document.removeEventListener('keydown', onKey, true); fondo.remove(); resolve(res); };
+    const confirmar = ()=>{
+      if(ok.disabled) return;
+      const d = sel();
+      cerrar({
+        fecha: fecha ? fecha.value : null,
+        enTransito: d === 'transito',
+        transporte: d === 'transito' ? (fondo.querySelector('#baja-transporte').value.trim() || null) : null,
+        llegada: d === 'transito' ? (fondo.querySelector('#baja-llegada').value || null) : null,
+      });
+    };
+    const onKey = (ev)=>{ if(ev.key === 'Escape'){ ev.stopPropagation(); cerrar(null); } };
+    document.addEventListener('keydown', onKey, true);
+    radios.forEach(r => r.addEventListener('change', actualizar));
+    if(fecha) fecha.addEventListener('input', actualizar);
+    fondo.querySelector('#baja-cancelar').addEventListener('click', ()=> cerrar(null));
+    ok.addEventListener('click', confirmar);
+    fondo.addEventListener('mousedown', (ev)=>{ if(ev.target === fondo) cerrar(null); });
+    actualizar();
+  });
+}
+
 async function pizarraAjustarInicio(equipoId, fecha){
   const { error } = await supabaseClient.rpc('historial_ajustar_inicio', { p_equipo: equipoId, p_desde: fecha });
   if(error) throw error;
   if(typeof pizarraTVCargarDesde === 'function') pizarraTVCargarDesde();
 }
 
-const PIZARRA_ESTADO_TXT = { disponible:'Disponible', vor:'VOR', pdi:'PDI', demo:'Demo' };
+const PIZARRA_ESTADO_TXT = { disponible:'Disponible', vor:'VOR', pdi:'PDI', demo:'Demo', transito:'En tránsito' };
 
 async function pizarraEditarFechaEstado(equipoId){
   const equipo = equiposCache.find(e => e.id === equipoId);
@@ -8439,10 +8590,15 @@ function initPizarraDragAndDrop(){
       }
 
       // ¿Desde cuándo? (por defecto hoy; si se olvidaron de moverla a tiempo, se corrige el historial hacia atrás)
+      const textoFecha = estadoActual === 'transito'
+        ? `¿<strong>Qué día ingresó a la base</strong>? Desde esa fecha empieza a contar el tiempo en <strong>${escapeHtml(colInfo.titulo)}</strong>. Si llegó hoy, dejá la fecha de hoy; si se olvidaron de pasarla a tiempo, poné el día real.`
+        : (colInfo.estado === 'transito'
+          ? `¿<strong>Desde cuándo</strong> está en tránsito? Poné el día en que se retiró de donde estaba (por ejemplo, la fecha de baja del contrato): con esa fecha se cuentan los días en camino.`
+          : `¿<strong>Desde cuándo</strong> está en <strong>${escapeHtml(colInfo.titulo)}</strong>? Si la movés hoy, dejá la fecha de hoy. Si se olvidaron de pasarla a tiempo, poné el día real: la trazabilidad se corrige hacia atrás.`);
       const fechaInicio = await pizarraPedirFecha({
         titulo: `${equipo.modelo || ''} ${equipo.numero_serie || ''} → ${colInfo.titulo}`,
-        texto: `¿<strong>Desde cuándo</strong> está en <strong>${escapeHtml(colInfo.titulo)}</strong>? Si la movés hoy, dejá la fecha de hoy. Si se olvidaron de pasarla a tiempo, poné el día real: la trazabilidad se corrige hacia atrás.`,
-        valor: pizarraHoyAr(), okTexto: 'Mover',
+        texto: textoFecha,
+        valor: pizarraHoyAr(), okTexto: colInfo.estado === 'transito' ? 'Pasar a tránsito' : 'Mover',
       });
       if(!fechaInicio) return;   // canceló: no se mueve nada
 
@@ -8478,7 +8634,11 @@ function initPizarraDragAndDrop(){
 // ¿El equipo está ocupado por un contrato activo (alquiler o DEMO)? En ese caso la pizarra
 // no deja moverlo a mano: hay que cerrar el contrato en Contratos.
 // Permisos de la pizarra: cada columna destino tiene el suyo (mover_disponible / mover_pdi / mover_vor)
-function pizarraPuedeMoverA(estado){ return ['disponible','pdi','vor'].includes(estado) && puede('pizarra', 'mover_' + estado); }
+// Pasar una máquina a "En tránsito" a mano no tiene permiso propio: alcanza con poder mover a cualquier otra columna.
+function pizarraPuedeMoverA(estado){
+  if(estado === 'transito') return ['disponible','pdi','vor'].some(t => puede('pizarra', 'mover_' + t));
+  return ['disponible','pdi','vor'].includes(estado) && puede('pizarra', 'mover_' + estado);
+}
 
 function equipoTieneContratoActivo(equipoId){
   return contratosCache.some(c => c.equipo_id === equipoId && c.estado === 'activo');
@@ -8559,7 +8719,7 @@ function openEditEquipo(id){
   document.getElementById('e-modelo').value = e.modelo || '';
   document.getElementById('e-sucursal_id').value = e.sucursal_id || '';
   document.querySelector('#e-estado option[value="demo"]').disabled = e.estado !== 'demo';   // solo se muestra si ya estaba en DEMO
-  document.getElementById('e-estado').value = ['vor','pdi','demo','baja'].includes(e.estado) ? e.estado : 'disponible';
+  document.getElementById('e-estado').value = ['vor','pdi','demo','baja','transito'].includes(e.estado) ? e.estado : 'disponible';
   document.getElementById('e-categoria_color').value = e.categoria_color || 'accesorio';
   document.getElementById('e-tipo').value = e.tipo || 'propio';
   document.getElementById('e-proveedor_tercero').value = e.proveedor_tercero || '';
@@ -13139,7 +13299,7 @@ async function tzBuscarTrazabilidad(){
     const toIso = (ms)=> new Date(ms).toISOString().slice(0,10);
     const diasEntre = (a,b) => Math.max(0, Math.round((toMs(b) - toMs(a)) / MS) + 1);
 
-    const dias = { alquilada:0, disponible:0, vor:0, pdi:0, demo:0, sinRegistro:0 };
+    const dias = { alquilada:0, disponible:0, transito:0, vor:0, pdi:0, demo:0, sinRegistro:0 };
     const tramosOrdenados = [...tramos].sort((x,y)=> x.fecha_desde < y.fecha_desde ? -1 : x.fecha_desde > y.fecha_desde ? 1 : x.id - y.id);
     const diasTotales = finCalc >= desde ? diasEntre(desde, finCalc) : 0;
     for(let i=0;i<diasTotales;i++){
@@ -13198,7 +13358,7 @@ async function tzBuscarTrazabilidad(){
       equipo: tzEquipoSeleccionado, tramos: tramosRecortados, contratoIds,
       facturasDelPeriodo, desde, hasta,
       kpis: {
-        diasAlquilada, diasDisponible, diasVor: dias.vor, diasPdi: dias.pdi, diasDemo: dias.demo, diasSinRegistro: dias.sinRegistro, diasTotales, utilizacion,
+        diasAlquilada, diasDisponible, diasTransito: dias.transito, diasVor: dias.vor, diasPdi: dias.pdi, diasDemo: dias.demo, diasSinRegistro: dias.sinRegistro, diasTotales, utilizacion,
         cantContratos: contratoIds.length, cantClientes: clientesDelPeriodo.size,
         facturadoUsd, facturadoArs,
       },
@@ -13215,6 +13375,7 @@ document.getElementById('btn-tz-buscar').addEventListener('click', tzBuscarTraza
 const TZ_ESTADO_INFO = {
   alquilada:  { color:'var(--accent)', label:'Alquilada' },
   disponible: { color:'var(--ok)',     label:'Disponible' },
+  transito:   { color:'#2DD4BF',       label:'En tránsito' },
   vor:        { color:'#EF9F27',       label:'VOR' },
   pdi:        { color:'#7F77DD',       label:'PDI' },
   demo:       { color:'#D4537E',       label:'Demo' },
@@ -13225,6 +13386,7 @@ function tzRenderResultado(){
   document.getElementById('tz-titulo-equipo').textContent = `${d.equipo.modelo || ''} — N° ${d.equipo.numero_serie} (${fmtDate(d.desde)} → ${fmtDate(d.hasta)})`;
   document.getElementById('tz-kpi-alquilada').textContent = `${d.kpis.diasAlquilada} d.`;
   document.getElementById('tz-kpi-disponible').textContent = `${d.kpis.diasDisponible} d.`;
+  document.getElementById('tz-kpi-transito').textContent = `${d.kpis.diasTransito || 0} d.`;
   document.getElementById('tz-kpi-vor').textContent = `${d.kpis.diasVor} d.`;
   document.getElementById('tz-kpi-pdi').textContent = `${d.kpis.diasPdi} d.`;
   document.getElementById('tz-kpi-demo').textContent = `${d.kpis.diasDemo} d.`;
@@ -13273,6 +13435,7 @@ document.getElementById('btn-tz-exportar-xls').addEventListener('click', ()=>{
     ['Período', `${fmtDate(d.desde)} → ${fmtDate(d.hasta)}`],
     ['Días alquilada', d.kpis.diasAlquilada],
     ['Días disponible', d.kpis.diasDisponible],
+    ['Días en tránsito', d.kpis.diasTransito || 0],
     ['Días VOR', d.kpis.diasVor],
     ['Días PDI', d.kpis.diasPdi],
     ['Días Demo', d.kpis.diasDemo],
@@ -13359,8 +13522,9 @@ document.getElementById('btn-tz-exportar-pdf').addEventListener('click', ()=>{
     startY: y,
     body: [
       ['Días alquilada', String(d.kpis.diasAlquilada), 'Días disponible', String(d.kpis.diasDisponible)],
-      ['Días VOR', String(d.kpis.diasVor), 'Días PDI', String(d.kpis.diasPdi)],
-      ['Días Demo', String(d.kpis.diasDemo), 'Sin registro', String(d.kpis.diasSinRegistro)],
+      ['Días en tránsito', String(d.kpis.diasTransito || 0), 'Días VOR', String(d.kpis.diasVor)],
+      ['Días PDI', String(d.kpis.diasPdi), 'Días Demo', String(d.kpis.diasDemo)],
+      ['Sin registro', String(d.kpis.diasSinRegistro), '', ''],
       ['% Utilización', `${d.kpis.utilizacion}%`, 'Total días del período', String(d.kpis.diasTotales)],
       ['Contratos', String(d.kpis.cantContratos), 'Clientes distintos', String(d.kpis.cantClientes)],
       ['Facturado (USD)', fmtMoney(d.kpis.facturadoUsd,'USD'), 'Facturado (ARS)', fmtMoney(d.kpis.facturadoArs,'ARS')],
@@ -13440,11 +13604,13 @@ const EMAIL_DEST_CONFIG = {
   retiros: { headerId: 'email-dest-retiros-header', bodyId: 'email-dest-retiros-body', hintId: 'email-dest-retiros-hint' },
   vencimientos: { headerId: 'email-dest-vencimientos-header', bodyId: 'email-dest-vencimientos-body', hintId: 'email-dest-vencimientos-hint' },
   pdi_vor: { headerId: 'email-dest-pdi_vor-header', bodyId: 'email-dest-pdi_vor-body', hintId: 'email-dest-pdi_vor-hint',
-    descripcion: 'Todos los días a las 21:00 se envía un mail con las máquinas que están en PDI y en VOR (sucursal, desde cuándo, días parada y último cliente), con PDF y Excel adjuntos, a las direcciones activas de abajo.' },
+    descripcion: 'Todos los días a las 21:00 se envía un mail con las máquinas que están en tránsito, en PDI y en VOR (sucursal, desde cuándo, días parada, último cliente y transporte), con PDF y Excel adjuntos, a las direcciones activas de abajo.' },
   autorizacion_contratos: { headerId: 'email-dest-autorizacion_contratos-header', bodyId: 'email-dest-autorizacion_contratos-body', hintId: 'email-dest-autorizacion_contratos-hint',
     descripcion: 'Cada vez que un contrato nuevo queda pendiente de autorización, o alguien edita un contrato, se envía enseguida un mail a las direcciones activas de abajo con quién lo hizo y qué dato cambió (antes y ahora).' },
   baja_pdi: { headerId: 'email-dest-baja_pdi-header', bodyId: 'email-dest-baja_pdi-body', hintId: 'email-dest-baja_pdi-hint',
-    descripcion: 'Cuando se da de baja un contrato, la máquina entra a PDI y se envía enseguida un mail de aviso (equipo, cliente, sucursal y fecha de retiro) a las direcciones activas de abajo.' },
+    descripcion: 'Aviso para servicios: se envía enseguida un mail cuando una máquina efectivamente ingresa a PDI. Es en el momento de la baja del contrato si la máquina ya está en base, o cuando se arrastra su tarjeta de "En tránsito" a PDI (equipo, último cliente, sucursal, fecha de retiro e ingreso a PDI).' },
+  baja_contrato: { headerId: 'email-dest-baja_contrato-header', bodyId: 'email-dest-baja_contrato-body', hintId: 'email-dest-baja_contrato-hint',
+    descripcion: 'Aviso para finanzas: se envía enseguida un mail cuando se da de baja un contrato (equipo, cliente, sucursal, fecha de baja) e indica si la máquina ya ingresó a base o sigue en tránsito (con transporte y llegada estimada si se cargaron).' },
 };
 
 async function renderDestinatariosReporte(tipoReporte){
@@ -13647,6 +13813,7 @@ initPanelDestinatarios('retiros');
 initPanelDestinatarios('vencimientos');
 initPanelDestinatarios('pdi_vor');
 initPanelDestinatarios('baja_pdi');
+initPanelDestinatarios('baja_contrato');
 initPanelDestinatarios('autorizacion_contratos');
 
 
@@ -14607,25 +14774,30 @@ function renderRetiros(){
 document.getElementById('ret-filter-retirada').addEventListener('change', renderRetiros);
 
 async function marcarComoRetirada(contratoId){
-  const fechaISO = await pizarraPedirFecha({
+  const baja = await pizarraPedirBaja({
     titulo: 'Confirmar retiro de la máquina',
     texto: '¿<strong>Qué día se retiró</strong> la máquina? El contrato queda cerrado (De baja) con esa fecha.',
-    valor: hoyIso(), okTexto: 'Confirmar retiro',
+    valor: hoyIso(),
   });
-  if(!fechaISO) return;
+  if(!baja) return;
+  const fechaISO = baja.fecha;
   try{
     // el retiro de logística finaliza el contrato: pasa a "De baja" con esa misma fecha
-    // (esto además libera el equipo automáticamente, por el trigger que ya tenemos en la base)
+    // (esto además libera el equipo automáticamente, por el trigger que ya tenemos en la base:
+    //  a PDI si ya ingresó a base, o a "En tránsito" si el transporte todavía no la trajo)
     const { error } = await supabaseClient.from('contratos')
       .update({
         retirada_confirmada: true,
         fecha_retiro_real: fechaISO,
         estado: 'baja',
         fecha_baja: fechaISO,
+        baja_en_transito: baja.enTransito,
+        baja_transporte: baja.transporte,
+        baja_llegada_estimada: baja.llegada,
       })
       .eq('id', contratoId);
     if(error) throw error;
-    showToast('Retiro confirmado — el contrato quedó cerrado (De baja)');
+    showToast(baja.enTransito ? 'Retiro confirmado — la máquina quedó En tránsito' : 'Retiro confirmado — el contrato quedó cerrado (De baja)');
     await loadContratos();
     renderRetiros();
     renderDashboard();
@@ -14644,6 +14816,9 @@ async function desmarcarRetirada(contratoId){
         fecha_retiro_real: null,
         estado: 'activo',
         fecha_baja: null,
+        baja_en_transito: false,
+        baja_transporte: null,
+        baja_llegada_estimada: null,
       })
       .eq('id', contratoId);
     if(error) throw error;
@@ -17246,7 +17421,7 @@ async function abrirDetalleEquipo(equipoId){
   const suc = sucursales.find(s => s.id === e.sucursal_id);
   document.getElementById('det-eq-id').value = e.id;
   document.getElementById('det-eq-titulo').textContent = e.numero_serie;
-  document.getElementById('det-eq-subtitulo').textContent = `${e.modelo || 'sin modelo'}${suc ? ' — '+suc.nombre : ''} — ${estadoActualEquipo(e)==='baja'?'De baja':estadoActualEquipo(e)==='alquilada'?'Alquilada':estadoActualEquipo(e)==='demo'?'Demo':'Disponible'}`;
+  document.getElementById('det-eq-subtitulo').textContent = `${e.modelo || 'sin modelo'}${suc ? ' — '+suc.nombre : ''} — ${({ baja:'De baja', alquilada:'Alquilada', demo:'Demo', transito:'En tránsito', vor:'VOR', pdi:'PDI' })[estadoActualEquipo(e)] || 'Disponible'}`;
   const badgeTerceros = document.getElementById('det-eq-badge-terceros');
   if(e.tipo === 'tercero'){ badgeTerceros.style.display = ''; badgeTerceros.title = e.proveedor_tercero ? 'Proveedor: '+e.proveedor_tercero : ''; }
   else badgeTerceros.style.display = 'none';
