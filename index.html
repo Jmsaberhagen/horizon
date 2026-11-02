@@ -7049,7 +7049,7 @@ async function cargarPdfYaAdjuntoEnModal(pendienteId){
   box.style.display = 'none';
   box.innerHTML = '';
   const p = pendientesCache.find(x => x.id === pendienteId);
-  const { data, error } = await supabaseClient.from('facturas_pdf').select('*').eq('pendiente_id', pendienteId).order('created_at', { ascending: false });
+  const { data, error } = await supabaseClient.from('facturas_pdf').select(FACT_COLS_LIVIANAS + ',miniatura_base64').eq('pendiente_id', pendienteId).order('created_at', { ascending: false });
   if(error || !data || data.length === 0) return;
 
   // El "vigente" es el que coincide con el N° de factura actual del pendiente.
@@ -8082,9 +8082,29 @@ async function pizarraTraerPaginas(armarConsulta){
 }
 
 // Trae equipos + contratos activos (y los que estaban activos y ya no) sin recargar todo el historial.
+let pizarraHuellaUlt = null;
+async function pizarraHuellaActual(){
+  try{
+    const { data, error } = await supabaseClient.rpc('sync_huellas');
+    if(error || !data) return null;
+    return JSON.stringify([data.equipos, data.contratos, data.equipos_reservas]);
+  }catch(_){ return null; }
+}
 async function pizarraRefrescarDatos(motivo){
   if(!pizarraVisible() && motivo !== 'abrir') return;      // si nadie la mira, no gastamos consultas
   if(pizarraLiveRefrescando){ pizarraLiveRepetir = true; return; }
+  // Ahorro de egress: el sondeo periódico y el "volver a la pestaña" solo bajan datos si algo cambió de verdad
+  let huellaNueva = null;
+  if(motivo === 'sondeo' || motivo === 'visible' || motivo === 'online'){
+    huellaNueva = await pizarraHuellaActual();
+    if(huellaNueva && huellaNueva === pizarraHuellaUlt){
+      pizarraLiveFallas = 0; pizarraLiveUltimoOk = Date.now();
+      pizarraLiveRenderIndicador();
+      return;
+    }
+  } else {
+    huellaNueva = await pizarraHuellaActual();
+  }
   pizarraLiveRefrescando = true;
   try{
     const antes = pizarraHuellas();
@@ -8135,6 +8155,7 @@ async function pizarraRefrescarDatos(motivo){
 
     pizarraLiveFallas = 0;
     pizarraLiveUltimoOk = Date.now();
+    pizarraHuellaUlt = huellaNueva;
   } catch(err){
     console.error('[Pizarra en vivo] error al refrescar:', err);
     pizarraLiveFallas++;
@@ -14295,10 +14316,14 @@ function asegurarPdfWorker(){
   }
 }
 
+// Ahorro de egress: las miniaturas (base64) y el texto OCR pesan ~12 KB por factura / ~28 KB por remito.
+// En los listados NO se traen; se piden solo cuando se necesitan (abrir una ficha o mostrar la miniatura).
+const FACT_COLS_LIVIANAS = 'id,cliente_id,contrato_id,archivo_nombre,archivo_url,numero_factura,fecha_emision,monto,observacion,created_at,pendiente_id';
+const REMITO_COLS_LIVIANAS = 'id,cliente_id,equipo_id,sucursal_id,numero_remito,obra,contacto_obra,observacion,fecha_entrega,firma_entrega_aclaracion,archivo_entrega_nombre,archivo_entrega_url,fecha_retiro,firma_retiro_aclaracion,archivo_retiro_nombre,archivo_retiro_url,created_at,updated_at';
 async function loadFacturasPdfCliente(clienteId){
   const { data, error } = await supabaseClient
     .from('facturas_pdf')
-    .select('*')
+    .select(FACT_COLS_LIVIANAS)
     .eq('cliente_id', clienteId)
     .order('created_at', { ascending: false });
   if(error){ console.error('Error cargando facturas_pdf:', error); facturasPdfCache = []; return; }
@@ -14454,9 +14479,14 @@ async function subirFacturaPdfConOcr(file, clienteId, pendienteId, statusEl){
   }
 }
 
-function abrirFacturaPdf(id){
+async function abrirFacturaPdf(id){
   const f = facturasPdfCache.find(x => x.id === id);
   if(!f) return;
+  try{
+    const { data, error } = await supabaseClient.from('facturas_pdf').select('texto_extraido').eq('id', id).single();
+    if(error) throw error;
+    f.texto_extraido = data ? data.texto_extraido : '';
+  }catch(err){ console.error(err); showToast('No se pudo abrir la factura: ' + (err.message || 'error de conexión'), true); return; }
   document.getElementById('fp-id').value = f.id;
   document.getElementById('fp-archivo-nombre').textContent = f.archivo_nombre;
   document.getElementById('fp-ver-pdf').href = f.archivo_url;
@@ -14666,7 +14696,7 @@ let todosEnviosCache = [];
 async function loadTodasFacturasParaEnvio(){
   const { data: facturas, error } = await supabaseClient
     .from('facturas_pdf')
-    .select('*, clientes(razon_social, mail_envio_factura), contratos(sucursal_id, sucursales(nombre))')
+    .select(FACT_COLS_LIVIANAS + ', clientes(razon_social, mail_envio_factura), contratos(sucursal_id, sucursales(nombre))')
     .order('created_at', { ascending: false });
   if(error){ console.error('Error cargando facturas_pdf (global):', error); return; }
 
@@ -15280,7 +15310,7 @@ document.getElementById('rem-numero_remito').addEventListener('blur', (e)=>{
 async function loadRemitos(){
   const { data, error } = await supabaseClient
     .from('remitos')
-    .select('*, clientes(razon_social), equipos(numero_serie, modelo), sucursales(nombre)')
+    .select(REMITO_COLS_LIVIANAS + ', clientes(razon_social), equipos(numero_serie, modelo), sucursales(nombre)')
     .order('fecha_entrega', { ascending: false });
   if(error){ console.error('Error cargando remitos:', error); remitosCache = []; return; }
   remitosCache = data;
@@ -15516,9 +15546,14 @@ document.getElementById('modal-remito-overlay').addEventListener('click', (e)=>{
   if(e.target.id === 'modal-remito-overlay') document.getElementById('modal-remito-overlay').classList.remove('open');
 });
 
-function abrirEditarRemito(id){
+async function abrirEditarRemito(id){
   const r = remitosCache.find(x=>x.id === id);
   if(!r) return;
+  try{
+    const { data, error } = await supabaseClient.from('remitos').select('texto_extraido_entrega').eq('id', id).single();
+    if(error) throw error;
+    r.texto_extraido_entrega = data ? data.texto_extraido_entrega : '';
+  }catch(err){ console.error(err); showToast('No se pudo abrir el remito: ' + (err.message || 'error de conexión'), true); return; }
   resetRemitoForm();
   document.getElementById('modal-remito-title').textContent = 'Editar remito';
   document.getElementById('rem-id').value = r.id;
@@ -20595,6 +20630,17 @@ function syncRenderChip(estado){
   chip.classList.toggle('sync-girando', estado === 'cargando');
 }
 
+// Ahorro de egress: antes de bajar tablas completas se pregunta al servidor por una "huella" (md5) de cada una.
+// Si nada cambió desde la última carga de este módulo, no se baja nada (la consulta pesa unos cientos de bytes).
+const syncHuellaPorTab = {};
+async function syncHuellaActual(){
+  try{
+    const { data, error } = await supabaseClient.rpc('sync_huellas');
+    if(error || !data) return null;
+    return data;
+  }catch(_){ return null; }
+}
+
 async function syncEjecutar(motivo, forzar){
   if(!syncListo || !miPerfil || syncEnCurso) return;
   const tab = syncTabActual(); const fn = SYNC_TABS[tab];
@@ -20608,8 +20654,15 @@ async function syncEjecutar(motivo, forzar){
     if(navigator.onLine === false) throw new Error('sin conexión');
     const { error } = await supabaseClient.from('sucursales').select('id').limit(1);
     if(error) throw error;
+    const huella = await syncHuellaActual();
+    const huellaTxt = huella ? JSON.stringify(huella) : null;
+    if(motivo !== 'manual' && huellaTxt && syncHuellaPorTab[tab] === huellaTxt){
+      syncUltimoPorTab[tab] = Date.now();     // nada cambió: no hace falta volver a bajar los datos
+      return;
+    }
     syncSilencioso = true;
     await fn();
+    syncHuellaPorTab[tab] = huellaTxt;
     syncUltimoPorTab[tab] = Date.now();
   }catch(e){
     console.warn('Sync (' + motivo + '):', e && e.message || e);
