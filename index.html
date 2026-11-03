@@ -10371,6 +10371,7 @@ function renderDashboard(){
       { tab:'haulotte_articulos', icon:'🔧', title:'Artículos', count:`${hrepTotal.toLocaleString('es-AR')} repuesto(s)`, visible:puede('haulotte_repuestos','ver'), urgencia:null },
     ]},
     { key:'haulotte_ventas_cat', titulo:'Ventas Haulotte', icon:'💼', tiles:[
+      { tab:'clientes', icon:'🏢', title:'Clientes', count:`${clientesCache.length} cargados`, visible:puede('clientes','ver'), urgencia:null },
       { tab:'haulotte_ventas', icon:'💼', title:'Cotizador de Máquinas', count: puede('haulotte_ventas','ver') ? `${hventasCache.filter(v=>hvEstadoMostrado(v)==='vigente').length} vigente(s)` : '', visible:puede('haulotte_ventas','ver'), urgencia:null },
       { tab:'haulotte_presupuestos', icon:'🔩', title:'Presupuestos de Repuestos', count: puede('haulotte_presupuestos','ver') ? `${hpCache.filter(v=>hpEstadoMostrado(v)==='vigente').length} vigente(s)` : '', visible:puede('haulotte_presupuestos','ver'), urgencia:null },
     ]},
