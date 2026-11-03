@@ -6251,6 +6251,7 @@ document.getElementById('c-tiene_flete_retiro').addEventListener('change', (e)=>
 });
 
 function resetContratoForm(){
+  equipoSearchInput.disabled = false; equipoSearchInput.title = '';
   { const b = document.getElementById('btn-contrato-cambiar-serie'); if(b) b.style.display = 'none'; const bx = document.getElementById('c-cambios-serie-box'); if(bx) bx.style.display = 'none'; }
   ['id','cliente_id','equipo_id','remito','fecha_salida','fecha_vencimiento',
    'porcentaje_descuento','precio_sin_descuento','precio_con_descuento',
@@ -6330,6 +6331,16 @@ function openEditContrato(id){
   equipoSearchInput.value = c.equipos ? c.equipos.numero_serie : '';
   document.getElementById('c-equipo-modelo').value = c.equipos ? (c.equipos.modelo || '') : '';
   document.getElementById('c-equipo-selected').textContent = '✓ Equipo seleccionado';
+
+  // Pasadas 24 hs de creado el contrato, la serie solo se cambia con el botón "Cambiar serie" (la base también lo exige)
+  if(c.created_at && (Date.now() - new Date(c.created_at).getTime()) > 24*3600*1000){
+    equipoSearchInput.disabled = true;
+    equipoSearchInput.title = 'Contrato con más de 24 hs de creado: para cambiar la serie usá el botón "Cambiar serie"';
+    const hayBoton = puede('contratos','cambiar_serie') && c.estado === 'activo' && !c.fecha_baja;
+    document.getElementById('c-equipo-selected').textContent = hayBoton
+      ? '🔒 Pasaron más de 24 hs desde que se creó el contrato: para cambiar la máquina usá el botón "🔄 Cambiar serie".'
+      : '🔒 Pasaron más de 24 hs desde que se creó el contrato: la serie ya no se puede modificar desde acá.' + (c.estado === 'activo' && !c.fecha_baja ? ' Pedile el cambio a quien tenga permiso de "Cambiar serie".' : '');
+  }
 
   document.getElementById('c-sucursal_id').value = c.sucursal_id || '';
   document.getElementById('c-remito').value = c.remito || '';
