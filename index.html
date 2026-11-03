@@ -21525,7 +21525,7 @@ document.getElementById('hrep-gp-file').addEventListener('change', async (e)=>{
     st.textContent = 'Leyendo el Excel...';
     const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
     const ws = wb.Sheets['Costos actualizados'] || wb.Sheets[wb.SheetNames[0]];
-    const filas = XLSX.utils.sheet_to_json(ws, { defval: null });
+    const filas = XLSX.utils.sheet_to_json(ws, { defval: null }).map(r => { const o = {}; Object.keys(r).forEach(k => { o[k.trim()] = r[k]; }); return o; });   // los encabezados del Excel traen espacios (" COSTO ARG ")
     const col = (f, ...names) => { for(const n of names) if(f[n] !== undefined) return f[n]; return null; };
     const lote = 'GP ' + hoyIso();
     const mapa = new Map();
