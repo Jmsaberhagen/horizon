@@ -2544,6 +2544,12 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
         </div>
       </div>
 
+      <div id="rerp-subtabs" style="display:flex;gap:6px;margin:4px 0 16px 0;border-bottom:1px solid var(--border);">
+        <button type="button" class="btn secondary rerp-subtab active" data-vista="fact" style="border-radius:8px 8px 0 0;border-bottom:none;">💵 Facturación</button>
+        <button type="button" class="btn secondary rerp-subtab" data-vista="ocup" style="border-radius:8px 8px 0 0;border-bottom:none;">📈 Ocupación de flota</button>
+      </div>
+
+      <div id="rerp-vista-fact">
       <div class="dash-grid" style="grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); margin-bottom:24px;">
         <div class="panel" style="padding:16px;">
           <div class="muted" style="font-size:11px;text-transform:uppercase;">Facturado (ARS)</div>
@@ -2588,6 +2594,9 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
         Facturado mes a mes (ARS). Hacé clic en un mes para ver el detalle agrupado por cliente; hacé clic en un cliente para ver sus comprobantes.
       </div>
       <div id="rerp-meses-container"></div>
+      </div><!-- /rerp-vista-fact -->
+
+      <div id="rerp-vista-ocup" style="display:none;"></div>
 
     </div>
   </section>
@@ -11568,6 +11577,28 @@ function rerpDetectarSucursal(tipoRaw, comprobante){
   return 'Venta Web / PyME';
 }
 
+// Convierte lo que venga en una celda de fecha (Date, serial de Excel o texto dd/mm/aaaa) a 'AAAA-MM-DD'.
+// Se le suman 12 hs a las fechas tipo Date para no correrse de día por la zona horaria.
+function rerpFechaIso(v){
+  if(v == null || v === '') return null;
+  const pad = n => String(n).padStart(2,'0');
+  if(v instanceof Date){
+    if(isNaN(v)) return null;
+    const x = new Date(v.getTime() + 12*3600*1000);
+    return `${x.getFullYear()}-${pad(x.getMonth()+1)}-${pad(x.getDate())}`;
+  }
+  if(typeof v === 'number' && isFinite(v)){
+    const x = new Date(Math.round((v - 25569) * 86400 * 1000));
+    return `${x.getUTCFullYear()}-${pad(x.getUTCMonth()+1)}-${pad(x.getUTCDate())}`;
+  }
+  const m = String(v).trim().match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+  if(m){
+    const y = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
+    return `${y}-${pad(Number(m[2]))}-${pad(Number(m[1]))}`;
+  }
+  return null;
+}
+
 function rerpParsearWorkbook(wb){
   const nombreHoja = wb.SheetNames[0];
   const ws = wb.Sheets[nombreHoja];
@@ -11616,8 +11647,13 @@ function rerpParsearWorkbook(wb){
 
     const fechaFactura = colIdx['Factura']!==undefined ? fila[colIdx['Factura']] : null;
     const fechaEntrega = colIdx['Entrega']!==undefined ? fila[colIdx['Entrega']] : null;
+    const fechaVenc = colIdx['Vencimiento']!==undefined ? fila[colIdx['Vencimiento']] : null;
+    const colDesc = Object.keys(colIdx).find(h=> /^descrip/i.test(h));
 
     filas.push({
+      entregaIso: rerpFechaIso(fechaEntrega),
+      vencIso: rerpFechaIso(fechaVenc),
+      descripcion: colDesc ? String(fila[colIdx[colDesc]]||'') : '',
       tipo: String(tipoRaw).trim(),
       clase,
       sucursal,
@@ -11841,6 +11877,7 @@ function rerpRenderResultados(){
   }
   document.getElementById('rerp-comparador').style.display = d.mesesOrdenados.length >= 2 ? 'block' : 'none';
   rerpRenderComparador();
+  rerpOcupReset();
 }
 
 function rerpRenderComparador(){
@@ -12374,6 +12411,402 @@ document.getElementById('btn-rerp-exportar').addEventListener('click', ()=>{
   XLSX.writeFile(wb, `resumen_alquileres_erp_${hoyDMA()}.xlsx`);
   showToast('Excel generado');
 });
+
+// =========================================================
+// OCUPACIÓN DE FLOTA (solapa dentro de Resumen ERP)
+// Días-máquina alquilados en un mes, según el período devengado (Entrega → Vencimiento, ambos inclusive)
+// de cada comprobante. Solo máquinas propias: se excluyen accesorios, re-rental y equipos de terceros.
+// =========================================================
+const OCUP_ACCESORIO_RE = /PLUMIN|PALA|CANASTA|GUINCHE|MALACATE|ACCESORIO|FLETE|TRANSPORTE|SEGURO|COMBUSTIBLE|REPUESTO/;
+const OCUP_NC_TOLERANCIA = 0.05; // una NC anula el período si deja sin cubrir más del 95 % del importe facturado
+
+let rerpOcupMes = null;     // 'AAAA-MM' elegido
+let rerpOcupRes = null;     // resultado del último cálculo
+let rerpOcupFiltro = { suc:'', est:'', q:'' };
+let rerpVistaActual = 'fact';
+
+function rerpOcupSerie(s){
+  return String(s == null ? '' : s).toUpperCase().replace(/[\s\-\/]/g,'').replace(/O/g,'0');
+}
+function rerpOcupTxt(s){
+  return String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase();
+}
+function rerpOcupEsAccesorio(texto){ return OCUP_ACCESORIO_RE.test(rerpOcupTxt(texto)); }
+function rerpOcupModeloKey(m){ return rerpOcupTxt(m).replace(/\s+/g,''); }
+function rerpOcupPct(x){ return (x*100).toFixed(1).replace('.',',') + ' %'; }
+function rerpOcupColor(p){ return p >= 0.75 ? 'var(--ok)' : (p >= 0.5 ? '#e3a008' : '#f87171'); }
+
+function rerpOcupMesesDisponibles(){
+  const d = rerpDataCache; if(!d) return [];
+  let min = null, max = null;
+  d.filas.forEach(f=>{
+    if(!f.entregaIso || !f.vencIso) return;
+    if(!min || f.entregaIso < min) min = f.entregaIso;
+    if(!max || f.vencIso > max) max = f.vencIso;
+  });
+  if(!min || !max) return [];
+  const res = [];
+  let [y,m] = min.slice(0,7).split('-').map(Number);
+  const [yM,mM] = max.slice(0,7).split('-').map(Number);
+  while((y < yM || (y === yM && m <= mM)) && res.length < 48){
+    res.push(`${y}-${String(m).padStart(2,'0')}`);
+    m++; if(m > 12){ m = 1; y++; }
+  }
+  return res;
+}
+
+function rerpOcupCalcular(mesKey){
+  const d = rerpDataCache;
+  const [Y,M] = mesKey.split('-').map(Number);
+  const N = new Date(Y, M, 0).getDate();
+  const diaIso = i => `${mesKey}-${String(i).padStart(2,'0')}`;
+  const ini = diaIso(1), fin = diaIso(N);
+
+  const mapSerie = new Map();
+  (equiposCache || []).forEach(e=>{ if(e.numero_serie) mapSerie.set(rerpOcupSerie(e.numero_serie), e); });
+  const esFlotaPropia = e => e.tipo !== 'tercero' && !e.proveedor_tercero && !rerpOcupEsAccesorio(e.modelo);
+
+  const excl = { rerental:new Map(), accesorio:new Map(), noreconocida:new Map() };
+  const sumarExcl = (cat, f)=>{
+    const k = `${f.items||''}|${f.modelo||''}`;
+    if(!excl[cat].has(k)) excl[cat].set(k, { items:String(f.items||''), modelo:String(f.modelo||''), cliente:f.cliente, lineas:0 });
+    excl[cat].get(k).lineas++;
+  };
+
+  let ndOmitidas = 0, sinFechas = 0;
+  const grupos = new Map(); // serie|entrega|venc -> comprobantes del mismo período de la misma máquina
+  d.filas.forEach(f=>{
+    if(f.clase === 'ND'){ ndOmitidas++; return; }
+    if(!f.entregaIso || !f.vencIso){ sinFechas++; return; }
+    if(f.entregaIso > fin || f.vencIso < ini) return; // no toca el mes
+
+    const items = String(f.items || '').trim();
+    const txtLinea = `${f.modelo||''} ${items}`;
+    if(/RE-?RENTAL/.test(rerpOcupTxt(txtLinea)) || /^EQUIPO DE/.test(rerpOcupTxt(items))){ sumarExcl('rerental', f); return; }
+
+    const eq = mapSerie.get(rerpOcupSerie(items));
+    if(eq){
+      if(eq.tipo === 'tercero' || eq.proveedor_tercero){ sumarExcl('rerental', f); return; }
+      if(rerpOcupEsAccesorio(eq.modelo)){ sumarExcl('accesorio', f); return; }
+    } else {
+      if(!items || rerpOcupEsAccesorio(`${f.modelo||''} ${f.descripcion||''} ${items}`)){ sumarExcl('accesorio', f); return; }
+      sumarExcl('noreconocida', f); return;
+    }
+    const k = `${eq.id}|${f.entregaIso}|${f.vencIso}`;
+    if(!grupos.has(k)) grupos.set(k, { eq, e:f.entregaIso, v:f.vencIso, fcN:0, fcSum:0, ncN:0, ncSum:0, clientes:new Set() });
+    const g = grupos.get(k);
+    if(f.clase === 'NC'){ g.ncN++; g.ncSum += Math.abs(f.monto); }
+    else { g.fcN++; g.fcSum += Math.abs(f.monto); if(f.cliente) g.clientes.add(f.cliente); }
+  });
+
+  // Marca de días por máquina (cada máquina cuenta una sola vez por día)
+  const porEq = new Map();
+  const get = eq => { if(!porEq.has(eq.id)) porEq.set(eq.id, { eq, mask:new Uint8Array(N), demo:new Uint8Array(N), clientes:new Set() }); return porEq.get(eq.id); };
+  let periodosAnulados = 0;
+  grupos.forEach(g=>{
+    const cubierto = g.fcN > 0 && (g.ncN === 0 || (g.fcSum > 0 && (g.fcSum - g.ncSum) > g.fcSum * OCUP_NC_TOLERANCIA));
+    if(!cubierto){ if(g.ncN > 0) periodosAnulados++; return; }
+    const r = get(g.eq);
+    for(let i=1;i<=N;i++){ const iso = diaIso(i); if(iso >= g.e && iso <= g.v) r.mask[i-1] = 1; }
+    g.clientes.forEach(c=> r.clientes.add(c));
+  });
+
+  // Máquinas en DEMO: no facturan, pero cuentan para la utilización (si los contratos están cargados)
+  let demoIncluido = false;
+  (contratosCache || []).forEach(c=>{
+    if(!c.es_demo || !c.equipo_id || !c.fecha_salida) return;
+    const eq = (equiposCache || []).find(e=> e.id === c.equipo_id);
+    if(!eq || !esFlotaPropia(eq)) return;
+    const hasta = c.fecha_retiro_real || c.fecha_baja || c.fecha_vencimiento || fin;
+    if(c.fecha_salida > fin || hasta < ini) return;
+    demoIncluido = true;
+    const r = get(eq);
+    for(let i=1;i<=N;i++){ const iso = diaIso(i); if(iso >= c.fecha_salida && iso <= hasta) r.demo[i-1] = 1; }
+    if(c.cliente_nombre) r.clientes.add(c.cliente_nombre + ' (demo)');
+  });
+
+  // Flota: máquinas propias, sin accesorios ni terceros; las dadas de baja solo si tuvieron días en el mes
+  const flota = (equiposCache || []).filter(e=> esFlotaPropia(e) && e.estado !== 'baja');
+  porEq.forEach((r,id)=>{ if(!flota.some(e=>e.id===id) && esFlotaPropia(r.eq)) flota.push(r.eq); });
+
+  const maquinas = flota.map(eq=>{
+    const r = porEq.get(eq.id);
+    const mask = new Uint8Array(N);
+    if(r) for(let i=0;i<N;i++) mask[i] = (r.mask[i] || r.demo[i]) ? 1 : 0;
+    const dias = mask.reduce((a,b)=>a+b,0);
+    return {
+      id:eq.id, serie:eq.numero_serie, modelo:(eq.modelo||'').trim(), modeloKey:rerpOcupModeloKey(eq.modelo),
+      sucursal:nombreSucursalPorId(eq.sucursal_id), dias, pct:dias/N, mask,
+      clientes: r ? [...r.clientes] : [], demoDias: r ? r.demo.reduce((a,b)=>a+b,0) : 0,
+    };
+  }).sort((a,b)=> b.dias - a.dias || String(a.modelo).localeCompare(String(b.modelo)));
+
+  const agrupar = campo =>{
+    const m = {};
+    maquinas.forEach(q=>{
+      const k = campo === 'sucursal' ? q.sucursal : (q.modeloKey || 'SIN MODELO');
+      if(!m[k]) m[k] = { nombre:k, flota:0, dias:0 };
+      m[k].flota++; m[k].dias += q.dias;
+    });
+    return Object.values(m).map(x=> ({ ...x, pct: x.dias / (x.flota * N) })).sort((a,b)=> b.flota - a.flota || a.nombre.localeCompare(b.nombre));
+  };
+
+  const diasOcupados = maquinas.reduce((a,q)=>a+q.dias,0);
+  const diasDisp = maquinas.length * N;
+  return {
+    mesKey, N, maquinas, porSucursal:agrupar('sucursal'), porModelo:agrupar('modelo'),
+    diasOcupados, diasDisp, pct: diasDisp ? diasOcupados / diasDisp : 0,
+    flotaN: maquinas.length, conAlquiler: maquinas.filter(q=>q.dias>0).length, ociosas: maquinas.filter(q=>q.dias===0).length,
+    promDias: maquinas.length ? diasOcupados / maquinas.length : 0,
+    excl: { rerental:[...excl.rerental.values()], accesorio:[...excl.accesorio.values()], noreconocida:[...excl.noreconocida.values()] },
+    ndOmitidas, sinFechas, periodosAnulados, demoIncluido,
+  };
+}
+
+function rerpOcupReset(){
+  rerpOcupRes = null;
+  rerpOcupMes = null;
+  rerpOcupFiltro = { suc:'', est:'', q:'' };
+  rerpMostrarVista(rerpVistaActual);
+}
+
+async function rerpMostrarVista(vista){
+  rerpVistaActual = vista;
+  document.querySelectorAll('.rerp-subtab').forEach(b=>{
+    const on = b.dataset.vista === vista;
+    b.classList.toggle('active', on);
+    b.style.background = on ? 'var(--accent)' : '';
+    b.style.color = on ? '#06101c' : '';
+  });
+  document.getElementById('rerp-vista-fact').style.display = vista === 'fact' ? 'block' : 'none';
+  document.getElementById('rerp-vista-ocup').style.display = vista === 'ocup' ? 'block' : 'none';
+  document.getElementById('btn-rerp-exportar').style.display = vista === 'fact' ? '' : 'none';
+  if(vista === 'ocup' && rerpDataCache){
+    if(!equiposCache || equiposCache.length === 0){ try{ await loadEquipos(); } catch(e){ console.error(e); } }
+    const meses = rerpOcupMesesDisponibles();
+    if(!rerpOcupMes || !meses.includes(rerpOcupMes)){
+      const ult = rerpDataCache.fechaMax ? rerpDataCache.fechaMax.toISOString().slice(0,7) : null;
+      rerpOcupMes = meses.includes(ult) ? ult : meses[meses.length-1];
+    }
+    if(!rerpOcupRes || rerpOcupRes.mesKey !== rerpOcupMes) rerpOcupRes = rerpOcupMes ? rerpOcupCalcular(rerpOcupMes) : null;
+    rerpOcupRender();
+  }
+}
+
+function rerpOcupFiltrarMaquinas(){
+  const r = rerpOcupRes; if(!r) return [];
+  const q = rerpOcupTxt(rerpOcupFiltro.q).trim();
+  return r.maquinas.filter(m=>{
+    if(rerpOcupFiltro.suc && m.sucursal !== rerpOcupFiltro.suc) return false;
+    if(rerpOcupFiltro.est === 'ociosas' && m.dias !== 0) return false;
+    if(rerpOcupFiltro.est === 'menos50' && !(m.pct < 0.5)) return false;
+    if(q && !rerpOcupTxt(`${m.serie} ${m.modelo} ${m.clientes.join(' ')}`).includes(q)) return false;
+    return true;
+  });
+}
+
+function rerpOcupTablaHtml(){
+  const r = rerpOcupRes;
+  const lista = rerpOcupFiltrarMaquinas();
+  const diasHtml = m => `<span style="display:inline-flex;gap:1px;">${[...m.mask].map((v,i)=>`<i title="${String(i+1).padStart(2,'0')}/${r.mesKey.slice(5)}/${r.mesKey.slice(0,4)}" style="display:block;width:5px;height:12px;border-radius:1px;background:${v?'var(--ok)':'rgba(255,255,255,0.08)'};"></i>`).join('')}</span>`;
+  return `
+    <div class="muted" style="font-size:11px;margin:6px 0;">${lista.length} máquina(s)</div>
+    <div style="overflow-x:auto;">
+    <table style="width:100%;font-size:12px;border-collapse:collapse;">
+      <thead><tr style="text-align:left;color:var(--muted);">
+        <th style="padding:6px 8px;">Serie</th><th style="padding:6px 8px;">Modelo</th><th style="padding:6px 8px;">Suc.</th>
+        <th style="padding:6px 8px;">Clientes del mes</th><th style="padding:6px 8px;text-align:right;">Días</th>
+        <th style="padding:6px 8px;text-align:right;">%</th><th style="padding:6px 8px;">Día a día (1 → ${r.N})</th></tr></thead>
+      <tbody>${lista.map(m=>`
+        <tr style="border-top:1px solid var(--border);">
+          <td style="padding:5px 8px;font-weight:600;">${escapeHtml(m.serie||'')}</td>
+          <td style="padding:5px 8px;">${escapeHtml(m.modelo)}</td>
+          <td style="padding:5px 8px;" class="muted">${escapeHtml(m.sucursal)}</td>
+          <td style="padding:5px 8px;" class="muted">${escapeHtml(m.clientes.join(' / ') || '—')}</td>
+          <td style="padding:5px 8px;text-align:right;">${m.dias}</td>
+          <td style="padding:5px 8px;text-align:right;">${m.dias===0 ? '<span class="badge" style="color:#f87171;border-color:#f87171;">Ociosa</span>' : rerpOcupPct(m.pct)}</td>
+          <td style="padding:5px 8px;">${diasHtml(m)}</td>
+        </tr>`).join('') || '<tr><td colspan="7" class="muted" style="padding:12px;">Sin máquinas con estos filtros.</td></tr>'}
+      </tbody></table></div>`;
+}
+
+function rerpOcupRender(){
+  const cont = document.getElementById('rerp-vista-ocup');
+  const r = rerpOcupRes;
+  const meses = rerpOcupMesesDisponibles();
+  if(!r){
+    cont.innerHTML = '<div class="panel muted" style="padding:16px;">El archivo no trae las columnas Entrega y Vencimiento con fechas válidas, así que no se puede calcular la ocupación.</div>';
+    return;
+  }
+  const ultMes = rerpDataCache.fechaMax ? rerpDataCache.fechaMax.toISOString().slice(0,7) : null;
+  const avisoCorte = ultMes && r.mesKey >= ultMes;
+  const kpi = (l,v,s,extra='')=>`<div class="panel" style="padding:14px;${extra}"><div class="muted" style="font-size:11px;text-transform:uppercase;">${l}</div><div style="font-size:24px;font-weight:700;margin-top:4px;">${v}</div><div class="muted" style="font-size:11px;margin-top:2px;">${s}</div></div>`;
+  const filaAgr = x=>`<tr style="border-top:1px solid var(--border);"><td style="padding:5px 8px;">${escapeHtml(x.nombre)}</td><td style="padding:5px 8px;text-align:right;">${x.flota}</td><td style="padding:5px 8px;text-align:right;">${rerpOcupPct(x.pct)}</td><td style="padding:5px 8px;min-width:110px;"><div style="background:rgba(255,255,255,0.06);border-radius:999px;height:9px;overflow:hidden;"><div style="height:100%;width:${Math.round(x.pct*100)}%;background:${rerpOcupColor(x.pct)};"></div></div></td></tr>`;
+  const tablaAgr = (titulo, lista, colNombre)=>`
+    <div><div style="font-weight:700;font-size:12.5px;margin:6px 0;">${titulo}</div>
+    <div style="max-height:260px;overflow:auto;"><table style="width:100%;font-size:12px;border-collapse:collapse;">
+      <thead><tr style="text-align:left;color:var(--muted);"><th style="padding:5px 8px;">${colNombre}</th><th style="padding:5px 8px;text-align:right;">Flota</th><th style="padding:5px 8px;text-align:right;">Ocupación</th><th></th></tr></thead>
+      <tbody>${lista.map(filaAgr).join('')}</tbody></table></div></div>`;
+  const filaExcl = (motivo, arr)=> arr.length ? `<tr style="border-top:1px solid var(--border);"><td style="padding:5px 8px;font-weight:600;">${motivo}</td><td style="padding:5px 8px;text-align:right;">${arr.reduce((a,x)=>a+x.lineas,0)}</td><td style="padding:5px 8px;" class="muted">${arr.slice(0,6).map(x=>escapeHtml(`${x.modelo||'—'} · ${x.items||'—'} · ${x.cliente||''}`)).join('<br>')}${arr.length>6?`<br>… y ${arr.length-6} más (están en el Excel)`:''}</td></tr>` : '';
+  const sucOpts = ['', ...new Set(r.maquinas.map(m=>m.sucursal))];
+
+  cont.innerHTML = `
+    <div class="panel" style="padding:16px;margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;">
+        <div>
+          <div style="font-weight:700;font-size:14px;">📈 Ocupación de flota</div>
+          <div class="muted" style="font-size:11.5px;max-width:720px;">Solo máquinas propias. Cuenta únicamente los días del mes elegido, según el período devengado de cada comprobante (Entrega → Vencimiento, ambos inclusive), sin importar en qué mes se facturó.</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <select id="rerp-ocup-mes">${meses.map(k=>`<option value="${k}" ${k===r.mesKey?'selected':''}>${escapeHtml(mesLabel(k))}</option>`).join('')}</select>
+          <button type="button" class="btn secondary" id="btn-rerp-ocup-pdf">📄 PDF</button>
+          <button type="button" class="btn secondary" id="btn-rerp-ocup-xls">📊 Excel</button>
+        </div>
+      </div>
+
+      <div class="dash-grid" style="grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));margin:14px 0 0 0;">
+        ${kpi('Ocupación ' + escapeHtml(mesLabel(r.mesKey)), `<span style="color:${rerpOcupColor(r.pct)};font-size:32px;">${rerpOcupPct(r.pct)}</span>`, `${r.diasOcupados.toLocaleString('es-AR')} días-máquina alquilados de ${r.diasDisp.toLocaleString('es-AR')} disponibles`, 'border-color:var(--accent);')}
+        ${kpi('Flota considerada', r.flotaN, `máquinas propias × ${r.N} días`)}
+        ${kpi('Máquinas con alquiler', r.conAlquiler, `${r.ociosas} sin ningún día alquilado`)}
+        ${kpi('Días por máquina', r.promDias.toFixed(1).replace('.',','), `promedio de ${r.N} días del mes`)}
+      </div>
+
+      ${avisoCorte ? `<div style="border:1px solid #e3a008;background:rgba(227,160,8,0.08);border-radius:8px;padding:9px 12px;font-size:12px;margin-top:12px;">⚠️ El Excel llega hasta el ${fmtDate(rerpDataCache.fechaMax.toISOString().slice(0,10))} por fecha de factura. Lo devengado en este mes y todavía no facturado no aparece, por lo que el porcentaje puede quedar por debajo del real.</div>` : ''}
+      <div class="muted" style="font-size:11px;margin-top:10px;">La flota es la actual (la base no guarda la fecha de alta de cada máquina). ${r.demoIncluido ? 'Los contratos DEMO se suman como días ocupados.' : 'No hay contratos DEMO cargados en esta sesión: los DEMO no suman días.'} ${r.periodosAnulados ? `Períodos anulados por NC: ${r.periodosAnulados}.` : ''} ${r.ndOmitidas ? `Notas de débito omitidas: ${r.ndOmitidas}.` : ''} ${r.sinFechas ? `Líneas sin Entrega/Vencimiento: ${r.sinFechas}.` : ''}</div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-top:10px;">
+        ${tablaAgr('Por sucursal', r.porSucursal, 'Sucursal')}
+        ${tablaAgr('Por modelo', r.porModelo, 'Modelo')}
+      </div>
+    </div>
+
+    <div class="panel" style="padding:16px;margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;">
+        <div style="font-weight:700;font-size:14px;">Detalle por máquina · ${escapeHtml(mesLabel(r.mesKey))}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <input type="text" id="rerp-ocup-q" placeholder="Buscar serie, modelo o cliente" value="${escapeHtml(rerpOcupFiltro.q)}" style="min-width:210px;">
+          <select id="rerp-ocup-suc">${sucOpts.map(s=>`<option value="${escapeHtml(s)}" ${s===rerpOcupFiltro.suc?'selected':''}>${s?escapeHtml(s):'Todas las sucursales'}</option>`).join('')}</select>
+          <select id="rerp-ocup-est">
+            <option value="" ${rerpOcupFiltro.est===''?'selected':''}>Todas</option>
+            <option value="ociosas" ${rerpOcupFiltro.est==='ociosas'?'selected':''}>Solo ociosas (0 días)</option>
+            <option value="menos50" ${rerpOcupFiltro.est==='menos50'?'selected':''}>Menos de 50 %</option>
+          </select>
+        </div>
+      </div>
+      <div id="rerp-ocup-tabla">${rerpOcupTablaHtml()}</div>
+    </div>
+
+    <div class="panel" style="padding:16px;">
+      <div style="font-weight:700;font-size:14px;">Líneas que no entran en el porcentaje</div>
+      <div class="muted" style="font-size:11.5px;margin-bottom:8px;">Para que controles que no se cayó nada importante. La última fila es la que conviene mirar: parece una máquina pero su serie no está en el maestro de equipos.</div>
+      <table style="width:100%;font-size:12px;border-collapse:collapse;">
+        <thead><tr style="text-align:left;color:var(--muted);"><th style="padding:5px 8px;">Motivo</th><th style="padding:5px 8px;text-align:right;">Líneas</th><th style="padding:5px 8px;">Ejemplos (modelo · ítem · cliente)</th></tr></thead>
+        <tbody>
+          ${filaExcl('Re-rental / equipo de terceros', r.excl.rerental)}
+          ${filaExcl('Accesorio, flete u otros', r.excl.accesorio)}
+          ${filaExcl('⚠ Serie no reconocida', r.excl.noreconocida)}
+          ${(!r.excl.rerental.length && !r.excl.accesorio.length && !r.excl.noreconocida.length) ? '<tr><td colspan="3" class="muted" style="padding:10px;">No hay líneas excluidas en este mes.</td></tr>' : ''}
+        </tbody></table>
+    </div>`;
+
+  document.getElementById('rerp-ocup-mes').addEventListener('change', e=>{
+    rerpOcupMes = e.target.value; rerpOcupRes = rerpOcupCalcular(rerpOcupMes); rerpOcupRender();
+  });
+  const refrescarTabla = ()=>{ document.getElementById('rerp-ocup-tabla').innerHTML = rerpOcupTablaHtml(); };
+  document.getElementById('rerp-ocup-q').addEventListener('input', e=>{ rerpOcupFiltro.q = e.target.value; refrescarTabla(); });
+  document.getElementById('rerp-ocup-suc').addEventListener('change', e=>{ rerpOcupFiltro.suc = e.target.value; refrescarTabla(); });
+  document.getElementById('rerp-ocup-est').addEventListener('change', e=>{ rerpOcupFiltro.est = e.target.value; refrescarTabla(); });
+  document.getElementById('btn-rerp-ocup-pdf').addEventListener('click', rerpOcupExportarPDF);
+  document.getElementById('btn-rerp-ocup-xls').addEventListener('click', rerpOcupExportarExcel);
+}
+
+function rerpOcupExportarExcel(){
+  const r = rerpOcupRes; if(!r){ showToast('Primero elegí un mes', true); return; }
+  const wb = XLSX.utils.book_new();
+  const add = (nombre, filas, anchos)=>{
+    const ws = XLSX.utils.aoa_to_sheet(filas);
+    ws['!cols'] = anchos.map(w=>({wch:w}));
+    XLSX.utils.book_append_sheet(wb, ws, nombre);
+  };
+  add('Resumen', [
+    ['Mes', mesLabel(r.mesKey)], ['Días del mes', r.N], ['Flota considerada (máquinas)', r.flotaN],
+    ['Días-máquina disponibles', r.diasDisp], ['Días-máquina alquilados', r.diasOcupados],
+    ['Ocupación', Number((r.pct*100).toFixed(2))], ['Máquinas con alquiler', r.conAlquiler], ['Máquinas ociosas', r.ociosas],
+    ['Períodos anulados por NC', r.periodosAnulados], ['Notas de débito omitidas', r.ndOmitidas],
+    ['Fecha de corte del Excel (factura)', rerpDataCache.fechaMax ? fmtDate(rerpDataCache.fechaMax.toISOString().slice(0,10)) : ''],
+  ], [38,22]);
+  add('Por sucursal', [['Sucursal','Flota','Días alquilados','Días disponibles','Ocupación %'],
+    ...r.porSucursal.map(x=>[x.nombre, x.flota, x.dias, x.flota*r.N, Number((x.pct*100).toFixed(2))])], [20,10,16,18,14]);
+  add('Por modelo', [['Modelo','Flota','Días alquilados','Días disponibles','Ocupación %'],
+    ...r.porModelo.map(x=>[x.nombre, x.flota, x.dias, x.flota*r.N, Number((x.pct*100).toFixed(2))])], [22,10,16,18,14]);
+  add('Por máquina', [['Serie','Modelo','Sucursal','Clientes del mes','Días alquilados','Ocupación %', ...Array.from({length:r.N},(_,i)=>String(i+1))],
+    ...r.maquinas.map(m=>[m.serie, m.modelo, m.sucursal, m.clientes.join(' / '), m.dias, Number((m.pct*100).toFixed(2)), ...[...m.mask]])], [14,16,16,34,10,12]);
+  const ex = [['Motivo','Modelo','Ítem / serie','Cliente','Líneas']];
+  [['Re-rental / terceros', r.excl.rerental], ['Accesorio / flete / otros', r.excl.accesorio], ['Serie no reconocida', r.excl.noreconocida]]
+    .forEach(([mot,arr])=> arr.forEach(x=> ex.push([mot, x.modelo, x.items, x.cliente, x.lineas])));
+  add('No incluidas', ex, [26,20,24,34,8]);
+  XLSX.writeFile(wb, `ocupacion_flota_${r.mesKey}.xlsx`);
+  showToast('Excel generado');
+}
+
+function rerpOcupExportarPDF(){
+  const r = rerpOcupRes; if(!r){ showToast('Primero elegí un mes', true); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'mm', format:'a4' });
+  const pw = doc.internal.pageSize.getWidth(), ph = doc.internal.pageSize.getHeight();
+  const mx = 16, bannerH = pw * (406/2475);
+  let y = 15;
+  try{ doc.addImage(LOGO_PDF_BASE64, 'PNG', mx, y, 55, 11.3); } catch(e){ console.error(e); }
+  doc.setFont('helvetica','bold'); doc.setFontSize(14);
+  doc.text('OCUPACION DE FLOTA', pw - mx, y + 8, { align:'right' });
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90);
+  doc.text(`Generado: ${fmtDate(hoyIso())}`, pw - mx, y + 14, { align:'right' });
+  doc.setTextColor(0);
+  y += 24;
+  doc.setDrawColor(56,189,248); doc.setLineWidth(0.8); doc.line(mx, y, pw - mx, y); y += 9;
+  doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.text(mesLabel(r.mesKey), mx, y); y += 8;
+  const margin = { left:mx, right:mx, top:15, bottom:bannerH + 10 };
+  doc.autoTable({ startY:y, theme:'grid', styles:{ fontSize:9.5, cellPadding:3 }, columnStyles:{ 0:{fontStyle:'bold'}, 2:{fontStyle:'bold'} }, margin,
+    body:[
+      ['Ocupacion', rerpOcupPct(r.pct), 'Flota considerada', `${r.flotaN} maquinas x ${r.N} dias`],
+      ['Dias-maquina alquilados', String(r.diasOcupados), 'Dias-maquina disponibles', String(r.diasDisp)],
+      ['Maquinas con alquiler', String(r.conAlquiler), 'Maquinas ociosas', String(r.ociosas)],
+    ] });
+  y = doc.lastAutoTable.finalY + 4;
+  doc.setFontSize(8); doc.setTextColor(110);
+  doc.text('Dias devengados segun Entrega-Vencimiento (inclusive). Solo maquinas propias; sin accesorios, re-rental ni terceros.', mx, y);
+  doc.setTextColor(0); y += 8;
+  const tabla = (titulo, head, body)=>{
+    if(y > ph - bannerH - 40){ doc.addPage(); y = 15; }
+    doc.setFont('helvetica','bold'); doc.setFontSize(11.5); doc.text(titulo, mx, y); y += 4;
+    doc.autoTable({ startY:y, head:[head], body, theme:'grid', styles:{ fontSize:8.3, cellPadding:2 },
+      headStyles:{ fillColor:[10,26,58], textColor:255, fontStyle:'bold' }, margin });
+    y = doc.lastAutoTable.finalY + 8;
+  };
+  tabla('Por sucursal', ['Sucursal','Flota','Dias alquilados','Dias disponibles','Ocupacion'],
+    r.porSucursal.map(x=>[x.nombre, x.flota, x.dias, x.flota*r.N, rerpOcupPct(x.pct)]));
+  tabla('Por modelo', ['Modelo','Flota','Dias alquilados','Dias disponibles','Ocupacion'],
+    r.porModelo.map(x=>[x.nombre, x.flota, x.dias, x.flota*r.N, rerpOcupPct(x.pct)]));
+  tabla('Detalle por maquina', ['Serie','Modelo','Suc.','Clientes del mes','Dias','%'],
+    r.maquinas.map(m=>[m.serie, m.modelo, m.sucursal, m.clientes.join(' / ') || '-', m.dias, m.dias===0 ? 'Ociosa' : rerpOcupPct(m.pct)]));
+  const nExc = r.excl.rerental.length + r.excl.accesorio.length + r.excl.noreconocida.length;
+  if(r.excl.noreconocida.length){
+    tabla('Series no reconocidas (revisar)', ['Modelo','Item / serie','Cliente','Lineas'], r.excl.noreconocida.map(x=>[x.modelo, x.items, x.cliente, x.lineas]));
+  }
+  if(nExc){ doc.setFontSize(8); doc.setTextColor(110); doc.text(`Fuera del porcentaje: ${r.excl.rerental.length} re-rental/terceros, ${r.excl.accesorio.length} accesorios u otros (detalle en el Excel).`, mx, y); doc.setTextColor(0); }
+  const total = doc.internal.getNumberOfPages();
+  for(let i=1;i<=total;i++){
+    doc.setPage(i);
+    try{ doc.addImage(FOOTER_BANNER_BASE64, 'JPEG', 0, ph - bannerH, pw, bannerH); } catch(e){ console.error(e); }
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(120);
+    doc.text(`Pagina ${i} de ${total}`, pw - mx, ph - bannerH - 4, { align:'right' });
+    doc.setTextColor(0);
+  }
+  doc.save(`ocupacion_flota_${r.mesKey}.pdf`);
+  showToast('PDF generado');
+}
+
+document.querySelectorAll('.rerp-subtab').forEach(b=> b.addEventListener('click', ()=> rerpMostrarVista(b.dataset.vista)));
 
 // =========================================================
 // MÓDULO ANÁLISIS FINANCIERO (Mayor contable del ERP)
