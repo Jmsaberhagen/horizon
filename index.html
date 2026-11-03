@@ -4553,6 +4553,19 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
   </div>
 </div>
 
+<div class="overlay" id="modal-hpdf-overlay" style="z-index:1200;align-items:center;">
+  <div class="modal" style="max-width:980px;width:96%;height:92vh;max-height:92vh;display:flex;flex-direction:column;padding:14px 16px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
+      <h2 id="hpdf-titulo" style="margin:0;font-size:16px;flex:1;min-width:180px;">Presupuesto</h2>
+      <button class="btn" id="btn-hpdf-descargar">⬇ Descargar PDF</button>
+      <button class="btn secondary" id="btn-hpdf-pestana" title="Abrir el PDF en una pestaña nueva">↗ Pestaña nueva</button>
+      <button class="btn secondary" id="btn-hpdf-cerrar">Cerrar</button>
+    </div>
+    <div id="hpdf-cargando" class="muted" style="padding:30px;text-align:center;">Armando el PDF…</div>
+    <iframe id="hpdf-frame" title="Vista del presupuesto" style="flex:1;width:100%;border:1px solid var(--border);border-radius:8px;background:#fff;display:none;"></iframe>
+  </div>
+</div>
+
 <div class="overlay" id="modal-hpres-anular-overlay">
   <div class="modal">
     <h2>Anular presupuesto de repuestos</h2>
@@ -21900,7 +21913,6 @@ function renderHaulottePresup(){
         <td><div class="row-actions">
           <button class="btn secondary small" onclick="abrirEditarHp(${v.id})">${v.estado !== 'vigente' || !puedeEd ? 'Ver' : 'Editar'}</button>
           <button class="btn secondary small" onclick="verHpPDF(${v.id})">Ver PDF</button>
-          <button class="btn secondary small" onclick="descargarHpPDF(${v.id})" title="Descargar el PDF">⬇ PDF</button>
           ${v.estado === 'vigente' && puedeEd ? `<button class="btn small" onclick="confirmarHp(${v.id})">Confirmar</button>` : ''}
           ${v.estado === 'confirmado' && puedeEd ? `<button class="btn small" style="background:#a29bfe;" onclick="facturarHp(${v.id})">Facturado</button>` : ''}
           ${v.estado !== 'anulado' && v.estado !== 'facturado' && puede('haulotte_presupuestos','anular') ? `<button class="btn danger small" onclick="abrirAnularHp(${v.id})">Anular</button>` : ''}
@@ -22241,14 +22253,43 @@ function hpCotDesdeRegistro(v){
     descuento_pct: v.descuento_pct, envio_usd: v.envio_usd, tc: v.tipo_cambio, tc_fecha: v.tipo_cambio_fecha,
   };
 }
+// ---------- Visor de PDF dentro de la página (en lugar de una pestaña nueva) ----------
+let hpPdfActual = null;           // { doc, fileName, url }
+function hpCerrarVisorPDF(){
+  document.getElementById('modal-hpdf-overlay').classList.remove('open');
+  const fr = document.getElementById('hpdf-frame'); fr.removeAttribute('src'); fr.style.display = 'none';
+  if(hpPdfActual && hpPdfActual.url) URL.revokeObjectURL(hpPdfActual.url);
+  hpPdfActual = null;
+}
+function hpAbrirVisorPDF(titulo){
+  document.getElementById('hpdf-titulo').textContent = titulo;
+  document.getElementById('hpdf-cargando').style.display = '';
+  document.getElementById('hpdf-cargando').textContent = 'Armando el PDF…';
+  document.getElementById('hpdf-frame').style.display = 'none';
+  document.getElementById('modal-hpdf-overlay').classList.add('open');
+}
+function hpMostrarPDF(res){
+  if(hpPdfActual && hpPdfActual.url) URL.revokeObjectURL(hpPdfActual.url);
+  const url = URL.createObjectURL(res.doc.output('blob'));
+  hpPdfActual = { doc: res.doc, fileName: res.fileName, url };
+  const fr = document.getElementById('hpdf-frame');
+  fr.src = url; fr.style.display = ''; document.getElementById('hpdf-cargando').style.display = 'none';
+}
+document.getElementById('btn-hpdf-descargar').addEventListener('click', ()=>{ if(hpPdfActual) hpPdfActual.doc.save(hpPdfActual.fileName); });
+document.getElementById('btn-hpdf-pestana').addEventListener('click', ()=>{ if(hpPdfActual) window.open(hpPdfActual.url, '_blank'); });
+document.getElementById('btn-hpdf-cerrar').addEventListener('click', hpCerrarVisorPDF);
+document.getElementById('modal-hpdf-overlay').addEventListener('click', (e)=>{ if(e.target.id === 'modal-hpdf-overlay') hpCerrarVisorPDF(); });
+document.addEventListener('keydown', (e)=>{
+  if(e.key === 'Escape' && document.getElementById('modal-hpdf-overlay').classList.contains('open')){ e.stopPropagation(); hpCerrarVisorPDF(); }
+}, true);
+
 async function verHpPDF(id){
-  const w = window.open('', '_blank');                          // se abre antes de pedir los datos para que el navegador no lo bloquee
+  hpAbrirVisorPDF('Presupuesto de repuestos');
   const v = await hpTraerCompleto(id);
-  if(!v){ if(w) w.close(); return; }
+  if(!v){ hpCerrarVisorPDF(); return; }
+  document.getElementById('hpdf-titulo').textContent = `Presupuesto de repuestos N° ${String(v.numero).padStart(5, '0')}`;
   const cot = hpCotDesdeRegistro(v); await hpPrecargarFotos(cot.items);
-  const { doc } = generarRepuestosPDF(cot);
-  const url = doc.output('bloburl');
-  if(w) w.location.href = url; else window.open(url, '_blank');
+  hpMostrarPDF(generarRepuestosPDF(cot));
 }
 async function confirmarHp(id){
   const v = hpCache.find(x => x.id === id); if(!v) return;
@@ -22267,30 +22308,23 @@ async function facturarHp(id){
   showToast('Presupuesto marcado como facturado');
   await loadHaulottePresup(); renderHaulottePresup(); renderDashboard();
 }
-async function descargarHpPDF(id){
-  const v = await hpTraerCompleto(id);
-  if(!v) return;
-  const cot = hpCotDesdeRegistro(v); await hpPrecargarFotos(cot.items);
-  const r = generarRepuestosPDF(cot); r.doc.save(r.fileName);
-}
 document.getElementById('btn-hp-pdf-previo').addEventListener('click', async ()=>{
   if(!hpValidar()) return;
-  const w = window.open('', '_blank');
+  hpAbrirVisorPDF('Vista previa del presupuesto (sin guardar)');
   const { cabecera, items } = hpArmarPayload();
   const cli = cabecera.cliente_id ? clientesCache.find(c => c.id === cabecera.cliente_id) : null;
   const idv = document.getElementById('hp-id').value;
   const reg = idv ? hpCache.find(x => x.id === Number(idv)) : null;
   const itemsPdf = items.map(i => ({ codigo: i.codigo, descripcion: i.descripcion, cantidad: i.cantidad, precio_unitario: i.precio_unitario, disponibilidad: i.disponibilidad }));
   await hpPrecargarFotos(itemsPdf);
-  const { doc } = generarRepuestosPDF({
+  const res = generarRepuestosPDF({
     numero: reg ? reg.numero : null, fecha_emision: cabecera.fecha_emision, validez_dias: cabecera.validez_dias, cliente: cli, empresa_nombre: cabecera.empresa_nombre,
     contacto_nombre: cabecera.contacto_nombre, contacto_email: cabecera.contacto_email, contacto_telefono: cabecera.contacto_telefono,
     condicion_pago: cabecera.condicion_pago, notas: cabecera.notas,
     items: itemsPdf,
     descuento_pct: cabecera.descuento_pct, envio_usd: cabecera.envio_usd, tc: cabecera.tipo_cambio || 0, tc_fecha: cabecera.tipo_cambio_fecha,
   });
-  const url = doc.output('bloburl');
-  if(w) w.location.href = url; else window.open(url, '_blank');
+  hpMostrarPDF(res);
 });
 
 // ---------- Importar costos desde el Excel de GP (hoja "Costos actualizados") ----------
