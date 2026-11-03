@@ -9276,7 +9276,7 @@ function aplicarPermisosUI(){
   document.querySelectorAll('nav button[data-tab]').forEach(btn=>{
     const tab = btn.dataset.tab;
     if(tab === 'inicio' || tab === 'usuarios') return;
-    btn.style.display = puede(tab === 'accesosweb' ? 'accesos_web' : tab, 'ver') ? '' : 'none';
+    btn.style.display = puede(tab === 'accesosweb' ? 'accesos_web' : (tab === 'haulotte_articulos' ? 'haulotte_repuestos' : tab), 'ver') ? '' : 'none';
   });
 
   document.getElementById('nav-usuarios').style.display = puede('usuarios','ver') ? 'inline-block' : 'none';
