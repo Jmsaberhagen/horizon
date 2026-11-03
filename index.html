@@ -2831,17 +2831,21 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
   <section id="tab-haulotte_presupuestos" style="display:none;">
     <div class="dash-hero" style="margin-bottom:14px;">
       <h1 style="font-size:16px;">Presupuestos de Repuestos (Haulotte)</h1>
-      <div class="sub">Precio de venta = costo ARG + margen (editable). El descuento sale de la ficha del cliente. Numeración propia; un presupuesto nunca se borra, solo se anula.</div>
+      <div class="sub">Precio de venta = costo ARG + margen (editable). El descuento sale de la ficha del cliente y no se muestra en el PDF. Numeración propia; un presupuesto nunca se borra, solo se anula.</div>
+      <div id="hp-pend-resumen" style="margin-top:6px;font-size:12.5px;"></div>
     </div>
     <div class="toolbar" style="flex-wrap:wrap;">
       <input type="text" id="hp-search" placeholder="Buscar por N°, empresa o contacto...">
       <select id="hp-filter-estado">
         <option value="">Todos los estados</option>
         <option value="vigente">Vigente</option>
-        <option value="aceptado">Aceptado</option>
+        <option value="confirmado">Confirmado (pend. de facturar)</option>
+        <option value="facturado">Facturado</option>
         <option value="vencido">Vencido</option>
         <option value="anulado">Anulado</option>
       </select>
+      <label class="muted" style="font-size:12px;">Desde <input type="date" id="hp-desde"></label>
+      <label class="muted" style="font-size:12px;">Hasta <input type="date" id="hp-hasta"></label>
       <button class="btn secondary small" id="btn-hp-limpiar" type="button">Limpiar filtros</button>
       <div style="flex:1"></div>
       <button class="btn secondary" id="btn-hp-export-csv">Exportar CSV</button>
@@ -2858,7 +2862,7 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
               <th>Renglones</th>
               <th>Total U$D</th>
               <th>Estado</th>
-              <th style="width:190px;">Acciones</th>
+              <th style="width:330px;">Acciones</th>
             </tr>
           </thead>
           <tbody id="hp-tbody">
@@ -4424,7 +4428,7 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
       <div class="field"><label>Validez (días)</label><input type="number" id="hp-validez_dias" value="7"></div>
     </div>
 
-    <h3 style="margin:20px 0 10px 0;font-size:13px;color:var(--accent);">Repuestos (precios netos en U$D)</h3>
+    <h3 style="margin:20px 0 10px 0;font-size:13px;color:var(--accent);">Repuestos (precios en U$D, sin impuestos; el precio unitario ya incluye el descuento)</h3>
     <div class="field" style="position:relative;margin-bottom:10px;">
       <input type="text" id="hp-art-search" placeholder="🔎 Agregar repuesto: escribí código o descripción (mín. 2 letras)" autocomplete="off">
       <div class="autocomplete-list" id="hp-art-results"></div>
@@ -4436,9 +4440,10 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
             <th style="width:120px;">Código</th>
             <th>Descripción</th>
             <th style="width:80px;">Cant.</th>
-            <th style="width:100px;text-align:right;">Costo ARG</th>
-            <th style="width:110px;text-align:right;">Precio unit.</th>
+            <th style="width:110px;text-align:right;" title="En artículos A- (nacionales) el costo se carga a mano">Costo ARG</th>
+            <th style="width:110px;text-align:right;">Precio unit. final</th>
             <th style="width:110px;text-align:right;">Subtotal</th>
+            <th style="width:140px;">Disponibilidad</th>
             <th style="width:40px;"></th>
           </tr>
         </thead>
@@ -4452,7 +4457,6 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
       <div class="field"><label>Descuento al cliente (%)</label><input type="number" step="0.01" min="0" max="99" id="hp-descuento" placeholder="Sin descuento">
         <div class="muted" id="hp-desc-status" style="font-size:11px;margin-top:4px;"></div></div>
       <div class="field"><label>Costo de envío (U$D neto)</label><input type="number" step="0.01" min="0" id="hp-envio" placeholder="0,00"></div>
-      <div class="field"><label>IVA (%)</label><input type="number" step="0.01" min="0" id="hp-iva" value="21"></div>
       <div class="field">
         <label>Tipo de cambio ($ por U$D)</label>
         <div style="display:flex;gap:8px;">
@@ -9166,7 +9170,7 @@ const SECCIONES_PERMISOS = [
   { key:'stockvalorizado',    label:'Stock Valorizado (Haulotte)', acciones:[['ver','Ver / usar']] },
   { key:'haulotte_repuestos', label:'Artículos Haulotte', acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
   { key:'haulotte_ventas', label:'Cotizador de Máquinas (Haulotte)', acciones:[['ver','Ver'],['crear','Crear / editar'],['anular','Anular']] },
-  { key:'haulotte_presupuestos', label:'Presupuestos de Repuestos (Haulotte)', acciones:[['ver','Ver'],['crear','Crear / editar'],['anular','Anular']] },
+  { key:'haulotte_presupuestos', label:'Presupuestos de Repuestos (Haulotte)', acciones:[['ver','Ver'],['crear','Crear / editar'],['anular','Anular'],['margen','Editar margen de utilidad']] },
   { key:'panoramacobranzas',  label:'Panorama de Cobranzas',   acciones:[['ver','Ver / usar']] },
   { key:'panoramaproveedores', label:'Panorama de Deuda a Proveedores', acciones:[['ver','Ver / usar']] },
   { key:'accesos_web', label:'Usuarios y Claves Web', acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar'],['ver_claves','Ver y copiar claves']] },
@@ -20960,7 +20964,7 @@ if(/^https?:$/.test(location.protocol)){
 // =========================================================
 // =====================================================================
 // PRESUPUESTO DE REPUESTOS HAULOTTE — cálculo + PDF (lo usan APEX web y la app Android)
-// Precio de lista = costo ARG × (1 + margen). Descuento del cliente sobre la lista. Envío y IVA al final.
+// Precio de lista = costo ARG × (1 + margen). El PDF muestra el precio final con el descuento ya aplicado. No se cotiza IVA.
 // =====================================================================
 const MARGEN_REPUESTOS_DEFECTO = 60;   // % sobre costo
 const IVA_REPUESTOS = 21;              // %
@@ -20969,30 +20973,50 @@ const rpN2 = v => Number(v).toLocaleString('es-AR', { minimumFractionDigits: 2, 
 const rpN0 = v => Number(v).toLocaleString('es-AR', { maximumFractionDigits: 0 });
 const rpNum = v => { const n = Number(v); return isFinite(n) ? n : 0; };
 
-// o: { items:[{codigo, descripcion, cantidad, costo}], margen_pct, descuento_pct, envio_usd, iva_pct, tc }
+// o: { items:[{codigo, descripcion, cantidad, costo}], margen_pct, descuento_pct, envio_usd, tc }
+// Lista = costo × (1 + margen). El cliente ve el precio FINAL: lista × (1 − descuento). No se cotiza IVA.
 function calcularRepuestos(o){
   const margen = o.margen_pct === '' || o.margen_pct == null ? MARGEN_REPUESTOS_DEFECTO : Math.max(rpNum(o.margen_pct), 0);
+  const descPct = Math.min(Math.max(rpNum(o.descuento_pct), 0), 99.99);
   const items = (o.items || []).filter(i => rpNum(i.cantidad) > 0).map(i => {
     const lista = rpR2(rpNum(i.costo) * (1 + margen / 100));
-    return { ...i, lista, sub: rpR2(lista * rpNum(i.cantidad)) };
+    const unit = rpR2(lista * (1 - descPct / 100));
+    return { ...i, lista, unit, sub: rpR2(unit * rpNum(i.cantidad)) };
   });
   const subtotal = rpR2(items.reduce((a, i) => a + i.sub, 0));
-  const descPct = Math.min(Math.max(rpNum(o.descuento_pct), 0), 99.99);
-  const descuento = rpR2(subtotal * descPct / 100);
+  const bruto = rpR2(items.reduce((a, i) => a + i.lista * rpNum(i.cantidad), 0));
+  const descuento = rpR2(bruto - subtotal);                       // solo para uso interno (el PDF no lo muestra)
   const envio = rpR2(Math.max(rpNum(o.envio_usd), 0));
-  const neto = rpR2(subtotal - descuento + envio);
-  const ivaPct = o.iva_pct === '' || o.iva_pct == null ? IVA_REPUESTOS : rpNum(o.iva_pct);
-  const iva = rpR2(neto * ivaPct / 100);
-  const total = rpR2(neto + iva);
+  const neto = rpR2(subtotal + envio);
+  const total = neto;
   const tc = rpNum(o.tc);
-  return { items, margen, subtotal, descPct, descuento, envio, neto, ivaPct, iva, total, tc, totalArs: Math.round(total * tc) };
+  return { items, margen, bruto, descPct, descuento, subtotal, envio, neto, ivaPct: 0, iva: 0, total, tc, totalArs: Math.round(total * tc) };
 }
-// Desde un presupuesto ya guardado (precio_unitario = lista): se recalcula con margen 0 sobre esos precios
+// Desde un presupuesto ya guardado (precio_unitario = lista): margen 0 sobre esos precios, con el descuento guardado
 function calcularRepuestosGuardado(p, items){
   return calcularRepuestos({
     items: (items || []).map(i => ({ cantidad: i.cantidad, costo: i.precio_unitario })),
-    margen_pct: 0, descuento_pct: p.descuento_pct, envio_usd: p.envio_usd, iva_pct: p.iva_pct, tc: p.tipo_cambio,
+    margen_pct: 0, descuento_pct: p.descuento_pct, envio_usd: p.envio_usd, tc: p.tipo_cambio,
   });
+}
+// Disponibilidad por renglón: "disp:N" (N unidades disponibles) o "dias:N" (demora en traerlo)
+const DIAS_DEMORA_REPUESTOS = [5, 10, 15, 20, 25, 30, 60, 90];
+function opcionesDisponibilidad(cantidad){
+  const n = Math.min(Math.max(parseInt(cantidad, 10) || 0, 0), 100);
+  const o = [];
+  for(let i = 1; i <= n; i++) o.push({ v: 'disp:' + i, t: 'Disponible ' + i });
+  DIAS_DEMORA_REPUESTOS.forEach(d => o.push({ v: 'dias:' + d, t: d + ' días' }));
+  return o;
+}
+function textoDisponibilidad(v){
+  const m = /^(disp|dias):(\d+)$/.exec(String(v || ''));
+  if(!m) return '—';
+  return m[1] === 'disp' ? (m[2] === '1' ? '1 disponible' : m[2] + ' disponibles') : m[2] + ' días';
+}
+// Si cambia la cantidad y la opción "Disponible N" ya no entra, se descarta
+function disponibilidadValida(v, cantidad){
+  const m = /^disp:(\d+)$/.exec(String(v || ''));
+  return m && Number(m[1]) > Number(cantidad) ? null : (v || null);
 }
 
 // cot: { numero, fecha_emision, validez_dias, cliente:{razon_social}, empresa_nombre, contacto_*, condicion_pago, notas,
@@ -21000,7 +21024,7 @@ function calcularRepuestosGuardado(p, items){
 function generarRepuestosPDF(cot){
   const calc = calcularRepuestos({
     items: cot.items.map(i => ({ ...i, costo: i.precio_unitario })), margen_pct: 0,
-    descuento_pct: cot.descuento_pct, envio_usd: cot.envio_usd, iva_pct: cot.iva_pct, tc: cot.tc,
+    descuento_pct: cot.descuento_pct, envio_usd: cot.envio_usd, tc: cot.tc,
   });
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
@@ -21028,12 +21052,12 @@ function generarRepuestosPDF(cot){
     return y + 8;
   };
   const titulo = (txt, y) => { doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(0); doc.text(txt, marginX, y); return y + 6; };
-  const X = { cod: marginX + 2, desc: marginX + 32, cant: 134, pu: 162, sub: R - 2 };
+  const X = { cod: marginX + 2, desc: marginX + 25, cant: 106, pu: 128, sub: 152, disp: 173 };
   const cabTabla = y => {
     doc.setFillColor(...NEGRO); doc.rect(marginX, y - 5, pageWidth - marginX * 2, 7, 'F');
     doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
     doc.text('Código', X.cod, y); doc.text('Descripción', X.desc, y);
-    doc.text('Cant.', X.cant, y, { align: 'right' }); doc.text('Precio unit. U$D', X.pu, y, { align: 'right' }); doc.text('Subtotal U$D', X.sub, y, { align: 'right' });
+    doc.text('Cant.', X.cant, y, { align: 'right' }); doc.text('P. unit. U$D', X.pu, y, { align: 'right' }); doc.text('Subtotal U$D', X.sub, y, { align: 'right' }); doc.text('Disponibilidad', X.disp, y, { align: 'center' });
     doc.setTextColor(0);
     return y + 8;
   };
@@ -21052,25 +21076,23 @@ function generarRepuestosPDF(cot){
   let z = 0;
   calc.items.forEach(it => {
     doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
-    const ls = doc.splitTextToSize(it.descripcion || '', 70).slice(0, 3);
+    const ls = doc.splitTextToSize(it.descripcion || "", 56).slice(0, 3);
     const h = Math.max(ls.length * 4 + 2.5, 7);
     if(y + h > LIM){ doc.addPage(); y = encabezado(); y = cabTabla(y); z = 0; }
     if(z++ % 2 === 1){ doc.setFillColor(246, 247, 249); doc.rect(marginX, y - 4, pageWidth - marginX * 2, h, 'F'); }
     doc.setFont('helvetica', 'bold'); doc.text(String(it.codigo || ''), X.cod, y);
     doc.setFont('helvetica', 'normal'); doc.text(ls, X.desc, y);
     doc.text(String(it.cantidad), X.cant, y, { align: 'right' });
-    doc.text(rpN2(it.lista), X.pu, y, { align: 'right' });
+    doc.text(rpN2(it.unit), X.pu, y, { align: 'right' });
     doc.text(rpN2(it.sub), X.sub, y, { align: 'right' });
+    doc.text(textoDisponibilidad(it.disponibilidad), X.disp, y, { align: 'center' });
     y += h;
   });
   doc.setDrawColor(...NEGRO); doc.setLineWidth(0.4); doc.line(marginX, y - 2.5, R, y - 2.5);
 
   // ---------- Resumen ----------
   const filas = [['Subtotal', 'U$D ' + rpN2(calc.subtotal)]];
-  if(calc.descuento > 0) filas.push([`Descuento ${String(calc.descPct).replace('.', ',')}%`, '- U$D ' + rpN2(calc.descuento)]);
   if(calc.envio > 0) filas.push(['Envío', 'U$D ' + rpN2(calc.envio)]);
-  filas.push(['Total neto', 'U$D ' + rpN2(calc.neto)]);
-  filas.push([`IVA ${String(calc.ivaPct).replace('.', ',')}%`, 'U$D ' + rpN2(calc.iva)]);
   filas.push(['TOTAL U$D', 'U$D ' + rpN2(calc.total), true]);
   if(calc.tc > 0){ filas.push(['Tipo de cambio de referencia', '$ ' + rpN2(calc.tc)]); filas.push(['TOTAL EN PESOS', '$ ' + rpN0(calc.totalArs), true]); }
   const altoBox = filas.length * 6.4 + 4;
@@ -21091,11 +21113,11 @@ function generarRepuestosPDF(cot){
   const notasLs = cot.notas ? doc.splitTextToSize(cot.notas, pageWidth - marginX * 2) : [];
   const fechaTc = cot.tc_fecha ? ` (${fmtDate(cot.tc_fecha)})` : '';
   const conds = [
-    `Precios expresados en dólares estadounidenses, netos de IVA. Se adiciona IVA (${String(calc.ivaPct).replace('.', ',')}%).`,
+    'Precios expresados en dólares estadounidenses. Los precios no incluyen ningún impuesto (IVA ni otros).',
     calc.tc > 0 ? `El pago se realiza en pesos, al tipo de cambio de referencia de $ ${rpN2(calc.tc)} por U$D${fechaTc}. Si al momento del pago existiera diferencia de cambio, se emitirá una nota de débito por dicha diferencia.` : null,
     cot.condicion_pago ? `Condición de pago: ${cot.condicion_pago}.` : null,
     calc.envio > 0 ? 'El costo de envío está incluido en el total.' : 'El envío no está incluido en esta cotización.',
-    'Los precios están sujetos a disponibilidad de stock al momento de confirmar el pedido.',
+    'La disponibilidad indicada en cada ítem corresponde al momento de la cotización; los plazos en días son estimados y se cuentan desde la confirmación del pedido.',
     `Validez de la oferta: ${cot.validez_dias || 7} días desde la fecha de emisión.`,
   ].filter(Boolean);
   doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
@@ -21132,7 +21154,7 @@ let hpTcFuente = null, hpTcFecha = null, hpDescManual = false;
 async function loadHaulottePresup(){
   const { data, error } = await supabaseClient
     .from('haulotte_presupuestos')
-    .select('id,numero,cliente_id,empresa_nombre,contacto_nombre,fecha_emision,validez_dias,estado,total_usd,items_count,clientes(razon_social)')
+    .select('id,numero,cliente_id,empresa_nombre,contacto_nombre,fecha_emision,validez_dias,estado,total_usd,items_count,confirmado_el,confirmado_por,facturado_el,facturado_por,factura_nro,clientes(razon_social)')
     .order('numero', { ascending: false })
     .limit(300);
   if(error){ console.error('Error cargando presupuestos de repuestos:', error); hpCache = []; return; }
@@ -21151,12 +21173,21 @@ function getHpFiltrados(){
   const estado = document.getElementById('hp-filter-estado').value;
   let list = hpCache;
   if(estado) list = list.filter(v => hpEstadoMostrado(v) === estado);
+  const desde = (document.getElementById('hp-desde') || {}).value, hasta = (document.getElementById('hp-hasta') || {}).value;
+  if(desde || hasta){
+    const usaConf = estado === 'confirmado' || estado === 'facturado';       // en confirmados el rango es por fecha de confirmación
+    list = list.filter(v => {
+      const f = usaConf ? String(v.confirmado_el || '').slice(0, 10) : String(v.fecha_emision || '').slice(0, 10);
+      return f && (!desde || f >= desde) && (!hasta || f <= hasta);
+    });
+  }
   if(q) list = list.filter(v =>
     String(v.numero).includes(q) || (v.clientes?.razon_social || '').toLowerCase().includes(q) ||
     (v.empresa_nombre || '').toLowerCase().includes(q) || (v.contacto_nombre || '').toLowerCase().includes(q));
   return list;
 }
 function renderHaulottePresup(){
+  hpResumenPendientes();
   const list = getHpFiltrados();
   const tbody = document.getElementById('hp-tbody');
   if(list.length === 0){
@@ -21164,7 +21195,8 @@ function renderHaulottePresup(){
     document.getElementById('hp-results-count').textContent = '';
     return;
   }
-  const estadoColor = { vigente: 'var(--accent)', aceptado: 'var(--ok)', vencido: '#ff9f43', anulado: 'var(--danger)' };
+  const estadoColor = { vigente: 'var(--accent)', confirmado: 'var(--ok)', facturado: '#a29bfe', vencido: '#ff9f43', anulado: 'var(--danger)' };
+  const puedeEd = puede('haulotte_presupuestos','crear');
   tbody.innerHTML = list.map(v => {
     const empresa = v.clientes?.razon_social || v.empresa_nombre || '—';
     const est = hpEstadoMostrado(v), color = estadoColor[est] || 'var(--text-dim)';
@@ -21177,22 +21209,36 @@ function renderHaulottePresup(){
         <td class="muted">${v.total_usd == null ? '—' : fmtMoney(v.total_usd, 'USD')}</td>
         <td><span class="badge" style="color:${color};border-color:${color};">${est}</span></td>
         <td><div class="row-actions">
-          <button class="btn secondary small" onclick="abrirEditarHp(${v.id})">${v.estado === 'anulado' || !puede('haulotte_presupuestos','crear') ? 'Ver' : 'Editar'}</button>
-          <button class="btn secondary small" onclick="descargarHpPDF(${v.id})">PDF</button>
-          ${v.estado !== 'anulado' && puede('haulotte_presupuestos','anular') ? `<button class="btn danger small" onclick="abrirAnularHp(${v.id})">Anular</button>` : ''}
+          <button class="btn secondary small" onclick="abrirEditarHp(${v.id})">${v.estado !== 'vigente' || !puedeEd ? 'Ver' : 'Editar'}</button>
+          <button class="btn secondary small" onclick="verHpPDF(${v.id})">Ver PDF</button>
+          <button class="btn secondary small" onclick="descargarHpPDF(${v.id})" title="Descargar el PDF">⬇ PDF</button>
+          ${v.estado === 'vigente' && puedeEd ? `<button class="btn small" onclick="confirmarHp(${v.id})">Confirmar</button>` : ''}
+          ${v.estado === 'confirmado' && puedeEd ? `<button class="btn small" style="background:#a29bfe;" onclick="facturarHp(${v.id})">Facturado</button>` : ''}
+          ${v.estado !== 'anulado' && v.estado !== 'facturado' && puede('haulotte_presupuestos','anular') ? `<button class="btn danger small" onclick="abrirAnularHp(${v.id})">Anular</button>` : ''}
         </div></td>
       </tr>`;
   }).join('');
   document.getElementById('hp-results-count').textContent = `${list.length} presupuesto(s) de repuestos${hpCache.length >= 300 ? ' (se muestran los últimos 300)' : ''}`;
 }
+// Pendientes de facturación: confirmados que todavía no se marcaron como facturados
+function hpResumenPendientes(){
+  const el = document.getElementById('hp-pend-resumen'); if(!el) return;
+  const p = hpCache.filter(v => v.estado === 'confirmado');
+  const tot = p.reduce((a, v) => a + Number(v.total_usd || 0), 0);
+  el.innerHTML = p.length
+    ? `<a href="#" onclick="hpVerPendientes();return false;" style="color:var(--ok);">${p.length} presupuesto(s) confirmado(s) pendiente(s) de facturar — ${fmtMoney(tot, 'USD')}</a>`
+    : '<span class="muted">No hay presupuestos confirmados pendientes de facturar.</span>';
+}
+function hpVerPendientes(){ document.getElementById('hp-filter-estado').value = 'confirmado'; renderHaulottePresup(); }
 document.getElementById('hp-search').addEventListener('input', renderHaulottePresup);
 document.getElementById('hp-filter-estado').addEventListener('change', renderHaulottePresup);
+['hp-desde','hp-hasta'].forEach(id => document.getElementById(id).addEventListener('change', renderHaulottePresup));
 document.getElementById('btn-hp-limpiar').addEventListener('click', ()=>{
-  document.getElementById('hp-search').value = ''; document.getElementById('hp-filter-estado').value = ''; renderHaulottePresup();
+  document.getElementById('hp-search').value = ''; document.getElementById('hp-filter-estado').value = ''; document.getElementById('hp-desde').value = ''; document.getElementById('hp-hasta').value = ''; renderHaulottePresup();
 });
 document.getElementById('btn-hp-export-csv').addEventListener('click', ()=>{
-  const headers = ['Numero','Fecha','Cliente Empresa','Contacto','Renglones','Total USD','Estado'];
-  const rows = getHpFiltrados().map(v => [v.numero, v.fecha_emision, v.clientes?.razon_social || v.empresa_nombre || '', v.contacto_nombre || '', v.items_count || 0, v.total_usd ?? '', hpEstadoMostrado(v)]);
+  const headers = ['Numero','Fecha','Cliente Empresa','Contacto','Renglones','Total USD','Estado','Confirmado el','Confirmado por','Facturado el','N° factura'];
+  const rows = getHpFiltrados().map(v => [v.numero, v.fecha_emision, v.clientes?.razon_social || v.empresa_nombre || '', v.contacto_nombre || '', v.items_count || 0, v.total_usd ?? '', hpEstadoMostrado(v), (v.confirmado_el || '').slice(0, 10), v.confirmado_por || '', (v.facturado_el || '').slice(0, 10), v.factura_nro || '']);
   exportCSV('presupuestos_repuestos_haulotte', headers, rows);
 });
 
@@ -21269,27 +21315,41 @@ function hpLeerForm(){
     margen_pct: document.getElementById('hp-margen').value,
     descuento_pct: document.getElementById('hp-descuento').value,
     envio_usd: document.getElementById('hp-envio').value,
-    iva_pct: document.getElementById('hp-iva').value,
     tc: document.getElementById('hp-tc').value,
   };
 }
 function renderHpItemsTabla(){
   const tbody = document.getElementById('hp-items-tbody');
-  if(!hpItemsState.length){ tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Buscá un repuesto arriba para agregarlo.</td></tr>'; hpRecalcular(); return; }
+  if(!hpItemsState.length){ tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Buscá un repuesto arriba para agregarlo.</td></tr>'; hpRecalcular(); return; }
   tbody.innerHTML = hpItemsState.map((it, i) => `
     <tr>
       <td style="font-weight:600;">${escapeHtml(it.codigo)}</td>
       <td>${escapeHtml(it.descripcion || '')}</td>
       <td><input type="number" min="1" step="1" value="${it.cantidad}" data-hp-qty="${i}" style="width:70px;"></td>
-      <td class="muted" style="text-align:right;">${rpN2(it.costo)}</td>
+      <td class="muted" style="text-align:right;">${hpEsNacional(it)
+        ? `<input type="number" step="0.01" min="0" value="${it.costo}" data-hp-costo="${i}" style="width:95px;text-align:right;${it.costoEditado ? '' : 'border-color:#ff9f43;'}" title="Artículo nacional (A-): el costo de la lista no es el real, cargá el costo actual">`
+        : rpN2(it.costo)}</td>
       <td style="text-align:right;" id="hp-pu-${i}"></td>
       <td style="text-align:right;" id="hp-sub-${i}"></td>
+      <td><select data-hp-disp="${i}" style="width:130px;">${hpOpcionesDisp(it)}</select></td>
       <td><button class="btn danger small" type="button" onclick="quitarItemHp(${i})" title="Quitar">✕</button></td>
     </tr>`).join('');
   tbody.querySelectorAll('[data-hp-qty]').forEach(inp => inp.addEventListener('input', ()=>{
-    hpItemsState[Number(inp.dataset.hpQty)].cantidad = Math.max(0, parseInt(inp.value, 10) || 0); hpRecalcular();
+    const k = Number(inp.dataset.hpQty), it = hpItemsState[k];
+    it.cantidad = Math.max(0, parseInt(inp.value, 10) || 0);
+    it.disponibilidad = disponibilidadValida(it.disponibilidad, it.cantidad);
+    const sel = tbody.querySelector(`[data-hp-disp="${k}"]`); if(sel) sel.innerHTML = hpOpcionesDisp(it);     // las opciones dependen de la cantidad
+    hpRecalcular();
   }));
+  tbody.querySelectorAll('[data-hp-costo]').forEach(inp => inp.addEventListener('input', ()=>{
+    const it = hpItemsState[Number(inp.dataset.hpCosto)];
+    it.costo = Math.max(0, Number(inp.value) || 0); it.costoEditado = true; inp.style.borderColor = ''; hpRecalcular();
+  }));
+  tbody.querySelectorAll('[data-hp-disp]').forEach(sel => sel.addEventListener('change', ()=>{ hpItemsState[Number(sel.dataset.hpDisp)].disponibilidad = sel.value || null; }));
   hpRecalcular();
+}
+function hpOpcionesDisp(it){
+  return '<option value="">— elegir —</option>' + opcionesDisponibilidad(it.cantidad).map(o => `<option value="${o.v}"${it.disponibilidad === o.v ? ' selected' : ''}>${o.t}</option>`).join('');
 }
 function quitarItemHp(i){ hpItemsState.splice(i, 1); renderHpItemsTabla(); }
 function hpRecalcular(){
@@ -21297,21 +21357,20 @@ function hpRecalcular(){
   hpItemsState.forEach((it, i) => {
     const pu = document.getElementById('hp-pu-' + i), sb = document.getElementById('hp-sub-' + i);
     const lista = rpR2(rpNum(it.costo) * (1 + c.margen / 100));
-    if(pu) pu.textContent = rpN2(lista);
-    if(sb) sb.textContent = rpN2(rpR2(lista * rpNum(it.cantidad)));
+    const unit = rpR2(lista * (1 - c.descPct / 100));            // precio final que ve el cliente (con el descuento aplicado)
+    if(pu) pu.textContent = rpN2(unit);
+    if(sb) sb.textContent = rpN2(rpR2(unit * rpNum(it.cantidad)));
   });
   document.getElementById('hp-resumen').innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px 24px;">
-      <div><span class="muted">Subtotal (lista)</span><br><b>${fmtMoney(c.subtotal,'USD')}</b></div>
-      ${c.descuento > 0 ? `<div><span class="muted">Descuento ${String(c.descPct).replace('.',',')} %</span><br><b>- ${fmtMoney(c.descuento,'USD')}</b></div>` : ''}
+      <div><span class="muted">Subtotal (precio final al cliente)</span><br><b>${fmtMoney(c.subtotal,'USD')}</b></div>
+      ${c.descuento > 0 ? `<div><span class="muted">Descuento aplicado ${String(c.descPct).replace('.',',')} % (el cliente no lo ve)</span><br><b>${fmtMoney(c.descuento,'USD')}</b></div>` : ''}
       ${c.envio > 0 ? `<div><span class="muted">Envío</span><br><b>${fmtMoney(c.envio,'USD')}</b></div>` : ''}
-      <div><span class="muted">Total neto</span><br><b>${fmtMoney(c.neto,'USD')}</b></div>
-      <div><span class="muted">IVA ${String(c.ivaPct).replace('.',',')} %</span><br><b>${fmtMoney(c.iva,'USD')}</b></div>
-      <div><span class="muted">TOTAL U$D</span><br><b style="font-size:15px;">${fmtMoney(c.total,'USD')}</b></div>
+      <div><span class="muted">TOTAL U$D (sin impuestos)</span><br><b style="font-size:15px;">${fmtMoney(c.total,'USD')}</b></div>
       ${c.tc > 0 ? `<div><span class="muted">Total en pesos (TC $ ${rpN2(c.tc)})</span><br><b style="font-size:15px;">$ ${rpN0(c.totalArs)}</b></div>` : ''}
     </div>`;
 }
-['hp-margen','hp-envio','hp-iva'].forEach(id => document.getElementById(id).addEventListener('input', hpRecalcular));
+['hp-margen','hp-envio'].forEach(id => document.getElementById(id).addEventListener('input', hpRecalcular));
 document.getElementById('hp-descuento').addEventListener('input', ()=>{
   hpDescManual = true; document.getElementById('hp-desc-status').textContent = 'Valor cargado a mano'; hpRecalcular();
 });
@@ -21344,14 +21403,21 @@ function resetHpForm(){
   document.getElementById('hp-fecha_emision').value = hoyIso();
   document.getElementById('hp-validez_dias').value = 7;
   document.getElementById('hp-margen').value = MARGEN_REPUESTOS_DEFECTO;
-  document.getElementById('hp-iva').value = IVA_REPUESTOS;
   document.getElementById('hp-tc-status').textContent = ''; document.getElementById('hp-desc-status').textContent = '';
   hpTcFuente = null; hpTcFecha = null; hpDescManual = false; hpItemsState = [];
   renderHpItemsTabla();
 }
+const hpPuedeMargen = () => puede('haulotte_presupuestos', 'margen');
+function hpAplicarPermisoMargen(){
+  const m = document.getElementById('hp-margen'); if(!m) return;
+  if(!hpPuedeMargen()){ m.disabled = true; m.title = 'Solo pueden modificar el margen los usuarios con ese permiso'; }
+}
+// Artículos nacionales ("A-" delante del código): el costo de la lista no es real, se carga a mano en cada presupuesto
+const hpEsNacional = it => /^a-/i.test(String(it.codigo || '').trim());
 function hpSoloLectura(ro){
   document.querySelectorAll('#modal-hpres-overlay input, #modal-hpres-overlay select, #modal-hpres-overlay textarea').forEach(el => { el.disabled = ro; });
   ['btn-hp-save','btn-hp-tc-bna','hp-art-search'].forEach(id => document.getElementById(id).style.display = ro ? 'none' : '');
+  hpAplicarPermisoMargen();
 }
 document.getElementById('btn-hp-nuevo').addEventListener('click', ()=>{
   resetHpForm(); hpSoloLectura(false);
@@ -21372,8 +21438,8 @@ async function abrirEditarHp(id){
   const v = await hpTraerCompleto(id);
   if(!v) return;
   resetHpForm();
-  const ro = v.estado === 'anulado' || !puede('haulotte_presupuestos','crear');
-  document.getElementById('hp-modal-titulo').textContent = v.estado === 'anulado' ? 'Presupuesto de repuestos (anulado — solo lectura)' : (ro ? 'Presupuesto de repuestos (solo lectura)' : 'Editar presupuesto de repuestos');
+  const ro = v.estado !== 'vigente' || !puede('haulotte_presupuestos','crear');
+  document.getElementById('hp-modal-titulo').textContent = v.estado !== 'vigente' ? `Presupuesto de repuestos (${v.estado} — solo lectura)` : (ro ? 'Presupuesto de repuestos (solo lectura)' : 'Editar presupuesto de repuestos');
   document.getElementById('hp-modal-numero').textContent = `N° ${String(v.numero).padStart(5,'0')}`;
   document.getElementById('hp-id').value = v.id;
   document.getElementById('hp-cliente_id').value = v.cliente_id || '';
@@ -21387,14 +21453,13 @@ async function abrirEditarHp(id){
   document.getElementById('hp-margen').value = v.margen_pct;
   document.getElementById('hp-descuento').value = Number(v.descuento_pct) > 0 ? v.descuento_pct : '';
   document.getElementById('hp-envio').value = Number(v.envio_usd) > 0 ? v.envio_usd : '';
-  document.getElementById('hp-iva').value = v.iva_pct;
   document.getElementById('hp-tc').value = v.tipo_cambio || '';
   hpTcFuente = v.tipo_cambio_fuente || null; hpTcFecha = v.tipo_cambio_fecha || null;
   document.getElementById('hp-tc-status').textContent = hpTcFuente ? `${hpTcFuente}${hpTcFecha ? ' del ' + fmtDate(hpTcFecha) : ''}` : '';
   document.getElementById('hp-condicion_pago').value = v.condicion_pago || '';
   document.getElementById('hp-notas').value = v.notas || '';
   hpDescManual = true;
-  hpItemsState = v.haulotte_presupuesto_items.map(i => ({ codigo: i.codigo, descripcion: i.descripcion, cantidad: i.cantidad, costo: Number(i.costo_unitario) || 0 }));
+  hpItemsState = v.haulotte_presupuesto_items.map(i => ({ codigo: i.codigo, descripcion: i.descripcion, cantidad: i.cantidad, costo: Number(i.costo_unitario) || 0, disponibilidad: i.disponibilidad || null, costoEditado: true }));
   renderHpItemsTabla();
   hpSoloLectura(ro);
   document.getElementById('modal-hpres-overlay').classList.add('open');
@@ -21411,17 +21476,19 @@ function hpArmarPayload(){
       fecha_emision: document.getElementById('hp-fecha_emision').value || hoyIso(),
       validez_dias: Number(document.getElementById('hp-validez_dias').value) || 7,
       moneda: 'USD',
-      margen_pct: c.margen, descuento_pct: c.descPct, envio_usd: c.envio, iva_pct: c.ivaPct,
+      margen_pct: c.margen, descuento_pct: c.descPct, envio_usd: c.envio, iva_pct: 0,
       tipo_cambio: c.tc > 0 ? c.tc : null, tipo_cambio_fuente: c.tc > 0 ? (hpTcFuente || 'Manual') : null, tipo_cambio_fecha: c.tc > 0 ? (hpTcFecha || null) : null,
       condicion_pago: document.getElementById('hp-condicion_pago').value.trim() || null,
       notas: document.getElementById('hp-notas').value.trim() || null,
       total_usd: c.total, items_count: c.items.length,
     },
-    items: c.items.map((it, i) => ({ codigo: it.codigo, descripcion: it.descripcion, cantidad: Number(it.cantidad), costo_unitario: it.costo, precio_unitario: it.lista, orden: i })),
+    items: c.items.map((it, i) => ({ codigo: it.codigo, descripcion: it.descripcion, cantidad: Number(it.cantidad), costo_unitario: it.costo, precio_unitario: it.lista, disponibilidad: it.disponibilidad || null, orden: i })),
     calc: c,
   };
 }
 function hpValidar(){
+  const sinCosto = hpItemsState.filter(i => Number(i.cantidad) > 0 && hpEsNacional(i) && !i.costoEditado);
+  if(sinCosto.length && !confirm(`Estos artículos nacionales (A-) todavía tienen el costo de la lista, que no es el real:\n\n${sinCosto.map(i => '• ' + i.codigo).join('\n')}\n\n¿Querés guardar igual con ese costo?`)) return false;
   if(!hpItemsState.some(i => Number(i.cantidad) > 0)){ showToast('Agregá al menos un repuesto con cantidad', true); return false; }
   if(!document.getElementById('hp-cliente_id').value && !document.getElementById('hp-empresa_nombre').value.trim()){
     showToast('Elegí un cliente o escribí el nombre de la empresa', true); return false;
@@ -21481,9 +21548,34 @@ function hpCotDesdeRegistro(v){
   return {
     numero: v.numero, fecha_emision: v.fecha_emision, validez_dias: v.validez_dias, cliente: v.clientes, empresa_nombre: v.empresa_nombre,
     contacto_nombre: v.contacto_nombre, contacto_email: v.contacto_email, contacto_telefono: v.contacto_telefono, condicion_pago: v.condicion_pago, notas: v.notas,
-    items: v.haulotte_presupuesto_items.map(i => ({ codigo: i.codigo, descripcion: i.descripcion, cantidad: i.cantidad, precio_unitario: i.precio_unitario })),
-    descuento_pct: v.descuento_pct, envio_usd: v.envio_usd, iva_pct: v.iva_pct, tc: v.tipo_cambio, tc_fecha: v.tipo_cambio_fecha,
+    items: v.haulotte_presupuesto_items.map(i => ({ codigo: i.codigo, descripcion: i.descripcion, cantidad: i.cantidad, precio_unitario: i.precio_unitario, disponibilidad: i.disponibilidad })),
+    descuento_pct: v.descuento_pct, envio_usd: v.envio_usd, tc: v.tipo_cambio, tc_fecha: v.tipo_cambio_fecha,
   };
+}
+async function verHpPDF(id){
+  const w = window.open('', '_blank');                          // se abre antes de pedir los datos para que el navegador no lo bloquee
+  const v = await hpTraerCompleto(id);
+  if(!v){ if(w) w.close(); return; }
+  const { doc } = generarRepuestosPDF(hpCotDesdeRegistro(v));
+  const url = doc.output('bloburl');
+  if(w) w.location.href = url; else window.open(url, '_blank');
+}
+async function confirmarHp(id){
+  const v = hpCache.find(x => x.id === id); if(!v) return;
+  if(!confirm(`¿Confirmar el presupuesto N° ${String(v.numero).padStart(5,'0')}?\n\nQueda como "pendiente de facturar" y ya no se puede editar.`)) return;
+  const { error } = await supabaseClient.from('haulotte_presupuestos').update({ estado: 'confirmado', confirmado_el: new Date().toISOString(), confirmado_por: miPerfil?.nombre || null, updated_at: new Date().toISOString() }).eq('id', id).eq('estado', 'vigente');
+  if(error){ showToast('No se pudo confirmar: ' + error.message, true); return; }
+  showToast('Presupuesto confirmado: quedó pendiente de facturar');
+  await loadHaulottePresup(); renderHaulottePresup(); renderDashboard();
+}
+async function facturarHp(id){
+  const v = hpCache.find(x => x.id === id); if(!v) return;
+  const nro = prompt(`Marcar como facturado el N° ${String(v.numero).padStart(5,'0')}.\n\nN° de factura (opcional):`, '');
+  if(nro === null) return;
+  const { error } = await supabaseClient.from('haulotte_presupuestos').update({ estado: 'facturado', facturado_el: new Date().toISOString(), facturado_por: miPerfil?.nombre || null, factura_nro: nro.trim() || null, updated_at: new Date().toISOString() }).eq('id', id).eq('estado', 'confirmado');
+  if(error){ showToast('No se pudo marcar como facturado: ' + error.message, true); return; }
+  showToast('Presupuesto marcado como facturado');
+  await loadHaulottePresup(); renderHaulottePresup(); renderDashboard();
 }
 async function descargarHpPDF(id){
   const v = await hpTraerCompleto(id);
@@ -21500,8 +21592,8 @@ document.getElementById('btn-hp-pdf-previo').addEventListener('click', ()=>{
     numero: reg ? reg.numero : null, fecha_emision: cabecera.fecha_emision, validez_dias: cabecera.validez_dias, cliente: cli, empresa_nombre: cabecera.empresa_nombre,
     contacto_nombre: cabecera.contacto_nombre, contacto_email: cabecera.contacto_email, contacto_telefono: cabecera.contacto_telefono,
     condicion_pago: cabecera.condicion_pago, notas: cabecera.notas,
-    items: items.map(i => ({ codigo: i.codigo, descripcion: i.descripcion, cantidad: i.cantidad, precio_unitario: i.precio_unitario })),
-    descuento_pct: cabecera.descuento_pct, envio_usd: cabecera.envio_usd, iva_pct: cabecera.iva_pct, tc: cabecera.tipo_cambio || 0, tc_fecha: cabecera.tipo_cambio_fecha,
+    items: items.map(i => ({ codigo: i.codigo, descripcion: i.descripcion, cantidad: i.cantidad, precio_unitario: i.precio_unitario, disponibilidad: i.disponibilidad })),
+    descuento_pct: cabecera.descuento_pct, envio_usd: cabecera.envio_usd, tc: cabecera.tipo_cambio || 0, tc_fecha: cabecera.tipo_cambio_fecha,
   });
   window.open(doc.output('bloburl'), '_blank');
 });
