@@ -21695,11 +21695,12 @@ function generarRepuestosPDF(cot){
     return y + 8;
   };
   const titulo = (txt, y) => { doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(0); doc.text(txt, marginX, y); return y + 6; };
-  const X = { cod: marginX + 2, desc: marginX + 25, cant: 106, pu: 128, sub: 152, disp: 173 };
+  const X = { foto: marginX + 1, cod: marginX + 19, desc: marginX + 42, cant: 114, pu: 134, sub: 156, disp: 175 };
+  const FOTO_W = 16, FOTO_H = 12.5;
   const cabTabla = y => {
     doc.setFillColor(...NEGRO); doc.rect(marginX, y - 5, pageWidth - marginX * 2, 7, 'F');
     doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
-    doc.text('Código', X.cod, y); doc.text('Descripción', X.desc, y);
+    doc.text('Foto', X.foto, y); doc.text('Código', X.cod, y); doc.text('Descripción', X.desc, y);
     doc.text('Cant.', X.cant, y, { align: 'right' }); doc.text('P. unit. U$D', X.pu, y, { align: 'right' }); doc.text('Subtotal U$D', X.sub, y, { align: 'right' }); doc.text('Disponibilidad', X.disp, y, { align: 'center' });
     doc.setTextColor(0);
     return y + 8;
@@ -21719,10 +21720,20 @@ function generarRepuestosPDF(cot){
   let z = 0;
   calc.items.forEach(it => {
     doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
-    const ls = doc.splitTextToSize(it.descripcion || "", 56).slice(0, 3);
-    const h = Math.max(ls.length * 4 + 2.5, 7);
+    const ls = doc.splitTextToSize(it.descripcion || "", 46).slice(0, 4);
+    const h = Math.max(ls.length * 4 + 2.5, FOTO_H + 4);
     if(y + h > LIM){ doc.addPage(); y = encabezado(); y = cabTabla(y); z = 0; }
     if(z++ % 2 === 1){ doc.setFillColor(246, 247, 249); doc.rect(marginX, y - 4, pageWidth - marginX * 2, h, 'F'); }
+    // Miniatura (si no hay foto, recuadro gris liviano para que la tabla no quede desalineada)
+    if(it.foto && it.foto.data){
+      const esc = Math.min(FOTO_W / it.foto.w, FOTO_H / it.foto.h), fw = it.foto.w * esc, fh = it.foto.h * esc;
+      try{ doc.addImage(it.foto.data, 'JPEG', X.foto + (FOTO_W - fw) / 2, y - 3 + (FOTO_H - fh) / 2, fw, fh); } catch(e){ console.error(e); }
+    } else {
+      doc.setFillColor(238, 239, 241); doc.setDrawColor(222); doc.setLineWidth(0.15);
+      doc.rect(X.foto, y - 3, FOTO_W, FOTO_H, 'FD');
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(5.5); doc.setTextColor(150);
+      doc.text('sin foto', X.foto + FOTO_W / 2, y - 3 + FOTO_H / 2 + 1, { align: 'center' }); doc.setTextColor(0); doc.setFontSize(8.5);
+    }
     doc.setFont('helvetica', 'bold'); doc.text(String(it.codigo || ''), X.cod, y);
     doc.setFont('helvetica', 'normal'); doc.text(ls, X.desc, y);
     doc.text(String(it.cantidad), X.cant, y, { align: 'right' });
@@ -21785,6 +21796,41 @@ function generarRepuestosPDF(cot){
     doc.setTextColor(0);
   }
   return { doc, calc, fileName: `Presupuesto_Repuestos_${numero}_${empresa.replace(/[^a-zA-Z0-9]/g, '_')}.pdf` };
+}
+
+// ---------- Fotos para el PDF del presupuesto de repuestos ----------
+// Toma la imagen de cada artículo (haulotte_repuestos_gp.imagen_url), la reduce a una miniatura liviana y la guarda en memoria.
+const hpFotoCache = {};
+function hpCargarMiniatura(url){
+  return new Promise(res => {
+    const img = new Image(); img.crossOrigin = 'anonymous';
+    const t = setTimeout(() => res(null), 8000);
+    img.onload = () => {
+      clearTimeout(t);
+      try{
+        const MAX = 220, esc = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
+        const w = Math.max(1, Math.round(img.naturalWidth * esc)), h = Math.max(1, Math.round(img.naturalHeight * esc));
+        const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+        const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, h); cx.drawImage(img, 0, 0, w, h);
+        res({ data: cv.toDataURL('image/jpeg', 0.72), w, h });
+      } catch(e){ console.error(e); res(null); }
+    };
+    img.onerror = () => { clearTimeout(t); res(null); };
+    img.src = url;
+  });
+}
+async function hpPrecargarFotos(items){
+  try{
+    const faltan = [...new Set(items.map(i => i.codigo).filter(c => c && !(c in hpFotoCache)))];
+    for(let i = 0; i < faltan.length; i += 100){
+      const lote = faltan.slice(i, i + 100);
+      const { data } = await supabaseClient.from('haulotte_repuestos_gp').select('codigo,imagen_url').in('codigo', lote);
+      const urls = {}; (data || []).forEach(r => { urls[r.codigo] = r.imagen_url; });
+      await Promise.all(lote.map(async c => { hpFotoCache[c] = urls[c] ? await hpCargarMiniatura(urls[c]) : null; }));
+    }
+  } catch(e){ console.error('No se pudieron cargar las fotos del PDF:', e); }
+  items.forEach(i => { i.foto = hpFotoCache[i.codigo] || null; });
+  return items;
 }
 
 // ---------- Presupuestos de repuestos Haulotte: datos y listado ----------
@@ -22199,7 +22245,8 @@ async function verHpPDF(id){
   const w = window.open('', '_blank');                          // se abre antes de pedir los datos para que el navegador no lo bloquee
   const v = await hpTraerCompleto(id);
   if(!v){ if(w) w.close(); return; }
-  const { doc } = generarRepuestosPDF(hpCotDesdeRegistro(v));
+  const cot = hpCotDesdeRegistro(v); await hpPrecargarFotos(cot.items);
+  const { doc } = generarRepuestosPDF(cot);
   const url = doc.output('bloburl');
   if(w) w.location.href = url; else window.open(url, '_blank');
 }
@@ -22223,22 +22270,27 @@ async function facturarHp(id){
 async function descargarHpPDF(id){
   const v = await hpTraerCompleto(id);
   if(!v) return;
-  const r = generarRepuestosPDF(hpCotDesdeRegistro(v)); r.doc.save(r.fileName);
+  const cot = hpCotDesdeRegistro(v); await hpPrecargarFotos(cot.items);
+  const r = generarRepuestosPDF(cot); r.doc.save(r.fileName);
 }
-document.getElementById('btn-hp-pdf-previo').addEventListener('click', ()=>{
+document.getElementById('btn-hp-pdf-previo').addEventListener('click', async ()=>{
   if(!hpValidar()) return;
+  const w = window.open('', '_blank');
   const { cabecera, items } = hpArmarPayload();
   const cli = cabecera.cliente_id ? clientesCache.find(c => c.id === cabecera.cliente_id) : null;
   const idv = document.getElementById('hp-id').value;
   const reg = idv ? hpCache.find(x => x.id === Number(idv)) : null;
+  const itemsPdf = items.map(i => ({ codigo: i.codigo, descripcion: i.descripcion, cantidad: i.cantidad, precio_unitario: i.precio_unitario, disponibilidad: i.disponibilidad }));
+  await hpPrecargarFotos(itemsPdf);
   const { doc } = generarRepuestosPDF({
     numero: reg ? reg.numero : null, fecha_emision: cabecera.fecha_emision, validez_dias: cabecera.validez_dias, cliente: cli, empresa_nombre: cabecera.empresa_nombre,
     contacto_nombre: cabecera.contacto_nombre, contacto_email: cabecera.contacto_email, contacto_telefono: cabecera.contacto_telefono,
     condicion_pago: cabecera.condicion_pago, notas: cabecera.notas,
-    items: items.map(i => ({ codigo: i.codigo, descripcion: i.descripcion, cantidad: i.cantidad, precio_unitario: i.precio_unitario, disponibilidad: i.disponibilidad })),
+    items: itemsPdf,
     descuento_pct: cabecera.descuento_pct, envio_usd: cabecera.envio_usd, tc: cabecera.tipo_cambio || 0, tc_fecha: cabecera.tipo_cambio_fecha,
   });
-  window.open(doc.output('bloburl'), '_blank');
+  const url = doc.output('bloburl');
+  if(w) w.location.href = url; else window.open(url, '_blank');
 });
 
 // ---------- Importar costos desde el Excel de GP (hoja "Costos actualizados") ----------
