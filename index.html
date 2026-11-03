@@ -2886,11 +2886,25 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
 
   <section id="tab-haulotte_articulos" style="display:none;">
     <div class="toolbar">
-      <input type="text" id="hrep-search-input" placeholder="Buscar por código, descripción o categoría...">
+      <input type="text" id="hrep-search-input" placeholder="Buscar por código o descripción..." style="min-width:260px;">
+      <select id="hrep-f-estado" title="Estado">
+        <option value="activos">Activos</option>
+        <option value="inactivos">Inactivos</option>
+        <option value="todos">Todos</option>
+      </select>
+      <select id="hrep-f-origen" title="Origen">
+        <option value="">Origen: todos</option>
+        <option value="gp">Del Excel de GP</option>
+        <option value="manual">Cargados a mano</option>
+      </select>
+      <select id="hrep-f-costo" title="Costo">
+        <option value="">Costo: todos</option>
+        <option value="manual">Con costo editado a mano</option>
+      </select>
       <span class="muted" id="hrep-gp-status" style="font-size:12px;"></span>
       <div style="flex:1"></div>
       <input type="file" id="hrep-gp-file" accept=".xls,.xlsx" style="display:none;">
-      <button class="btn secondary" id="btn-hrep-import-gp" title="Carga el Excel de costos de GP (hoja Costos actualizados) para el cotizador de repuestos">⬆ Importar costos GP (Excel)</button>
+      <button class="btn secondary" id="btn-hrep-import-gp" title="Carga el Excel de costos de GP (hoja Costos actualizados). Los costos editados a mano y los artículos cargados a mano se respetan">⬆ Importar costos GP (Excel)</button>
       <button class="btn" id="btn-new-hrep">+ Nuevo artículo</button>
     </div>
 
@@ -2899,51 +2913,96 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
         <table>
           <thead>
             <tr>
-              <th>Código</th>
+              <th style="width:150px;">Código</th>
               <th>Descripción</th>
-              <th style="width:110px;">Categoría</th>
-              <th style="width:130px;">Último costo</th>
+              <th style="width:70px;">Clase</th>
+              <th style="width:160px;">Costo ARG (US$)</th>
+              <th style="width:80px;">Imagen / Ficha</th>
               <th style="width:90px;">Estado</th>
-              <th style="width:120px;">Acciones</th>
+              <th style="width:90px;">Acciones</th>
             </tr>
           </thead>
           <tbody id="hrep-tbody">
-            <tr><td colspan="6" class="empty-state">Cargando artículos...</td></tr>
+            <tr><td colspan="7" class="empty-state">Cargando artículos...</td></tr>
           </tbody>
         </table>
       </div>
     </div>
-    <div class="muted" id="hrep-results-count" style="margin-top:10px;font-size:12px;"></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-top:10px;font-size:12px;">
+      <span class="muted" id="hrep-results-count"></span>
+      <div style="flex:1"></div>
+      <button class="btn secondary small" id="btn-hrep-prev">← Anterior</button>
+      <span class="muted" id="hrep-page-info"></span>
+      <button class="btn secondary small" id="btn-hrep-next">Siguiente →</button>
+    </div>
   </section>
 
   <div class="overlay" id="modal-hrep-overlay">
-    <div class="modal">
+    <div class="modal" style="max-width:820px;width:96%;max-height:92vh;overflow:auto;">
       <h2 id="hrep-modal-title">Nuevo artículo</h2>
       <input type="hidden" id="hrep-id">
+      <div id="hrep-origen-info" class="muted" style="font-size:12px;margin:-6px 0 10px;"></div>
 
       <div class="field-grid">
-        <div class="field full">
+        <div class="field">
           <label>Código *</label>
           <input type="text" id="hrep-codigo" placeholder="Ej: 2324000890" style="font-family:monospace;">
+        </div>
+        <div class="field">
+          <label>Estado</label>
+          <select id="hrep-activo">
+            <option value="true">Activo (se puede cotizar)</option>
+            <option value="false">Inactivo (no aparece en cotizaciones)</option>
+          </select>
         </div>
         <div class="field full">
           <label>Descripción</label>
           <input type="text" id="hrep-descripcion" placeholder="Descripción del repuesto">
         </div>
         <div class="field">
-          <label>Categoría</label>
-          <input type="text" id="hrep-categoria" placeholder="Ej: A, B, C...">
+          <label>Clase</label>
+          <input type="text" id="hrep-clase" placeholder="Ej: A, B, C...">
         </div>
         <div class="field">
-          <label>Estado</label>
-          <select id="hrep-activo">
-            <option value="true">Activo</option>
-            <option value="false">Inactivo</option>
-          </select>
+          <label>Costo ARG unitario (US$) *</label>
+          <input type="number" id="hrep-costo" min="0" step="0.01" placeholder="0.00">
+          <div class="muted" id="hrep-costo-info" style="font-size:12px;margin-top:4px;">—</div>
+        </div>
+        <div class="field full" id="hrep-motivo-wrap" style="display:none;">
+          <label>Motivo del cambio de costo *</label>
+          <input type="text" id="hrep-motivo" placeholder="Ej: cotización del proveedor del 28/10, factura de compra, etc.">
         </div>
         <div class="field full">
-          <label>Último costo cargado</label>
-          <div class="muted" id="hrep-costo-info" style="font-size:13px;padding-top:6px;">—</div>
+          <label>Notas internas</label>
+          <textarea id="hrep-notas" rows="2" placeholder="Equivalencias, proveedor, observaciones..."></textarea>
+        </div>
+
+        <div class="field">
+          <label>Imagen del artículo</label>
+          <div id="hrep-img-preview" style="height:140px;border:1px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--panel-2,transparent);">
+            <span class="muted" style="font-size:12px;">Sin imagen</span>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:6px;">
+            <button type="button" class="btn secondary small" id="btn-hrep-img">Subir imagen</button>
+            <button type="button" class="btn secondary small" id="btn-hrep-img-del" style="display:none;">Quitar</button>
+          </div>
+          <input type="file" id="hrep-img-file" accept="image/*" style="display:none;">
+        </div>
+        <div class="field">
+          <label>Ficha técnica (PDF)</label>
+          <div id="hrep-ficha-box" style="min-height:140px;border:1px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;padding:8px;text-align:center;">
+            <span class="muted" style="font-size:12px;">Sin ficha técnica</span>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:6px;">
+            <button type="button" class="btn secondary small" id="btn-hrep-ficha">Subir ficha</button>
+            <button type="button" class="btn secondary small" id="btn-hrep-ficha-del" style="display:none;">Quitar</button>
+          </div>
+          <input type="file" id="hrep-ficha-file" accept="application/pdf,.pdf,image/*" style="display:none;">
+        </div>
+
+        <div class="field full" id="hrep-hist-wrap" style="display:none;">
+          <label>Historial de costos</label>
+          <div id="hrep-hist" style="max-height:140px;overflow:auto;font-size:12px;border:1px solid var(--border);border-radius:8px;"></div>
         </div>
       </div>
 
@@ -10309,7 +10368,7 @@ function renderDashboard(){
       { tab:'stockvalorizado', icon:'📦', title:'Stock Valorizado', count:'Importar SmartList de GP', visible:puede('stockvalorizado','ver'), urgencia:null },
     ]},
     { key:'haulotte_articulos_cat', titulo:'Artículos Haulotte', icon:'🔧', tiles:[
-      { tab:'haulotte_articulos', icon:'🔧', title:'Artículos', count:`${haulotteRepuestosCache.length} repuesto(s)`, visible:puede('haulotte_repuestos','ver'), urgencia:null },
+      { tab:'haulotte_articulos', icon:'🔧', title:'Artículos', count:`${hrepTotal.toLocaleString('es-AR')} repuesto(s)`, visible:puede('haulotte_repuestos','ver'), urgencia:null },
     ]},
     { key:'haulotte_ventas_cat', titulo:'Ventas Haulotte', icon:'💼', tiles:[
       { tab:'haulotte_ventas', icon:'💼', title:'Cotizador de Máquinas', count: puede('haulotte_ventas','ver') ? `${hventasCache.filter(v=>hvEstadoMostrado(v)==='vigente').length} vigente(s)` : '', visible:puede('haulotte_ventas','ver'), urgencia:null },
@@ -19828,149 +19887,233 @@ async function generarPresupuestoPDF(id){
 }
 
 // =========================================================
+// MÓDULO ARTÍCULOS HAULOTTE (catálogo GP de cotización de repuestos)
+// Tabla haulotte_repuestos_gp: lista paginada en el servidor + ficha ampliada
+// (costo editable con historial, imagen, ficha técnica, notas).
 // =========================================================
-// MÓDULO ARTÍCULOS HAULOTTE (catálogo de repuestos)
-// =========================================================
+let hrepTotal = 0;           // total de artículos activos con costo (tile del dashboard)
+let hrepPagina = 0;
+const HREP_PAGE = 50;
+let hrepFilas = [];
+let hrepFichaEdit = null;    // estado de la ficha abierta
 
+// Liviano: solo cuenta (el listado se pide por páginas al abrir la pantalla)
 async function loadHaulotteRepuestos(){
-  const tbody = document.getElementById('hrep-tbody');
-  if(tbody && !syncSilencioso) tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Cargando artículos...</td></tr>';
-
-  const [{ data: repuestos, error: errR }, { data: costos, error: errC }] = await Promise.all([
-    supabaseClient.from('haulotte_repuestos').select('*').order('codigo'),
-    supabaseClient.from('haulotte_repuestos_ultimo_costo').select('*'),
-  ]);
-
-  if(errR){
-    console.error('Error cargando artículos Haulotte:', errR);
-    haulotteRepuestosCache = [];
-    if(tbody) tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Error al cargar: ${errR.message}</td></tr>`;
-    return;
-  }
-  if(errC) console.error('Error cargando último costo:', errC);
-
-  const costoPorCodigo = new Map((costos||[]).map(c=>[c.codigo, c]));
-  haulotteRepuestosCache = (repuestos||[]).map(r=>({ ...r, _ultimo_costo: costoPorCodigo.get(r.codigo) || null }));
+  const { count, error } = await supabaseClient.from('haulotte_repuestos_gp').select('codigo', { count: 'exact', head: true }).eq('activo', true);
+  if(!error) hrepTotal = count || 0;
 }
 
-function getFilteredHaulotteRepuestos(){
-  const q = (document.getElementById('hrep-search-input')?.value || '').trim().toLowerCase();
-  let list = haulotteRepuestosCache;
-  if(q){
-    list = list.filter(r =>
-      (r.codigo||'').toLowerCase().includes(q) ||
-      (r.descripcion||'').toLowerCase().includes(q) ||
-      (r.categoria||'').toLowerCase().includes(q)
-    );
-  }
-  return list;
-}
+function hrepUsd(n){ return 'US$ ' + Number(n).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
-function renderHaulotteRepuestos(){
-  const list = getFilteredHaulotteRepuestos();
+async function hrepCargarPagina(){
   const tbody = document.getElementById('hrep-tbody');
   if(!tbody) return;
-  if(list.length === 0){
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No hay artículos con este filtro.</td></tr>';
-    document.getElementById('hrep-results-count').textContent = '';
+  tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Cargando artículos...</td></tr>';
+  const q = (document.getElementById('hrep-search-input').value || '').trim().replace(/[,()%*\\]/g, ' ').replace(/\s+/g, ' ');
+  const fEstado = document.getElementById('hrep-f-estado').value;
+  const fOrigen = document.getElementById('hrep-f-origen').value;
+  const fCosto = document.getElementById('hrep-f-costo').value;
+  let qb = supabaseClient.from('haulotte_repuestos_gp').select('*', { count: 'exact' });
+  if(fEstado === 'activos') qb = qb.eq('activo', true);
+  if(fEstado === 'inactivos') qb = qb.eq('activo', false);
+  if(fOrigen) qb = qb.eq('origen', fOrigen);
+  if(fCosto === 'manual') qb = qb.eq('costo_manual', true);
+  if(q) qb = qb.or(`codigo.ilike.%${q}%,descripcion.ilike.%${q}%`);
+  const desde = hrepPagina * HREP_PAGE;
+  const { data, count, error } = await qb.order('codigo').range(desde, desde + HREP_PAGE - 1);
+  if(error){
+    console.error('Error cargando artículos:', error);
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-state">Error al cargar: ${escapeHtml(error.message)}</td></tr>`;
     return;
   }
-  tbody.innerHTML = list.map(r=>{
-    const costo = r._ultimo_costo?.costo_unitario_usd;
-    const costoTxt = (costo === null || costo === undefined) ? '<span class="muted">—</span>' : `US$ ${Number(costo).toFixed(2)}`;
-    return `
+  hrepFilas = data || [];
+  const total = count || 0;
+  const pags = Math.max(1, Math.ceil(total / HREP_PAGE));
+  if(!hrepFilas.length){
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No hay artículos con este filtro.</td></tr>';
+  } else {
+    const verEditar = puede('haulotte_repuestos','editar') ? 'Editar' : 'Ver';
+    tbody.innerHTML = hrepFilas.map(r => `
       <tr>
-        <td style="font-family:monospace;">${escapeHtml(r.codigo)}</td>
+        <td style="font-family:monospace;">${escapeHtml(r.codigo)}${r.origen === 'manual' ? ' <span class="badge" title="Cargado a mano" style="font-size:10px;">manual</span>' : ''}</td>
         <td>${r.descripcion ? escapeHtml(r.descripcion) : '<span class="muted">Sin descripción</span>'}</td>
-        <td class="muted">${r.categoria ? escapeHtml(r.categoria) : '—'}</td>
-        <td class="muted">${costoTxt}</td>
+        <td class="muted">${r.clase ? escapeHtml(r.clase) : '—'}</td>
+        <td>${hrepUsd(r.costo_arg_usd)}${r.costo_manual ? ' <span class="badge" title="Costo editado a mano' + (r.costo_editado_el ? ' el ' + fmtDate(r.costo_editado_el) : '') + '" style="font-size:10px;color:var(--warn,#c80);border-color:var(--warn,#c80);">editado</span>' : ''}</td>
+        <td class="muted">${r.imagen_url ? '🖼️' : '·'} ${r.ficha_tecnica_url ? '📄' : '·'}</td>
         <td>${r.activo
           ? '<span class="badge" style="color:var(--ok);border-color:var(--ok);">Activo</span>'
           : '<span class="badge" style="color:var(--text-dim);border-color:var(--border);">Inactivo</span>'}</td>
-        <td>
-          <div class="row-actions">
-            <button class="btn secondary small" onclick="abrirEditarHrep(${r.id})">${puede('haulotte_repuestos','editar') ? 'Editar' : 'Ver'}</button>
-          </div>
-        </td>
-      </tr>`;
-  }).join('');
-  document.getElementById('hrep-results-count').textContent = `${list.length} artículo(s)`;
+        <td><div class="row-actions"><button class="btn secondary small" onclick="abrirEditarHrep('${escapeHtml(r.codigo).replace(/'/g, '&#39;')}')">${verEditar}</button></div></td>
+      </tr>`).join('');
+  }
+  document.getElementById('hrep-results-count').textContent = `${total.toLocaleString('es-AR')} artículo(s)`;
+  document.getElementById('hrep-page-info').textContent = `Página ${hrepPagina + 1} de ${pags}`;
+  document.getElementById('btn-hrep-prev').disabled = hrepPagina <= 0;
+  document.getElementById('btn-hrep-next').disabled = hrepPagina + 1 >= pags;
 }
 
-document.getElementById('hrep-search-input').addEventListener('input', renderHaulotteRepuestos);
+// Compatibilidad con los lugares que ya llamaban a renderHaulotteRepuestos()
+function renderHaulotteRepuestos(){ return hrepCargarPagina(); }
 
-function limpiarModalHrep(){
-  document.getElementById('hrep-id').value = '';
-  document.getElementById('hrep-codigo').value = '';
-  document.getElementById('hrep-codigo').disabled = false;
-  document.getElementById('hrep-descripcion').value = '';
-  document.getElementById('hrep-categoria').value = '';
-  document.getElementById('hrep-activo').value = 'true';
-  document.getElementById('hrep-costo-info').textContent = '—';
-}
-
-document.getElementById('btn-new-hrep').addEventListener('click', ()=>{
-  limpiarModalHrep();
-  document.getElementById('hrep-modal-title').textContent = 'Nuevo artículo';
-  document.getElementById('btn-hrep-delete').style.display = 'none';
-  document.getElementById('modal-hrep-overlay').classList.add('open');
+let hrepTimer = null;
+document.getElementById('hrep-search-input').addEventListener('input', ()=>{
+  clearTimeout(hrepTimer);
+  hrepTimer = setTimeout(()=>{ hrepPagina = 0; hrepCargarPagina(); }, 350);
 });
+['hrep-f-estado','hrep-f-origen','hrep-f-costo'].forEach(id => document.getElementById(id).addEventListener('change', ()=>{ hrepPagina = 0; hrepCargarPagina(); }));
+document.getElementById('btn-hrep-prev').addEventListener('click', ()=>{ if(hrepPagina > 0){ hrepPagina--; hrepCargarPagina(); } });
+document.getElementById('btn-hrep-next').addEventListener('click', ()=>{ hrepPagina++; hrepCargarPagina(); });
 
-function abrirEditarHrep(id){
-  const r = haulotteRepuestosCache.find(x=>x.id === id);
-  if(!r) return;
-  limpiarModalHrep();
-  document.getElementById('hrep-modal-title').textContent = r.codigo;
-  document.getElementById('hrep-id').value = r.id;
-  document.getElementById('hrep-codigo').value = r.codigo;
-  // El código es la clave que enlaza todo el historial de costeo (haulotte_repuestos_costeo) —
-  // no se puede editar una vez creado el artículo, solo al darlo de alta.
-  document.getElementById('hrep-codigo').disabled = true;
-  document.getElementById('hrep-descripcion').value = r.descripcion || '';
-  document.getElementById('hrep-categoria').value = r.categoria || '';
-  document.getElementById('hrep-activo').value = String(r.activo);
-  const costo = r._ultimo_costo?.costo_unitario_usd;
-  document.getElementById('hrep-costo-info').textContent = (costo === null || costo === undefined)
-    ? 'Sin costeo registrado'
-    : `US$ ${Number(costo).toFixed(2)}${r._ultimo_costo.fecha_importacion ? ' — ' + fmtDate(r._ultimo_costo.fecha_importacion) : ''}`;
-  document.getElementById('btn-hrep-delete').style.display = puede('haulotte_repuestos','eliminar') ? 'inline-block' : 'none';
-  document.getElementById('modal-hrep-overlay').classList.add('open');
+// ---------- Ficha ----------
+function hrepNombreArchivoSeguro(n){ return String(n).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9._-]+/g, '_'); }
+
+function hrepPintarArchivos(){
+  const st = hrepFichaEdit;
+  const prev = document.getElementById('hrep-img-preview');
+  prev.innerHTML = st.imagen_url
+    ? `<img src="${escapeHtml(st.imagen_url)}" alt="" style="max-width:100%;max-height:100%;object-fit:contain;cursor:zoom-in;" onclick="window.open(this.src,'_blank')">`
+    : '<span class="muted" style="font-size:12px;">Sin imagen</span>';
+  document.getElementById('btn-hrep-img-del').style.display = (st.imagen_url && st.puedeEditar) ? '' : 'none';
+  const box = document.getElementById('hrep-ficha-box');
+  box.innerHTML = st.ficha_tecnica_url
+    ? `<a href="${escapeHtml(st.ficha_tecnica_url)}" target="_blank" rel="noopener" style="font-size:13px;">📄 Abrir ficha técnica</a>`
+    : '<span class="muted" style="font-size:12px;">Sin ficha técnica</span>';
+  document.getElementById('btn-hrep-ficha-del').style.display = (st.ficha_tecnica_url && st.puedeEditar) ? '' : 'none';
 }
 
-document.getElementById('btn-hrep-cancel').addEventListener('click', ()=>{
-  document.getElementById('modal-hrep-overlay').classList.remove('open');
-});
+function hrepActualizarMotivo(){
+  const st = hrepFichaEdit; if(!st || st.esNuevo) { document.getElementById('hrep-motivo-wrap').style.display = 'none'; return; }
+  const nuevo = Number(document.getElementById('hrep-costo').value);
+  const cambio = document.getElementById('hrep-costo').value !== '' && Math.abs(nuevo - Number(st.costo_original)) > 0.000001;
+  document.getElementById('hrep-motivo-wrap').style.display = cambio ? '' : 'none';
+}
+document.getElementById('hrep-costo').addEventListener('input', hrepActualizarMotivo);
+
+function hrepAbrirModal(r){
+  const esNuevo = !r;
+  const puedeEditar = esNuevo ? puede('haulotte_repuestos','crear') : puede('haulotte_repuestos','editar');
+  hrepFichaEdit = {
+    esNuevo, puedeEditar,
+    codigo: r ? r.codigo : '',
+    costo_original: r ? r.costo_arg_usd : 0,
+    imagen_url: r ? r.imagen_url : null,
+    ficha_tecnica_url: r ? r.ficha_tecnica_url : null,
+    costo_manual: r ? r.costo_manual : false,
+  };
+  document.getElementById('hrep-modal-title').textContent = esNuevo ? 'Nuevo artículo' : r.codigo;
+  document.getElementById('hrep-id').value = r ? r.codigo : '';
+  const cod = document.getElementById('hrep-codigo'); cod.value = r ? r.codigo : ''; cod.disabled = !esNuevo;
+  document.getElementById('hrep-descripcion').value = r ? (r.descripcion || '') : '';
+  document.getElementById('hrep-clase').value = r ? (r.clase || '') : '';
+  document.getElementById('hrep-activo').value = r ? String(r.activo) : 'true';
+  document.getElementById('hrep-costo').value = r ? Number(r.costo_arg_usd) : '';
+  document.getElementById('hrep-motivo').value = '';
+  document.getElementById('hrep-notas').value = r ? (r.notas || '') : '';
+  document.getElementById('hrep-origen-info').textContent = esNuevo ? 'Artículo nuevo, cargado a mano (el Excel de GP no lo va a pisar).'
+    : (r.origen === 'manual' ? 'Artículo cargado a mano.' : `Artículo del Excel de GP${r.lote ? ' (' + r.lote + ')' : ''}.`);
+  document.getElementById('hrep-costo-info').textContent = esNuevo ? 'Costo de lista que se usa para cotizar.'
+    : (r.costo_manual ? `Costo editado a mano${r.costo_editado_el ? ' el ' + fmtDate(r.costo_editado_el) : ''}${r.costo_editado_por ? ' por ' + r.costo_editado_por : ''}. El Excel de GP no lo pisa.` : 'Costo proveniente del Excel de GP.');
+  ['hrep-descripcion','hrep-clase','hrep-activo','hrep-costo','hrep-notas','hrep-motivo'].forEach(id => { document.getElementById(id).disabled = !puedeEditar; });
+  document.getElementById('btn-hrep-img').style.display = puedeEditar ? '' : 'none';
+  document.getElementById('btn-hrep-ficha').style.display = puedeEditar ? '' : 'none';
+  document.getElementById('btn-hrep-save').style.display = puedeEditar ? '' : 'none';
+  document.getElementById('btn-hrep-delete').style.display = (!esNuevo && puede('haulotte_repuestos','eliminar')) ? 'inline-block' : 'none';
+  document.getElementById('hrep-hist-wrap').style.display = esNuevo ? 'none' : '';
+  document.getElementById('hrep-hist').innerHTML = '<div class="muted" style="padding:8px;">Cargando...</div>';
+  hrepPintarArchivos();
+  hrepActualizarMotivo();
+  document.getElementById('modal-hrep-overlay').classList.add('open');
+  if(!esNuevo) hrepCargarHistorial(r.codigo);
+}
+
+async function hrepCargarHistorial(codigo){
+  const box = document.getElementById('hrep-hist');
+  const { data, error } = await supabaseClient.from('haulotte_repuestos_gp_hist').select('*').eq('codigo', codigo).order('created_at', { ascending: false }).limit(30);
+  if(error){ box.innerHTML = `<div class="muted" style="padding:8px;">No se pudo cargar: ${escapeHtml(error.message)}</div>`; return; }
+  if(!data.length){ box.innerHTML = '<div class="muted" style="padding:8px;">Sin cambios manuales registrados.</div>'; return; }
+  box.innerHTML = data.map(h => `<div style="padding:6px 8px;border-bottom:1px solid var(--border);">
+    <b>${fmtDate(h.created_at)}</b> · ${h.costo_anterior == null ? '—' : hrepUsd(h.costo_anterior)} → <b>${hrepUsd(h.costo_nuevo)}</b>
+    <span class="muted"> · ${escapeHtml(h.usuario || '')}${h.motivo ? ' · ' + escapeHtml(h.motivo) : ''}</span></div>`).join('');
+}
+
+function abrirEditarHrep(codigo){
+  const r = hrepFilas.find(x => x.codigo === codigo);
+  if(r) hrepAbrirModal(r);
+}
+
+document.getElementById('btn-new-hrep').addEventListener('click', ()=> hrepAbrirModal(null));
+document.getElementById('btn-hrep-cancel').addEventListener('click', ()=> document.getElementById('modal-hrep-overlay').classList.remove('open'));
 document.getElementById('modal-hrep-overlay').addEventListener('click', (e)=>{
   if(e.target.id === 'modal-hrep-overlay') document.getElementById('modal-hrep-overlay').classList.remove('open');
 });
 
-document.getElementById('btn-hrep-save').addEventListener('click', async ()=>{
-  const id = document.getElementById('hrep-id').value;
-  const codigo = document.getElementById('hrep-codigo').value.trim();
-  if(!codigo){ showToast('El código es obligatorio', true); return; }
-
-  const payload = {
-    descripcion: document.getElementById('hrep-descripcion').value.trim() || null,
-    categoria: document.getElementById('hrep-categoria').value.trim() || null,
-    activo: document.getElementById('hrep-activo').value === 'true',
-  };
-
+// ---------- Subida de imagen / ficha técnica (bucket haulotte-repuestos) ----------
+async function hrepSubir(file, tipo){
+  const st = hrepFichaEdit;
+  const codigo = st.esNuevo ? document.getElementById('hrep-codigo').value.trim() : st.codigo;
+  if(!codigo){ showToast('Primero cargá el código del artículo', true); return; }
+  if(file.size > 15 * 1024 * 1024){ showToast('El archivo supera los 15 MB', true); return; }
+  const path = `${hrepNombreArchivoSeguro(codigo)}/${tipo}-${Date.now()}-${hrepNombreArchivoSeguro(file.name)}`;
   try{
-    if(id){
-      const { error } = await supabaseClient.from('haulotte_repuestos').update(payload).eq('id', id);
-      if(error) throw error;
-      showToast('Artículo actualizado');
-    } else {
-      const { error } = await supabaseClient.from('haulotte_repuestos').insert({ codigo, ...payload });
-      if(error){
-        if(error.code === '23505') throw new Error('Ya existe un artículo con ese código');
-        throw error;
-      }
+    showToast('Subiendo archivo...');
+    const { error } = await supabaseClient.storage.from('haulotte-repuestos').upload(path, file, { upsert: false, contentType: file.type || undefined });
+    if(error) throw error;
+    const url = supabaseClient.storage.from('haulotte-repuestos').getPublicUrl(path).data.publicUrl;
+    if(tipo === 'imagen') st.imagen_url = url; else st.ficha_tecnica_url = url;
+    hrepPintarArchivos();
+    showToast('Archivo subido. Se guarda al apretar Guardar.');
+  } catch(err){ console.error(err); showToast('No se pudo subir: ' + err.message, true); }
+}
+document.getElementById('btn-hrep-img').addEventListener('click', ()=> document.getElementById('hrep-img-file').click());
+document.getElementById('btn-hrep-ficha').addEventListener('click', ()=> document.getElementById('hrep-ficha-file').click());
+document.getElementById('hrep-img-file').addEventListener('change', (e)=>{ const f = e.target.files[0]; e.target.value = ''; if(f) hrepSubir(f, 'imagen'); });
+document.getElementById('hrep-ficha-file').addEventListener('change', (e)=>{ const f = e.target.files[0]; e.target.value = ''; if(f) hrepSubir(f, 'ficha'); });
+document.getElementById('btn-hrep-img-del').addEventListener('click', ()=>{ hrepFichaEdit.imagen_url = null; hrepPintarArchivos(); });
+document.getElementById('btn-hrep-ficha-del').addEventListener('click', ()=>{ hrepFichaEdit.ficha_tecnica_url = null; hrepPintarArchivos(); });
+
+// ---------- Guardar / eliminar ----------
+document.getElementById('btn-hrep-save').addEventListener('click', async ()=>{
+  const st = hrepFichaEdit; if(!st) return;
+  const codigo = (st.esNuevo ? document.getElementById('hrep-codigo').value : st.codigo).trim();
+  if(!codigo){ showToast('El código es obligatorio', true); return; }
+  const costoTxt = document.getElementById('hrep-costo').value;
+  const costo = Number(costoTxt);
+  if(costoTxt === '' || !isFinite(costo) || costo < 0){ showToast('Ingresá un costo válido (0 o mayor)', true); return; }
+  const motivo = document.getElementById('hrep-motivo').value.trim();
+  const cambioCosto = !st.esNuevo && Math.abs(costo - Number(st.costo_original)) > 0.000001;
+  if(cambioCosto && !motivo){ showToast('Indicá el motivo del cambio de costo', true); return; }
+  const ahora = new Date().toISOString();
+  const quien = miPerfil.nombre || miPerfil.email || null;
+  const comun = {
+    descripcion: document.getElementById('hrep-descripcion').value.trim() || codigo,
+    clase: document.getElementById('hrep-clase').value.trim() || null,
+    activo: document.getElementById('hrep-activo').value === 'true',
+    notas: document.getElementById('hrep-notas').value.trim() || null,
+    imagen_url: st.imagen_url || null,
+    ficha_tecnica_url: st.ficha_tecnica_url || null,
+    updated_at: ahora,
+  };
+  try{
+    if(st.esNuevo){
+      const { error } = await supabaseClient.from('haulotte_repuestos_gp').insert({
+        codigo, ...comun, costo_arg_usd: costo, origen: 'manual', costo_manual: true, costo_editado_el: ahora, costo_editado_por: quien, lote: 'manual',
+      });
+      if(error){ if(error.code === '23505') throw new Error('Ya existe un artículo con ese código'); throw error; }
+      await supabaseClient.from('haulotte_repuestos_gp_hist').insert({ codigo, costo_anterior: null, costo_nuevo: costo, motivo: 'Alta manual', usuario: quien });
       showToast('Artículo creado');
+    } else {
+      const upd = { ...comun };
+      if(cambioCosto){ Object.assign(upd, { costo_arg_usd: costo, costo_manual: true, costo_editado_el: ahora, costo_editado_por: quien }); }
+      const { error } = await supabaseClient.from('haulotte_repuestos_gp').update(upd).eq('codigo', codigo);
+      if(error) throw error;
+      if(cambioCosto){
+        const { error: eh } = await supabaseClient.from('haulotte_repuestos_gp_hist').insert({ codigo, costo_anterior: st.costo_original, costo_nuevo: costo, motivo, usuario: quien });
+        if(eh) showToast('El costo se guardó pero no pude registrar el historial: ' + eh.message, true);
+      }
+      showToast('Artículo actualizado');
     }
     document.getElementById('modal-hrep-overlay').classList.remove('open');
-    await loadHaulotteRepuestos();
-    renderHaulotteRepuestos();
+    await Promise.all([hrepCargarPagina(), loadHaulotteRepuestos(), hpActualizarEstadoCatalogo()]);
     renderDashboard();
   } catch(err){
     console.error(err);
@@ -19979,30 +20122,22 @@ document.getElementById('btn-hrep-save').addEventListener('click', async ()=>{
 });
 
 document.getElementById('btn-hrep-delete').addEventListener('click', async ()=>{
-  const id = document.getElementById('hrep-id').value;
-  if(!id) return;
-  if(!confirm('¿Eliminar este artículo? Esta acción no se puede deshacer.')) return;
+  const st = hrepFichaEdit; if(!st || st.esNuevo) return;
+  if(!confirm('¿Eliminar este artículo del catálogo? Esta acción no se puede deshacer.\n\nSi viene del Excel de GP, la próxima importación lo vuelve a traer: para sacarlo de las cotizaciones conviene marcarlo como Inactivo.')) return;
   try{
-    const { error } = await supabaseClient.from('haulotte_repuestos').delete().eq('id', id);
+    const { error } = await supabaseClient.from('haulotte_repuestos_gp').delete().eq('codigo', st.codigo);
     if(error) throw error;
     showToast('Artículo eliminado');
     document.getElementById('modal-hrep-overlay').classList.remove('open');
-    await loadHaulotteRepuestos();
-    renderHaulotteRepuestos();
+    await Promise.all([hrepCargarPagina(), loadHaulotteRepuestos(), hpActualizarEstadoCatalogo()]);
     renderDashboard();
   } catch(err){
     console.error(err);
-    const msg = err.code === '23503'
-      ? 'No se puede eliminar: tiene historial de costeo (u otros datos) asociado. Marcalo como inactivo en su lugar.'
-      : ('Error al eliminar: ' + err.message);
-    showToast(msg, true);
+    showToast('Error al eliminar: ' + err.message, true);
   }
 });
 
-document.querySelector('nav button[data-tab="haulotte_articulos"]')?.addEventListener('click', async ()=>{
-  await loadHaulotteRepuestos();
-  renderHaulotteRepuestos();
-});
+document.querySelector('nav button[data-tab="haulotte_articulos"]')?.addEventListener('click', ()=>{ hrepPagina = 0; hrepCargarPagina(); });
 
 // =========================================================
 // MÓDULO: Modalidad de facturación (encuesta a comerciales)
@@ -21186,7 +21321,7 @@ const SYNC_TABS = {
   personal:      async () => { await loadPersonal(); renderPersonalCards(); },
   datosbancarios:async () => { await loadDatosBancarios(); renderDatosBancarios(); },
   gastosobra:    async () => { await loadGastosObra(); renderGastosObraLista(); renderStatsGastosObra(); },
-  haulotte_articulos: async () => { await loadHaulotteRepuestos(); renderHaulotteRepuestos(); hpActualizarEstadoCatalogo(); },
+  haulotte_articulos: async () => { hrepPagina = 0; await hrepCargarPagina(); hpActualizarEstadoCatalogo(); },
   haulotte_presupuestos: async () => { await loadHaulottePresup(); renderHaulottePresup(); },
   haulotte_ventas: async () => { await loadHaulotteVentas(); renderHaulotteVentas(); },
   usuarios:      async () => { await loadUsuarios(); },
@@ -22043,14 +22178,15 @@ document.getElementById('btn-hp-pdf-previo').addEventListener('click', ()=>{
 });
 
 // ---------- Importar costos desde el Excel de GP (hoja "Costos actualizados") ----------
-// Reemplaza el catálogo de cotización: solo entra lo que tiene costo ARG mayor a cero.
+// Actualiza el catálogo GP: solo entra lo que tiene costo ARG mayor a cero. Los artículos cargados a mano y los costos
+// editados a mano se respetan (no se pisan ni se borran); imagen, ficha, notas y estado tampoco se tocan.
 async function hpActualizarEstadoCatalogo(){
   const el = document.getElementById('hrep-gp-status');
   if(!el || !puede('haulotte_repuestos','ver')) return;
-  const { count, error } = await supabaseClient.from('haulotte_repuestos_gp').select('codigo', { count: 'exact', head: true });
+  const { count, error } = await supabaseClient.from('haulotte_repuestos_gp').select('codigo', { count: 'exact', head: true }).eq('activo', true);
   if(error){ el.textContent = ''; return; }
-  const { data } = await supabaseClient.from('haulotte_repuestos_gp').select('lote').limit(1);
-  el.textContent = `Catálogo de cotización: ${count.toLocaleString('es-AR')} artículos con costo${data && data[0] ? ' · lote ' + data[0].lote : ''}`;
+  const { data } = await supabaseClient.from('haulotte_repuestos_gp').select('lote').eq('origen', 'gp').order('updated_at', { ascending: false }).limit(1);
+  el.textContent = `Catálogo de cotización: ${count.toLocaleString('es-AR')} artículos activos${data && data[0] ? ' · lote ' + data[0].lote : ''}`;
 }
 document.getElementById('btn-hrep-import-gp').addEventListener('click', ()=> document.getElementById('hrep-gp-file').click());
 document.getElementById('hrep-gp-file').addEventListener('change', async (e)=>{
@@ -22075,17 +22211,27 @@ document.getElementById('hrep-gp-file').addEventListener('change', async (e)=>{
       if(!(costo > 0)){ sinCosto++; return; }
       mapa.set(codigo, { codigo, descripcion: String(col(f, 'Descripción', 'Descripcion') ?? codigo).trim(), clase: col(f, 'Clase') ? String(col(f, 'Clase')) : null, costo_arg_usd: costo, lote, updated_at: new Date().toISOString() });
     });
+    // Costos editados a mano: se conserva el costo actual (el resto de los datos del Excel sí se actualiza)
+    const manuales = new Map();
+    for(let off = 0; ; off += 1000){
+      const { data: ex, error: eEx } = await supabaseClient.from('haulotte_repuestos_gp').select('codigo,costo_arg_usd').eq('costo_manual', true).order('codigo').range(off, off + 999);
+      if(eEx) throw eEx;
+      (ex || []).forEach(x => manuales.set(x.codigo, Number(x.costo_arg_usd)));
+      if(!ex || ex.length < 1000) break;
+    }
+    let conservados = 0;
+    mapa.forEach((reg, cod) => { if(manuales.has(cod)){ reg.costo_arg_usd = manuales.get(cod); conservados++; } });
     const registros = [...mapa.values()];
     if(!registros.length){ showToast('No encontré filas con "Código GP" y "COSTO ARG" mayor a cero', true); st.textContent = ''; return; }
-    if(!confirm(`Se van a cargar ${registros.length.toLocaleString('es-AR')} artículos con costo (${sinCosto} filas sin costo quedan afuera).\n\nEl catálogo de cotización actual se reemplaza por este. ¿Continuar?`)){ st.textContent = ''; return; }
+    if(!confirm(`Se van a cargar ${registros.length.toLocaleString('es-AR')} artículos con costo (${sinCosto} filas sin costo quedan afuera).\n\nSe actualizan costos y descripciones del catálogo GP; se conservan ${manuales.size} costo(s) editado(s) a mano y los artículos cargados a mano. ¿Continuar?`)){ st.textContent = ''; return; }
     for(let i = 0; i < registros.length; i += 500){
       st.textContent = `Cargando... ${Math.min(i + 500, registros.length).toLocaleString('es-AR')} de ${registros.length.toLocaleString('es-AR')}`;
       const { error } = await supabaseClient.from('haulotte_repuestos_gp').upsert(registros.slice(i, i + 500), { onConflict: 'codigo' });
       if(error) throw error;
     }
-    const { error: eDel } = await supabaseClient.from('haulotte_repuestos_gp').delete().neq('lote', lote);
+    const { error: eDel } = await supabaseClient.from('haulotte_repuestos_gp').delete().neq('lote', lote).eq('origen', 'gp').eq('costo_manual', false);
     if(eDel) showToast('Se cargó el catálogo, pero no pude retirar los artículos del lote anterior: ' + eDel.message, true);
-    else showToast(`Catálogo de cotización actualizado: ${registros.length.toLocaleString('es-AR')} artículos`);
+    else showToast(`Catálogo GP actualizado: ${registros.length.toLocaleString('es-AR')} artículos${conservados ? ' (' + conservados + ' con costo manual conservado)' : ''}`);
     await hpActualizarEstadoCatalogo();
   } catch(err){ console.error(err); showToast('Error al importar: ' + err.message, true); st.textContent = ''; }
 });
