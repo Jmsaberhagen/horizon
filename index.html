@@ -21532,7 +21532,9 @@ document.getElementById('hrep-gp-file').addEventListener('change', async (e)=>{
     let sinCosto = 0;
     filas.forEach(f => {
       const codigo = String(col(f, 'Código GP', 'Codigo GP') ?? '').trim();
-      const costo = Number(col(f, 'COSTO ARG', 'Costo ARG'));
+      let costo = Number(col(f, 'COSTO ARG', 'Costo ARG'));
+      // El Excel trae COSTO ARG como fórmula (=Costo Cession × 1,45) sin valor guardado: si no hay número, se calcula igual
+      if(!(costo > 0)){ const cf = Number(col(f, 'Costo USD (Cession)', 'Costo USD (Cesión)', 'Costo USD')); if(cf > 0) costo = Math.round(cf * 1.45 * 1e6) / 1e6; }
       if(!codigo) return;
       if(!(costo > 0)){ sinCosto++; return; }
       mapa.set(codigo, { codigo, descripcion: String(col(f, 'Descripción', 'Descripcion') ?? codigo).trim(), clase: col(f, 'Clase') ? String(col(f, 'Clase')) : null, costo_arg_usd: costo, lote, updated_at: new Date().toISOString() });
