@@ -2904,6 +2904,8 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
       <span class="muted" id="hrep-gp-status" style="font-size:12px;"></span>
       <div style="flex:1"></div>
       <input type="file" id="hrep-gp-file" accept=".xls,.xlsx" style="display:none;">
+      <input type="file" id="hrep-lote-file" accept=".zip,image/*" multiple style="display:none;">
+      <button class="btn secondary" id="btn-hrep-lote" title="Elegí un ZIP (o varias imágenes) con archivos nombrados CODIGO.jpg. Se asocia cada foto al artículo con ese código. No pisa las que ya tienen foto.">🖼 Cargar imágenes (lote)</button>
       <button class="btn secondary" id="btn-hrep-import-gp" title="Carga el Excel de costos de GP (hoja Costos actualizados). Los costos editados a mano y los artículos cargados a mano se respetan">⬆ Importar costos GP (Excel)</button>
       <button class="btn" id="btn-new-hrep">+ Nuevo artículo</button>
     </div>
@@ -20069,6 +20071,67 @@ document.getElementById('btn-hrep-img').addEventListener('click', ()=> document.
 document.getElementById('btn-hrep-ficha').addEventListener('click', ()=> document.getElementById('hrep-ficha-file').click());
 document.getElementById('hrep-img-file').addEventListener('change', (e)=>{ const f = e.target.files[0]; e.target.value = ''; if(f) hrepSubir(f, 'imagen'); });
 document.getElementById('hrep-ficha-file').addEventListener('change', (e)=>{ const f = e.target.files[0]; e.target.value = ''; if(f) hrepSubir(f, 'ficha'); });
+// ---------- Carga masiva de imágenes (ZIP o archivos CODIGO.ext) ----------
+function hrepCargarJSZip(){
+  if(window.JSZip) return Promise.resolve();
+  return new Promise((res, rej)=>{ const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'; sc.onload = res; sc.onerror = ()=>rej(new Error('No se pudo cargar JSZip')); document.head.appendChild(sc); });
+}
+async function hrepLoteProcesar(fileList){
+  if(!puede('haulotte_repuestos','editar')){ showToast('No tenés permiso para editar artículos', true); return; }
+  const st = document.getElementById('hrep-gp-status');
+  const items = []; // {codigo, blob, name}
+  try{
+    for(const f of fileList){
+      if(/\.zip$/i.test(f.name)){
+        await hrepCargarJSZip();
+        const z = await JSZip.loadAsync(f);
+        for(const nombre of Object.keys(z.files)){
+          const e = z.files[nombre]; const base = nombre.split('/').pop();
+          if(e.dir || !/\.(jpe?g|png|webp)$/i.test(base) || base.startsWith('.')) continue;
+          items.push({ codigo: base.replace(/\.[^.]+$/, ''), blob: await e.async('blob'), name: base });
+        }
+      } else if(/^image\//.test(f.type)){
+        items.push({ codigo: f.name.replace(/\.[^.]+$/, ''), blob: f, name: f.name });
+      }
+    }
+  } catch(err){ console.error(err); showToast('No se pudo leer el archivo: ' + err.message, true); return; }
+  if(!items.length){ showToast('No encontré imágenes (JPG/PNG/WEBP) para cargar', true); return; }
+  const info = {};
+  const cods = [...new Set(items.map(i=>i.codigo))];
+  for(let i=0;i<cods.length;i+=200){
+    const { data, error } = await supabaseClient.from('haulotte_repuestos_gp').select('codigo,imagen_url').in('codigo', cods.slice(i,i+200));
+    if(error){ showToast('Error consultando códigos: ' + error.message, true); return; }
+    (data||[]).forEach(r=>{ info[r.codigo] = r.imagen_url; });
+  }
+  const nuevos = items.filter(i=> i.codigo in info && !info[i.codigo]);
+  const conFoto = items.filter(i=> i.codigo in info && info[i.codigo]).length;
+  const sinCod = items.filter(i=> !(i.codigo in info)).length;
+  if(!nuevos.length){ showToast(`Nada para cargar (${conFoto} ya tenían foto, ${sinCod} códigos no existen)`, true); return; }
+  if(!confirm(`Se van a cargar ${nuevos.length} imágenes.\nYa tenían foto (se omiten): ${conFoto}\nCódigo inexistente (se omiten): ${sinCod}\n\n¿Continuar?`)) return;
+  let ok = 0, fail = 0, idx = 0;
+  const worker = async()=>{
+    while(idx < nuevos.length){
+      const it = nuevos[idx++];
+      try{
+        const ext = (it.name.match(/\.([a-z0-9]+)$/i)||[,'jpg'])[1].toLowerCase();
+        const path = `${hrepNombreArchivoSeguro(it.codigo)}/imagen-${Date.now()}-${hrepNombreArchivoSeguro(it.codigo)}.${ext}`;
+        const up = await supabaseClient.storage.from('haulotte-repuestos').upload(path, it.blob, { upsert:false, contentType: it.blob.type || 'image/jpeg' });
+        if(up.error) throw up.error;
+        const url = supabaseClient.storage.from('haulotte-repuestos').getPublicUrl(path).data.publicUrl;
+        const u = await supabaseClient.from('haulotte_repuestos_gp').update({ imagen_url: url }).eq('codigo', it.codigo);
+        if(u.error) throw u.error;
+        ok++;
+      } catch(err){ console.error(it.codigo, err); fail++; }
+      st.textContent = `Cargando imágenes… ${ok+fail}/${nuevos.length}`;
+    }
+  };
+  await Promise.all([worker(), worker(), worker(), worker()]);
+  st.textContent = '';
+  showToast(`Imágenes cargadas: ${ok}` + (fail ? ` · con error: ${fail}` : ''), fail > 0);
+  hrepCargarPagina();
+}
+document.getElementById('btn-hrep-lote').addEventListener('click', ()=> document.getElementById('hrep-lote-file').click());
+document.getElementById('hrep-lote-file').addEventListener('change', (e)=>{ const fs = [...e.target.files]; e.target.value = ''; if(fs.length) hrepLoteProcesar(fs); });
 document.getElementById('btn-hrep-img-del').addEventListener('click', ()=>{ hrepFichaEdit.imagen_url = null; hrepPintarArchivos(); });
 document.getElementById('btn-hrep-ficha-del').addEventListener('click', ()=>{ hrepFichaEdit.ficha_tecnica_url = null; hrepPintarArchivos(); });
 
