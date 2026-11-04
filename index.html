@@ -3051,9 +3051,11 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
       <h2 style="margin-bottom:4px;">Repuestos por modelo de máquina</h2>
       <div class="muted" style="font-size:12px;margin-bottom:10px;">Elegí la máquina y agregá al presupuesto los repuestos compatibles. Podés filtrar por nombre o código.</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-        <select id="hpm-modelo" style="flex:2;min-width:260px;"><option value="">Cargando modelos...</option></select>
-        <input type="text" id="hpm-q" placeholder="Filtrar: ej. filtro, bomba, 2420..." style="flex:1;min-width:160px;" autocomplete="off">
+        <input type="text" id="hpm-modelo-q" placeholder="Modelo de máquina: escribí parte del nombre (ej. HA16, HTL4017, 130)" style="flex:2;min-width:260px;" autocomplete="off">
+        <input type="hidden" id="hpm-modelo">
+        <input type="text" id="hpm-q" placeholder="Filtrar repuestos: ej. filtro, bomba, 2420..." style="flex:1;min-width:160px;" autocomplete="off">
       </div>
+      <div id="hpm-modelo-lista" style="display:none;max-height:230px;overflow:auto;border:1px solid var(--border);border-radius:8px;margin:-4px 0 10px;background:var(--panel,#16181d);"></div>
       <div class="muted" id="hpm-info" style="font-size:12px;margin-bottom:6px;"></div>
       <div style="overflow:auto;flex:1;min-height:200px;border:1px solid var(--border);border-radius:8px;">
         <table style="margin:0;">
@@ -22210,12 +22212,32 @@ function hpAgregarItem(r, cant){
 // ---------- Buscar repuestos por modelo de máquina ----------
 const HPM_PAGE = 60;
 let hpmModelosCargados = false, hpmRes = [], hpmTotal = 0, hpmSeq = 0, hpmTimer = null;
+let hpmListaModelos = [];
 async function hpmCargarModelos(){
-  const sel = document.getElementById('hpm-modelo');
+  const inp = document.getElementById('hpm-modelo-q');
   const { data, error } = await supabaseClient.rpc('modelos_repuestos_gp');
-  if(error){ sel.innerHTML = '<option value="">No se pudieron cargar los modelos</option>'; document.getElementById('hpm-info').textContent = error.message; return; }
-  sel.innerHTML = '<option value="">Elegí un modelo de máquina…</option>' + (data || []).map(m => `<option value="${escapeHtml(m.modelo)}">${escapeHtml(m.modelo)} (${m.cant})</option>`).join('');
+  if(error){ document.getElementById('hpm-info').textContent = 'No se pudieron cargar los modelos: ' + error.message; return; }
+  hpmListaModelos = (data || []).map(m => ({ modelo: m.modelo, cant: m.cant, corto: hpModeloCorto(m.modelo), tipo: String(m.modelo).replace(hpModeloCorto(m.modelo), '').trim(),
+    clave: hpmNorm(m.modelo) }));
   hpmModelosCargados = true;
+  inp.disabled = false;
+}
+const hpmNorm = t => String(t || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+function hpmMostrarModelos(){
+  const box = document.getElementById('hpm-modelo-lista');
+  const toks = hpmNorm(document.getElementById('hpm-modelo-q').value).split(/[\s\/]+/).filter(Boolean);
+  let l = hpmListaModelos.filter(m => toks.every(t => m.clave.includes(t)));
+  if(toks.length) l = l.map(m => ({ m, r: hpmNorm(m.corto).startsWith(toks[0]) ? 0 : 1 })).sort((a, b) => a.r - b.r || a.m.corto.localeCompare(b.m.corto, 'es', { numeric: true })).map(x => x.m);
+  else l = l.slice().sort((a, b) => a.corto.localeCompare(b.corto, 'es', { numeric: true }));
+  box.innerHTML = l.length ? l.map(m => `<div class="autocomplete-item" data-hpm-mod="${escapeHtml(m.modelo)}" style="cursor:pointer;padding:7px 10px;display:flex;gap:10px;align-items:baseline;"><b>${escapeHtml(m.corto)}</b><span class="muted" style="font-size:12px;flex:1;">${escapeHtml(m.tipo)}</span><span class="muted" style="font-size:12px;">${m.cant}</span></div>`).join('')
+    : '<div class="muted" style="padding:10px;font-size:13px;">Ningún modelo coincide</div>';
+  box.style.display = '';
+}
+function hpmElegirModelo(modelo){
+  document.getElementById('hpm-modelo').value = modelo;
+  document.getElementById('hpm-modelo-q').value = modelo;
+  document.getElementById('hpm-modelo-lista').style.display = 'none';
+  hpmBuscar(false);
 }
 function hpmPintar(){
   const tb = document.getElementById('hpm-tbody');
@@ -22249,8 +22271,16 @@ async function hpmBuscar(mas){
 document.getElementById('btn-hp-modelo').addEventListener('click', async ()=>{
   document.getElementById('modal-hpm-overlay').classList.add('open');
   if(!hpmModelosCargados) await hpmCargarModelos();
+  setTimeout(()=> document.getElementById('hpm-modelo-q').focus(), 100);
 });
-document.getElementById('hpm-modelo').addEventListener('change', ()=> hpmBuscar(false));
+(function(){
+  const q = document.getElementById('hpm-modelo-q'), lista = document.getElementById('hpm-modelo-lista');
+  q.addEventListener('focus', hpmMostrarModelos);
+  q.addEventListener('click', hpmMostrarModelos);
+  q.addEventListener('input', ()=>{ document.getElementById('hpm-modelo').value = ''; hpmMostrarModelos(); hpmBuscar(false); });
+  q.addEventListener('blur', ()=> setTimeout(()=>{ lista.style.display = 'none'; }, 150));
+  lista.addEventListener('mousedown', (e)=>{ e.preventDefault(); const it = e.target.closest('[data-hpm-mod]'); if(it) hpmElegirModelo(it.dataset.hpmMod); });
+})();
 document.getElementById('hpm-q').addEventListener('input', ()=>{ clearTimeout(hpmTimer); hpmTimer = setTimeout(()=> hpmBuscar(false), 300); });
 document.getElementById('btn-hpm-mas').addEventListener('click', ()=> hpmBuscar(true));
 document.getElementById('btn-hpm-cerrar').addEventListener('click', ()=> document.getElementById('modal-hpm-overlay').classList.remove('open'));
