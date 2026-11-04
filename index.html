@@ -3046,6 +3046,28 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
     </div>
   </div>
 
+  <div class="overlay" id="modal-hpm-overlay" style="z-index:1150;">
+    <div class="modal" style="max-width:860px;width:96%;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;">
+      <h2 style="margin-bottom:4px;">Repuestos por modelo de máquina</h2>
+      <div class="muted" style="font-size:12px;margin-bottom:10px;">Elegí la máquina y agregá al presupuesto los repuestos compatibles. Podés filtrar por nombre o código.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        <select id="hpm-modelo" style="flex:2;min-width:260px;"><option value="">Cargando modelos...</option></select>
+        <input type="text" id="hpm-q" placeholder="Filtrar: ej. filtro, bomba, 2420..." style="flex:1;min-width:160px;" autocomplete="off">
+      </div>
+      <div class="muted" id="hpm-info" style="font-size:12px;margin-bottom:6px;"></div>
+      <div style="overflow:auto;flex:1;min-height:200px;border:1px solid var(--border);border-radius:8px;">
+        <table style="margin:0;">
+          <thead><tr><th style="width:120px;">Código</th><th>Descripción</th><th style="width:70px;">Cant.</th><th style="width:100px;"></th></tr></thead>
+          <tbody id="hpm-tbody"><tr><td colspan="4" class="empty-state">Elegí un modelo para ver sus repuestos.</td></tr></tbody>
+        </table>
+      </div>
+      <div class="modal-actions">
+        <button class="btn secondary" id="btn-hpm-mas" style="display:none;margin-right:auto;">Ver más</button>
+        <button class="btn" id="btn-hpm-cerrar">Listo</button>
+      </div>
+    </div>
+  </div>
+
   <section id="tab-editorobs" style="display:none;margin:-24px calc(-50vw + 50% - 0px);padding:0;">
     <iframe src="herramientas/editor-observaciones.html" title="Editor de Observaciones"
       style="width:100%;height:calc(100vh - 113px);border:none;display:block;background:#fff;"></iframe>
@@ -4530,7 +4552,10 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
 
     <h3 style="margin:20px 0 10px 0;font-size:13px;color:var(--accent);">Repuestos (precios en U$D, sin impuestos; el precio unitario ya incluye el descuento)</h3>
     <div class="field" style="position:relative;margin-bottom:10px;">
-      <input type="text" id="hp-art-search" placeholder="🔎 Agregar repuesto: escribí código o descripción (mín. 2 letras)" autocomplete="off">
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="text" id="hp-art-search" placeholder="🔎 Agregar repuesto: escribí código o descripción (mín. 2 letras)" autocomplete="off" style="flex:1;">
+        <button class="btn secondary" type="button" id="btn-hp-modelo" title="Si no sabés el código ni el nombre: elegí la máquina y mirá los repuestos compatibles" style="white-space:nowrap;">🚜 Por modelo de máquina</button>
+      </div>
       <div class="autocomplete-list" id="hp-art-results"></div>
     </div>
     <div class="table-wrap">
@@ -22171,11 +22196,71 @@ hpArtBox.addEventListener('click', (e)=>{
   const item = e.target.closest('.autocomplete-item');
   if(!item || item.dataset.i === undefined) return;
   const r = hpArtRes[Number(item.dataset.i)];
-  const ya = hpItemsState.find(x => x.codigo === r.codigo);
-  if(ya) ya.cantidad = Number(ya.cantidad) + 1;
-  else hpItemsState.push({ codigo: r.codigo, descripcion: r.descripcion, cantidad: 1, costo: Number(r.costo_arg_usd) });
+  hpAgregarItem(r, 1);
   hpArtInput.value = ''; hpArtBox.classList.remove('open');
+});
+function hpAgregarItem(r, cant){
+  cant = Math.max(1, parseInt(cant, 10) || 1);
+  const ya = hpItemsState.find(x => x.codigo === r.codigo);
+  if(ya) ya.cantidad = Number(ya.cantidad) + cant;
+  else hpItemsState.push({ codigo: r.codigo, descripcion: r.descripcion, cantidad: cant, costo: Number(r.costo_arg_usd) });
   renderHpItemsTabla();
+}
+
+// ---------- Buscar repuestos por modelo de máquina ----------
+const HPM_PAGE = 60;
+let hpmModelosCargados = false, hpmRes = [], hpmTotal = 0, hpmSeq = 0, hpmTimer = null;
+async function hpmCargarModelos(){
+  const sel = document.getElementById('hpm-modelo');
+  const { data, error } = await supabaseClient.rpc('modelos_repuestos_gp');
+  if(error){ sel.innerHTML = '<option value="">No se pudieron cargar los modelos</option>'; document.getElementById('hpm-info').textContent = error.message; return; }
+  sel.innerHTML = '<option value="">Elegí un modelo de máquina…</option>' + (data || []).map(m => `<option value="${escapeHtml(m.modelo)}">${escapeHtml(m.modelo)} (${m.cant})</option>`).join('');
+  hpmModelosCargados = true;
+}
+function hpmPintar(){
+  const tb = document.getElementById('hpm-tbody');
+  if(!hpmRes.length){ tb.innerHTML = '<tr><td colspan="4" class="empty-state">No hay repuestos con ese filtro.</td></tr>'; return; }
+  tb.innerHTML = hpmRes.map((r, i) => {
+    const ya = hpItemsState.find(x => x.codigo === r.codigo);
+    return `<tr>
+      <td style="font-weight:600;font-family:monospace;">${escapeHtml(r.codigo)}</td>
+      <td>${escapeHtml(r.descripcion || '')}${ya ? ` <span class="badge" style="font-size:10px;color:var(--ok);border-color:var(--ok);">en el presupuesto ×${ya.cantidad}</span>` : ''}</td>
+      <td><input type="number" min="1" step="1" value="1" id="hpm-qty-${i}" style="width:60px;"></td>
+      <td><button class="btn secondary small" type="button" data-hpm-add="${i}">Agregar</button></td>
+    </tr>`;
+  }).join('');
+}
+async function hpmBuscar(mas){
+  const modelo = document.getElementById('hpm-modelo').value;
+  const info = document.getElementById('hpm-info'), btnMas = document.getElementById('btn-hpm-mas');
+  if(!modelo){ hpmRes = []; hpmTotal = 0; document.getElementById('hpm-tbody').innerHTML = '<tr><td colspan="4" class="empty-state">Elegí un modelo para ver sus repuestos.</td></tr>'; info.textContent = ''; btnMas.style.display = 'none'; return; }
+  const mi = ++hpmSeq;
+  const desde = mas ? hpmRes.length : 0;
+  info.textContent = 'Buscando...';
+  const { data, error } = await supabaseClient.rpc('repuestos_por_modelo_gp', { p_modelo: modelo, p_q: document.getElementById('hpm-q').value.trim() || null, p_limit: HPM_PAGE, p_offset: desde });
+  if(mi !== hpmSeq) return;
+  if(error){ info.textContent = 'Error al buscar: ' + error.message; return; }
+  hpmRes = mas ? hpmRes.concat(data || []) : (data || []);
+  hpmTotal = hpmRes.length ? Number(hpmRes[0].total) : 0;
+  info.textContent = hpmTotal ? `${hpmTotal.toLocaleString('es-AR')} repuesto(s) compatibles` + (hpmRes.length < hpmTotal ? ` · mostrando ${hpmRes.length}` : '') : '';
+  btnMas.style.display = hpmRes.length < hpmTotal ? '' : 'none';
+  hpmPintar();
+}
+document.getElementById('btn-hp-modelo').addEventListener('click', async ()=>{
+  document.getElementById('modal-hpm-overlay').classList.add('open');
+  if(!hpmModelosCargados) await hpmCargarModelos();
+});
+document.getElementById('hpm-modelo').addEventListener('change', ()=> hpmBuscar(false));
+document.getElementById('hpm-q').addEventListener('input', ()=>{ clearTimeout(hpmTimer); hpmTimer = setTimeout(()=> hpmBuscar(false), 300); });
+document.getElementById('btn-hpm-mas').addEventListener('click', ()=> hpmBuscar(true));
+document.getElementById('btn-hpm-cerrar').addEventListener('click', ()=> document.getElementById('modal-hpm-overlay').classList.remove('open'));
+document.getElementById('modal-hpm-overlay').addEventListener('click', (e)=>{ if(e.target.id === 'modal-hpm-overlay') e.target.classList.remove('open'); });
+document.getElementById('hpm-tbody').addEventListener('click', (e)=>{
+  const b = e.target.closest('[data-hpm-add]'); if(!b) return;
+  const i = Number(b.dataset.hpmAdd), r = hpmRes[i]; if(!r) return;
+  hpAgregarItem(r, document.getElementById('hpm-qty-' + i).value);
+  showToast(`Agregado: ${r.codigo}`);
+  hpmPintar();
 });
 
 // ---------- Renglones + cálculo en vivo ----------
@@ -22286,7 +22371,7 @@ function hpAplicarPermisoMargen(){
 const hpEsNacional = it => /^a-/i.test(String(it.codigo || '').trim());
 function hpSoloLectura(ro){
   document.querySelectorAll('#modal-hpres-overlay input, #modal-hpres-overlay select, #modal-hpres-overlay textarea').forEach(el => { el.disabled = ro; });
-  ['btn-hp-save','btn-hp-tc-bna','hp-art-search'].forEach(id => document.getElementById(id).style.display = ro ? 'none' : '');
+  ['btn-hp-save','btn-hp-tc-bna','hp-art-search','btn-hp-modelo'].forEach(id => document.getElementById(id).style.display = ro ? 'none' : '');
   hpAplicarPermisoMargen();
 }
 document.getElementById('btn-hp-nuevo').addEventListener('click', ()=>{
