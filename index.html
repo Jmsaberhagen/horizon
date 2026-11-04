@@ -4605,6 +4605,12 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
         <div class="muted" id="hp-tc-status" style="font-size:11px;margin-top:4px;"></div>
       </div>
       <div class="field"><label>Condición de pago</label><input type="text" id="hp-condicion_pago" placeholder="Ej: contado / 30 días"></div>
+      <div class="field"><label>Impuestos</label>
+        <div style="display:flex;gap:18px;align-items:center;height:38px;">
+          <label style="display:flex;gap:6px;align-items:center;margin:0;text-transform:none;letter-spacing:0;font-size:13px;cursor:pointer;"><input type="checkbox" id="hp-incluir_iva"> Incluir IVA</label>
+          <label style="display:flex;gap:6px;align-items:center;margin:0;text-transform:none;letter-spacing:0;font-size:13px;cursor:pointer;"><input type="checkbox" id="hp-incluir_iibb"> Incluir IIBB</label>
+        </div>
+      </div>
     </div>
 
     <div id="hp-resumen" style="margin-top:16px;padding:12px 14px;border:1px solid var(--border);border-radius:8px;font-size:13px;"></div>
@@ -22448,6 +22454,7 @@ document.getElementById('btn-hp-tc-bna').addEventListener('click', async ()=>{
 function resetHpForm(){
   ['hp-id','hp-cliente_id','hp-empresa_nombre','hp-contacto_nombre','hp-contacto_email','hp-contacto_telefono','hp-notas','hp-tc','hp-envio','hp-descuento','hp-condicion_pago','hp-art-search']
     .forEach(id => document.getElementById(id).value = '');
+  document.getElementById('hp-incluir_iva').checked = false; document.getElementById('hp-incluir_iibb').checked = false;
   hpClienteInput.value = '';
   document.getElementById('hp-modal-numero').textContent = '';
   document.getElementById('hp-fecha_emision').value = hoyIso();
@@ -22507,6 +22514,7 @@ async function abrirEditarHp(id){
   hpTcFuente = v.tipo_cambio_fuente || null; hpTcFecha = v.tipo_cambio_fecha || null;
   document.getElementById('hp-tc-status').textContent = hpTcFuente ? `${hpTcFuente}${hpTcFecha ? ' del ' + fmtDate(hpTcFecha) : ''}` : '';
   document.getElementById('hp-condicion_pago').value = v.condicion_pago || '';
+  document.getElementById('hp-incluir_iva').checked = !!v.incluir_iva; document.getElementById('hp-incluir_iibb').checked = !!v.incluir_iibb;
   document.getElementById('hp-notas').value = v.notas || '';
   hpDescManual = true;
   hpItemsState = v.haulotte_presupuesto_items.map(i => ({ codigo: i.codigo, descripcion: i.descripcion, cantidad: i.cantidad, costo: Number(i.costo_unitario) || 0, disponibilidad: i.disponibilidad || null, costoEditado: true }));
@@ -22529,6 +22537,7 @@ function hpArmarPayload(){
       margen_pct: c.margen, descuento_pct: c.descPct, envio_usd: c.envio, iva_pct: 0,
       tipo_cambio: c.tc > 0 ? c.tc : null, tipo_cambio_fuente: c.tc > 0 ? (hpTcFuente || 'Manual') : null, tipo_cambio_fecha: c.tc > 0 ? (hpTcFecha || null) : null,
       condicion_pago: document.getElementById('hp-condicion_pago').value.trim() || null,
+      incluir_iva: document.getElementById('hp-incluir_iva').checked, incluir_iibb: document.getElementById('hp-incluir_iibb').checked,
       notas: document.getElementById('hp-notas').value.trim() || null,
       total_usd: c.total, items_count: c.items.length,
     },
