@@ -206,6 +206,32 @@
   button.btn.icon-btn{padding:5px 7px;font-size:13px;min-width:28px;line-height:1;}
 
   /* ---- Artículos Haulotte: tarjetas con miniatura ---- */
+  .eq-chips{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 16px;}
+  .eq-chip{background:var(--panel);border:1px solid var(--border);color:var(--text-dim);border-radius:999px;padding:6px 14px;font-weight:600;font-size:12.5px;cursor:pointer;}
+  .eq-chip b{color:var(--text);margin-left:5px;}
+  .eq-chip.on{background:var(--accent);border-color:var(--accent);color:#04202e;}
+  .eq-chip.on b{color:#04202e;}
+  .eq-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;}
+  .eq-card{position:relative;background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;transition:transform .12s,border-color .12s,box-shadow .12s;}
+  .eq-card:hover{transform:translateY(-2px);border-color:var(--accent);box-shadow:0 6px 18px rgba(0,0,0,.25);}
+  .eq-ph{position:relative;aspect-ratio:1/1;background:#fff;display:flex;align-items:center;justify-content:center;border-bottom:4px solid var(--ec,var(--border));}
+  .eq-ph img{width:100%;height:100%;object-fit:contain;display:block;}
+  .eq-ph .sinfoto{color:#9aa3ad;font-size:12px;text-align:center;line-height:1.5;}
+  .eq-ph .sinfoto b{display:block;font-size:30px;opacity:.55;}
+  .eq-tag{position:absolute;top:9px;left:9px;color:#04202e;font-weight:800;font-size:10.5px;padding:3px 9px;border-radius:999px;box-shadow:0 1px 4px rgba(0,0,0,.3);}
+  .eq-ter{position:absolute;top:9px;right:9px;border:1px solid #ff9f43;color:#ff9f43;background:rgba(11,12,14,.85);font-size:10px;padding:2px 8px;border-radius:999px;}
+  .eq-bd{padding:10px 12px 12px;display:flex;flex-direction:column;gap:2px;flex:1;}
+  .eq-sn{font-weight:800;font-size:15px;}
+  .eq-md{color:var(--text-dim);font-size:12px;}
+  .eq-cl{color:var(--accent);font-size:12px;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:17px;}
+  .eq-ft{display:flex;justify-content:space-between;align-items:center;margin-top:auto;padding-top:8px;font-size:10.5px;gap:6px;}
+  .eq-suc{background:var(--panel-2);border:1px solid var(--border);border-radius:6px;padding:2px 7px;font-weight:700;color:var(--text-dim);}
+  .eq-ok{color:var(--ok);} .eq-al{font-weight:700;text-align:right;}
+  .eq-hov{position:absolute;left:0;right:0;top:0;aspect-ratio:1/1;background:rgba(11,12,14,.88);display:none;flex-wrap:wrap;gap:8px;align-content:center;justify-content:center;padding:14px;}
+  .eq-hov button{width:44px;height:44px;border-radius:10px;background:var(--panel-2);border:1px solid var(--border);font-size:18px;cursor:pointer;}
+  .eq-hov .eq-ed{width:100%;height:38px;background:var(--accent);color:#04202e;border:0;font-weight:800;font-size:14px;}
+  @media (hover:hover){ .eq-card:hover .eq-hov{display:flex;} }
+  @media (hover:none){ .eq-hov{position:static;display:flex;aspect-ratio:auto;background:var(--panel-2);padding:8px;gap:6px;} .eq-hov button{width:38px;height:38px;} .eq-hov .eq-ed{width:auto;flex:1;height:38px;} }
   .hrep-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;}
   .hrep-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;display:flex;flex-direction:column;transition:transform .12s,border-color .12s,box-shadow .12s;}
   .hrep-card:hover{transform:translateY(-2px);border-color:var(--accent);box-shadow:0 6px 18px rgba(0,0,0,.25);}
@@ -1364,6 +1390,8 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
   <section id="tab-equipos" style="display:none;">
     <div class="toolbar">
       <input type="text" id="equipo-search-input" placeholder="Buscar por N° de serie o modelo...">
+      <input type="text" id="equipo-filter-modelo" list="equipo-modelos-dl" placeholder="🔎 Modelo (tipeá parte del nombre)" autocomplete="off" style="min-width:210px;">
+      <datalist id="equipo-modelos-dl"></datalist>
       <select id="equipo-filter-sucursal">
         <option value="">Todas las sucursales</option>
       </select>
@@ -1378,7 +1406,9 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
       <button class="btn" id="btn-new-equipo">+ Nuevo equipo</button>
     </div>
 
-    <div id="equipos-board" style="display:grid;grid-template-columns:repeat(3, minmax(0,1fr));gap:14px;align-items:start;"></div>
+    <div class="eq-chips" id="equipos-chips"></div>
+    <div class="eq-grid" id="equipos-board"></div>
+    <div style="text-align:center;margin-top:14px;"><button class="btn secondary" id="btn-equipos-mas" style="display:none;">Ver más equipos</button></div>
     <div class="muted" id="equipos-results-count" style="margin-top:10px;font-size:12px;"></div>
   </section>
 
@@ -7792,88 +7822,89 @@ function ultimoClienteDeEquipo(equipoId){
   return ultimaBajaDeEquipo(equipoId)?.clientes?.razon_social || null;
 }
 
+const EQ_ESTADOS = [
+  { estado:'disponible', titulo:'Disponible',  color:'#34d399' },
+  { estado:'alquilada',  titulo:'Alquilada',   color:'#38bdf8' },
+  { estado:'transito',   titulo:'En tránsito', color:'#2dd4bf' },
+  { estado:'vor',        titulo:'VOR',         color:'#EF9F27' },
+  { estado:'pdi',        titulo:'PDI',         color:'#7F77DD' },
+  { estado:'demo',       titulo:'Demo',        color:'#D4537E' },
+  { estado:'baja',       titulo:'De baja',     color:'#f87171' },
+];
+let eqEstadoFiltro = '', eqMostrar = 60;
+const EQ_PAGINA = 60;
+function eqCartaHtml(e, col){
+  const suc = sucursales.find(s => s.id === e.sucursal_id);
+  const cliente = (col.estado === 'alquilada' || col.estado === 'demo') ? clienteActualDeEquipo(e.id)
+    : (col.estado === 'transito' ? ultimoClienteDeEquipo(e.id) : null);
+  const tieneFicha = !!buscarFichaTecnica(e.modelo);
+  const foto = fotoUrlDeModelo(e.modelo);
+  const docs = documentosEquipo(e);
+  const venc = docs.filter(d => d.estado === 'vencido'), porV = docs.filter(d => d.estado === 'por_vencer');
+  const nombres = { certificacion:'Certificación', seguro_tecnico:'Seguro técnico', seguro_rc:'Seguro RC' };
+  let pie;
+  if(venc.length) pie = `<span class="eq-al" style="color:var(--danger)" title="${escapeHtml(venc.map(d => nombres[d.prefijo]).join(', '))}">⚠ ${escapeHtml(nombres[venc[0].prefijo])}${venc.length > 1 ? ' +' + (venc.length - 1) : ''} vencido</span>`;
+  else if(porV.length) pie = `<span class="eq-al" style="color:var(--warn)" title="${escapeHtml(porV.map(d => nombres[d.prefijo]).join(', '))}">⚠ ${escapeHtml(nombres[porV[0].prefijo])}${porV.length > 1 ? ' +' + (porV.length - 1) : ''} por vencer</span>`;
+  else pie = '<span class="eq-ok">● Docs al día</span>';
+  return `
+    <div class="eq-card">
+      <div class="eq-ph" style="--ec:${col.color}">
+        ${foto ? `<img src="${escapeHtml(foto)}" alt="${escapeHtml(e.modelo || '')}" loading="lazy">` : '<div class="sinfoto"><b>📷</b>Sin foto</div>'}
+        <span class="eq-tag" style="background:${col.color}">${col.titulo}</span>
+        ${e.tipo === 'tercero' ? `<span class="eq-ter" title="${e.proveedor_tercero ? 'Proveedor: ' + escapeHtml(e.proveedor_tercero) : ''}">Terceros</span>` : ''}
+      </div>
+      <div class="eq-bd">
+        <div class="eq-sn">${escapeHtml(e.numero_serie)}</div>
+        <div class="eq-md">${escapeHtml(e.modelo || '—')}</div>
+        <div class="eq-cl" ${cliente ? '' : 'style="color:var(--text-dim)"'}>${cliente ? '🏢 ' + escapeHtml(cliente) : '—'}</div>
+        <div class="eq-ft">${suc ? `<span class="eq-suc">${escapeHtml(suc.nombre)}</span>` : '<span class="muted">—</span>'}${pie}</div>
+      </div>
+      <div class="eq-hov">
+        <button title="Ver título" onclick="verTituloPdfVigenteEquipo(${e.id})">🚗</button>
+        <button title="Ver certificación" onclick="verCertPdfVigenteEquipo(${e.id})">📄</button>
+        <button title="Ver seguro técnico" onclick="verPolizaGlobalVigente('seguro_tecnico')">🛡️</button>
+        <button title="Ver responsabilidad civil" onclick="verPolizaGlobalVigente('seguro_rc')">⚖️</button>
+        <button title="Ver especificaciones técnicas" onclick="${tieneFicha ? `abrirFichaTecnica(${e.id})` : `showToast('No hay ficha técnica cargada para este modelo', true)`}">🔧</button>
+        <button class="eq-ed" onclick="abrirDetalleEquipo(${e.id})">Editar</button>
+      </div>
+    </div>`;
+}
 function renderEquipos(list){
   const board = document.getElementById('equipos-board');
-  const columnas = [
-    { estado:'disponible', titulo:'Disponible', color:'var(--ok)' },
-    { estado:'alquilada',  titulo:'Alquilada',  color:'var(--accent)' },
-    { estado:'transito',   titulo:'En tránsito', color:'#2DD4BF' },
-    { estado:'vor',        titulo:'VOR',        color:'#EF9F27' },
-    { estado:'pdi',        titulo:'PDI',        color:'#7F77DD' },
-    { estado:'demo',       titulo:'Demo',       color:'#D4537E' },
-    { estado:'baja',       titulo:'De baja',    color:'var(--danger)' },
-  ];
-  const colorEstadoDoc = { vencido:'var(--danger)', por_vencer:'var(--warn)', vigente:'var(--ok)' };
-  board.innerHTML = columnas.map(col=>{
-    const items = list.filter(e => estadoActualEquipo(e) === col.estado);
-    const tarjetas = items.map(e=>{
-      const suc = sucursales.find(s => s.id === e.sucursal_id);
-      const tieneFicha = !!buscarFichaTecnica(e.modelo);
-      const cliente = (col.estado === 'alquilada' || col.estado === 'demo') ? clienteActualDeEquipo(e.id)
-        : (col.estado === 'transito' ? ultimoClienteDeEquipo(e.id) : null);
-
-      // Semáforo de vencimientos: 4 puntitos (Patentamiento, Certificación, Seg. Técnico, Seg. RC)
-      const docs = documentosEquipo(e);
-      const semaforo = docs.map(d=>{
-        let color, label;
-        if(d.prefijo === 'patentamiento'){
-          color = d.realizado ? 'var(--ok)' : 'var(--text-dim)';
-          label = 'Patentamiento: ' + (d.realizado ? 'Realizado' : 'Pendiente');
-        } else {
-          color = d.estado ? colorEstadoDoc[d.estado] : 'var(--text-dim)';
-          const nombres = { certificacion:'Certificación', seguro_tecnico:'Seguro Técnico', seguro_rc:'Seguro RC' };
-          label = `${nombres[d.prefijo]}: ${d.estado ? (d.estado==='vencido'?'Vencido':d.estado==='por_vencer'?'Por vencer':'Vigente') : 'Sin datos'}${d.vencimiento ? ' · '+fmtDate(d.vencimiento) : ''}`;
-        }
-        return `<span title="${escapeHtml(label)}" style="width:8px;height:8px;border-radius:50%;background:${color};display:inline-block;"></span>`;
-      }).join('');
-
-      return `
-        <div class="panel" style="padding:10px 12px;margin-bottom:8px;border-left:3px solid ${col.color};background:var(--panel-2);">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">
-            <div>
-              <div style="font-weight:700;font-size:13px;">${escapeHtml(e.numero_serie)}</div>
-              <div class="muted" style="font-size:11px;margin-top:1px;">${escapeHtml(e.modelo || '—')}</div>
-              ${cliente ? `<div style="font-size:11px;color:var(--accent);margin-top:3px;">🏢 ${escapeHtml(cliente)}</div>` : ''}
-            </div>
-            ${e.tipo === 'tercero' ? `<span class="badge" style="color:#ff9f43;border-color:#ff9f43;font-size:9.5px;flex:none;" title="${e.proveedor_tercero ? 'Proveedor: '+escapeHtml(e.proveedor_tercero) : ''}">Terceros</span>` : ''}
-          </div>
-          <div style="display:flex;align-items:center;gap:5px;margin-top:8px;" title="Estado de vencimientos">
-            ${semaforo}
-          </div>
-          <div style="display:flex;gap:4px;margin-top:8px;flex-wrap:wrap;">
-            <button class="btn secondary small icon-btn" title="Ver título" onclick="verTituloPdfVigenteEquipo(${e.id})">🚗</button>
-            <button class="btn secondary small icon-btn" title="Ver certificación" onclick="verCertPdfVigenteEquipo(${e.id})">📄</button>
-            <button class="btn secondary small icon-btn" title="Ver seguro técnico" onclick="verPolizaGlobalVigente('seguro_tecnico')">🛡️</button>
-            <button class="btn secondary small icon-btn" title="Ver responsabilidad civil" onclick="verPolizaGlobalVigente('seguro_rc')">⚖️</button>
-            <button class="btn secondary small icon-btn" title="Ver especificaciones técnicas" onclick="${tieneFicha ? `abrirFichaTecnica(${e.id})` : `showToast('No hay ficha técnica cargada para este modelo todavía', true)`}">🔧</button>
-          </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
-            ${suc ? `<span class="badge" style="font-size:10px;">${suc.nombre}</span>` : '<span class="muted" style="font-size:10px;">—</span>'}
-            <button class="btn small" onclick="abrirDetalleEquipo(${e.id})">Editar</button>
-          </div>
-        </div>`;
-    }).join('') || '<div class="muted" style="text-align:center;padding:20px 0;font-size:12px;">Sin equipos en este estado.</div>';
-
-    return `
-      <div>
-        <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--panel-2);border-radius:8px 8px 0 0;border-bottom:2px solid ${col.color};">
-          <span style="width:8px;height:8px;border-radius:50%;background:${col.color};flex:none;"></span>
-          <span style="font-weight:700;font-size:12.5px;letter-spacing:.3px;text-transform:uppercase;">${col.titulo}</span>
-          <span class="muted" style="font-size:11.5px;margin-left:auto;">${items.length}</span>
-        </div>
-        <div class="board-column-scroll" style="max-height:calc(100vh - 320px);overflow-y:auto;padding:10px;background:var(--panel);border-radius:0 0 8px 8px;">
-          ${tarjetas}
-        </div>
-      </div>`;
-  }).join('');
-  document.getElementById('equipos-results-count').textContent = `${list.length} equipo(s)`;
+  if(!document.getElementById('equipo-modelos-dl').children.length) eqCargarModelos();
+  const porEstado = {}; EQ_ESTADOS.forEach(c => porEstado[c.estado] = []);
+  list.forEach(e => { const k = estadoActualEquipo(e); (porEstado[k] || (porEstado[k] = [])).push(e); });
+  document.getElementById('equipos-chips').innerHTML =
+    `<button class="eq-chip ${eqEstadoFiltro === '' ? 'on' : ''}" data-eqe="">Todas <b>${list.length}</b></button>` +
+    EQ_ESTADOS.map(c => `<button class="eq-chip ${eqEstadoFiltro === c.estado ? 'on' : ''}" data-eqe="${c.estado}">${c.titulo} <b>${(porEstado[c.estado] || []).length}</b></button>`).join('');
+  const vista = (eqEstadoFiltro ? (porEstado[eqEstadoFiltro] || []) : list).slice()
+    .sort((a, b) => String(a.modelo || '').localeCompare(String(b.modelo || ''), 'es') || String(a.numero_serie).localeCompare(String(b.numero_serie), 'es', { numeric:true }));
+  const colDe = k => EQ_ESTADOS.find(c => c.estado === k) || EQ_ESTADOS[0];
+  board.innerHTML = vista.slice(0, eqMostrar).map(e => eqCartaHtml(e, colDe(estadoActualEquipo(e)))).join('')
+    || '<div class="muted" style="grid-column:1/-1;text-align:center;padding:30px 0;">Sin equipos con estos filtros.</div>';
+  const mas = document.getElementById('btn-equipos-mas');
+  mas.style.display = vista.length > eqMostrar ? '' : 'none';
+  mas.textContent = `Ver más equipos (${vista.length - eqMostrar} restantes)`;
+  document.getElementById('equipos-results-count').textContent = `${vista.length} equipo(s)` + (eqEstadoFiltro ? ` · ${list.length} con los filtros actuales` : '');
+}
+document.getElementById('equipos-chips').addEventListener('click', ev => {
+  const b = ev.target.closest('[data-eqe]'); if(!b) return;
+  eqEstadoFiltro = b.dataset.eqe; eqMostrar = EQ_PAGINA; renderEquipos(getFilteredEquipos());
+});
+document.getElementById('btn-equipos-mas').addEventListener('click', () => { eqMostrar += EQ_PAGINA; renderEquipos(getFilteredEquipos()); });
+function eqCargarModelos(){
+  const dl = document.getElementById('equipo-modelos-dl'); if(!dl) return;
+  const ms = [...new Set((equiposCache || []).map(e => (e.modelo || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+  dl.innerHTML = ms.map(m => `<option value="${escapeHtml(m)}">`).join('');
 }
 
 function getFilteredEquipos(){
   const q = document.getElementById('equipo-search-input').value.trim().toLowerCase();
   const sucursalId = document.getElementById('equipo-filter-sucursal').value;
   const tipo = document.getElementById('equipo-filter-tipo').value;
+  const modeloQ = (document.getElementById('equipo-filter-modelo').value || '').trim().toLowerCase();
   let list = equiposCache;
+  if(modeloQ) list = list.filter(e => (e.modelo || '').toLowerCase().includes(modeloQ));
   if(sucursalId) list = list.filter(e => String(e.sucursal_id) === sucursalId);
   if(tipo) list = list.filter(e => e.tipo === tipo);
   if(q){
@@ -7885,11 +7916,13 @@ function getFilteredEquipos(){
   return list;
 }
 function applyEquipoFilters(){
+  eqMostrar = EQ_PAGINA;
   renderEquipos(getFilteredEquipos());
 }
 document.getElementById('equipo-search-input').addEventListener('input', applyEquipoFilters);
 document.getElementById('equipo-filter-sucursal').addEventListener('change', applyEquipoFilters);
 document.getElementById('equipo-filter-tipo').addEventListener('change', applyEquipoFilters);
+document.getElementById('equipo-filter-modelo').addEventListener('input', applyEquipoFilters);
 
 // =========================================================
 // MÓDULO PIZARRA DE FLOTA
