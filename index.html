@@ -7614,7 +7614,7 @@ async function fotoQuitarModelo(modelo){
 
 // Ventana del cargador (catálogo de modelos)
 function abrirCargadorFotos(){
-  if(!puede('presupuestos','fotos')){ showToast('No tenés permiso para cargar fotos de modelos', true); return; }
+  if(!esMaestro()){ showToast('La carga de fotos de modelos es solo para el rol maestro', true); return; }
   const fondo = document.createElement('div');
   fondo.className = 'pizarra-dlg-fondo';
   fondo.innerHTML = `
@@ -9294,6 +9294,8 @@ async function cargarMiPerfil(userId){
 }
 
 // ---------- Permisos granulares por usuario ----------
+// Cargadores masivos (Excel / lotes de imágenes o PDFs): solo el rol maestro.
+function esMaestro(){ return !!(miPerfil && miPerfil.rol === 'maestro'); }
 // El maestro siempre tiene todo. Para el resto, se lee miPerfil.permisos (JSON guardado en Supabase).
 function puede(seccion, accion){
   if(!miPerfil) return false;
@@ -16623,6 +16625,7 @@ document.getElementById('btn-retiro-remito-save').addEventListener('click', asyn
 let loteRemitosState = [];
 
 function abrirImportadorLoteRemitos(){
+  if(!esMaestro()){ showToast('La importación por lotes es solo para el rol maestro', true); return; }
   loteRemitosState = [];
   document.getElementById('lote-archivos-input').value = '';
   document.getElementById('lote-sucursal_id').innerHTML = '<option value="">—</option>' +
@@ -20191,7 +20194,7 @@ function hrepCargarJSZip(){
   return new Promise((res, rej)=>{ const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'; sc.onload = res; sc.onerror = ()=>rej(new Error('No se pudo cargar JSZip')); document.head.appendChild(sc); });
 }
 async function hrepLoteProcesar(fileList){
-  if(!puede('haulotte_repuestos','editar')){ showToast('No tenés permiso para editar artículos', true); return; }
+  if(!esMaestro()){ showToast('La carga masiva de imágenes es solo para el rol maestro', true); return; }
   const st = document.getElementById('hrep-gp-status');
   const items = []; // {codigo, blob, name}
   try{
@@ -20279,7 +20282,7 @@ function hrepMostrarModelos(){
 })();
 
 async function hrepTecProcesar(file){
-  if(!puede('haulotte_repuestos','editar')){ showToast('No tenés permiso para editar artículos', true); return; }
+  if(!esMaestro()){ showToast('La carga masiva de datos técnicos es solo para el rol maestro', true); return; }
   const st = document.getElementById('hrep-gp-status');
   let filas;
   try{
@@ -20615,7 +20618,7 @@ async function initApp(){
       renderRemitos();
     }
     document.getElementById('btn-nuevo-remito').style.display = puede('remitos','crear') ? '' : 'none';
-    document.getElementById('btn-importar-lote-remitos').style.display = puede('remitos','crear') ? '' : 'none';
+    document.getElementById('btn-importar-lote-remitos').style.display = esMaestro() ? '' : 'none';
 
     if(puede('presupuestos','ver')){
       console.log('[Horizon] cargando presupuestos...');
@@ -20623,7 +20626,7 @@ async function initApp(){
       renderPresupuestos();
     }
     document.getElementById('btn-nuevo-presupuesto').style.display = puede('presupuestos','crear') ? '' : 'none';
-    document.getElementById('btn-pres-fotos').style.display = puede('presupuestos','fotos') ? '' : 'none';
+    document.getElementById('btn-pres-fotos').style.display = esMaestro() ? '' : 'none';
 
     if(puede('solicitudoc','ver')){
       console.log('[Horizon] cargando solicitudes de OC...');
@@ -20686,9 +20689,10 @@ async function initApp(){
       await loadHaulotteRepuestos();
       hrepCargarModelosFiltro();
     }
-    document.getElementById('btn-hrep-tec').style.display = puede('haulotte_repuestos','editar') ? '' : 'none';
+    document.getElementById('btn-hrep-tec').style.display = esMaestro() ? '' : 'none';
+    document.getElementById('btn-hrep-lote').style.display = esMaestro() ? '' : 'none';
     document.getElementById('btn-new-hrep').style.display = puede('haulotte_repuestos','crear') ? '' : 'none';
-    document.getElementById('btn-hrep-import-gp').style.display = puede('haulotte_repuestos','crear') ? '' : 'none';
+    document.getElementById('btn-hrep-import-gp').style.display = esMaestro() ? '' : 'none';
 
     if(puede('haulotte_ventas','ver')){
       console.log('[Horizon] cargando presupuestos de venta Haulotte...');
@@ -22662,6 +22666,7 @@ document.getElementById('btn-hrep-import-gp').addEventListener('click', ()=> doc
 document.getElementById('hrep-gp-file').addEventListener('change', async (e)=>{
   const file = e.target.files[0]; e.target.value = '';
   if(!file) return;
+  if(!esMaestro()){ showToast('La importación de costos de GP es solo para el rol maestro', true); return; }
   const st = document.getElementById('hrep-gp-status');
   try{
     st.textContent = 'Leyendo el Excel...';
