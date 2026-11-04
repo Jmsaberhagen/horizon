@@ -22271,7 +22271,7 @@ function hpAgregarItem(r, cant){
   cant = Math.max(1, parseInt(cant, 10) || 1);
   const ya = hpItemsState.find(x => x.codigo === r.codigo);
   if(ya) ya.cantidad = Number(ya.cantidad) + cant;
-  else hpItemsState.push({ codigo: r.codigo, descripcion: r.descripcion, cantidad: cant, costo: Number(r.costo_arg_usd) });
+  else hpItemsState.push({ codigo: r.codigo, descripcion: r.descripcion, cantidad: cant, costo: hpEsNacional(r) ? 0 : Number(r.costo_arg_usd) });   // A-: el costo de la lista no es real, entra en 0 y se carga a mano
   renderHpItemsTabla();
 }
 
@@ -22377,7 +22377,7 @@ function renderHpItemsTabla(){
       <td>${escapeHtml(it.descripcion || '')}</td>
       <td><input type="number" min="1" step="1" value="${it.cantidad}" data-hp-qty="${i}" style="width:70px;"></td>
       <td class="muted" style="text-align:right;">${hpEsNacional(it)
-        ? `<input type="number" step="0.01" min="0" value="${it.costo}" data-hp-costo="${i}" style="width:95px;text-align:right;${it.costoEditado ? '' : 'border-color:#ff9f43;'}" title="Artículo nacional (A-): el costo de la lista no es el real, cargá el costo actual">`
+        ? `<input type="number" step="0.01" min="0" value="${it.costo}" data-hp-costo="${i}" style="width:95px;text-align:right;${it.costoEditado ? '' : 'border-color:#ff9f43;'}" title="Artículo nacional (A-): entra en 0, cargá el costo actual">`
         : rpN2(it.costo)}</td>
       <td style="text-align:right;" id="hp-pu-${i}"></td>
       <td style="text-align:right;" id="hp-sub-${i}"></td>
@@ -22537,8 +22537,8 @@ function hpArmarPayload(){
   };
 }
 function hpValidar(){
-  const sinCosto = hpItemsState.filter(i => Number(i.cantidad) > 0 && hpEsNacional(i) && !i.costoEditado);
-  if(sinCosto.length && !confirm(`Estos artículos nacionales (A-) todavía tienen el costo de la lista, que no es el real:\n\n${sinCosto.map(i => '• ' + i.codigo).join('\n')}\n\n¿Querés guardar igual con ese costo?`)) return false;
+  const sinCosto = hpItemsState.filter(i => Number(i.cantidad) > 0 && !(Number(i.costo) > 0));
+  if(sinCosto.length){ alert(`No se puede guardar: estos artículos no tienen costo ARG cargado:\n\n${sinCosto.map(i => '• ' + i.codigo).join('\n')}\n\nCargá el costo (en los A- se carga a mano) o quitá el artículo.`); return false; }
   if(!hpItemsState.some(i => Number(i.cantidad) > 0)){ showToast('Agregá al menos un repuesto con cantidad', true); return false; }
   if(!document.getElementById('hp-cliente_id').value && !document.getElementById('hp-empresa_nombre').value.trim()){
     showToast('Elegí un cliente o escribí el nombre de la empresa', true); return false;
