@@ -20262,7 +20262,9 @@ async function hrepTecProcesar(file){
   filas.forEach(f => {
     const codigo = txt(f['Código'] ?? f['Codigo']); if(!codigo) return;
     const peso = Number(f['Peso (kg)']);
-    const modelos = (txt(f['Modelos de uso']) || '').split(';').map(s => s.trim()).filter(Boolean);
+    // Nombres abreviados de MyHaulotte que en realidad son otro modelo: se unifican al cargar
+    const ALIAS_MODELOS = { 'C 10N': 'COMPACT 10N', 'C 12': 'COMPACT 12', 'C 14': 'COMPACT 14' };
+    const modelos = [...new Set((txt(f['Modelos de uso']) || '').split(';').map(s => s.trim()).filter(Boolean).map(m => ALIAS_MODELOS[m] || m))];
     datos.set(codigo, {
       denominacion_fab: txt(f['Denominación fabricante'] ?? f['Denominacion fabricante']),
       peso_kg: (f['Peso (kg)'] !== null && f['Peso (kg)'] !== '' && isFinite(peso)) ? peso : null,
@@ -22022,11 +22024,15 @@ async function hpPrecargarFotos(items){
 
 // Leyenda "Aplica a: …" bajo la descripción de cada ítem. Siempre sale que haya datos; con muchos modelos muestra los primeros y "y N más".
 const hpModelosCache = {};
-function hpModeloCorto(m){
-  const t = String(m || '').trim().split(/\s+/);
-  const i = t.findIndex(x => /\d/.test(x));
-  return (i > 0 ? t.slice(i) : t).join(' ');
+// El nombre que viene de MyHaulotte es "TIPO MODELO" (ej. "TIJERAS ELECTRICAS COMPACT 10N / COMPACT 2632E"). El tipo es una lista cerrada; todo lo demás es el modelo (puede llevar COMPACT, STAR, C, etc.).
+const HP_TIPOS_MAQUINA = ['CARROS TELESCOPICOS','CESTA ARTICULADA ELECTRICA','CESTA ARTICULADA TERMICA','CESTA SOBRE CAMION','CESTA TELESCOPICA','CESTA TRACCIONADA','ELECTRIC ARTICULATED PLATFORMS','ENGINE-POWERED ARTICULATED PLATFORMS','ELECTRIC SCISSOR LIFTS','TELESCOPIC HANDLERS','TELESCOPIC MASTS','TELESCOPIC PLATFORMS','TOWED PLATFORMS','MASTIL TELESCOPICO','TIJERAS ELECTRICAS','TIJERAS TERMICAS'];
+function hpModeloPartes(m){
+  const t = String(m || '').trim();
+  const up = t.toUpperCase();
+  const tipo = HP_TIPOS_MAQUINA.find(x => up.startsWith(x + ' ')) || '';
+  return { tipo: tipo ? t.slice(0, tipo.length) : '', corto: (tipo ? t.slice(tipo.length) : t).trim() };
 }
+function hpModeloCorto(m){ return hpModeloPartes(m).corto; }
 function hpLeyendaAplica(doc, modelos, ancho){
   if(!Array.isArray(modelos) || !modelos.length) return [];
   const nombres = [...new Set(modelos.map(hpModeloCorto).filter(Boolean))];
@@ -22217,8 +22223,7 @@ async function hpmCargarModelos(){
   const inp = document.getElementById('hpm-modelo-q');
   const { data, error } = await supabaseClient.rpc('modelos_repuestos_gp');
   if(error){ document.getElementById('hpm-info').textContent = 'No se pudieron cargar los modelos: ' + error.message; return; }
-  hpmListaModelos = (data || []).map(m => ({ modelo: m.modelo, cant: m.cant, corto: hpModeloCorto(m.modelo), tipo: String(m.modelo).replace(hpModeloCorto(m.modelo), '').trim(),
-    clave: hpmNorm(m.modelo) }));
+  hpmListaModelos = (data || []).map(m => { const pt = hpModeloPartes(m.modelo); return { modelo: m.modelo, cant: m.cant, corto: pt.corto, tipo: pt.tipo, clave: hpmNorm(m.modelo) }; });
   hpmModelosCargados = true;
   inp.disabled = false;
 }
