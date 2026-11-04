@@ -1098,6 +1098,17 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
 
 <!-- LOGIN -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="apex-pk" viewBox="0 0 40 40"><path d="M4 33 L20 6 L36 33" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linejoin="miter" stroke-linecap="square"/><path d="M13 33 L20 21 L27 33" fill="currentColor" opacity=".55"/><rect x="2" y="35.5" width="36" height="3" fill="currentColor"/></symbol></defs></svg>
+<div id="ver-overlay" style="display:none;position:fixed;inset:0;z-index:99999;background:radial-gradient(900px 420px at 50% 0%,rgba(56,189,248,.15),transparent 70%),var(--bg);align-items:center;justify-content:center;text-align:center;padding:24px;">
+  <div style="max-width:420px;">
+    <svg width="54" height="54" aria-hidden="true" style="color:var(--accent)"><use href="#apex-pk"/></svg>
+    <div style="font-weight:800;letter-spacing:2px;margin:6px 0 22px;">APEX <small style="font-weight:600;color:var(--text-dim);">RENTAL MANAGER</small></div>
+    <div id="ver-icono" style="font-size:54px;line-height:1;">✅</div>
+    <h1 id="ver-titulo" style="font-size:26px;margin:14px 0 8px;">MAIL VERIFICADO</h1>
+    <p id="ver-texto" style="color:var(--text-dim);margin:0 0 18px;">Tu correo quedó confirmado.</p>
+    <p style="color:var(--text-dim);font-size:13px;margin:0;">Redirigiendo al ingreso<span id="ver-seg"></span>…</p>
+    <button class="btn" id="ver-ir" style="margin-top:16px;" type="button">Ir al ingreso ahora</button>
+  </div>
+</div>
 <div class="login-screen" id="login-screen">
   <div class="login-box">
     <div class="apex-mark"><svg width="46" height="46" aria-hidden="true"><use href="#apex-pk"/></svg><div class="apex-word"><b>APEX</b><small>RENTAL MANAGER</small></div></div>
@@ -9284,6 +9295,35 @@ document.getElementById('btn-equipo-delete').addEventListener('click', async ()=
 // MÓDULO LOGIN / ROLES / USUARIOS
 // =========================================================
 
+// Vuelta desde el link de verificación de Supabase (llega con #access_token=...&type=signup, o #error=... si el link ya se usó).
+// Muestra una pantalla propia y manda al ingreso, para que nadie vea un 404 ni quede con una sesión abierta sin querer.
+async function manejarRetornoVerificacion(){
+  const h = new URLSearchParams((location.hash || '').replace(/^#/, ''));
+  const q = new URLSearchParams(location.search || '');
+  const esVerif = h.get('type') === 'signup' || h.get('type') === 'email_change' || h.get('type') === 'invite' || q.get('verificado') === '1';
+  const err = h.get('error_code') || h.get('error');
+  if(!esVerif && !err) return false;
+  const ov = document.getElementById('ver-overlay');
+  const ya = err === 'otp_expired';   // el link ya se usó (típico: el antivirus/correo lo abre primero): el mail igual queda verificado
+  if(err && !ya){
+    document.getElementById('ver-icono').textContent = '⚠️';
+    document.getElementById('ver-titulo').textContent = 'No pudimos verificar el mail';
+    document.getElementById('ver-texto').textContent = (h.get('error_description') || 'El enlace no es válido.').replace(/\+/g, ' ') + ' Pedile a un administrador que te reenvíe el acceso.';
+  } else if(ya){
+    document.getElementById('ver-titulo').textContent = 'MAIL YA VERIFICADO';
+    document.getElementById('ver-texto').textContent = 'Tu correo ya estaba confirmado. Podés ingresar con tu usuario y contraseña.';
+  } else {
+    document.getElementById('ver-texto').textContent = 'Tu correo quedó confirmado. Ya podés ingresar con tu usuario y contraseña.';
+  }
+  ov.style.display = 'flex';
+  try{ await supabaseClient.auth.signOut(); }catch(e){}                 // el link abre una sesión: la cerramos, se ingresa con clave
+  try{ history.replaceState(null, '', location.pathname); }catch(e){}   // limpia #access_token / ?verificado de la barra
+  const ir = () => { ov.style.display = 'none'; location.replace(location.pathname); };
+  document.getElementById('ver-ir').addEventListener('click', ir);
+  let n = err && !ya ? 8 : 4; const seg = document.getElementById('ver-seg');
+  const t = setInterval(() => { seg.textContent = ' (' + n + ')'; if(n-- <= 0){ clearInterval(t); ir(); } }, 1000);
+  return true;
+}
 function showApp(){
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app-shell').style.display = 'block';
@@ -10386,7 +10426,7 @@ document.getElementById('btn-usuario-save').addEventListener('click', async ()=>
       if(!email || !password){ showToast('Completá email y contraseña', true); return; }
       if(password.length < 6){ showToast('La contraseña debe tener al menos 6 caracteres', true); return; }
 
-      const { data, error: signUpError } = await authClient.auth.signUp({ email, password });
+      const { data, error: signUpError } = await authClient.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + location.pathname + '?verificado=1' } });
       if(signUpError) throw signUpError;
       if(!data.user){ throw new Error('No se pudo crear el usuario'); }
 
@@ -23374,6 +23414,7 @@ document.getElementById('btn-hv-pdf-previo').addEventListener('click', async ()=
 (async function init(){
   console.log('[Horizon] iniciando...');
   if(!initSupabase()) return;
+  if(await manejarRetornoVerificacion()) return;
   setStatus(true, 'conectando...');
 
   const { data: { session } } = await supabaseClient.auth.getSession();
