@@ -205,6 +205,27 @@
   button.btn.small{padding:5px 10px;font-size:12px;}
   button.btn.icon-btn{padding:5px 7px;font-size:13px;min-width:28px;line-height:1;}
 
+  /* ---- Artículos Haulotte: tarjetas con miniatura ---- */
+  .hrep-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;}
+  .hrep-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;display:flex;flex-direction:column;transition:transform .12s,border-color .12s,box-shadow .12s;}
+  .hrep-card:hover{transform:translateY(-2px);border-color:var(--accent);box-shadow:0 6px 18px rgba(0,0,0,.25);}
+  .hrep-card.inactivo{opacity:.55;}
+  .hrep-ph{position:relative;aspect-ratio:1/1;background:#fff;display:flex;align-items:center;justify-content:center;}
+  .hrep-ph img{width:100%;height:100%;object-fit:contain;display:block;}
+  .hrep-ph .sinfoto{color:#9aa3ad;font-size:12px;text-align:center;line-height:1.5;}
+  .hrep-ph .sinfoto b{display:block;font-size:30px;opacity:.55;}
+  .hrep-tags{position:absolute;top:8px;left:8px;right:8px;display:flex;gap:5px;flex-wrap:wrap;pointer-events:none;}
+  .hrep-tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;background:rgba(15,17,21,.82);color:#e8edf3;letter-spacing:.02em;}
+  .hrep-tag.warn{background:#b45309;color:#fff;}
+  .hrep-tag.off{background:#6b7280;color:#fff;}
+  .hrep-bd{padding:10px 12px 12px;display:flex;flex-direction:column;gap:5px;flex:1;}
+  .hrep-cod{font-family:monospace;font-weight:700;font-size:13px;}
+  .hrep-desc{font-size:13px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.6em;}
+  .hrep-ft{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:auto;padding-top:4px;}
+  .hrep-precio{font-weight:700;font-size:14px;}
+  .hrep-mod{font-size:11px;color:var(--text-dim,#8b95a1);white-space:nowrap;}
+  .hrep-vacio{grid-column:1/-1;text-align:center;padding:40px 10px;color:var(--text-dim,#8b95a1);}
+  #hrep-modelo-lista{display:none;position:absolute;z-index:60;top:calc(100% + 4px);left:0;width:min(520px,92vw);max-height:300px;overflow:auto;border:1px solid var(--border);border-radius:10px;background:var(--panel);box-shadow:0 10px 28px rgba(0,0,0,.4);}
   .panel{
     background:var(--panel);
     border:1px solid var(--border);
@@ -2901,9 +2922,11 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
         <option value="">Costo: todos</option>
         <option value="manual">Con costo editado a mano</option>
       </select>
-      <select id="hrep-f-modelo" title="Ver solo los repuestos que se usan en un modelo de máquina" style="max-width:230px;">
-        <option value="">Modelo: todos</option>
-      </select>
+      <div style="position:relative;">
+        <input type="text" id="hrep-f-modelo-q" placeholder="🚜 Modelo de máquina: escribí parte (HA16, COMPACT 10N…)" autocomplete="off" style="min-width:290px;">
+        <input type="hidden" id="hrep-f-modelo">
+        <div id="hrep-modelo-lista"></div>
+      </div>
       <span class="muted" id="hrep-gp-status" style="font-size:12px;"></span>
       <div style="flex:1"></div>
       <input type="file" id="hrep-gp-file" accept=".xls,.xlsx" style="display:none;">
@@ -2915,26 +2938,7 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
       <button class="btn" id="btn-new-hrep">+ Nuevo artículo</button>
     </div>
 
-    <div class="panel">
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th style="width:150px;">Código</th>
-              <th>Descripción</th>
-              <th style="width:70px;">Clase</th>
-              <th style="width:160px;">Costo ARG (US$)</th>
-              <th style="width:80px;">Imagen / Ficha</th>
-              <th style="width:90px;">Estado</th>
-              <th style="width:90px;">Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="hrep-tbody">
-            <tr><td colspan="7" class="empty-state">Cargando artículos...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <div class="hrep-grid" id="hrep-grid"><div class="hrep-vacio">Cargando artículos...</div></div>
     <div style="display:flex;align-items:center;gap:10px;margin-top:10px;font-size:12px;">
       <span class="muted" id="hrep-results-count"></span>
       <div style="flex:1"></div>
@@ -19966,7 +19970,7 @@ async function generarPresupuestoPDF(id){
 // =========================================================
 let hrepTotal = 0;           // total de artículos activos con costo (tile del dashboard)
 let hrepPagina = 0;
-const HREP_PAGE = 50;
+const HREP_PAGE = 36;
 let hrepFilas = [];
 let hrepFichaEdit = null;    // estado de la ficha abierta
 
@@ -19979,9 +19983,9 @@ async function loadHaulotteRepuestos(){
 function hrepUsd(n){ return 'US$ ' + Number(n).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
 async function hrepCargarPagina(){
-  const tbody = document.getElementById('hrep-tbody');
-  if(!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Cargando artículos...</td></tr>';
+  const grid = document.getElementById('hrep-grid');
+  if(!grid) return;
+  grid.innerHTML = '<div class="hrep-vacio">Cargando artículos...</div>';
   const q = (document.getElementById('hrep-search-input').value || '').trim().replace(/[,()%*\\]/g, ' ').replace(/\s+/g, ' ');
   const fEstado = document.getElementById('hrep-f-estado').value;
   const fOrigen = document.getElementById('hrep-f-origen').value;
@@ -19998,34 +20002,42 @@ async function hrepCargarPagina(){
   const { data, count, error } = await qb.order('codigo').range(desde, desde + HREP_PAGE - 1);
   if(error){
     console.error('Error cargando artículos:', error);
-    tbody.innerHTML = `<tr><td colspan="7" class="empty-state">Error al cargar: ${escapeHtml(error.message)}</td></tr>`;
+    grid.innerHTML = `<div class="hrep-vacio">Error al cargar: ${escapeHtml(error.message)}</div>`;
     return;
   }
   hrepFilas = data || [];
   const total = count || 0;
   const pags = Math.max(1, Math.ceil(total / HREP_PAGE));
   if(!hrepFilas.length){
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No hay artículos con este filtro.</td></tr>';
+    grid.innerHTML = '<div class="hrep-vacio">No hay artículos con este filtro.</div>';
   } else {
-    const verEditar = puede('haulotte_repuestos','editar') ? 'Editar' : 'Ver';
-    tbody.innerHTML = hrepFilas.map(r => `
-      <tr>
-        <td style="font-family:monospace;">${escapeHtml(r.codigo)}${r.origen === 'manual' ? ' <span class="badge" title="Cargado a mano" style="font-size:10px;">manual</span>' : ''}</td>
-        <td>${r.descripcion ? escapeHtml(r.descripcion) : '<span class="muted">Sin descripción</span>'}</td>
-        <td class="muted">${r.clase ? escapeHtml(r.clase) : '—'}</td>
-        <td>${hrepUsd(r.costo_arg_usd)}${r.costo_manual ? ' <span class="badge" title="Costo editado a mano' + (r.costo_editado_el ? ' el ' + fmtDate(r.costo_editado_el) : '') + '" style="font-size:10px;color:var(--warn,#c80);border-color:var(--warn,#c80);">editado</span>' : ''}</td>
-        <td class="muted">${r.imagen_url ? '🖼️' : '·'} ${r.ficha_tecnica_url ? '📄' : '·'}${Array.isArray(r.modelos_uso) && r.modelos_uso.length ? ' <span title="Se usa en ' + r.modelos_uso.length + ' modelo(s)" style="font-size:11px;">⚙' + r.modelos_uso.length + '</span>' : ''}</td>
-        <td>${r.activo
-          ? '<span class="badge" style="color:var(--ok);border-color:var(--ok);">Activo</span>'
-          : '<span class="badge" style="color:var(--text-dim);border-color:var(--border);">Inactivo</span>'}</td>
-        <td><div class="row-actions"><button class="btn secondary small" onclick="abrirEditarHrep('${escapeHtml(r.codigo).replace(/'/g, '&#39;')}')">${verEditar}</button></div></td>
-      </tr>`).join('');
+    grid.innerHTML = hrepFilas.map(r => {
+      const nMod = Array.isArray(r.modelos_uso) ? r.modelos_uso.length : 0;
+      const tags = [
+        r.origen === 'manual' ? '<span class="hrep-tag">manual</span>' : '',
+        r.costo_manual ? '<span class="hrep-tag warn" title="Costo editado a mano">costo editado</span>' : '',
+        !r.activo ? '<span class="hrep-tag off">inactivo</span>' : '',
+      ].join('');
+      const foto = r.imagen_url
+        ? `<img src="${escapeHtml(r.imagen_url)}" alt="" loading="lazy" decoding="async" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'sinfoto',innerHTML:'<b>🖼</b>Sin foto'}))">`
+        : '<div class="sinfoto"><b>🖼</b>Sin foto</div>';
+      return `<div class="hrep-card${r.activo ? '' : ' inactivo'}" data-hrep-cod="${escapeHtml(r.codigo)}" tabindex="0" title="${escapeHtml(r.descripcion || '')}">
+        <div class="hrep-ph">${foto}<div class="hrep-tags">${tags}</div></div>
+        <div class="hrep-bd">
+          <div class="hrep-cod">${escapeHtml(r.codigo)}</div>
+          <div class="hrep-desc">${r.descripcion ? escapeHtml(r.descripcion) : '<span class="muted">Sin descripción</span>'}</div>
+          <div class="hrep-ft"><span class="hrep-precio">${hrepUsd(r.costo_arg_usd)}</span>${nMod ? `<span class="hrep-mod" title="Se usa en ${nMod} modelo(s)">⚙ ${nMod} modelo${nMod === 1 ? '' : 's'}</span>` : ''}</div>
+        </div>
+      </div>`;
+    }).join('');
   }
   document.getElementById('hrep-results-count').textContent = `${total.toLocaleString('es-AR')} artículo(s)`;
   document.getElementById('hrep-page-info').textContent = `Página ${hrepPagina + 1} de ${pags}`;
   document.getElementById('btn-hrep-prev').disabled = hrepPagina <= 0;
   document.getElementById('btn-hrep-next').disabled = hrepPagina + 1 >= pags;
 }
+document.getElementById('hrep-grid').addEventListener('click', (e)=>{ const c = e.target.closest('[data-hrep-cod]'); if(c) abrirEditarHrep(c.dataset.hrepCod); });
+document.getElementById('hrep-grid').addEventListener('keydown', (e)=>{ if(e.key === 'Enter'){ const c = e.target.closest('[data-hrep-cod]'); if(c) abrirEditarHrep(c.dataset.hrepCod); } });
 
 // Compatibilidad con los lugares que ya llamaban a renderHaulotteRepuestos()
 function renderHaulotteRepuestos(){ return hrepCargarPagina(); }
@@ -20035,7 +20047,7 @@ document.getElementById('hrep-search-input').addEventListener('input', ()=>{
   clearTimeout(hrepTimer);
   hrepTimer = setTimeout(()=>{ hrepPagina = 0; hrepCargarPagina(); }, 350);
 });
-['hrep-f-estado','hrep-f-origen','hrep-f-costo','hrep-f-modelo'].forEach(id => document.getElementById(id).addEventListener('change', ()=>{ hrepPagina = 0; hrepCargarPagina(); }));
+['hrep-f-estado','hrep-f-origen','hrep-f-costo'].forEach(id => document.getElementById(id).addEventListener('change', ()=>{ hrepPagina = 0; hrepCargarPagina(); }));
 document.getElementById('btn-hrep-prev').addEventListener('click', ()=>{ if(hrepPagina > 0){ hrepPagina--; hrepCargarPagina(); } });
 document.getElementById('btn-hrep-next').addEventListener('click', ()=>{ hrepPagina++; hrepCargarPagina(); });
 
@@ -20233,19 +20245,38 @@ async function hrepLoteProcesar(fileList){
   hrepCargarPagina();
 }
 // ---------- Datos técnicos: lista de modelos para el filtro + carga masiva desde el Excel de MyHaulotte ----------
+let hrepModelosLista = [];
+const hrepNorm = t => String(t || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 async function hrepCargarModelosFiltro(){
-  const sel = document.getElementById('hrep-f-modelo'); if(!sel) return;
-  const actual = sel.value;
-  const set = new Set();
+  const cnt = new Map();
   for(let desde = 0; ; desde += 1000){
     const { data, error } = await supabaseClient.from('haulotte_repuestos_gp').select('modelos_uso').not('modelos_uso', 'is', null).order('codigo').range(desde, desde + 999);
     if(error || !data) break;
-    data.forEach(r => (r.modelos_uso || []).forEach(m => set.add(m)));
+    data.forEach(r => (r.modelos_uso || []).forEach(m => cnt.set(m, (cnt.get(m) || 0) + 1)));
     if(data.length < 1000) break;
   }
-  sel.innerHTML = '<option value="">Modelo: todos</option>' + [...set].sort().map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('');
-  if(actual && set.has(actual)) sel.value = actual;
+  hrepModelosLista = [...cnt.entries()].map(([modelo, cant]) => { const pt = hpModeloPartes(modelo); return { modelo, cant, corto: pt.corto, tipo: pt.tipo, clave: hrepNorm(modelo) }; });
 }
+function hrepMostrarModelos(){
+  const box = document.getElementById('hrep-modelo-lista');
+  const toks = hrepNorm(document.getElementById('hrep-f-modelo-q').value).split(/[\s\/]+/).filter(Boolean);
+  let l = hrepModelosLista.filter(m => toks.every(t => m.clave.includes(t)));
+  const rank = m => (toks.length && hrepNorm(m.corto).startsWith(toks[0])) ? 0 : 1;
+  l = l.slice().sort((a, b) => rank(a) - rank(b) || a.corto.localeCompare(b.corto, 'es', { numeric: true }));
+  box.innerHTML = l.length ? l.map(m => `<div class="autocomplete-item" data-hrep-mod="${escapeHtml(m.modelo)}" style="cursor:pointer;padding:7px 10px;display:flex;gap:10px;align-items:baseline;"><b>${escapeHtml(m.corto)}</b><span class="muted" style="font-size:12px;flex:1;">${escapeHtml(m.tipo)}</span><span class="muted" style="font-size:12px;">${m.cant}</span></div>`).join('')
+    : '<div class="muted" style="padding:10px;font-size:13px;">Ningún modelo coincide</div>';
+  box.style.display = 'block';
+}
+(function(){
+  const q = document.getElementById('hrep-f-modelo-q'), lista = document.getElementById('hrep-modelo-lista'), hid = document.getElementById('hrep-f-modelo');
+  const elegir = (modelo)=>{ hid.value = modelo; q.value = modelo; lista.style.display = 'none'; hrepPagina = 0; hrepCargarPagina(); };
+  q.addEventListener('focus', hrepMostrarModelos);
+  q.addEventListener('click', hrepMostrarModelos);
+  q.addEventListener('input', ()=>{ const habia = hid.value; hid.value = ''; hrepMostrarModelos(); if(habia){ hrepPagina = 0; hrepCargarPagina(); } });
+  q.addEventListener('blur', ()=> setTimeout(()=>{ lista.style.display = 'none'; }, 150));
+  q.addEventListener('keydown', (e)=>{ if(e.key === 'Escape'){ q.value = ''; q.dispatchEvent(new Event('input')); lista.style.display = 'none'; } });
+  lista.addEventListener('mousedown', (e)=>{ e.preventDefault(); const it = e.target.closest('[data-hrep-mod]'); if(it) elegir(it.dataset.hrepMod); });
+})();
 
 async function hrepTecProcesar(file){
   if(!puede('haulotte_repuestos','editar')){ showToast('No tenés permiso para editar artículos', true); return; }
