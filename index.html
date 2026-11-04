@@ -2901,9 +2901,14 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
         <option value="">Costo: todos</option>
         <option value="manual">Con costo editado a mano</option>
       </select>
+      <select id="hrep-f-modelo" title="Ver solo los repuestos que se usan en un modelo de máquina" style="max-width:230px;">
+        <option value="">Modelo: todos</option>
+      </select>
       <span class="muted" id="hrep-gp-status" style="font-size:12px;"></span>
       <div style="flex:1"></div>
       <input type="file" id="hrep-gp-file" accept=".xls,.xlsx" style="display:none;">
+      <input type="file" id="hrep-tec-file" accept=".xlsx,.xls" style="display:none;">
+      <button class="btn secondary" id="btn-hrep-tec" title="Elegí el Excel de datos técnicos de MyHaulotte (hoja Repuestos). Carga denominación, peso, reemplazo y modelos de uso. No pisa los artículos con datos editados a mano.">🔧 Cargar datos técnicos (Excel)</button>
       <input type="file" id="hrep-lote-file" accept=".zip,image/*" multiple style="display:none;">
       <button class="btn secondary" id="btn-hrep-lote" title="Elegí un ZIP (o varias imágenes) con archivos nombrados CODIGO.jpg. Se asocia cada foto al artículo con ese código. No pisa las que ya tienen foto.">🖼 Cargar imágenes (lote)</button>
       <button class="btn secondary" id="btn-hrep-import-gp" title="Carga el Excel de costos de GP (hoja Costos actualizados). Los costos editados a mano y los artículos cargados a mano se respetan">⬆ Importar costos GP (Excel)</button>
@@ -2979,6 +2984,31 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
           <textarea id="hrep-notas" rows="2" placeholder="Equivalencias, proveedor, observaciones..."></textarea>
         </div>
 
+        <div class="field full" style="border-top:1px solid var(--border);padding-top:10px;margin-top:2px;">
+          <label style="font-weight:600;">Datos técnicos <span class="muted" style="font-weight:400;font-size:12px;">(de MyHaulotte)</span></label>
+          <div class="muted" id="hrep-tec-info" style="font-size:12px;margin:2px 0 8px;"></div>
+        </div>
+        <div class="field full">
+          <label>Denominación del fabricante</label>
+          <input type="text" id="hrep-den-fab" placeholder="Nombre oficial del repuesto">
+        </div>
+        <div class="field">
+          <label>Peso (kg)</label>
+          <input type="number" id="hrep-peso" min="0" step="0.001" placeholder="0.000">
+        </div>
+        <div class="field">
+          <label>Reemplazado por (código)</label>
+          <input type="text" id="hrep-reemp-cod" placeholder="Código nuevo, si existe" style="font-family:monospace;">
+        </div>
+        <div class="field full">
+          <label>Descripción del reemplazo</label>
+          <input type="text" id="hrep-reemp-desc" placeholder="">
+        </div>
+        <div class="field full">
+          <label>Se usa en estos modelos <span class="muted" id="hrep-modelos-count" style="font-weight:400;font-size:12px;"></span></label>
+          <textarea id="hrep-modelos" rows="4" placeholder="Un modelo por línea. Ej: CESTA TELESCOPICA H16TPX / HB44J" style="font-size:12px;"></textarea>
+        </div>
+
         <div class="field">
           <label>Imagen del artículo</label>
           <div id="hrep-img-preview" style="height:140px;border:1px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--panel-2,transparent);">
@@ -3012,6 +3042,30 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
         <button class="btn danger" id="btn-hrep-delete" style="display:none;margin-right:auto;">Eliminar</button>
         <button class="btn secondary" id="btn-hrep-cancel">Cancelar</button>
         <button class="btn" id="btn-hrep-save">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="modal-hpm-overlay" style="z-index:1150;">
+    <div class="modal" style="max-width:860px;width:96%;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;">
+      <h2 style="margin-bottom:4px;">Repuestos por modelo de máquina</h2>
+      <div class="muted" style="font-size:12px;margin-bottom:10px;">Elegí la máquina y agregá al presupuesto los repuestos compatibles. Podés filtrar por nombre o código.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        <input type="text" id="hpm-modelo-q" placeholder="Modelo de máquina: escribí parte del nombre (ej. HA16, HTL4017, 130)" style="flex:2;min-width:260px;" autocomplete="off">
+        <input type="hidden" id="hpm-modelo">
+        <input type="text" id="hpm-q" placeholder="Filtrar repuestos: ej. filtro, bomba, 2420..." style="flex:1;min-width:160px;" autocomplete="off">
+      </div>
+      <div id="hpm-modelo-lista" style="display:none;max-height:230px;overflow:auto;border:1px solid var(--border);border-radius:8px;margin:-4px 0 10px;background:var(--panel,#16181d);"></div>
+      <div class="muted" id="hpm-info" style="font-size:12px;margin-bottom:6px;"></div>
+      <div style="overflow:auto;flex:1;min-height:200px;border:1px solid var(--border);border-radius:8px;">
+        <table style="margin:0;">
+          <thead><tr><th style="width:120px;">Código</th><th>Descripción</th><th style="width:70px;">Cant.</th><th style="width:100px;"></th></tr></thead>
+          <tbody id="hpm-tbody"><tr><td colspan="4" class="empty-state">Elegí un modelo para ver sus repuestos.</td></tr></tbody>
+        </table>
+      </div>
+      <div class="modal-actions">
+        <button class="btn secondary" id="btn-hpm-mas" style="display:none;margin-right:auto;">Ver más</button>
+        <button class="btn" id="btn-hpm-cerrar">Listo</button>
       </div>
     </div>
   </div>
@@ -4500,7 +4554,10 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
 
     <h3 style="margin:20px 0 10px 0;font-size:13px;color:var(--accent);">Repuestos (precios en U$D, sin impuestos; el precio unitario ya incluye el descuento)</h3>
     <div class="field" style="position:relative;margin-bottom:10px;">
-      <input type="text" id="hp-art-search" placeholder="🔎 Agregar repuesto: escribí código o descripción (mín. 2 letras)" autocomplete="off">
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="text" id="hp-art-search" placeholder="🔎 Agregar repuesto: escribí código o descripción (mín. 2 letras)" autocomplete="off" style="flex:1;">
+        <button class="btn secondary" type="button" id="btn-hp-modelo" title="Si no sabés el código ni el nombre: elegí la máquina y mirá los repuestos compatibles" style="white-space:nowrap;">🚜 Por modelo de máquina</button>
+      </div>
       <div class="autocomplete-list" id="hp-art-results"></div>
     </div>
     <div class="table-wrap">
@@ -4550,6 +4607,19 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
       <button class="btn secondary" id="btn-hp-pdf-previo" title="Ver cómo queda el PDF sin guardar">Vista previa PDF</button>
       <button class="btn" id="btn-hp-save">Guardar</button>
     </div>
+  </div>
+</div>
+
+<div class="overlay" id="modal-hpdf-overlay" style="z-index:1200;align-items:center;">
+  <div class="modal" style="max-width:980px;width:96%;height:92vh;max-height:92vh;display:flex;flex-direction:column;padding:14px 16px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
+      <h2 id="hpdf-titulo" style="margin:0;font-size:16px;flex:1;min-width:180px;">Presupuesto</h2>
+      <button class="btn" id="btn-hpdf-descargar">⬇ Descargar PDF</button>
+      <button class="btn secondary" id="btn-hpdf-pestana" title="Abrir el PDF en una pestaña nueva">↗ Pestaña nueva</button>
+      <button class="btn secondary" id="btn-hpdf-cerrar">Cerrar</button>
+    </div>
+    <div id="hpdf-cargando" class="muted" style="padding:30px;text-align:center;">Armando el PDF…</div>
+    <iframe id="hpdf-frame" title="Vista del presupuesto" style="flex:1;width:100%;border:1px solid var(--border);border-radius:8px;background:#fff;display:none;"></iframe>
   </div>
 </div>
 
@@ -19921,7 +19991,9 @@ async function hrepCargarPagina(){
   if(fEstado === 'inactivos') qb = qb.eq('activo', false);
   if(fOrigen) qb = qb.eq('origen', fOrigen);
   if(fCosto === 'manual') qb = qb.eq('costo_manual', true);
-  if(q) qb = qb.or(`codigo.ilike.%${q}%,descripcion.ilike.%${q}%`);
+  const fModelo = document.getElementById('hrep-f-modelo').value;
+  if(fModelo) qb = qb.contains('modelos_uso', [fModelo]);
+  if(q) qb = qb.or(`codigo.ilike.%${q}%,descripcion.ilike.%${q}%,denominacion_fab.ilike.%${q}%`);
   const desde = hrepPagina * HREP_PAGE;
   const { data, count, error } = await qb.order('codigo').range(desde, desde + HREP_PAGE - 1);
   if(error){
@@ -19942,7 +20014,7 @@ async function hrepCargarPagina(){
         <td>${r.descripcion ? escapeHtml(r.descripcion) : '<span class="muted">Sin descripción</span>'}</td>
         <td class="muted">${r.clase ? escapeHtml(r.clase) : '—'}</td>
         <td>${hrepUsd(r.costo_arg_usd)}${r.costo_manual ? ' <span class="badge" title="Costo editado a mano' + (r.costo_editado_el ? ' el ' + fmtDate(r.costo_editado_el) : '') + '" style="font-size:10px;color:var(--warn,#c80);border-color:var(--warn,#c80);">editado</span>' : ''}</td>
-        <td class="muted">${r.imagen_url ? '🖼️' : '·'} ${r.ficha_tecnica_url ? '📄' : '·'}</td>
+        <td class="muted">${r.imagen_url ? '🖼️' : '·'} ${r.ficha_tecnica_url ? '📄' : '·'}${Array.isArray(r.modelos_uso) && r.modelos_uso.length ? ' <span title="Se usa en ' + r.modelos_uso.length + ' modelo(s)" style="font-size:11px;">⚙' + r.modelos_uso.length + '</span>' : ''}</td>
         <td>${r.activo
           ? '<span class="badge" style="color:var(--ok);border-color:var(--ok);">Activo</span>'
           : '<span class="badge" style="color:var(--text-dim);border-color:var(--border);">Inactivo</span>'}</td>
@@ -19963,7 +20035,7 @@ document.getElementById('hrep-search-input').addEventListener('input', ()=>{
   clearTimeout(hrepTimer);
   hrepTimer = setTimeout(()=>{ hrepPagina = 0; hrepCargarPagina(); }, 350);
 });
-['hrep-f-estado','hrep-f-origen','hrep-f-costo'].forEach(id => document.getElementById(id).addEventListener('change', ()=>{ hrepPagina = 0; hrepCargarPagina(); }));
+['hrep-f-estado','hrep-f-origen','hrep-f-costo','hrep-f-modelo'].forEach(id => document.getElementById(id).addEventListener('change', ()=>{ hrepPagina = 0; hrepCargarPagina(); }));
 document.getElementById('btn-hrep-prev').addEventListener('click', ()=>{ if(hrepPagina > 0){ hrepPagina--; hrepCargarPagina(); } });
 document.getElementById('btn-hrep-next').addEventListener('click', ()=>{ hrepPagina++; hrepCargarPagina(); });
 
@@ -19992,6 +20064,24 @@ function hrepActualizarMotivo(){
 }
 document.getElementById('hrep-costo').addEventListener('input', hrepActualizarMotivo);
 
+// ---------- Datos técnicos (MyHaulotte) ----------
+function hrepLeerTecnicos(){
+  const pesoTxt = document.getElementById('hrep-peso').value;
+  const modelos = document.getElementById('hrep-modelos').value.split('\n').map(s => s.trim()).filter(Boolean);
+  return {
+    denominacion_fab: document.getElementById('hrep-den-fab').value.trim() || null,
+    peso_kg: (pesoTxt !== '' && isFinite(Number(pesoTxt))) ? Number(pesoTxt) : null,
+    reemplazo_codigo: document.getElementById('hrep-reemp-cod').value.trim() || null,
+    reemplazo_desc: document.getElementById('hrep-reemp-desc').value.trim() || null,
+    modelos_uso: modelos.length ? modelos : null,
+  };
+}
+function hrepActualizarCuentaModelos(){
+  const n = document.getElementById('hrep-modelos').value.split('\n').map(s => s.trim()).filter(Boolean).length;
+  document.getElementById('hrep-modelos-count').textContent = n ? '(' + n + ')' : '';
+}
+document.getElementById('hrep-modelos').addEventListener('input', hrepActualizarCuentaModelos);
+
 function hrepAbrirModal(r){
   const esNuevo = !r;
   const puedeEditar = esNuevo ? puede('haulotte_repuestos','crear') : puede('haulotte_repuestos','editar');
@@ -20002,7 +20092,19 @@ function hrepAbrirModal(r){
     imagen_url: r ? r.imagen_url : null,
     ficha_tecnica_url: r ? r.ficha_tecnica_url : null,
     costo_manual: r ? r.costo_manual : false,
+    tec_manual: r ? !!r.datos_tec_manual : false,
   };
+  document.getElementById('hrep-den-fab').value = r ? (r.denominacion_fab || '') : '';
+  document.getElementById('hrep-peso').value = (r && r.peso_kg != null) ? Number(r.peso_kg) : '';
+  document.getElementById('hrep-reemp-cod').value = r ? (r.reemplazo_codigo || '') : '';
+  document.getElementById('hrep-reemp-desc').value = r ? (r.reemplazo_desc || '') : '';
+  document.getElementById('hrep-modelos').value = r && Array.isArray(r.modelos_uso) ? r.modelos_uso.join('\n') : '';
+  hrepActualizarCuentaModelos();
+  hrepFichaEdit.tec_original = hrepLeerTecnicos();
+  document.getElementById('hrep-tec-info').textContent = esNuevo ? 'Opcional. Se pueden cargar en lote desde el Excel de MyHaulotte.'
+    : (r.datos_tec_manual ? 'Editados a mano: la carga masiva desde Excel no los pisa.'
+      : (r.datos_tec_actualizado_el ? 'Cargados desde MyHaulotte el ' + fmtDate(r.datos_tec_actualizado_el) + '.' : 'Todavía sin datos técnicos.'));
+  ['hrep-den-fab','hrep-peso','hrep-reemp-cod','hrep-reemp-desc','hrep-modelos'].forEach(id => { document.getElementById(id).disabled = !puedeEditar; });
   document.getElementById('hrep-modal-title').textContent = esNuevo ? 'Nuevo artículo' : r.codigo;
   document.getElementById('hrep-id').value = r ? r.codigo : '';
   const cod = document.getElementById('hrep-codigo'); cod.value = r ? r.codigo : ''; cod.disabled = !esNuevo;
@@ -20130,6 +20232,81 @@ async function hrepLoteProcesar(fileList){
   showToast(`Imágenes cargadas: ${ok}` + (fail ? ` · con error: ${fail}` : ''), fail > 0);
   hrepCargarPagina();
 }
+// ---------- Datos técnicos: lista de modelos para el filtro + carga masiva desde el Excel de MyHaulotte ----------
+async function hrepCargarModelosFiltro(){
+  const sel = document.getElementById('hrep-f-modelo'); if(!sel) return;
+  const actual = sel.value;
+  const set = new Set();
+  for(let desde = 0; ; desde += 1000){
+    const { data, error } = await supabaseClient.from('haulotte_repuestos_gp').select('modelos_uso').not('modelos_uso', 'is', null).order('codigo').range(desde, desde + 999);
+    if(error || !data) break;
+    data.forEach(r => (r.modelos_uso || []).forEach(m => set.add(m)));
+    if(data.length < 1000) break;
+  }
+  sel.innerHTML = '<option value="">Modelo: todos</option>' + [...set].sort().map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('');
+  if(actual && set.has(actual)) sel.value = actual;
+}
+
+async function hrepTecProcesar(file){
+  if(!puede('haulotte_repuestos','editar')){ showToast('No tenés permiso para editar artículos', true); return; }
+  const st = document.getElementById('hrep-gp-status');
+  let filas;
+  try{
+    st.textContent = 'Leyendo el Excel...';
+    const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+    const ws = wb.Sheets['Repuestos'] || wb.Sheets[wb.SheetNames[0]];
+    filas = XLSX.utils.sheet_to_json(ws, { defval: null }).map(r => { const o = {}; Object.keys(r).forEach(k => { o[k.trim()] = r[k]; }); return o; });
+  } catch(err){ console.error(err); st.textContent = ''; showToast('No se pudo leer el Excel: ' + err.message, true); return; }
+  const txt = v => { const s = (v == null ? '' : String(v)).trim(); return s || null; };
+  const datos = new Map();
+  filas.forEach(f => {
+    const codigo = txt(f['Código'] ?? f['Codigo']); if(!codigo) return;
+    const peso = Number(f['Peso (kg)']);
+    // Nombres abreviados de MyHaulotte que en realidad son otro modelo: se unifican al cargar
+    const ALIAS_MODELOS = { 'C 10N': 'COMPACT 10N', 'C 12': 'COMPACT 12', 'C 14': 'COMPACT 14' };
+    const modelos = [...new Set((txt(f['Modelos de uso']) || '').split(';').map(s => s.trim()).filter(Boolean).map(m => ALIAS_MODELOS[m] || m))];
+    datos.set(codigo, {
+      denominacion_fab: txt(f['Denominación fabricante'] ?? f['Denominacion fabricante']),
+      peso_kg: (f['Peso (kg)'] !== null && f['Peso (kg)'] !== '' && isFinite(peso)) ? peso : null,
+      reemplazo_codigo: txt(f['Reemplazo código'] ?? f['Reemplazo codigo']),
+      reemplazo_desc: txt(f['Reemplazo descripción'] ?? f['Reemplazo descripcion']),
+      modelos_uso: modelos.length ? modelos : null,
+    });
+  });
+  if(!datos.size){ st.textContent = ''; showToast('El Excel no tiene filas con código (hoja Repuestos)', true); return; }
+  const cods = [...datos.keys()];
+  const estado = {};
+  for(let i = 0; i < cods.length; i += 200){
+    const { data, error } = await supabaseClient.from('haulotte_repuestos_gp').select('codigo,datos_tec_manual').in('codigo', cods.slice(i, i + 200));
+    if(error){ st.textContent = ''; showToast('Error consultando códigos: ' + error.message, true); return; }
+    (data || []).forEach(r => { estado[r.codigo] = !!r.datos_tec_manual; });
+  }
+  const aCargar = cods.filter(c => c in estado && !estado[c]);
+  const manuales = cods.filter(c => c in estado && estado[c]).length;
+  const inexistentes = cods.filter(c => !(c in estado)).length;
+  if(!aCargar.length){ st.textContent = ''; showToast(`Nada para cargar (${manuales} editados a mano, ${inexistentes} códigos que no están en el catálogo)`, true); return; }
+  if(!confirm(`Se van a cargar los datos técnicos de ${aCargar.length} artículos.\nEditados a mano (se omiten): ${manuales}\nCódigo que no está en el catálogo (se omiten): ${inexistentes}\n\n¿Continuar?`)){ st.textContent = ''; return; }
+  const ahora = new Date().toISOString();
+  let ok = 0, fail = 0, idx = 0;
+  const worker = async()=>{
+    while(idx < aCargar.length){
+      const c = aCargar[idx++];
+      try{
+        const u = await supabaseClient.from('haulotte_repuestos_gp').update({ ...datos.get(c), datos_tec_actualizado_el: ahora }).eq('codigo', c).eq('datos_tec_manual', false);
+        if(u.error) throw u.error;
+        ok++;
+      } catch(err){ console.error(c, err); fail++; }
+      if((ok + fail) % 25 === 0) st.textContent = `Cargando datos técnicos… ${ok + fail}/${aCargar.length}`;
+    }
+  };
+  await Promise.all([worker(), worker(), worker(), worker(), worker(), worker()]);
+  st.textContent = '';
+  showToast(`Datos técnicos cargados: ${ok}` + (fail ? ` · con error: ${fail}` : ''), fail > 0);
+  await hrepCargarModelosFiltro();
+  hrepCargarPagina();
+}
+document.getElementById('btn-hrep-tec').addEventListener('click', ()=> document.getElementById('hrep-tec-file').click());
+document.getElementById('hrep-tec-file').addEventListener('change', (e)=>{ const f = e.target.files[0]; e.target.value = ''; if(f) hrepTecProcesar(f); });
 document.getElementById('btn-hrep-lote').addEventListener('click', ()=> document.getElementById('hrep-lote-file').click());
 document.getElementById('hrep-lote-file').addEventListener('change', (e)=>{ const fs = [...e.target.files]; e.target.value = ''; if(fs.length) hrepLoteProcesar(fs); });
 document.getElementById('btn-hrep-img-del').addEventListener('click', ()=>{ hrepFichaEdit.imagen_url = null; hrepPintarArchivos(); });
@@ -20157,6 +20334,10 @@ document.getElementById('btn-hrep-save').addEventListener('click', async ()=>{
     ficha_tecnica_url: st.ficha_tecnica_url || null,
     updated_at: ahora,
   };
+  const tec = hrepLeerTecnicos();
+  if(JSON.stringify(tec) !== JSON.stringify(st.tec_original || {})){
+    Object.assign(comun, tec, { datos_tec_manual: true, datos_tec_actualizado_el: ahora });
+  }
   try{
     if(st.esNuevo){
       const { error } = await supabaseClient.from('haulotte_repuestos_gp').insert({
@@ -20472,7 +20653,9 @@ async function initApp(){
     if(puede('haulotte_repuestos','ver')){
       console.log('[Horizon] cargando artículos Haulotte...');
       await loadHaulotteRepuestos();
+      hrepCargarModelosFiltro();
     }
+    document.getElementById('btn-hrep-tec').style.display = puede('haulotte_repuestos','editar') ? '' : 'none';
     document.getElementById('btn-new-hrep').style.display = puede('haulotte_repuestos','crear') ? '' : 'none';
     document.getElementById('btn-hrep-import-gp').style.display = puede('haulotte_repuestos','crear') ? '' : 'none';
 
@@ -21695,11 +21878,12 @@ function generarRepuestosPDF(cot){
     return y + 8;
   };
   const titulo = (txt, y) => { doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(0); doc.text(txt, marginX, y); return y + 6; };
-  const X = { cod: marginX + 2, desc: marginX + 25, cant: 106, pu: 128, sub: 152, disp: 173 };
+  const X = { foto: marginX + 1, cod: marginX + 19, desc: marginX + 42, cant: 114, pu: 134, sub: 156, disp: 175 };
+  const FOTO_W = 16, FOTO_H = 12.5;
   const cabTabla = y => {
     doc.setFillColor(...NEGRO); doc.rect(marginX, y - 5, pageWidth - marginX * 2, 7, 'F');
     doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
-    doc.text('Código', X.cod, y); doc.text('Descripción', X.desc, y);
+    doc.text('Foto', X.foto, y); doc.text('Código', X.cod, y); doc.text('Descripción', X.desc, y);
     doc.text('Cant.', X.cant, y, { align: 'right' }); doc.text('P. unit. U$D', X.pu, y, { align: 'right' }); doc.text('Subtotal U$D', X.sub, y, { align: 'right' }); doc.text('Disponibilidad', X.disp, y, { align: 'center' });
     doc.setTextColor(0);
     return y + 8;
@@ -21719,12 +21903,28 @@ function generarRepuestosPDF(cot){
   let z = 0;
   calc.items.forEach(it => {
     doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
-    const ls = doc.splitTextToSize(it.descripcion || "", 56).slice(0, 3);
-    const h = Math.max(ls.length * 4 + 2.5, 7);
+    const ls = doc.splitTextToSize(it.descripcion || "", 46).slice(0, 4);
+    const leyenda = hpLeyendaAplica(doc, it.modelos_uso, 46);   // "Aplica a: H16TPX / HB44J, … y N más" (deja la fuente en 8.5 normal)
+    const h = Math.max(ls.length * 4 + (leyenda.length ? leyenda.length * 3.1 + 1 : 0) + 2.5, FOTO_H + 4);
     if(y + h > LIM){ doc.addPage(); y = encabezado(); y = cabTabla(y); z = 0; }
     if(z++ % 2 === 1){ doc.setFillColor(246, 247, 249); doc.rect(marginX, y - 4, pageWidth - marginX * 2, h, 'F'); }
+    // Miniatura (si no hay foto, recuadro gris liviano para que la tabla no quede desalineada)
+    if(it.foto && it.foto.data){
+      const esc = Math.min(FOTO_W / it.foto.w, FOTO_H / it.foto.h), fw = it.foto.w * esc, fh = it.foto.h * esc;
+      try{ doc.addImage(it.foto.data, 'JPEG', X.foto + (FOTO_W - fw) / 2, y - 3 + (FOTO_H - fh) / 2, fw, fh); } catch(e){ console.error(e); }
+    } else {
+      doc.setFillColor(238, 239, 241); doc.setDrawColor(222); doc.setLineWidth(0.15);
+      doc.rect(X.foto, y - 3, FOTO_W, FOTO_H, 'FD');
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(5.5); doc.setTextColor(150);
+      doc.text('sin foto', X.foto + FOTO_W / 2, y - 3 + FOTO_H / 2 + 1, { align: 'center' }); doc.setTextColor(0); doc.setFontSize(8.5);
+    }
     doc.setFont('helvetica', 'bold'); doc.text(String(it.codigo || ''), X.cod, y);
     doc.setFont('helvetica', 'normal'); doc.text(ls, X.desc, y);
+    if(leyenda.length){
+      doc.setFont('helvetica', 'italic'); doc.setFontSize(6.5); doc.setTextColor(110);
+      doc.text(leyenda, X.desc, y + ls.length * 4 + 0.2);
+      doc.setTextColor(0); doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+    }
     doc.text(String(it.cantidad), X.cant, y, { align: 'right' });
     doc.text(rpN2(it.unit), X.pu, y, { align: 'right' });
     doc.text(rpN2(it.sub), X.sub, y, { align: 'right' });
@@ -21785,6 +21985,67 @@ function generarRepuestosPDF(cot){
     doc.setTextColor(0);
   }
   return { doc, calc, fileName: `Presupuesto_Repuestos_${numero}_${empresa.replace(/[^a-zA-Z0-9]/g, '_')}.pdf` };
+}
+
+// ---------- Fotos para el PDF del presupuesto de repuestos ----------
+// Toma la imagen de cada artículo (haulotte_repuestos_gp.imagen_url), la reduce a una miniatura liviana y la guarda en memoria.
+const hpFotoCache = {};
+function hpCargarMiniatura(url){
+  return new Promise(res => {
+    const img = new Image(); img.crossOrigin = 'anonymous';
+    const t = setTimeout(() => res(null), 8000);
+    img.onload = () => {
+      clearTimeout(t);
+      try{
+        const MAX = 220, esc = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
+        const w = Math.max(1, Math.round(img.naturalWidth * esc)), h = Math.max(1, Math.round(img.naturalHeight * esc));
+        const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+        const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, h); cx.drawImage(img, 0, 0, w, h);
+        res({ data: cv.toDataURL('image/jpeg', 0.72), w, h });
+      } catch(e){ console.error(e); res(null); }
+    };
+    img.onerror = () => { clearTimeout(t); res(null); };
+    img.src = url;
+  });
+}
+async function hpPrecargarFotos(items){
+  try{
+    const faltan = [...new Set(items.map(i => i.codigo).filter(c => c && !(c in hpFotoCache)))];
+    for(let i = 0; i < faltan.length; i += 100){
+      const lote = faltan.slice(i, i + 100);
+      const { data } = await supabaseClient.from('haulotte_repuestos_gp').select('codigo,imagen_url,modelos_uso').in('codigo', lote);
+      const urls = {}; (data || []).forEach(r => { urls[r.codigo] = r.imagen_url; hpModelosCache[r.codigo] = Array.isArray(r.modelos_uso) ? r.modelos_uso : null; });
+      await Promise.all(lote.map(async c => { hpFotoCache[c] = urls[c] ? await hpCargarMiniatura(urls[c]) : null; }));
+    }
+  } catch(e){ console.error('No se pudieron cargar las fotos del PDF:', e); }
+  items.forEach(i => { i.foto = hpFotoCache[i.codigo] || null; i.modelos_uso = hpModelosCache[i.codigo] || null; });
+  return items;
+}
+
+// Leyenda "Aplica a: …" bajo la descripción de cada ítem. Siempre sale que haya datos; con muchos modelos muestra los primeros y "y N más".
+const hpModelosCache = {};
+// El nombre que viene de MyHaulotte es "TIPO MODELO" (ej. "TIJERAS ELECTRICAS COMPACT 10N / COMPACT 2632E"). El tipo es una lista cerrada; todo lo demás es el modelo (puede llevar COMPACT, STAR, C, etc.).
+const HP_TIPOS_MAQUINA = ['CARROS TELESCOPICOS','CESTA ARTICULADA ELECTRICA','CESTA ARTICULADA TERMICA','CESTA SOBRE CAMION','CESTA TELESCOPICA','CESTA TRACCIONADA','ELECTRIC ARTICULATED PLATFORMS','ENGINE-POWERED ARTICULATED PLATFORMS','ELECTRIC SCISSOR LIFTS','TELESCOPIC HANDLERS','TELESCOPIC MASTS','TELESCOPIC PLATFORMS','TOWED PLATFORMS','MASTIL TELESCOPICO','TIJERAS ELECTRICAS','TIJERAS TERMICAS'];
+function hpModeloPartes(m){
+  const t = String(m || '').trim();
+  const up = t.toUpperCase();
+  const tipo = HP_TIPOS_MAQUINA.find(x => up.startsWith(x + ' ')) || '';
+  return { tipo: tipo ? t.slice(0, tipo.length) : '', corto: (tipo ? t.slice(tipo.length) : t).trim() };
+}
+function hpModeloCorto(m){ return hpModeloPartes(m).corto; }
+function hpLeyendaAplica(doc, modelos, ancho){
+  if(!Array.isArray(modelos) || !modelos.length) return [];
+  const nombres = [...new Set(modelos.map(hpModeloCorto).filter(Boolean))];
+  if(!nombres.length) return [];
+  doc.setFont('helvetica', 'italic'); doc.setFontSize(6.5);
+  let ls = [];
+  for(let k = Math.min(4, nombres.length); k >= 1; k--){
+    const resto = nombres.length - k;
+    ls = doc.splitTextToSize('Aplica a: ' + nombres.slice(0, k).join(', ') + (resto > 0 ? ' y ' + resto + ' más' : ''), ancho);
+    if(ls.length <= 2) break;
+  }
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+  return ls.slice(0, 2);
 }
 
 // ---------- Presupuestos de repuestos Haulotte: datos y listado ----------
@@ -21854,7 +22115,6 @@ function renderHaulottePresup(){
         <td><div class="row-actions">
           <button class="btn secondary small" onclick="abrirEditarHp(${v.id})">${v.estado !== 'vigente' || !puedeEd ? 'Ver' : 'Editar'}</button>
           <button class="btn secondary small" onclick="verHpPDF(${v.id})">Ver PDF</button>
-          <button class="btn secondary small" onclick="descargarHpPDF(${v.id})" title="Descargar el PDF">⬇ PDF</button>
           ${v.estado === 'vigente' && puedeEd ? `<button class="btn small" onclick="confirmarHp(${v.id})">Confirmar</button>` : ''}
           ${v.estado === 'confirmado' && puedeEd ? `<button class="btn small" style="background:#a29bfe;" onclick="facturarHp(${v.id})">Facturado</button>` : ''}
           ${v.estado !== 'anulado' && v.estado !== 'facturado' && puede('haulotte_presupuestos','anular') ? `<button class="btn danger small" onclick="abrirAnularHp(${v.id})">Anular</button>` : ''}
@@ -21944,11 +22204,98 @@ hpArtBox.addEventListener('click', (e)=>{
   const item = e.target.closest('.autocomplete-item');
   if(!item || item.dataset.i === undefined) return;
   const r = hpArtRes[Number(item.dataset.i)];
-  const ya = hpItemsState.find(x => x.codigo === r.codigo);
-  if(ya) ya.cantidad = Number(ya.cantidad) + 1;
-  else hpItemsState.push({ codigo: r.codigo, descripcion: r.descripcion, cantidad: 1, costo: Number(r.costo_arg_usd) });
+  hpAgregarItem(r, 1);
   hpArtInput.value = ''; hpArtBox.classList.remove('open');
+});
+function hpAgregarItem(r, cant){
+  cant = Math.max(1, parseInt(cant, 10) || 1);
+  const ya = hpItemsState.find(x => x.codigo === r.codigo);
+  if(ya) ya.cantidad = Number(ya.cantidad) + cant;
+  else hpItemsState.push({ codigo: r.codigo, descripcion: r.descripcion, cantidad: cant, costo: Number(r.costo_arg_usd) });
   renderHpItemsTabla();
+}
+
+// ---------- Buscar repuestos por modelo de máquina ----------
+const HPM_PAGE = 60;
+let hpmModelosCargados = false, hpmRes = [], hpmTotal = 0, hpmSeq = 0, hpmTimer = null;
+let hpmListaModelos = [];
+async function hpmCargarModelos(){
+  const inp = document.getElementById('hpm-modelo-q');
+  const { data, error } = await supabaseClient.rpc('modelos_repuestos_gp');
+  if(error){ document.getElementById('hpm-info').textContent = 'No se pudieron cargar los modelos: ' + error.message; return; }
+  hpmListaModelos = (data || []).map(m => { const pt = hpModeloPartes(m.modelo); return { modelo: m.modelo, cant: m.cant, corto: pt.corto, tipo: pt.tipo, clave: hpmNorm(m.modelo) }; });
+  hpmModelosCargados = true;
+  inp.disabled = false;
+}
+const hpmNorm = t => String(t || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+function hpmMostrarModelos(){
+  const box = document.getElementById('hpm-modelo-lista');
+  const toks = hpmNorm(document.getElementById('hpm-modelo-q').value).split(/[\s\/]+/).filter(Boolean);
+  let l = hpmListaModelos.filter(m => toks.every(t => m.clave.includes(t)));
+  if(toks.length) l = l.map(m => ({ m, r: hpmNorm(m.corto).startsWith(toks[0]) ? 0 : 1 })).sort((a, b) => a.r - b.r || a.m.corto.localeCompare(b.m.corto, 'es', { numeric: true })).map(x => x.m);
+  else l = l.slice().sort((a, b) => a.corto.localeCompare(b.corto, 'es', { numeric: true }));
+  box.innerHTML = l.length ? l.map(m => `<div class="autocomplete-item" data-hpm-mod="${escapeHtml(m.modelo)}" style="cursor:pointer;padding:7px 10px;display:flex;gap:10px;align-items:baseline;"><b>${escapeHtml(m.corto)}</b><span class="muted" style="font-size:12px;flex:1;">${escapeHtml(m.tipo)}</span><span class="muted" style="font-size:12px;">${m.cant}</span></div>`).join('')
+    : '<div class="muted" style="padding:10px;font-size:13px;">Ningún modelo coincide</div>';
+  box.style.display = '';
+}
+function hpmElegirModelo(modelo){
+  document.getElementById('hpm-modelo').value = modelo;
+  document.getElementById('hpm-modelo-q').value = modelo;
+  document.getElementById('hpm-modelo-lista').style.display = 'none';
+  hpmBuscar(false);
+}
+function hpmPintar(){
+  const tb = document.getElementById('hpm-tbody');
+  if(!hpmRes.length){ tb.innerHTML = '<tr><td colspan="4" class="empty-state">No hay repuestos con ese filtro.</td></tr>'; return; }
+  tb.innerHTML = hpmRes.map((r, i) => {
+    const ya = hpItemsState.find(x => x.codigo === r.codigo);
+    return `<tr>
+      <td style="font-weight:600;font-family:monospace;">${escapeHtml(r.codigo)}</td>
+      <td>${escapeHtml(r.descripcion || '')}${ya ? ` <span class="badge" style="font-size:10px;color:var(--ok);border-color:var(--ok);">en el presupuesto ×${ya.cantidad}</span>` : ''}</td>
+      <td><input type="number" min="1" step="1" value="1" id="hpm-qty-${i}" style="width:60px;"></td>
+      <td><button class="btn secondary small" type="button" data-hpm-add="${i}">Agregar</button></td>
+    </tr>`;
+  }).join('');
+}
+async function hpmBuscar(mas){
+  const modelo = document.getElementById('hpm-modelo').value;
+  const info = document.getElementById('hpm-info'), btnMas = document.getElementById('btn-hpm-mas');
+  if(!modelo){ hpmRes = []; hpmTotal = 0; document.getElementById('hpm-tbody').innerHTML = '<tr><td colspan="4" class="empty-state">Elegí un modelo para ver sus repuestos.</td></tr>'; info.textContent = ''; btnMas.style.display = 'none'; return; }
+  const mi = ++hpmSeq;
+  const desde = mas ? hpmRes.length : 0;
+  info.textContent = 'Buscando...';
+  const { data, error } = await supabaseClient.rpc('repuestos_por_modelo_gp', { p_modelo: modelo, p_q: document.getElementById('hpm-q').value.trim() || null, p_limit: HPM_PAGE, p_offset: desde });
+  if(mi !== hpmSeq) return;
+  if(error){ info.textContent = 'Error al buscar: ' + error.message; return; }
+  hpmRes = mas ? hpmRes.concat(data || []) : (data || []);
+  hpmTotal = hpmRes.length ? Number(hpmRes[0].total) : 0;
+  info.textContent = hpmTotal ? `${hpmTotal.toLocaleString('es-AR')} repuesto(s) compatibles` + (hpmRes.length < hpmTotal ? ` · mostrando ${hpmRes.length}` : '') : '';
+  btnMas.style.display = hpmRes.length < hpmTotal ? '' : 'none';
+  hpmPintar();
+}
+document.getElementById('btn-hp-modelo').addEventListener('click', async ()=>{
+  document.getElementById('modal-hpm-overlay').classList.add('open');
+  if(!hpmModelosCargados) await hpmCargarModelos();
+  setTimeout(()=> document.getElementById('hpm-modelo-q').focus(), 100);
+});
+(function(){
+  const q = document.getElementById('hpm-modelo-q'), lista = document.getElementById('hpm-modelo-lista');
+  q.addEventListener('focus', hpmMostrarModelos);
+  q.addEventListener('click', hpmMostrarModelos);
+  q.addEventListener('input', ()=>{ document.getElementById('hpm-modelo').value = ''; hpmMostrarModelos(); hpmBuscar(false); });
+  q.addEventListener('blur', ()=> setTimeout(()=>{ lista.style.display = 'none'; }, 150));
+  lista.addEventListener('mousedown', (e)=>{ e.preventDefault(); const it = e.target.closest('[data-hpm-mod]'); if(it) hpmElegirModelo(it.dataset.hpmMod); });
+})();
+document.getElementById('hpm-q').addEventListener('input', ()=>{ clearTimeout(hpmTimer); hpmTimer = setTimeout(()=> hpmBuscar(false), 300); });
+document.getElementById('btn-hpm-mas').addEventListener('click', ()=> hpmBuscar(true));
+document.getElementById('btn-hpm-cerrar').addEventListener('click', ()=> document.getElementById('modal-hpm-overlay').classList.remove('open'));
+document.getElementById('modal-hpm-overlay').addEventListener('click', (e)=>{ if(e.target.id === 'modal-hpm-overlay') e.target.classList.remove('open'); });
+document.getElementById('hpm-tbody').addEventListener('click', (e)=>{
+  const b = e.target.closest('[data-hpm-add]'); if(!b) return;
+  const i = Number(b.dataset.hpmAdd), r = hpmRes[i]; if(!r) return;
+  hpAgregarItem(r, document.getElementById('hpm-qty-' + i).value);
+  showToast(`Agregado: ${r.codigo}`);
+  hpmPintar();
 });
 
 // ---------- Renglones + cálculo en vivo ----------
@@ -22059,7 +22406,7 @@ function hpAplicarPermisoMargen(){
 const hpEsNacional = it => /^a-/i.test(String(it.codigo || '').trim());
 function hpSoloLectura(ro){
   document.querySelectorAll('#modal-hpres-overlay input, #modal-hpres-overlay select, #modal-hpres-overlay textarea').forEach(el => { el.disabled = ro; });
-  ['btn-hp-save','btn-hp-tc-bna','hp-art-search'].forEach(id => document.getElementById(id).style.display = ro ? 'none' : '');
+  ['btn-hp-save','btn-hp-tc-bna','hp-art-search','btn-hp-modelo'].forEach(id => document.getElementById(id).style.display = ro ? 'none' : '');
   hpAplicarPermisoMargen();
 }
 document.getElementById('btn-hp-nuevo').addEventListener('click', ()=>{
@@ -22195,13 +22542,43 @@ function hpCotDesdeRegistro(v){
     descuento_pct: v.descuento_pct, envio_usd: v.envio_usd, tc: v.tipo_cambio, tc_fecha: v.tipo_cambio_fecha,
   };
 }
+// ---------- Visor de PDF dentro de la página (en lugar de una pestaña nueva) ----------
+let hpPdfActual = null;           // { doc, fileName, url }
+function hpCerrarVisorPDF(){
+  document.getElementById('modal-hpdf-overlay').classList.remove('open');
+  const fr = document.getElementById('hpdf-frame'); fr.removeAttribute('src'); fr.style.display = 'none';
+  if(hpPdfActual && hpPdfActual.url) URL.revokeObjectURL(hpPdfActual.url);
+  hpPdfActual = null;
+}
+function hpAbrirVisorPDF(titulo){
+  document.getElementById('hpdf-titulo').textContent = titulo;
+  document.getElementById('hpdf-cargando').style.display = '';
+  document.getElementById('hpdf-cargando').textContent = 'Armando el PDF…';
+  document.getElementById('hpdf-frame').style.display = 'none';
+  document.getElementById('modal-hpdf-overlay').classList.add('open');
+}
+function hpMostrarPDF(res){
+  if(hpPdfActual && hpPdfActual.url) URL.revokeObjectURL(hpPdfActual.url);
+  const url = URL.createObjectURL(res.doc.output('blob'));
+  hpPdfActual = { doc: res.doc, fileName: res.fileName, url };
+  const fr = document.getElementById('hpdf-frame');
+  fr.src = url; fr.style.display = ''; document.getElementById('hpdf-cargando').style.display = 'none';
+}
+document.getElementById('btn-hpdf-descargar').addEventListener('click', ()=>{ if(hpPdfActual) hpPdfActual.doc.save(hpPdfActual.fileName); });
+document.getElementById('btn-hpdf-pestana').addEventListener('click', ()=>{ if(hpPdfActual) window.open(hpPdfActual.url, '_blank'); });
+document.getElementById('btn-hpdf-cerrar').addEventListener('click', hpCerrarVisorPDF);
+document.getElementById('modal-hpdf-overlay').addEventListener('click', (e)=>{ if(e.target.id === 'modal-hpdf-overlay') hpCerrarVisorPDF(); });
+document.addEventListener('keydown', (e)=>{
+  if(e.key === 'Escape' && document.getElementById('modal-hpdf-overlay').classList.contains('open')){ e.stopPropagation(); hpCerrarVisorPDF(); }
+}, true);
+
 async function verHpPDF(id){
-  const w = window.open('', '_blank');                          // se abre antes de pedir los datos para que el navegador no lo bloquee
+  hpAbrirVisorPDF('Presupuesto de repuestos');
   const v = await hpTraerCompleto(id);
-  if(!v){ if(w) w.close(); return; }
-  const { doc } = generarRepuestosPDF(hpCotDesdeRegistro(v));
-  const url = doc.output('bloburl');
-  if(w) w.location.href = url; else window.open(url, '_blank');
+  if(!v){ hpCerrarVisorPDF(); return; }
+  document.getElementById('hpdf-titulo').textContent = `Presupuesto de repuestos N° ${String(v.numero).padStart(5, '0')}`;
+  const cot = hpCotDesdeRegistro(v); await hpPrecargarFotos(cot.items);
+  hpMostrarPDF(generarRepuestosPDF(cot));
 }
 async function confirmarHp(id){
   const v = hpCache.find(x => x.id === id); if(!v) return;
@@ -22220,25 +22597,23 @@ async function facturarHp(id){
   showToast('Presupuesto marcado como facturado');
   await loadHaulottePresup(); renderHaulottePresup(); renderDashboard();
 }
-async function descargarHpPDF(id){
-  const v = await hpTraerCompleto(id);
-  if(!v) return;
-  const r = generarRepuestosPDF(hpCotDesdeRegistro(v)); r.doc.save(r.fileName);
-}
-document.getElementById('btn-hp-pdf-previo').addEventListener('click', ()=>{
+document.getElementById('btn-hp-pdf-previo').addEventListener('click', async ()=>{
   if(!hpValidar()) return;
+  hpAbrirVisorPDF('Vista previa del presupuesto (sin guardar)');
   const { cabecera, items } = hpArmarPayload();
   const cli = cabecera.cliente_id ? clientesCache.find(c => c.id === cabecera.cliente_id) : null;
   const idv = document.getElementById('hp-id').value;
   const reg = idv ? hpCache.find(x => x.id === Number(idv)) : null;
-  const { doc } = generarRepuestosPDF({
+  const itemsPdf = items.map(i => ({ codigo: i.codigo, descripcion: i.descripcion, cantidad: i.cantidad, precio_unitario: i.precio_unitario, disponibilidad: i.disponibilidad }));
+  await hpPrecargarFotos(itemsPdf);
+  const res = generarRepuestosPDF({
     numero: reg ? reg.numero : null, fecha_emision: cabecera.fecha_emision, validez_dias: cabecera.validez_dias, cliente: cli, empresa_nombre: cabecera.empresa_nombre,
     contacto_nombre: cabecera.contacto_nombre, contacto_email: cabecera.contacto_email, contacto_telefono: cabecera.contacto_telefono,
     condicion_pago: cabecera.condicion_pago, notas: cabecera.notas,
-    items: items.map(i => ({ codigo: i.codigo, descripcion: i.descripcion, cantidad: i.cantidad, precio_unitario: i.precio_unitario, disponibilidad: i.disponibilidad })),
+    items: itemsPdf,
     descuento_pct: cabecera.descuento_pct, envio_usd: cabecera.envio_usd, tc: cabecera.tipo_cambio || 0, tc_fecha: cabecera.tipo_cambio_fecha,
   });
-  window.open(doc.output('bloburl'), '_blank');
+  hpMostrarPDF(res);
 });
 
 // ---------- Importar costos desde el Excel de GP (hoja "Costos actualizados") ----------
