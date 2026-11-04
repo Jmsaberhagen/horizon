@@ -7582,7 +7582,11 @@ async function loadCatalogoTecnico(){
   const { data, error } = await supabaseClient.from('catalogo_modelos').select('*');
   if(error){ console.error('Error cargando catalogo_modelos:', error); catalogoTecnicoCache = []; return; }
   catalogoTecnicoCache = data;
+  // Fotos de equipos que no están en el catálogo técnico (accesorios, modelos gemelos): se buscan por prefijo del nombre
+  const { data: ef, error: e2 } = await supabaseClient.from('equipos_fotos_modelo').select('clave,imagen_url');
+  fotosEquiposExtra = e2 ? [] : (ef || []).slice().sort((a, b) => b.clave.length - a.clave.length);
 }
+let fotosEquiposExtra = [];
 
 // Normaliza para poder comparar "HA20RTJ PRO" con "HA20RTJPRO" o "ha20 rtj pro"
 function normalizarModelo(m){
@@ -7600,7 +7604,14 @@ const FOTOS_BUCKET = 'fotos-modelos';
 const _fotoPdfCache = new Map();   // url -> { data, w, h } (para no bajar la misma foto en cada PDF)
 const SVG_SIN_FOTO = '📷';
 
-function fotoUrlDeModelo(modelo){ const f = buscarFichaTecnica(modelo); return f && f.imagen_url ? f.imagen_url : ''; }
+function fotoUrlDeModelo(modelo){
+  const f = buscarFichaTecnica(modelo);
+  if(f && f.imagen_url) return f.imagen_url;
+  const n = normalizarModelo(modelo);
+  if(!n) return '';
+  const x = fotosEquiposExtra.find(r => n === r.clave || n.startsWith(r.clave));   // la clave más larga que calce
+  return x ? x.imagen_url : '';
+}
 function fotoRutaDeModelo(modelo){ return String(modelo).trim().replace(/[^A-Za-z0-9]+/g, '_') + '.jpg'; }
 
 // Baja la foto y la devuelve como dataURL + medidas, lista para jsPDF
