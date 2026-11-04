@@ -299,6 +299,9 @@
   .pm-mh{padding:18px 24px 12px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
   .pm-mh h2{margin:0;font-size:19px;color:var(--accent);}
   .pm-mh .pm-sub{color:var(--text-dim);font-size:12.5px;margin-top:4px;}
+  .pm-menus{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 2px;font-size:12.5px;}
+  .pm-menus .lb{font-weight:700;}
+  .pm-menus select{background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:5px 8px;}
   .pm-empresa{display:flex;background:var(--panel-2);border:1px solid var(--border);border-radius:999px;padding:3px;}
   .pm-empresa button{background:none;border:0;color:var(--text-dim);font-weight:700;font-size:12px;letter-spacing:.5px;padding:6px 14px;border-radius:999px;cursor:pointer;}
   .pm-empresa button.on{background:var(--accent);color:#04202e;}
@@ -3830,6 +3833,11 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
     <div class="pm-mh">
       <div><h2 id="modal-permisos-title">Permisos</h2><div class="pm-sub">Navegá igual que en el menú: elegí la categoría, después la card, y ahí prendés o apagás lo que puede hacer.</div></div>
       <div class="pm-empresa" id="pm-empresa"><button class="on" data-e="horizon">HORIZON</button><button data-e="haulotte">HAULOTTE</button></div>
+    </div>
+    <div class="pm-menus" id="pm-menus" title="Solo ordena la interfaz: no cambia los permisos ni el acceso a las tablas">
+      <span class="lb">🧭 Menú visible para este usuario:</span>
+      <select id="pm-menus-sel"><option value="ambos">HORIZON y HAULOTTE</option><option value="horizon">Solo HORIZON</option><option value="haulotte">Solo HAULOTTE</option></select>
+      <span class="muted">Es solo de orden visual: no quita permisos ni acceso a datos.</span>
     </div>
     <div class="pm-bar">
       <button class="pm-btn" id="pm-back" style="display:none">← Volver</button>
@@ -9297,6 +9305,15 @@ async function cargarMiPerfil(userId){
 // Cargadores masivos (Excel / lotes de imágenes o PDFs): solo el rol maestro.
 function esMaestro(){ return !!(miPerfil && miPerfil.rol === 'maestro'); }
 // El maestro siempre tiene todo. Para el resto, se lee miPerfil.permisos (JSON guardado en Supabase).
+// Menú visible (solo cosmético): permisos._menus = 'horizon' | 'haulotte' (ausente = ambos). No interviene en puede() ni en la carga de datos.
+function menusDePermisos(perm){ const m = perm && perm._menus; return (m === 'horizon' || m === 'haulotte') ? m : 'ambos'; }
+function aplicarMenusVisibles(){
+  const sw = document.getElementById('empresa-switch'); if(!sw) return;
+  const m = (miPerfil && miPerfil.rol !== 'maestro') ? menusDePermisos(miPerfil.permisos) : 'ambos';
+  sw.style.display = m === 'ambos' ? '' : 'none';
+  sw.querySelectorAll('button').forEach(b => { b.style.display = (m === 'ambos' || b.dataset.empresa === m) ? '' : 'none'; });
+  if(m !== 'ambos' && getEmpresaActual() !== m) aplicarEmpresa(m);
+}
 function puede(seccion, accion){
   if(!miPerfil) return false;
   if(miPerfil.rol === 'maestro') return true;
@@ -9341,6 +9358,7 @@ const SECCIONES_PERMISOS = [
 ];
 
 function aplicarPermisosUI(){
+  aplicarMenusVisibles();
   if(!miPerfil) return;
   refrescarUIPerfil();
   const pill = document.getElementById('user-role-pill');
@@ -10104,6 +10122,7 @@ PM_CATEGORIAS.forEach(c => c.mods.forEach(m => {
   if(m.sk === 'contratos' && m.uk === 'contratos') m.risk = [['requiere_autorizacion','Sus contratos nuevos requieren autorización']];
 }));
 
+let pmMenus = 'ambos', pmMenusOrig = 'ambos';
 let pmDraft = {}, pmOrig = {}, pmEmp = 'horizon', pmCat = null, pmMod = null, pmQ = '';
 const pmNorm = (permisos) => {
   const out = {};
@@ -10115,7 +10134,7 @@ const pmAcc = m => [...m.a, ...m.risk].map(x => x[0]);
 const pmCnt = m => pmAcc(m).filter(a => pmHas(m, a)).length;
 const pmTot = m => pmAcc(m).length;
 const pmEstado = m => { const c = pmCnt(m); if(!c) return 'none'; const tieneVer = m.a.some(x => x[0]==='ver'); return (c === pmTot(m) && (!tieneVer || pmHas(m,'ver'))) ? 'full' : 'part'; };
-const pmCambios = () => { let n = 0; Object.keys(pmDraft).forEach(sk => Object.keys(pmDraft[sk]).forEach(a => { if(pmDraft[sk][a] !== pmOrig[sk][a]) n++; })); return n; };
+const pmCambios = () => { let n = (pmMenus !== pmMenusOrig) ? 1 : 0; Object.keys(pmDraft).forEach(sk => Object.keys(pmDraft[sk]).forEach(a => { if(pmDraft[sk][a] !== pmOrig[sk][a]) n++; })); return n; };
 function pmSet(m, a, v){
   pmDraft[m.sk][a] = v;
   if(a === 'ver' && !v && m.a.some(x => x[0]==='ver')) m.a.forEach(x => { pmDraft[m.sk][x[0]] = false; });
@@ -10170,6 +10189,9 @@ function abrirPermisosUsuario(userId){
   document.getElementById('pm-usuario-id').value = u.id;
   document.getElementById('modal-permisos-title').textContent = `Permisos — ${u.nombre}`;
   pmOrig = pmNorm(u.permisos || {});
+  pmMenusOrig = pmMenus = menusDePermisos(u.permisos);
+  document.getElementById('pm-menus-sel').value = pmMenus;
+  document.getElementById('pm-menus').style.display = u.rol === 'maestro' ? 'none' : '';
   pmDraft = JSON.parse(JSON.stringify(pmOrig));
   pmEmp = 'horizon'; pmCat = null; pmMod = null; pmQ = '';
   document.getElementById('pm-search').value = '';
@@ -10188,6 +10210,7 @@ document.getElementById('pm-crumbs').addEventListener('click', e => {
   pmRender();
 });
 document.getElementById('pm-back').addEventListener('click', () => { if(pmMod) pmMod = null; else pmCat = null; pmRender(); });
+document.getElementById('pm-menus-sel').addEventListener('change', e => { pmMenus = e.target.value; pmRender(); });
 document.getElementById('pm-search').addEventListener('input', e => { pmQ = e.target.value; pmRender(); });
 document.getElementById('pm-empresa').addEventListener('click', e => {
   const x = e.target.dataset.e; if(!x) return;
@@ -10219,11 +10242,13 @@ document.getElementById('btn-permisos-save').addEventListener('click', async ()=
   const u = usuariosCache.find(x => String(x.id) === String(userId));
   const nuevoPermisos = JSON.parse(JSON.stringify((u && u.permisos) || {})); // conserva claves que esta pantalla no maneja
   Object.keys(pmDraft).forEach(sk => { nuevoPermisos[sk] = Object.assign({}, nuevoPermisos[sk] || {}, pmDraft[sk]); });
+  if(u && u.rol === 'maestro') pmMenus = 'ambos';
+  if(pmMenus === 'ambos') delete nuevoPermisos._menus; else nuevoPermisos._menus = pmMenus; // clave aparte: no es una sección, puede() no la lee
   try{
     const { error } = await supabaseClient.from('perfiles').update({ permisos: nuevoPermisos }).eq('id', userId);
     if(error) throw error;
     showToast('Permisos actualizados correctamente');
-    pmOrig = JSON.parse(JSON.stringify(pmDraft));
+    pmOrig = JSON.parse(JSON.stringify(pmDraft)); pmMenusOrig = pmMenus;
     document.getElementById('modal-permisos-overlay').classList.remove('open');
     await loadUsuarios();
   } catch(err){
