@@ -3165,8 +3165,9 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
       <div class="panel"><div class="table-wrap"><table><thead><tr><th>Recibida</th><th>Proveedor</th><th>Empresa</th><th>N° FC</th><th>Emisión</th><th>Vence</th><th>Neto</th><th>Total</th><th>CAE / Vto.</th><th>Estado</th><th style="width:250px;">Acciones</th></tr></thead><tbody id="pp-fc-tbody"></tbody></table></div></div>
     </div>
     <div id="pp-v-proveedores" class="pp-view" style="display:none;">
-      <div class="toolbar"><input type="text" id="pp-pr-search" placeholder="Buscar por CUIT o razón social..."><select id="pp-pr-filtro"><option value="">Todos</option><option value="activos">Con comprobantes cargados</option><option value="deshab">Deshabilitados</option></select></div>
-      <div class="panel"><div class="table-wrap"><table><thead><tr><th>CUIT</th><th>Razón social</th><th>ID Haulotte</th><th>ID Horizon</th><th>Comprobantes ref.</th><th>Portal</th><th>Habilitado</th></tr></thead><tbody id="pp-pr-tbody"></tbody></table></div></div>
+      <div class="toolbar" style="flex-wrap:wrap;"><input type="text" id="pp-pr-search" placeholder="Buscar por CUIT o razón social..."><select id="pp-pr-filtro"><option value="">Todos</option><option value="deshab">Deshabilitados</option></select><div style="flex:1"></div>
+        <input type="text" id="pp-nuevo-cuit" placeholder="CUIT nuevo (11 dígitos)" style="max-width:190px;"><input type="text" id="pp-nuevo-rs" placeholder="Razón social" style="max-width:240px;"><button class="btn" id="pp-nuevo-ok">+ Agregar proveedor</button></div>
+      <div class="panel"><div class="table-wrap"><table><thead><tr><th>CUIT</th><th>Razón social</th><th>ID Haulotte</th><th>ID Horizon</th><th>Portal</th><th>Habilitado</th></tr></thead><tbody id="pp-pr-tbody"></tbody></table></div></div>
     </div>
     <div id="pp-v-cargas" class="pp-view" style="display:none;"><div id="pp-cargas"></div></div>
   </section>
@@ -23621,8 +23622,8 @@ function ppRenderProv(){
   const fl=document.getElementById('pp-pr-filtro').value;
   const portal = {}; PP.usuarios.forEach(u=>{ if(!portal[u.cuit] || u.estado==='aprobado') portal[u.cuit]=u.estado; });
   const l = PP.proveedores.filter(p=> (!q || (p.cuit+' '+p.razon_social).toLowerCase().includes(q)) &&
-    (fl===''|| (fl==='activos' && (PP.refCount[p.cuit]||0)>0) || (fl==='deshab' && !p.habilitado))).slice(0,500);
-  document.getElementById('pp-pr-tbody').innerHTML = l.length ? l.map(p=>`<tr><td>${ppCuitFmt(p.cuit)}</td><td>${escapeHtml(p.razon_social)}</td><td>${escapeHtml(p.id_haulotte||'')}</td><td>${escapeHtml(p.id_horizon||'')}</td><td>${PP.refCount[p.cuit]||0}</td><td>${portal[p.cuit]?ppTag(portal[p.cuit]):'<span class="muted">sin registrar</span>'}</td><td><input type="checkbox" data-pph="${p.cuit}" ${p.habilitado?'checked':''} ${ppPuedeEditar()?'':'disabled'}></td></tr>`).join('') : '<tr><td colspan="7" class="empty-state">Sin proveedores. Cargalos desde "Cargas desde GP".</td></tr>';
+    (fl===''|| (fl==='deshab' && !p.habilitado))).slice(0,500);
+  document.getElementById('pp-pr-tbody').innerHTML = l.length ? l.map(p=>`<tr><td>${ppCuitFmt(p.cuit)}</td><td>${escapeHtml(p.razon_social)}</td><td>${escapeHtml(p.id_haulotte||'')}</td><td>${escapeHtml(p.id_horizon||'')}</td><td>${portal[p.cuit]?ppTag(portal[p.cuit]):'<span class="muted">sin registrar</span>'}</td><td><input type="checkbox" data-pph="${p.cuit}" ${p.habilitado?'checked':''} ${ppPuedeEditar()?'':'disabled'}></td></tr>`).join('') : '<tr><td colspan="6" class="empty-state">Sin proveedores. Cargalos desde "Cargas desde GP".</td></tr>';
 }
 
 // ---------- Cargas desde GP ----------
@@ -23652,11 +23653,10 @@ async function ppLote(tabla, filas, opts){
   }
 }
 const PP_CARGAS = [
-  { id:'maestro', t:'1. Proveedores (maestro por CUIT)', d:'Excel con columnas CUIT, Razón social, ID Haulotte, ID Horizon (el "Maestro por CUIT" que armamos). Agrega o actualiza.', fn:ppCargaMaestro },
-  { id:'compras', t:'2. Comprobantes de referencia (compras GP)', d:'Excel de "Transacciones de cuentas por pagar" de GP. Sirve para validar las altas (CUIT + comprobante + fecha). Solo se cargan CUIT que ya estén en el maestro.', fn:ppCargaCompras },
-  { id:'cc', t:'3. Cuenta corriente (saldos abiertos)', d:'Columnas: Empresa, CUIT, Fecha, Tipo, Número, Vencimiento, Debe, Haber, Saldo abierto. Reemplaza la cuenta corriente de las empresas que vengan en el archivo.', fn:ppCargaCC, plantilla:['Empresa','CUIT','Fecha','Tipo','Número','Vencimiento','Debe','Haber','Saldo abierto'] },
-  { id:'op', t:'4. Órdenes de pago', d:'Columnas: Empresa, CUIT, Número OP, Fecha, Importe. Opcional: elegí también los PDF cuyo nombre contenga el número de OP.', fn:ppCargaOP, pdfs:true, plantilla:['Empresa','CUIT','Número OP','Fecha','Importe'] },
-  { id:'cert', t:'5. Certificados de retención', d:'Columnas: Empresa, CUIT, Número OP, Impuesto (IVA/Ganancias/IIBB/SUSS), Número certificado, Fecha, Importe. Opcional: PDF cuyo nombre contenga el número del certificado.', fn:ppCargaCert, pdfs:true, plantilla:['Empresa','CUIT','Número OP','Impuesto','Número certificado','Fecha','Importe'] },
+  { id:'maestro', t:'1. Proveedores (maestro por CUIT)', d:'Excel con columnas CUIT, Razón social, ID Haulotte, ID Horizon (el "Maestro por CUIT" que armamos). Solo los CUIT cargados acá pueden registrarse en el portal. Agrega o actualiza.', fn:ppCargaMaestro },
+  { id:'cc', t:'2. Saldo actual de cada proveedor', d:'Columnas: Empresa (Haulotte/Horizon), CUIT, Saldo (lo que les debemos, en pesos). Es el saldo de arranque: reemplaza el saldo inicial anterior de esa empresa. Los pagos y retenciones posteriores se cargan en los pasos 3 y 4.', fn:ppCargaCC, plantilla:['Empresa','CUIT','Saldo'] },
+  { id:'op', t:'3. Órdenes de pago', d:'Columnas: Empresa, CUIT, Número OP, Fecha, Importe. Opcional: elegí también los PDF cuyo nombre contenga el número de OP.', fn:ppCargaOP, pdfs:true, plantilla:['Empresa','CUIT','Número OP','Fecha','Importe'] },
+  { id:'cert', t:'4. Certificados de retención', d:'Columnas: Empresa, CUIT, Número OP, Impuesto (IVA/Ganancias/IIBB/SUSS), Número certificado, Fecha, Importe. Opcional: PDF cuyo nombre contenga el número del certificado.', fn:ppCargaCert, pdfs:true, plantilla:['Empresa','CUIT','Número OP','Impuesto','Número certificado','Fecha','Importe'] },
 ];
 function ppRenderCargas(){
   const ed = ppPuedeEditar();
@@ -23694,15 +23694,15 @@ async function ppCargaCompras(rows, log){
   log(`✔ ${m.size} comprobantes cargados. Sin CUIT en el maestro: ${fuera}. Filas incompletas: ${inv}.`);
 }
 async function ppCargaCC(rows, log){
-  const f=[]; let inv=0; const emp=new Set(); const ok = new Set((PP.proveedores||[]).map(p=>p.cuit));
-  rows.forEach(r=>{ const e=ppEmpresa(ppCol(r,'Empresa')); const c=ppCuitDe(ppCol(r,'CUIT')); const fe=ppFechaIso(ppCol(r,'Fecha'));
-    if(!e||!ok.has(c)||!fe){ inv++; return; } emp.add(e);
-    f.push({cuit:c,empresa:e,fecha:fe,tipo:String(ppCol(r,'Tipo')||'').trim()||'Factura',numero:String(ppCol(r,'Número','Numero')).trim(),vencimiento:ppFechaIso(ppCol(r,'Vencimiento')),debe:ppNum(ppCol(r,'Debe')),haber:ppNum(ppCol(r,'Haber')),saldo_abierto:ppCol(r,'Saldo abierto')===''?null:ppNum(ppCol(r,'Saldo abierto'))}); });
-  if(!f.length){ log('No hay filas válidas (revisá Empresa, CUIT del maestro y Fecha).'); return; }
-  if(!confirm(`Se reemplazará la cuenta corriente de: ${[...emp].join(', ')} con ${f.length} movimientos. ¿Continuar?`)) { log('Cancelado.'); return; }
-  for(const e of emp){ const { error } = await supabaseClient.from('portal_cuenta_corriente').delete().eq('empresa',e); if(error) throw error; }
+  const f=[]; let inv=0; const emp=new Set(); const ok = new Set((PP.proveedores||[]).map(p=>p.cuit)); const hoy=hoyIso();
+  rows.forEach(r=>{ const e=ppEmpresa(ppCol(r,'Empresa')); const c=ppCuitDe(ppCol(r,'CUIT')); const raw=ppCol(r,'Saldo');
+    if(!e||!ok.has(c)||raw===''){ inv++; return; } const sd=ppNum(raw); if(!sd){ inv++; return; } emp.add(e);
+    f.push({cuit:c,empresa:e,fecha:hoy,tipo:'Saldo inicial',numero:'SALDO',vencimiento:null,debe:sd<0?-sd:0,haber:sd>0?sd:0,saldo_abierto:sd}); });
+  if(!f.length){ log('No hay filas válidas (revisá Empresa, CUIT cargado en el maestro y Saldo).'); return; }
+  if(!confirm(`Se reemplazará el saldo inicial de: ${[...emp].join(', ')} con ${f.length} proveedores. ¿Continuar?`)) { log('Cancelado.'); return; }
+  for(const e of emp){ const { error } = await supabaseClient.from('portal_cuenta_corriente').delete().eq('empresa',e).eq('tipo','Saldo inicial'); if(error) throw error; }
   await ppLote('portal_cuenta_corriente',f);
-  log(`✔ ${f.length} movimientos cargados. Filas omitidas: ${inv}.`);
+  log(`✔ ${f.length} saldos cargados. Filas omitidas (CUIT no está en el maestro, empresa inválida o saldo vacío/0): ${inv}.`);
 }
 async function ppSubirPdfs(files, cuit, carpeta, empresa, numero){
   const clave = String(numero).replace(/\s/g,'').toLowerCase();
@@ -23775,6 +23775,12 @@ function ppPlantilla(id){
   document.getElementById('pp-fc-xls').addEventListener('click',()=>{
     const l=ppFcFiltradas().map(f=>({Recibida:fmtDate(f.created_at),CUIT:f.cuit,Proveedor:f.portal_proveedores?.razon_social,Empresa:f.empresa,'N° FC':f.numero_fc,Emisión:f.fecha_emision,Vencimiento:f.fecha_vencimiento,Neto:f.importe_neto,Total:f.importe_total,CAE:f.cae,'Vto CAE':f.cae_vto,Estado:f.estado,Motivo:f.motivo_rechazo||''}));
     const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(l),'Facturas'); XLSX.writeFile(wb,'facturas_portal.xlsx'); });
+  document.getElementById('pp-nuevo-ok').addEventListener('click', async ()=>{
+    const c=document.getElementById('pp-nuevo-cuit').value.replace(/\D/g,''), n=document.getElementById('pp-nuevo-rs').value.trim();
+    if(!ppCuitValido(c)){ showToast('CUIT inválido',true); return; } if(!n){ showToast('Falta la razón social',true); return; }
+    const { error } = await supabaseClient.from('portal_proveedores').upsert({cuit:c,razon_social:n},{onConflict:'cuit'});
+    if(error){ showToast('No se pudo agregar: '+error.message,true); return; }
+    document.getElementById('pp-nuevo-cuit').value=''; document.getElementById('pp-nuevo-rs').value=''; showToast('Proveedor agregado'); ppCargar(); });
   document.querySelector('nav button[data-tab="portalprov"]')?.addEventListener('click', ppCargar);
 })();
 
