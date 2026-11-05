@@ -1244,6 +1244,7 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
   <button data-tab="accesosweb">Usuarios y Claves Web</button>
   <button data-tab="conciliacioncompras">Conciliación de Compras (GP vs ARCA)</button>
   <button data-tab="gastosobra">Gastos de Reforma</button>
+  <button data-tab="portalprov">Portal de Proveedores</button>
   <button data-tab="chequescustodia">Cheques en Custodia vs GP</button>
   <button data-tab="vencimientos">Control de Vencimientos</button>
   <button data-tab="personal">Personal</button>
@@ -3137,6 +3138,44 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
     <iframe src="herramientas/conciliacion-compras.html" title="Conciliación de Compras GP vs ARCA"
       style="width:100%;height:calc(100vh - 113px);border:none;display:block;background:#0a0c10;"></iframe>
   </section>
+
+  <section id="tab-portalprov" style="display:none;">
+    <div class="dash-hero" style="margin-bottom:14px;">
+      <h1 style="font-size:16px;">Portal de Proveedores</h1>
+      <div class="sub">Altas de proveedores, facturas recibidas y cargas desde GP (cuenta corriente, órdenes de pago y certificados de retención).</div>
+    </div>
+    <div class="stats-row" id="pp-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px;"></div>
+    <div class="toolbar" id="pp-subtabs" style="gap:8px;">
+      <button class="btn" data-pp="altas">Altas</button>
+      <button class="btn secondary" data-pp="facturas">Facturas</button>
+      <button class="btn secondary" data-pp="proveedores">Proveedores</button>
+      <button class="btn secondary" data-pp="cargas">Cargas desde GP</button>
+    </div>
+    <div id="pp-v-altas" class="pp-view">
+      <div class="toolbar"><select id="pp-alt-estado"><option value="pendiente">Pendientes</option><option value="aprobado">Aprobados</option><option value="rechazado">Rechazados</option><option value="bloqueado">Bloqueados</option><option value="">Todos</option></select></div>
+      <div class="panel"><div class="table-wrap"><table><thead><tr><th>Fecha</th><th>CUIT</th><th>Razón social</th><th>Email</th><th>Estado</th><th style="width:230px;">Acciones</th></tr></thead><tbody id="pp-alt-tbody"></tbody></table></div></div>
+    </div>
+    <div id="pp-v-facturas" class="pp-view" style="display:none;">
+      <div class="toolbar" style="flex-wrap:wrap;">
+        <input type="text" id="pp-fc-search" placeholder="Buscar por proveedor, CUIT, N° factura o CAE...">
+        <select id="pp-fc-estado"><option value="">Todos los estados</option><option value="recibida">Recibidas</option><option value="en_revision">En revisión</option><option value="contabilizada">Contabilizadas</option><option value="rechazada">Rechazadas</option></select>
+        <select id="pp-fc-empresa"><option value="">Ambas empresas</option><option value="haulotte">Haulotte</option><option value="horizon">Horizon</option></select>
+        <div style="flex:1"></div><button class="btn secondary" id="pp-fc-xls">Exportar Excel</button>
+      </div>
+      <div class="panel"><div class="table-wrap"><table><thead><tr><th>Recibida</th><th>Proveedor</th><th>Empresa</th><th>N° FC</th><th>Emisión</th><th>Vence</th><th>Neto</th><th>Total</th><th>CAE / Vto.</th><th>Estado</th><th style="width:250px;">Acciones</th></tr></thead><tbody id="pp-fc-tbody"></tbody></table></div></div>
+    </div>
+    <div id="pp-v-proveedores" class="pp-view" style="display:none;">
+      <div class="toolbar"><input type="text" id="pp-pr-search" placeholder="Buscar por CUIT o razón social..."><select id="pp-pr-filtro"><option value="">Todos</option><option value="activos">Con comprobantes cargados</option><option value="deshab">Deshabilitados</option></select></div>
+      <div class="panel"><div class="table-wrap"><table><thead><tr><th>CUIT</th><th>Razón social</th><th>ID Haulotte</th><th>ID Horizon</th><th>Comprobantes ref.</th><th>Portal</th><th>Habilitado</th></tr></thead><tbody id="pp-pr-tbody"></tbody></table></div></div>
+    </div>
+    <div id="pp-v-cargas" class="pp-view" style="display:none;"><div id="pp-cargas"></div></div>
+  </section>
+  <div class="overlay" id="pp-modal-rechazo"><div class="modal" style="max-width:480px;">
+    <h2>Rechazar factura</h2>
+    <div class="muted" id="pp-rech-info" style="font-size:13px;margin-bottom:10px;"></div>
+    <textarea id="pp-rech-motivo" rows="3" placeholder="Motivo (lo verá el proveedor): CAE vencido, importe distinto, falta dato..." style="width:100%;"></textarea>
+    <div class="modal-actions"><button class="btn secondary" id="pp-rech-cancel">Cancelar</button><button class="btn" id="pp-rech-ok" style="background:var(--danger);">Rechazar</button></div>
+  </div></div>
 
   <section id="tab-gastosobra" style="display:none;">
     <div class="dash-hero" style="margin-bottom:14px;">
@@ -5117,6 +5156,7 @@ const TAB_TITLES = {
   accesosweb: 'Usuarios y Claves Web',
   conciliacioncompras: 'Conciliación de Compras (GP vs ARCA)',
   gastosobra: 'Gastos de Reforma',
+  portalprov: 'Portal de Proveedores',
   chequescustodia: 'Cheques en Custodia vs GP',
   autorizaciones: 'Contratos pendientes de autorización',
 };
@@ -9441,6 +9481,7 @@ const SECCIONES_PERMISOS = [
   { key:'datos_bancarios', label:'Datos Bancarios de Proveedores', acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
   { key:'conciliacioncompras', label:'Conciliación de Compras (GP vs ARCA)', acciones:[['ver','Ver / usar']] },
   { key:'chequescustodia', label:'Cheques en Custodia vs GP', acciones:[['ver','Ver / usar']] },
+  { key:'portal_proveedores', label:'Portal de Proveedores', acciones:[['ver','Ver'],['editar','Cargas / facturas'],['aprobar','Aprobar altas']] },
   { key:'gastos_obra', label:'Gastos de Reforma', acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar']] },
   { key:'vencimientos', label:'Control de Vencimientos', acciones:[['ver','Ver'],['editar','Editar fechas']] },
   { key:'personal', label:'Personal', acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
@@ -10180,7 +10221,7 @@ const PM_CATEGORIAS = [
     {sk:'planning', t:'Planning', i:'📅'}, {sk:'retiros', t:'Pendientes de Retiro', i:'🚨'}, {sk:'remitos', t:'Remitos', i:'📋'} ]},
   { k:'compras', t:'Compras', i:'🧾', e:'horizon', mods:[
     {sk:'panoramaproveedores', t:'Panorama de Deuda a Proveedores', i:'📉'}, {sk:'datos_bancarios', t:'Datos Bancarios de Proveedores', i:'🏦'},
-    {sk:'conciliacioncompras', t:'Conciliación de Compras', i:'🧾'}, {sk:'gastos_obra', t:'Gastos de Reforma', i:'🏗️'} ]},
+    {sk:'conciliacioncompras', t:'Conciliación de Compras', i:'🧾'}, {sk:'gastos_obra', t:'Gastos de Reforma', i:'🏗️'}, {sk:'portal_proveedores', t:'Portal de Proveedores', i:'🔗'} ]},
   { k:'herramientas', t:'Herramientas', i:'🛠️', e:'horizon', mods:[
     {sk:'editorobs', t:'Editor de Observaciones', i:'✏️'}, {sk:'resumenerp', t:'Resumen de Alquileres (ERP)', i:'📥'},
     {sk:'analisisfinanciero', t:'Análisis Financiero', i:'📈'}, {sk:'backlogfacturacion', t:'Backlog de Facturación', i:'🧾'},
@@ -10531,6 +10572,7 @@ function renderDashboard(){
       { tab:'panoramaproveedores', icon:'📉', title:'Panorama de Deuda a Proveedores', count: '', visible:puede('panoramaproveedores','ver'), urgencia:null },
       { tab:'datosbancarios', icon:'🏦', title:'Datos Bancarios de Proveedores', count:`${datosBancariosCache.length} proveedores`, visible:puede('datos_bancarios','ver'), urgencia:null },
       { tab:'conciliacioncompras', icon:'🧾', title:'Conciliación de Compras', count: '', visible:puede('conciliacioncompras','ver'), urgencia:null },
+      { tab:'portalprov', icon:'🔗', title:'Portal de Proveedores', count: puede('portal_proveedores','ver') ? `${(typeof PP!=='undefined'&&PP.usuarios.filter(x=>x.estado==='pendiente').length)||0} alta(s) pendiente(s)` : '', visible:puede('portal_proveedores','ver'), urgencia:null },
       { tab:'gastosobra', icon:'🏗️', title:'Gastos de Reforma', count: puede('gastos_obra','ver') ? `${gastosObraCache.length} factura(s)` : '', visible:puede('gastos_obra','ver'), urgencia:null },
     ]},
     { key:'herramientas', titulo:'Herramientas', icon:'🛠️', tiles:[
@@ -21717,6 +21759,7 @@ const SYNC_TABS = {
   presupuestos:  async () => { await loadPresupuestos(); renderPresupuestos(); },
   personal:      async () => { await loadPersonal(); renderPersonalCards(); },
   datosbancarios:async () => { await loadDatosBancarios(); renderDatosBancarios(); },
+  portalprov:    async () => { await ppCargar(); },
   gastosobra:    async () => { await loadGastosObra(); renderGastosObraLista(); renderStatsGastosObra(); },
   haulotte_articulos: async () => { hrepPagina = 0; await hrepCargarPagina(); hpActualizarEstadoCatalogo(); },
   haulotte_presupuestos: async () => { await loadHaulottePresup(); renderHaulottePresup(); },
@@ -23484,6 +23527,257 @@ document.getElementById('btn-hv-pdf-previo').addEventListener('click', async ()=
   showLogin();
 
 })();
+
+// =====================================================================
+// PORTAL DE PROVEEDORES (administración)
+// =====================================================================
+var PP = { vista:'altas', usuarios:[], facturas:[], proveedores:[], refCount:{}, rechId:null };
+const PP_EST = { recibida:['Recibida','var(--text-dim)'], en_revision:['En revisión','var(--warn)'], contabilizada:['Contabilizada','var(--ok)'], rechazada:['Rechazada','var(--danger)'],
+  pendiente:['Pendiente','var(--warn)'], aprobado:['Aprobado','var(--ok)'], rechazado:['Rechazado','var(--danger)'], bloqueado:['Bloqueado','var(--danger)'] };
+function ppTag(e){ const t=PP_EST[e]||[e,'var(--text-dim)']; return `<span style="color:${t[1]};border:1px solid ${t[1]};border-radius:20px;padding:1px 9px;font-size:11.5px;white-space:nowrap;">${t[0]}</span>`; }
+function ppCuitFmt(c){ c=String(c||''); return c.length===11 ? `${c.slice(0,2)}-${c.slice(2,10)}-${c.slice(10)}` : c; }
+function ppCuitValido(c){
+  c=String(c||'').replace(/\D/g,''); if(c.length!==11) return false;
+  const w=[5,4,3,2,7,6,5,4,3,2]; let s=0; for(let i=0;i<10;i++) s+=w[i]*Number(c[i]);
+  let d=11-(s%11); if(d===11) d=0; if(d===10) d=9; return d===Number(c[10]);
+}
+function ppPuedeEditar(){ return puede('portal_proveedores','editar'); }
+function ppPuedeAprobar(){ return puede('portal_proveedores','aprobar'); }
+
+async function ppCargar(){
+  if(!puede('portal_proveedores','ver')) return;
+  const [u,f,p,r] = await Promise.all([
+    supabaseClient.from('portal_usuarios').select('*, portal_proveedores(razon_social)').order('created_at',{ascending:false}),
+    supabaseClient.from('portal_facturas').select('*, portal_proveedores(razon_social)').order('created_at',{ascending:false}).limit(1000),
+    supabaseClient.from('portal_proveedores').select('*').order('razon_social').limit(10000),
+    supabaseClient.rpc('portal_resumen_ref').then(x=>x, ()=>({data:null}))
+  ]);
+  PP.usuarios = u.data||[]; PP.facturas = f.data||[]; PP.proveedores = p.data||[];
+  PP.refCount = {}; (r && r.data || []).forEach(x=> PP.refCount[x.cuit]=x.n);
+  ppStats(); ppRender();
+}
+function ppStats(){
+  const pend = PP.usuarios.filter(x=>x.estado==='pendiente').length;
+  const nuevas = PP.facturas.filter(x=>x.estado==='recibida').length;
+  const rev = PP.facturas.filter(x=>x.estado==='en_revision').length;
+  const card=(t,v,c)=>`<div class="panel" style="padding:14px;"><div class="muted" style="font-size:12px;">${t}</div><div style="font-size:24px;font-weight:700;color:${c||'var(--text)'};">${v}</div></div>`;
+  document.getElementById('pp-stats').innerHTML = card('Altas pendientes',pend,pend?'var(--warn)':'') + card('Facturas recibidas (sin tomar)',nuevas,nuevas?'var(--accent)':'') + card('En revisión',rev) + card('Proveedores en portal',PP.usuarios.filter(x=>x.estado==='aprobado').length+' / '+PP.proveedores.length);
+}
+function ppRender(){
+  document.querySelectorAll('#pp-subtabs button').forEach(b=> b.className = 'btn' + (b.dataset.pp===PP.vista?'':' secondary'));
+  document.querySelectorAll('.pp-view').forEach(v=> v.style.display = v.id==='pp-v-'+PP.vista ? '' : 'none');
+  if(PP.vista==='altas') ppRenderAltas();
+  if(PP.vista==='facturas') ppRenderFacturas();
+  if(PP.vista==='proveedores') ppRenderProv();
+  if(PP.vista==='cargas') ppRenderCargas();
+}
+function ppRenderAltas(){
+  const est = document.getElementById('pp-alt-estado').value;
+  const l = PP.usuarios.filter(x=>!est || x.estado===est);
+  document.getElementById('pp-alt-tbody').innerHTML = l.length ? l.map(x=>{
+    const a = ppPuedeAprobar();
+    const btns = !a ? '' : (x.estado==='pendiente'
+      ? `<button class="btn" data-ppu="aprobado" data-id="${x.user_id}">Aprobar</button> <button class="btn secondary" data-ppu="rechazado" data-id="${x.user_id}">Rechazar</button>`
+      : x.estado==='aprobado' ? `<button class="btn secondary" data-ppu="bloqueado" data-id="${x.user_id}">Bloquear</button>`
+      : `<button class="btn secondary" data-ppu="aprobado" data-id="${x.user_id}">Aprobar</button>`);
+    return `<tr><td>${fmtDate(x.created_at)}</td><td>${ppCuitFmt(x.cuit)}</td><td>${escapeHtml(x.portal_proveedores?.razon_social||'')}</td><td>${escapeHtml(x.email)}</td><td>${ppTag(x.estado)}</td><td>${btns}</td></tr>`;
+  }).join('') : '<tr><td colspan="6" class="empty-state">Sin solicitudes</td></tr>';
+}
+async function ppResolverUsuario(id, estado){
+  const { error } = await supabaseClient.from('portal_usuarios').update({estado, resuelto_por:miPerfil?.id||null, resuelto_en:new Date().toISOString()}).eq('user_id',id);
+  if(error){ showToast('No se pudo actualizar: '+error.message,true); return; }
+  showToast('Proveedor '+(PP_EST[estado]||[estado])[0].toLowerCase()); ppCargar();
+}
+function ppFcFiltradas(){
+  const q=(document.getElementById('pp-fc-search').value||'').toLowerCase().trim();
+  const e=document.getElementById('pp-fc-estado').value, em=document.getElementById('pp-fc-empresa').value;
+  return PP.facturas.filter(f=> (!e||f.estado===e) && (!em||f.empresa===em) &&
+    (!q || [f.portal_proveedores?.razon_social,f.cuit,f.numero_fc,f.cae].join(' ').toLowerCase().includes(q)));
+}
+function ppRenderFacturas(){
+  const l = ppFcFiltradas();
+  document.getElementById('pp-fc-tbody').innerHTML = l.length ? l.map(f=>{
+    const ed = ppPuedeEditar();
+    const b = [`<button class="btn secondary" data-ppf="pdf" data-id="${f.id}">PDF</button>`];
+    if(ed && f.estado==='recibida') b.push(`<button class="btn secondary" data-ppf="en_revision" data-id="${f.id}">Tomar</button>`);
+    if(ed && (f.estado==='recibida'||f.estado==='en_revision')) b.push(`<button class="btn" data-ppf="contabilizada" data-id="${f.id}">Contabilizada</button>`);
+    if(ed && f.estado!=='contabilizada' && f.estado!=='rechazada') b.push(`<button class="btn secondary" data-ppf="rechazar" data-id="${f.id}">Rechazar</button>`);
+    return `<tr><td>${fmtDate(f.created_at)}</td><td>${escapeHtml(f.portal_proveedores?.razon_social||'')}<div class="muted" style="font-size:11px;">${ppCuitFmt(f.cuit)}</div></td><td>${f.empresa==='haulotte'?'Haulotte':'Horizon'}</td><td>${escapeHtml(f.numero_fc)}</td><td>${fmtDate(f.fecha_emision)}</td><td>${fmtDate(f.fecha_vencimiento)}</td><td style="text-align:right;">${fmtMoney(f.importe_neto)}</td><td style="text-align:right;">${fmtMoney(f.importe_total)}</td><td style="font-size:12px;">${escapeHtml(f.cae)}<div class="muted">${fmtDate(f.cae_vto)}</div></td><td>${ppTag(f.estado)}${f.motivo_rechazo?`<div class="muted" style="font-size:11px;max-width:160px;">${escapeHtml(f.motivo_rechazo)}</div>`:''}</td><td>${b.join(' ')}</td></tr>`;
+  }).join('') : '<tr><td colspan="11" class="empty-state">Sin facturas</td></tr>';
+}
+async function ppFcEstado(id, estado, motivo){
+  const upd = { estado, motivo_rechazo: motivo||null, revisado_por: miPerfil?.id||null, revisado_en:new Date().toISOString() };
+  const { error } = await supabaseClient.from('portal_facturas').update(upd).eq('id',id);
+  if(error){ showToast('No se pudo actualizar: '+error.message,true); return; }
+  showToast('Factura: '+PP_EST[estado][0].toLowerCase()); ppCargar();
+}
+async function ppVerPdf(path){
+  const { data, error } = await supabaseClient.storage.from('portal-proveedores').createSignedUrl(path, 300);
+  if(error||!data){ showToast('No se pudo abrir el PDF',true); return; }
+  window.open(data.signedUrl,'_blank','noopener');
+}
+function ppRenderProv(){
+  const q=(document.getElementById('pp-pr-search').value||'').toLowerCase().trim();
+  const fl=document.getElementById('pp-pr-filtro').value;
+  const portal = {}; PP.usuarios.forEach(u=>{ if(!portal[u.cuit] || u.estado==='aprobado') portal[u.cuit]=u.estado; });
+  const l = PP.proveedores.filter(p=> (!q || (p.cuit+' '+p.razon_social).toLowerCase().includes(q)) &&
+    (fl===''|| (fl==='activos' && (PP.refCount[p.cuit]||0)>0) || (fl==='deshab' && !p.habilitado))).slice(0,500);
+  document.getElementById('pp-pr-tbody').innerHTML = l.length ? l.map(p=>`<tr><td>${ppCuitFmt(p.cuit)}</td><td>${escapeHtml(p.razon_social)}</td><td>${escapeHtml(p.id_haulotte||'')}</td><td>${escapeHtml(p.id_horizon||'')}</td><td>${PP.refCount[p.cuit]||0}</td><td>${portal[p.cuit]?ppTag(portal[p.cuit]):'<span class="muted">sin registrar</span>'}</td><td><input type="checkbox" data-pph="${p.cuit}" ${p.habilitado?'checked':''} ${ppPuedeEditar()?'':'disabled'}></td></tr>`).join('') : '<tr><td colspan="7" class="empty-state">Sin proveedores. Cargalos desde "Cargas desde GP".</td></tr>';
+}
+
+// ---------- Cargas desde GP ----------
+function ppNorm(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim(); }
+async function ppLeerExcel(file){
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf,{type:'array',cellDates:true});
+  const ws = wb.Sheets[wb.SheetNames.find(n=>/maestro/i.test(n)) || wb.SheetNames[0]];
+  const raw = XLSX.utils.sheet_to_json(ws,{defval:'',raw:true});
+  return raw.map(r=>{ const o={}; Object.keys(r).forEach(k=>o[ppNorm(k)]=r[k]); return o; });
+}
+function ppCol(r, ...names){ for(const n of names){ const k = ppNorm(n); if(r[k]!==undefined && r[k]!=='') return r[k]; } return ''; }
+function ppFechaIso(v){
+  if(!v) return null;
+  if(v instanceof Date){ return `${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,'0')}-${String(v.getDate()).padStart(2,'0')}`; }
+  const s=String(v).trim(); let m=/^(\d{4})-(\d{2})-(\d{2})/.exec(s); if(m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m=/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/.exec(s); if(m){ const y=m[3].length===2?'20'+m[3]:m[3]; return `${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`; }
+  return null;
+}
+function ppNum(v){ if(typeof v==='number') return v; const s=String(v||'').replace(/\s|\$/g,''); if(!s) return 0; return Number(s.includes(',')?s.replace(/\./g,'').replace(',','.'):s)||0; }
+function ppCuitDe(v){ return String(v||'').trim().split(/\s+/)[0].replace(/\D/g,''); }
+function ppEmpresa(v){ const s=ppNorm(v); return s.includes('haulotte')?'haulotte':s.includes('horizon')?'horizon':''; }
+async function ppLote(tabla, filas, opts){
+  for(let i=0;i<filas.length;i+=500){
+    const q = opts && opts.onConflict ? supabaseClient.from(tabla).upsert(filas.slice(i,i+500),{onConflict:opts.onConflict}) : supabaseClient.from(tabla).insert(filas.slice(i,i+500));
+    const { error } = await q; if(error) throw error;
+  }
+}
+const PP_CARGAS = [
+  { id:'maestro', t:'1. Proveedores (maestro por CUIT)', d:'Excel con columnas CUIT, Razón social, ID Haulotte, ID Horizon (el "Maestro por CUIT" que armamos). Agrega o actualiza.', fn:ppCargaMaestro },
+  { id:'compras', t:'2. Comprobantes de referencia (compras GP)', d:'Excel de "Transacciones de cuentas por pagar" de GP. Sirve para validar las altas (CUIT + comprobante + fecha). Solo se cargan CUIT que ya estén en el maestro.', fn:ppCargaCompras },
+  { id:'cc', t:'3. Cuenta corriente (saldos abiertos)', d:'Columnas: Empresa, CUIT, Fecha, Tipo, Número, Vencimiento, Debe, Haber, Saldo abierto. Reemplaza la cuenta corriente de las empresas que vengan en el archivo.', fn:ppCargaCC, plantilla:['Empresa','CUIT','Fecha','Tipo','Número','Vencimiento','Debe','Haber','Saldo abierto'] },
+  { id:'op', t:'4. Órdenes de pago', d:'Columnas: Empresa, CUIT, Número OP, Fecha, Importe. Opcional: elegí también los PDF cuyo nombre contenga el número de OP.', fn:ppCargaOP, pdfs:true, plantilla:['Empresa','CUIT','Número OP','Fecha','Importe'] },
+  { id:'cert', t:'5. Certificados de retención', d:'Columnas: Empresa, CUIT, Número OP, Impuesto (IVA/Ganancias/IIBB/SUSS), Número certificado, Fecha, Importe. Opcional: PDF cuyo nombre contenga el número del certificado.', fn:ppCargaCert, pdfs:true, plantilla:['Empresa','CUIT','Número OP','Impuesto','Número certificado','Fecha','Importe'] },
+];
+function ppRenderCargas(){
+  const ed = ppPuedeEditar();
+  document.getElementById('pp-cargas').innerHTML = PP_CARGAS.map(c=>`
+    <div class="panel" style="padding:16px;margin-bottom:12px;">
+      <b>${c.t}</b><div class="muted" style="font-size:12.5px;margin:4px 0 10px;">${c.d}</div>
+      ${ed ? `<div class="toolbar" style="margin:0;gap:8px;flex-wrap:wrap;">
+        <input type="file" accept=".xlsx,.xls,.csv" data-ppc-file="${c.id}">
+        ${c.pdfs?`<input type="file" accept="application/pdf" multiple data-ppc-pdf="${c.id}" title="PDF opcionales">`:''}
+        <button class="btn" data-ppc="${c.id}">Procesar</button>
+        ${c.plantilla?`<button class="btn secondary" data-ppc-tpl="${c.id}">Plantilla</button>`:''}
+      </div>` : '<div class="muted">No tenés permiso para cargar.</div>'}
+      <div id="pp-log-${c.id}" class="muted" style="font-size:12.5px;margin-top:8px;white-space:pre-wrap;"></div>
+    </div>`).join('');
+}
+function ppLog(id, msg){ const e=document.getElementById('pp-log-'+id); if(e) e.textContent = msg; }
+async function ppCargaMaestro(rows, log){
+  const out = new Map(); let inv=0;
+  rows.forEach(r=>{ const c=ppCuitDe(ppCol(r,'CUIT','CUIT (clave)')); const n=String(ppCol(r,'Razón social','Razon social','Nombre')).trim();
+    if(!ppCuitValido(c)||!n){ inv++; return; }
+    out.set(c,{cuit:c,razon_social:n,id_haulotte:String(ppCol(r,'ID Haulotte')||'')||null,id_horizon:String(ppCol(r,'ID Horizon')||'')||null}); });
+  await ppLote('portal_proveedores',[...out.values()],{onConflict:'cuit'});
+  log(`✔ ${out.size} proveedores cargados/actualizados. Omitidos por CUIT inválido o sin nombre: ${inv}.`);
+}
+async function ppCargaCompras(rows, log){
+  const { data:prov } = await supabaseClient.from('portal_proveedores').select('cuit').limit(20000);
+  const ok = new Set((prov||[]).map(p=>p.cuit)); const m = new Map(); let fuera=0, inv=0;
+  rows.forEach(r=>{
+    const c=ppCuitDe(ppCol(r,'Número registro de impuestos','Numero registro de impuestos','CUIT'));
+    const num=String(ppCol(r,'Número de documento','Numero de documento')).trim(); const f=ppFechaIso(ppCol(r,'Fecha del documento','Fecha'));
+    const tipo=String(ppCol(r,'Tipo de documento','Tipo')).trim();
+    if(!c||!num||!f){ inv++; return; } if(!ok.has(c)){ fuera++; return; }
+    m.set(c+'|'+tipo+'|'+num,{cuit:c,tipo,numero:num,fecha:f}); });
+  await ppLote('portal_comprobantes_ref',[...m.values()],{onConflict:'cuit,tipo,numero'});
+  log(`✔ ${m.size} comprobantes cargados. Sin CUIT en el maestro: ${fuera}. Filas incompletas: ${inv}.`);
+}
+async function ppCargaCC(rows, log){
+  const f=[]; let inv=0; const emp=new Set(); const ok = new Set((PP.proveedores||[]).map(p=>p.cuit));
+  rows.forEach(r=>{ const e=ppEmpresa(ppCol(r,'Empresa')); const c=ppCuitDe(ppCol(r,'CUIT')); const fe=ppFechaIso(ppCol(r,'Fecha'));
+    if(!e||!ok.has(c)||!fe){ inv++; return; } emp.add(e);
+    f.push({cuit:c,empresa:e,fecha:fe,tipo:String(ppCol(r,'Tipo')||'').trim()||'Factura',numero:String(ppCol(r,'Número','Numero')).trim(),vencimiento:ppFechaIso(ppCol(r,'Vencimiento')),debe:ppNum(ppCol(r,'Debe')),haber:ppNum(ppCol(r,'Haber')),saldo_abierto:ppCol(r,'Saldo abierto')===''?null:ppNum(ppCol(r,'Saldo abierto'))}); });
+  if(!f.length){ log('No hay filas válidas (revisá Empresa, CUIT del maestro y Fecha).'); return; }
+  if(!confirm(`Se reemplazará la cuenta corriente de: ${[...emp].join(', ')} con ${f.length} movimientos. ¿Continuar?`)) { log('Cancelado.'); return; }
+  for(const e of emp){ const { error } = await supabaseClient.from('portal_cuenta_corriente').delete().eq('empresa',e); if(error) throw error; }
+  await ppLote('portal_cuenta_corriente',f);
+  log(`✔ ${f.length} movimientos cargados. Filas omitidas: ${inv}.`);
+}
+async function ppSubirPdfs(files, cuit, carpeta, empresa, numero){
+  const clave = String(numero).replace(/\s/g,'').toLowerCase();
+  const f = [...(files||[])].find(x=> x.name.replace(/\s/g,'').toLowerCase().includes(clave));
+  if(!f) return null;
+  const path = `${cuit}/${carpeta}/${empresa}-${String(numero).replace(/[^\w\-]/g,'_')}.pdf`;
+  const { error } = await supabaseClient.storage.from('portal-proveedores').upload(path,f,{upsert:true,contentType:'application/pdf'});
+  if(error) throw error; return path;
+}
+async function ppCargaOP(rows, log, pdfs){
+  const ok = new Set((PP.proveedores||[]).map(p=>p.cuit)); const f=[]; let inv=0, conPdf=0;
+  for(const r of rows){ const e=ppEmpresa(ppCol(r,'Empresa')); const c=ppCuitDe(ppCol(r,'CUIT')); const n=String(ppCol(r,'Número OP','Numero OP','OP')).trim(); const fe=ppFechaIso(ppCol(r,'Fecha'));
+    if(!e||!ok.has(c)||!n||!fe){ inv++; continue; }
+    const p = await ppSubirPdfs(pdfs,c,'ordenes',e,n); if(p) conPdf++;
+    f.push({cuit:c,empresa:e,numero_op:n,fecha:fe,importe:ppNum(ppCol(r,'Importe')),pdf_path:p}); }
+  if(f.length){ const q = f.map(x=>x.pdf_path===null?(delete x.pdf_path,x):x); await ppLote('portal_ordenes_pago',q,{onConflict:'empresa,numero_op'}); }
+  log(`✔ ${f.length} órdenes de pago cargadas (${conPdf} con PDF). Filas omitidas: ${inv}.`);
+}
+async function ppCargaCert(rows, log, pdfs){
+  const ok = new Set((PP.proveedores||[]).map(p=>p.cuit)); const f=[]; let inv=0, conPdf=0, sinOp=0;
+  const { data:ops } = await supabaseClient.from('portal_ordenes_pago').select('id,empresa,numero_op').limit(50000);
+  const mapOp = new Map((ops||[]).map(o=>[o.empresa+'|'+o.numero_op,o.id]));
+  const ts = {iva:'IVA',ganancias:'Ganancias',iibb:'IIBB',suss:'SUSS'};
+  for(const r of rows){ const e=ppEmpresa(ppCol(r,'Empresa')); const c=ppCuitDe(ppCol(r,'CUIT')); const n=String(ppCol(r,'Número certificado','Numero certificado','Certificado')).trim(); const fe=ppFechaIso(ppCol(r,'Fecha'));
+    if(!e||!ok.has(c)||!n||!fe){ inv++; continue; }
+    const op = mapOp.get(e+'|'+String(ppCol(r,'Número OP','Numero OP','OP')).trim()) || null; if(!op) sinOp++;
+    const imp = ts[ppNorm(ppCol(r,'Impuesto'))] || 'Otro';
+    const p = await ppSubirPdfs(pdfs,c,'certificados',e,n); if(p) conPdf++;
+    f.push({op_id:op,cuit:c,empresa:e,impuesto:imp,numero:n,fecha:fe,importe:ppNum(ppCol(r,'Importe')),pdf_path:p}); }
+  if(f.length) await ppLote('portal_certificados',f);
+  log(`✔ ${f.length} certificados cargados (${conPdf} con PDF; ${sinOp} sin orden de pago asociada). Filas omitidas: ${inv}.\nSi repetís la carga de certificados, los registros se agregan de nuevo: cargá solo los nuevos.`);
+}
+async function ppProcesar(id){
+  const c = PP_CARGAS.find(x=>x.id===id); const fi = document.querySelector(`[data-ppc-file="${id}"]`).files[0];
+  if(!fi){ showToast('Elegí el archivo Excel',true); return; }
+  const pdfs = document.querySelector(`[data-ppc-pdf="${id}"]`)?.files;
+  try{ ppLog(id,'Procesando…'); const rows = await ppLeerExcel(fi); await c.fn(rows, m=>ppLog(id,m), pdfs); showToast('Carga finalizada'); await ppCargar(); }
+  catch(e){ console.error(e); ppLog(id,'✖ Error: '+(e.message||e)); showToast('Error en la carga',true); }
+}
+function ppPlantilla(id){
+  const c = PP_CARGAS.find(x=>x.id===id); const ws = XLSX.utils.aoa_to_sheet([c.plantilla]); const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Carga'); XLSX.writeFile(wb,`plantilla_portal_${id}.xlsx`);
+}
+
+(function ppInit(){
+  document.getElementById('pp-subtabs').addEventListener('click', e=>{ const b=e.target.closest('[data-pp]'); if(b){ PP.vista=b.dataset.pp; ppRender(); } });
+  ['pp-alt-estado'].forEach(i=>document.getElementById(i).addEventListener('change',ppRenderAltas));
+  ['pp-fc-search','pp-fc-estado','pp-fc-empresa'].forEach(i=>document.getElementById(i).addEventListener('input',ppRenderFacturas));
+  ['pp-pr-search','pp-pr-filtro'].forEach(i=>document.getElementById(i).addEventListener('input',ppRenderProv));
+  document.getElementById('tab-portalprov').addEventListener('click', async e=>{
+    const u=e.target.closest('[data-ppu]'); if(u){ ppResolverUsuario(u.dataset.id,u.dataset.ppu); return; }
+    const fb=e.target.closest('[data-ppf]'); if(fb){
+      const f = PP.facturas.find(x=>x.id===fb.dataset.id); if(!f) return; const a=fb.dataset.ppf;
+      if(a==='pdf') ppVerPdf(f.pdf_path);
+      else if(a==='rechazar'){ PP.rechId=f.id; document.getElementById('pp-rech-info').textContent=`${f.portal_proveedores?.razon_social||''} · ${f.numero_fc}`; document.getElementById('pp-rech-motivo').value=''; document.getElementById('pp-modal-rechazo').classList.add('open'); }
+      else ppFcEstado(f.id,a);
+      return; }
+    const c=e.target.closest('[data-ppc]'); if(c){ ppProcesar(c.dataset.ppc); return; }
+    const t=e.target.closest('[data-ppc-tpl]'); if(t){ ppPlantilla(t.dataset.ppcTpl); }
+  });
+  document.getElementById('tab-portalprov').addEventListener('change', async e=>{
+    const h=e.target.closest('[data-pph]'); if(!h) return;
+    const { error } = await supabaseClient.from('portal_proveedores').update({habilitado:h.checked}).eq('cuit',h.dataset.pph);
+    if(error){ showToast('No se pudo guardar',true); h.checked=!h.checked; } else { const p=PP.proveedores.find(x=>x.cuit===h.dataset.pph); if(p) p.habilitado=h.checked; showToast('Guardado'); }
+  });
+  document.getElementById('pp-rech-cancel').addEventListener('click',()=>document.getElementById('pp-modal-rechazo').classList.remove('open'));
+  document.getElementById('pp-rech-ok').addEventListener('click',()=>{
+    const m=document.getElementById('pp-rech-motivo').value.trim(); if(m.length<3){ showToast('Escribí el motivo',true); return; }
+    document.getElementById('pp-modal-rechazo').classList.remove('open'); ppFcEstado(PP.rechId,'rechazada',m); });
+  document.getElementById('pp-fc-xls').addEventListener('click',()=>{
+    const l=ppFcFiltradas().map(f=>({Recibida:fmtDate(f.created_at),CUIT:f.cuit,Proveedor:f.portal_proveedores?.razon_social,Empresa:f.empresa,'N° FC':f.numero_fc,Emisión:f.fecha_emision,Vencimiento:f.fecha_vencimiento,Neto:f.importe_neto,Total:f.importe_total,CAE:f.cae,'Vto CAE':f.cae_vto,Estado:f.estado,Motivo:f.motivo_rechazo||''}));
+    const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(l),'Facturas'); XLSX.writeFile(wb,'facturas_portal.xlsx'); });
+  document.querySelector('nav button[data-tab="portalprov"]')?.addEventListener('click', ppCargar);
+})();
+
 </script>
 
 </body>
