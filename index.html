@@ -23964,7 +23964,7 @@ function svcwAbrir(casoId){
   const items = (SVC.reps.get(casoId) || []).map(r => ({ repuesto_id:r.repuesto_id, codigo:r.codigo, descripcion:r.descripcion, cantidad:r.cantidad }));
   SVCW = { caso:casoId, paso:0, sr:svcSrAbierto(casoId), c,
     orig:{ necesita:c.necesita_repuestos === undefined ? null : c.necesita_repuestos, fecha:c.fecha_estimada || '', notas:c.notas || '', items:svcwNorm(items) },
-    d:{ necesita:c.necesita_repuestos === undefined ? null : c.necesita_repuestos, items, fecha:c.fecha_estimada || '', notas:c.notas || '', rec:null, resto:'' },
+    d:{ necesita:c.necesita_repuestos === undefined ? null : c.necesita_repuestos, items, fecha:c.fecha_estimada || '', notas:c.notas || '', rec:null, resto:'', reset:false },
     busq:[], busqQ:'', guardando:false, cerrando:false };
   svcwRender();
   document.getElementById('svc-wiz').classList.add('open');
@@ -23986,10 +23986,11 @@ function svcwCambios(){
   if(d.necesita !== o.necesita) p.necesita_repuestos = d.necesita;
   if((d.fecha || '') !== o.fecha) p.fecha_estimada = d.fecha || null;
   if((d.notas || '') !== o.notas) p.notas = d.notas;
+  if(d.reset && d.necesita === true && !SVCW.sr) Object.assign(p, { repuestos_pedidos:null, repuestos_recibidos:null, entrega_parcial:null, fecha_pedido:null, fecha_llegada:null });
   const itemsCamb = d.necesita === true && svcwNorm(d.items) !== o.items;
   const p_items = itemsCamb ? d.items.map(i => ({ repuesto_id:i.repuesto_id, cantidad:i.cantidad })) : null;
   const p_rec = d.necesita === true && d.rec === 'completa' ? { completa:true } : (d.necesita === true && d.rec === 'parcial' ? { completa:false, resto:d.resto || null } : null);
-  const crea = d.necesita === true && !SVCW.sr && d.items.length > 0 && c.repuestos_recibidos !== true;
+  const crea = d.necesita === true && !SVCW.sr && d.items.length > 0 && (c.repuestos_recibidos !== true || d.reset);
   return { p, p_items, p_rec, crea, hay: Object.keys(p).length > 0 || !!p_items || !!p_rec || crea };
 }
 function svcwRender(){
@@ -24024,7 +24025,8 @@ function svcwRender(){
     const sr = SVCW.sr;
     h += `<div class="svcw-q">Pedido y recepción</div>`;
     if(!sr){
-      if(c.repuestos_recibidos === true) h += '<div class="svcw-sub">Los repuestos de esta máquina ya figuran como recibidos.</div>';
+      if(c.repuestos_recibidos === true && !d.reset) h += `<div class="svcw-sub">Los repuestos de esta máquina figuran como recibidos${c.entrega_parcial === true ? ' (entrega parcial)' : ''}, según una carga anterior a los pedidos numerados.</div><div class="svcw-note warn">¿Fue un error o querés rehacer el pedido? <button type="button" class="btn secondary" style="margin-left:8px;" data-wreset="1">↩ Deshacer y volver a pedir</button><div class="muted" style="font-size:11.5px;margin-top:6px;">Se borran las marcas de pedido/recepción y, al confirmar, se genera una solicitud SR nueva con los repuestos de la lista.</div></div>`;
+      else if(d.reset) h += `<div class="svcw-note info">↩ Se deshace el estado anterior. Al confirmar se genera la <b>Solicitud de repuestos N° SR-AAAA-NNNN</b> y se avisa al sector Repuestos. <button type="button" class="btn secondary" style="margin-left:8px;" data-wreset="0">Cancelar</button></div>`;
       else h += `<div class="svcw-sub">Todavía no hay solicitud generada.</div><div class="svcw-note info">📨 Al confirmar se genera la <b>Solicitud de repuestos N° SR-AAAA-NNNN</b> (numerada) y se avisa al sector Repuestos, que la gestiona desde su pantalla <b>Pedidos de Repuestos</b>.</div>`;
     } else {
       h += `<div class="svcw-sub">Solicitud <b class="sr-num">${E(sr.numero)}</b> ${srChip(sr.estado)}</div>${srFlow(sr.estado)}
@@ -24259,6 +24261,7 @@ function svcInit(){
     }
     const wn = t.closest('[data-wn]');
     if(wn && !wn.disabled){ SVCW.d.necesita = wn.dataset.wn === 'si'; if(!SVCW.d.necesita){ SVCW.d.rec = null; } svcwRender(); return; }
+    const rs = t.closest('[data-wreset]'); if(rs){ SVCW.d.reset = rs.dataset.wreset === '1'; svcwRender(); return; }
     const rec = t.closest('[data-wrec]');
     if(rec && !rec.disabled){ SVCW.d.rec = rec.dataset.wrec === 'null' ? null : rec.dataset.wrec; svcwRender(); return; }
     const q = t.closest('[data-wq]');
