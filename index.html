@@ -3990,6 +3990,11 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
           <option value="false">Inactivo</option>
         </select>
       </div>
+      <div class="field full">
+        <label>Sucursal en el Monitor de Servicio</label>
+        <select id="u-svc-suc"></select>
+        <div class="muted" style="font-size:11.5px;margin-top:4px;">Quien opera el Monitor de Servicio solo ve y gestiona las máquinas PDI/VOR de esta sucursal (salvo que tenga el permiso “Ver y operar las 3 sucursales”).</div>
+      </div>
       <div class="field full" id="u-copiar-field" style="display:none;">
         <label>Copiar permisos de (opcional)</label>
         <select id="u-copiar-de"></select>
@@ -9575,7 +9580,7 @@ const SECCIONES_PERMISOS = [
   { key:'contratos',     label:'Contratos',     acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar'],['editar_precio','Editar precio ya guardado'],['cambiar_serie','Cambiar la serie de la máquina en un contrato activo'],['requiere_autorizacion','⚠ Sus contratos nuevos requieren autorización de un maestro'],['autorizar','Autorizar contratos (y ver Contratos pendientes de autorización)']] },
   { key:'equipos',       label:'Equipos',       acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
   { key:'pizarra',       label:'Pizarra de Flota', acciones:[['ver','Ver'],['mover_disponible','Arrastrar a Disponible'],['mover_pdi','Arrastrar a PDI'],['mover_vor','Arrastrar a VOR'],['editar_fecha','Corregir fecha de inicio (📅)'],['reservar','Reservar / liberar máquinas (🔖)']] },
-  { key:'servicio',      label:'Monitor de Servicio (PDI / VOR)', acciones:[['ver','Ver el monitor'],['diagnosticar','Cargar diagnóstico (¿necesita repuestos? / pedidos / recibidos / notas)'],['editar_fechas','Cargar y modificar fechas (cada cambio de fecha se avisa por mail)'],['repuestos','Elegir repuestos del catálogo'],['avisar_repuestos','Avisar al sector Repuestos (mail)'],['dar_ok','Dar OK: la máquina pasa a Disponible']] },
+  { key:'servicio',      label:'Monitor de Servicio (PDI / VOR)', acciones:[['ver','Ver el monitor (solo las máquinas de su sucursal asignada)'],['ver_todas','Ver y operar las 3 sucursales (jefe de Servicio)'],['diagnosticar','Cargar diagnóstico (¿necesita repuestos? / pedidos / recibidos / notas)'],['editar_fechas','Cargar y modificar fechas (cada cambio de fecha se avisa por mail)'],['repuestos','Elegir repuestos del catálogo'],['avisar_repuestos','Avisar al sector Repuestos (mail)'],['dar_ok','Dar OK: la máquina pasa a Disponible']] },
   { key:'trazabilidad',  label:'Trazabilidad',    acciones:[['ver','Ver / usar']] },
   { key:'pendientes',    label:'Pendientes de Facturación', acciones:[['ver','Ver'],['facturar','Facturar'],['eliminar','Eliminar']] },
   { key:'reportes',      label:'Reportes',      acciones:[['ver','Ver']] },
@@ -10548,6 +10553,7 @@ function resetUsuarioForm(){
   document.getElementById('u-password').value = '';
   document.getElementById('u-rol').value = 'comercial';
   document.getElementById('u-activo').value = 'true';
+  svcLlenarSelectSucUsuario(null);
   document.getElementById('u-email-field').style.display = '';
   document.getElementById('u-password-field').style.display = '';
   document.getElementById('u-email').disabled = false;
@@ -10599,6 +10605,7 @@ function openEditUsuario(id){
   document.getElementById('u-email').disabled = true; // el email ya está fijado en Supabase Auth, no se edita acá
   document.getElementById('u-rol').value = u.rol;
   document.getElementById('u-activo').value = String(u.activo);
+  svcLlenarSelectSucUsuario(u.servicio_sucursal_id);
   document.getElementById('u-email-field').style.display = '';
   document.getElementById('u-password-field').style.display = 'none'; // no se cambia contraseña desde acá
   { const cf = document.getElementById('u-copiar-field'); if(cf) cf.style.display = 'none'; }
@@ -10610,6 +10617,7 @@ document.getElementById('btn-usuario-save').addEventListener('click', async ()=>
   const nombre = document.getElementById('u-nombre').value.trim();
   const rol = document.getElementById('u-rol').value;
   const activo = document.getElementById('u-activo').value === 'true';
+  const svcSuc = document.getElementById('u-svc-suc').value ? Number(document.getElementById('u-svc-suc').value) : null;
 
   if(!nombre){ showToast('El nombre es obligatorio', true); return; }
 
@@ -10621,7 +10629,7 @@ document.getElementById('btn-usuario-save').addEventListener('click', async ()=>
   try{
     if(id){
       // editar perfil existente
-      const { error } = await supabaseClient.from('perfiles').update({ nombre, rol, activo }).eq('id', id);
+      const { error } = await supabaseClient.from('perfiles').update({ nombre, rol, activo, servicio_sucursal_id: svcSuc }).eq('id', id);
       if(error) throw error;
       showToast('Usuario actualizado');
     } else {
@@ -10635,7 +10643,7 @@ document.getElementById('btn-usuario-save').addEventListener('click', async ()=>
       if(signUpError) throw signUpError;
       if(!data.user){ throw new Error('No se pudo crear el usuario'); }
 
-      const filaPerfil = { id: data.user.id, nombre, rol, activo, email };
+      const filaPerfil = { id: data.user.id, nombre, rol, activo, email, servicio_sucursal_id: svcSuc };
       const copiarDeId = (miPerfil.rol === 'maestro') ? document.getElementById('u-copiar-de').value : '';
       if(copiarDeId){
         const origen = usuariosCache.find(x => String(x.id) === String(copiarDeId));
@@ -10683,7 +10691,7 @@ function renderDashboard(){
     { key:'logistica', titulo:'Logística', icon:'🚜', tiles:[
       { tab:'equipos',    icon:'🚜', title:'Equipos',    count:`${equiposCache.length} en catálogo`, visible:puede('equipos','ver'), urgencia:null },
       { tab:'pizarra',    icon:'🗂️', title:'Pizarra de Flota', count:'Disponible / Alquilada / VOR / PDI / Demo', visible:puede('pizarra','ver'), urgencia:null },
-      { tab:'servicio', icon:'🛠️', title:'Monitor de Servicio', count: puede('servicio','ver') ? `PDI y VOR en reparación${servicioCasos.size ? ' — ' + servicioCasos.size + ' máquina(s)' : ''}` : '', visible:puede('servicio','ver'), urgencia:null },
+      { tab:'servicio', icon:'🛠️', title:'Monitor de Servicio', count: puede('servicio','ver') ? 'PDI y VOR en reparación' : '', visible:puede('servicio','ver'), urgencia:null },
       { tab:'trazabilidad', icon:'🔍', title:'Trazabilidad', count:'Historial de una máquina', visible:puede('trazabilidad','ver'), urgencia:null },
       { tab:'planning',   icon:'📅', title:'Planning',   count:'Ocupación de flota', visible:puede('planning','ver'), urgencia:null },
       { tab:'retiros',    icon:'🚨', title:'Pendientes de Retiro', count: puede('retiros','ver') ? `${nRetirosUrgentes} urgente(s)` : '', visible:puede('retiros','ver'), urgencia: nRetirosUrgentes>0 ? 'danger' : 'ok' },
@@ -23731,9 +23739,18 @@ async function svcCargarEventos(casoId){
   const { data } = await supabaseClient.from('servicio_eventos').select('*').eq('caso_id', casoId).order('created_at', { ascending:false }).limit(40);
   if(SVC.sel === casoId){ SVC.eventos = data || []; svcRenderPanel(); }
 }
+function svcVeTodas(){ return !!miPerfil && (miPerfil.rol === 'maestro' || puede('servicio','ver_todas')); }
+function svcSucursalPropia(){ return (miPerfil && miPerfil.servicio_sucursal_id) ? Number(miPerfil.servicio_sucursal_id) : null; }
+function svcSucursalesPermitidas(){ return svcVeTodas() ? sucursales : sucursales.filter(s => s.id === svcSucursalPropia()); }
+function svcLlenarSelectSucUsuario(valor){
+  const el = document.getElementById('u-svc-suc'); if(!el) return;
+  el.innerHTML = '<option value="">— Sin asignar (no ve máquinas) —</option>' + sucursales.map(s => `<option value="${s.id}"${String(valor) === String(s.id) ? ' selected' : ''}>${escapeHtml(s.nombre)}</option>`).join('');
+}
 function svcItems(){
   const eqMap = new Map(equiposCache.map(e => [e.id, e]));
-  return SVC.casos.map(c => ({ c, e:eqMap.get(c.equipo_id) })).filter(x => x.e && !equipoTieneContratoActivo(x.e.id));
+  const todas = svcVeTodas(), mia = svcSucursalPropia();
+  return SVC.casos.map(c => ({ c, e:eqMap.get(c.equipo_id) }))
+    .filter(x => x.e && !equipoTieneContratoActivo(x.e.id) && (todas || (mia !== null && Number(x.e.sucursal_id) === mia)));
 }
 function svcDias(equipoId){
   const d = SVC.desde.get(equipoId);
@@ -23766,7 +23783,8 @@ function svcRender(){
     ['En reparación', n(x => svcEtapa(x.c) === 'reparacion'), 'var(--ok)'],
   ];
   kEl.innerHTML = K.map(k => `<div class="svc-kpi" style="--c:${k[2]}"><div class="v">${k[1]}</div><div class="t">${k[0]}</div></div>`).join('');
-  const sOpts = '<option value="">Todas las sucursales</option>' + sucursales.map(s => `<option value="${s.id}"${SVC.suc === String(s.id) ? ' selected' : ''}>${escapeHtml(s.nombre)}</option>`).join('');
+  const sPerm = svcSucursalesPermitidas();
+  const sOpts = (sPerm.length > 1 ? '<option value="">Todas las sucursales</option>' : '') + sPerm.map(s => `<option value="${s.id}"${SVC.suc === String(s.id) ? ' selected' : ''}>${escapeHtml(s.nombre)}</option>`).join('');
   const eOpts = '<option value="">Todas las etapas</option>' + Object.entries(SVC_ETAPAS).map(([k,v]) => `<option value="${k}"${SVC.etapa === k ? ' selected' : ''}>${v.t}</option>`).join('');
   document.getElementById('svc-bar').innerHTML =
     ['todos','pdi','vor'].map(t => `<button type="button" class="svc-chip${SVC.tipo === t ? ' on' : ''}" data-svc-tipo="${t}">${t === 'todos' ? 'Todas' : t.toUpperCase()}</button>`).join('') +
@@ -23776,7 +23794,7 @@ function svcRender(){
     `<span class="muted" style="margin-left:auto;font-size:12px;">Los días cuentan desde la fecha de inicio de la Pizarra</span>`;
   const lista = svcFiltrados();
   document.getElementById('svc-lista').innerHTML = lista.length ? lista.map(x => svcFila(x)).join('')
-    : `<div class="svc-vacio">${SVC.cargado ? 'No hay máquinas en PDI / VOR con estos filtros.' : 'Cargando…'}</div>`;
+    : `<div class="svc-vacio">${!SVC.cargado ? 'Cargando…' : (!svcVeTodas() && svcSucursalPropia() === null ? 'Tu usuario todavía no tiene una sucursal asignada para el Monitor de Servicio. Pedile a un administrador que te la asigne.' : 'No hay máquinas en PDI / VOR con estos filtros.')}</div>`;
   svcRenderPanel();
 }
 function svcFila(x){
