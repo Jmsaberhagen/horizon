@@ -479,6 +479,47 @@
   .svc-ok{width:100%;margin-top:16px;padding:14px;border:0;border-radius:11px;background:var(--ok);color:#fff;font-size:15px;font-weight:800;cursor:pointer;} .svc-ok.conf{background:var(--danger);} .svc-ok:disabled{opacity:.45;cursor:not-allowed;}
   .svc-hist{font-size:11.5px;color:var(--text-dim);border-left:2px solid var(--border);padding-left:10px;margin:5px 0;} .svc-hist b{color:var(--text);}
   .svc-vacio{text-align:center;color:var(--text-dim);padding:40px 10px;}
+  .svc-go{width:100%;margin-top:14px;padding:12px;border:0;border-radius:11px;background:var(--accent);color:#04121c;font-size:14px;font-weight:800;cursor:pointer;} .svc-go:disabled{opacity:.45;cursor:not-allowed;}
+  .svc-ficha{margin-top:14px;border-top:1px solid var(--border);}
+  .svc-fr{display:grid;grid-template-columns:118px 1fr;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;} .svc-fr>span{color:var(--text-dim);font-size:11.5px;font-weight:700;letter-spacing:.2px;padding-top:2px;}
+  .svc-fs{font-size:11.5px;color:var(--text-dim);margin-top:3px;}
+  .sr-num{font-family:var(--font-mono);font-weight:800;color:var(--accent);} .sr-link{font-family:var(--font-mono);font-weight:800;color:var(--accent);cursor:pointer;text-decoration:underline;}
+  .sr-chip{display:inline-block;font-size:11px;font-weight:800;border-radius:999px;padding:2px 10px;color:var(--c);background:color-mix(in srgb,var(--c) 16%,transparent);white-space:nowrap;}
+  .sr-flow{display:flex;gap:4px;} .sr-flow i{width:32px;height:5px;border-radius:3px;background:var(--border);} .sr-flow i.on{background:var(--ok);} .sr-flow i.cur{background:var(--accent);} .sr-flow i.x{background:var(--danger);opacity:.5;}
+  .sr-tw{overflow-x:auto;background:var(--panel);border:1px solid var(--border);border-radius:12px;}
+  .sr-t{width:100%;border-collapse:collapse;font-size:13px;} .sr-t th{text-align:left;font-size:10.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--text-dim);padding:10px 12px;background:var(--panel-2);white-space:nowrap;}
+  .sr-t td{padding:11px 12px;border-top:1px solid var(--border);vertical-align:middle;} .sr-t tbody tr{cursor:pointer;} .sr-t tbody tr:hover{background:var(--panel-2);} .sr-t td.n{font-family:var(--font-mono);font-weight:800;color:var(--accent);white-space:nowrap;}
+  .modal.svcw{max-width:800px;padding:0;overflow:hidden;} .modal.svcw::before,.modal.svcw::after{display:none;}
+  .svcw-hd{display:flex;gap:14px;align-items:center;padding:16px 22px;border-bottom:1px solid var(--border);} .svcw-x{margin-left:auto;border:0;background:none;color:var(--text-dim);font-size:20px;cursor:pointer;padding:4px 8px;}
+  .svcw-steps{display:flex;align-items:center;padding:16px 24px 4px;overflow-x:auto;gap:0;}
+  .svcw-st{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--text-dim);white-space:nowrap;}
+  .svcw-st i{width:26px;height:26px;border-radius:50%;border:2px solid var(--border);display:grid;place-items:center;font-style:normal;font-size:12px;flex:none;}
+  .svcw-st.done i{background:var(--ok);border-color:var(--ok);color:#fff;} .svcw-st.cur{color:var(--text);} .svcw-st.cur i{background:var(--accent);border-color:var(--accent);color:#04121c;box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 25%,transparent);}
+  .svcw-ln{flex:1;min-width:18px;height:2px;background:var(--border);margin:0 10px;} .svcw-ln.done{background:var(--ok);}
+  .svcw-body .sr-flow{max-width:300px;} .svcw-body .sr-flow i{flex:1;width:auto;}
+  .svcw-body{padding:22px 28px 20px;min-height:330px;max-height:calc(100vh - 290px);overflow-y:auto;}
+  .svcw-q{font-size:21px;font-weight:800;margin:2px 0 4px;} .svcw-sub{color:var(--text-dim);margin-bottom:18px;font-size:13px;}
+  .svcw-cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;} .svcw-cards.three{grid-template-columns:repeat(3,1fr);gap:10px;}
+  .svcw-card{border:2px solid var(--border);background:var(--panel-2);color:var(--text);border-radius:14px;padding:22px 16px;text-align:center;cursor:pointer;font-family:inherit;}
+  .svcw-card .ic{font-size:30px;} .svcw-card b{display:block;font-size:15px;margin-top:8px;} .svcw-card small{color:var(--text-dim);display:block;margin-top:2px;}
+  .svcw-card.sm{padding:14px 10px;} .svcw-card.sm b{margin:0;font-size:13.5px;}
+  .svcw-card:hover:not(:disabled){border-color:var(--accent);} .svcw-card.on{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 10%,var(--panel-2));} .svcw-card.on.no{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--panel-2));} .svcw-card:disabled{opacity:.5;cursor:not-allowed;}
+  .svcw-lb{display:block;font-size:11.5px;font-weight:700;color:var(--text-dim);margin-bottom:5px;}
+  .svcw-note{margin-top:14px;padding:10px 13px;border-radius:10px;border:1px solid var(--border);background:var(--panel-2);font-size:12.5px;} .svcw-note.warn{border-color:color-mix(in srgb,var(--warn) 55%,transparent);background:color-mix(in srgb,var(--warn) 10%,transparent);} .svcw-note.info{border-color:color-mix(in srgb,var(--accent) 45%,transparent);background:color-mix(in srgb,var(--accent) 8%,transparent);}
+  .svcw-vacio{text-align:center;color:var(--text-dim);padding:22px 10px;border:1px dashed var(--border);border-radius:10px;font-size:13px;}
+  .svcw-rep{padding:8px 10px;font-size:12.5px;} .svcw-qty{margin-left:auto;display:flex;align-items:center;gap:6px;} .svcw-qty button{width:24px;height:24px;border-radius:6px;border:1px solid var(--border);background:var(--panel);color:var(--text);font-weight:800;cursor:pointer;}
+  .svcw-kv{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px;} .svcw-kv>div{background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:9px 12px;} .svcw-kv span{display:block;font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--text-dim);font-weight:700;} .svcw-kv b{display:block;margin-top:3px;font-size:14px;}
+  .svcw-flowl{display:flex;justify-content:space-between;font-size:10.5px;color:var(--text-dim);font-weight:600;margin-top:3px;max-width:300px;}
+  .svcw-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;} .svcw-k{background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;}
+  .svcw-k .l{font-size:11px;letter-spacing:.6px;text-transform:uppercase;color:var(--text-dim);font-weight:700;} .svcw-k .v{font-size:15px;font-weight:700;margin-top:4px;} .svcw-rl{font-size:12px;margin-top:4px;} .svcw-rl b{font-family:var(--font-mono);}
+  .svcw-ft{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 24px;border-top:1px solid var(--border);background:var(--panel-2);}
+  .svcw-prog{font-size:12px;color:var(--text-dim);text-align:center;} .svcw-prog.warn{color:var(--danger);font-weight:700;}
+  .svcw-next{background:var(--accent);border-color:var(--accent);color:#04121c;font-weight:800;padding:10px 22px;} .svcw-next:disabled{opacity:.45;cursor:not-allowed;}
+  .svcw-confirm{background:var(--ok);border:0;color:#fff;font-weight:800;font-size:14px;border-radius:10px;padding:11px 22px;cursor:pointer;} .svcw-confirm:disabled{opacity:.45;cursor:not-allowed;}
+  .sr-steps{display:flex;gap:8px;} .sr-stp{flex:1;border:1px solid var(--border);border-radius:10px;padding:9px 10px;background:var(--panel-2);} .sr-stp i{font-style:normal;display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;border:2px solid var(--border);font-size:10.5px;font-weight:800;margin-right:6px;}
+  .sr-stp b{font-size:12px;} .sr-stp small{display:block;color:var(--text-dim);font-size:11px;margin-top:3px;min-height:13px;} .sr-stp.done i{background:var(--ok);border-color:var(--ok);color:#fff;} .sr-stp.cur{border-color:var(--accent);} .sr-stp.cur i{background:var(--accent);border-color:var(--accent);color:#04121c;} .sr-stp.x{opacity:.5;}
+  .sr-acc{border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;background:var(--panel-2);} .sr-f2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px;} .sr-f3{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:10px;margin-bottom:8px;}
+  @media(max-width:720px){.svcw-cards,.svcw-grid,.svcw-kv,.sr-f2,.sr-f3{grid-template-columns:1fr;}.svcw-cards.three{grid-template-columns:1fr;}.sr-steps{flex-direction:column;}}
   .pp-kpi{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;gap:12px;align-items:center;position:relative;overflow:hidden;}
   .pp-kpi:before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--c);}
   .pp-kic{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;font-size:19px;background:color-mix(in srgb,var(--c) 18%,transparent);}
@@ -1308,6 +1349,7 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
   <button data-tab="retiros">Pendientes de Retiro</button>
   <button data-tab="remitos">Remitos</button>
   <button data-tab="servicio">Monitor de Servicio</button>
+  <button data-tab="repuestos">Pedidos de Repuestos</button>
   <button data-tab="presupuestos">Presupuestos</button>
   <button data-tab="solicitudoc">Solicitud de OC</button>
   <button data-tab="editorobs">Editor de Observaciones</button>
@@ -3239,6 +3281,16 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
     </div>
   </section>
 
+  <section id="tab-repuestos" style="display:none;">
+    <div class="dash-hero" style="margin-bottom:14px;">
+      <h1 style="font-size:16px;">Pedidos de Repuestos</h1>
+      <div class="sub">Cartera numerada (SR-AAAA-NNNN) de los pedidos que salen del Monitor de Servicio: se piden a fábrica, se despachan con N° de remito y quedan en tránsito hasta que la sucursal confirma la recepción.</div>
+    </div>
+    <div class="svc-kpis" id="sr-kpis"></div>
+    <div class="svc-bar" id="sr-bar"></div>
+    <div id="sr-lista"></div>
+  </section>
+
   <section id="tab-portalprov" style="display:none;">
     <div class="dash-hero" style="margin-bottom:14px;">
       <h1 style="font-size:16px;">Portal de Proveedores</h1>
@@ -4011,6 +4063,11 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
     </div>
   </div>
 </div>
+
+<!-- ASISTENTE DEL MONITOR DE SERVICIO (por pasos) -->
+<div class="overlay" id="svc-wiz"><div class="modal svcw" id="svcw-box"></div></div>
+<!-- DETALLE DE UN PEDIDO DE REPUESTOS -->
+<div class="overlay" id="sr-det"><div class="modal svcw" id="sr-det-box"></div></div>
 
 <!-- MODAL PERMISOS GRANULARES (solo maestro) — navegación por cards -->
 <div class="overlay" id="modal-permisos-overlay">
@@ -5264,6 +5321,7 @@ const TAB_TITLES = {
   gastosobra: 'Gastos de Reforma',
   portalprov: 'Portal de Proveedores',
   servicio: 'Monitor de Servicio (PDI / VOR)',
+  repuestos: 'Pedidos de Repuestos',
   chequescustodia: 'Cheques en Custodia vs GP',
   autorizaciones: 'Contratos pendientes de autorización',
 };
@@ -8739,6 +8797,7 @@ function pizarraLiveIniciar(){
     .on('postgres_changes', { event: '*', schema: 'public', table: 'contratos' }, pizarraProgramarRefresco)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'equipos_reservas' }, pizarraProgramarRefresco)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'servicio_casos' }, () => { clearTimeout(window._svcDeb); window._svcDeb = setTimeout(servicioRefrescar, 1500); })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'repuestos_pedidos' }, () => { clearTimeout(window._srDeb); window._srDeb = setTimeout(() => { servicioRefrescar(); if(document.getElementById('tab-repuestos')?.style.display === 'block') srCargar(true); }, 1500); })
     .subscribe((status) => {
       pizarraLiveRealtimeOk = (status === 'SUBSCRIBED');
       if(status === 'SUBSCRIBED'){
@@ -9580,7 +9639,8 @@ const SECCIONES_PERMISOS = [
   { key:'contratos',     label:'Contratos',     acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar'],['editar_precio','Editar precio ya guardado'],['cambiar_serie','Cambiar la serie de la máquina en un contrato activo'],['requiere_autorizacion','⚠ Sus contratos nuevos requieren autorización de un maestro'],['autorizar','Autorizar contratos (y ver Contratos pendientes de autorización)']] },
   { key:'equipos',       label:'Equipos',       acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
   { key:'pizarra',       label:'Pizarra de Flota', acciones:[['ver','Ver'],['mover_disponible','Arrastrar a Disponible'],['mover_pdi','Arrastrar a PDI'],['mover_vor','Arrastrar a VOR'],['editar_fecha','Corregir fecha de inicio (📅)'],['reservar','Reservar / liberar máquinas (🔖)']] },
-  { key:'servicio',      label:'Monitor de Servicio (PDI / VOR)', acciones:[['ver','Ver el monitor (solo las máquinas de su sucursal asignada)'],['ver_todas','Ver y operar las 3 sucursales (jefe de Servicio)'],['diagnosticar','Cargar diagnóstico (¿necesita repuestos? / pedidos / recibidos / notas)'],['editar_fechas','Cargar y modificar fechas (cada cambio de fecha se avisa por mail)'],['repuestos','Elegir repuestos del catálogo'],['avisar_repuestos','Avisar al sector Repuestos (mail)'],['dar_ok','Dar OK: la máquina pasa a Disponible']] },
+  { key:'servicio',      label:'Monitor de Servicio (PDI / VOR)', acciones:[['ver','Ver el monitor (solo las máquinas de su sucursal asignada)'],['ver_todas','Ver y operar las 3 sucursales (jefe de Servicio)'],['diagnosticar','Cargar diagnóstico (¿necesita repuestos? / notas)'],['editar_fechas','Cargar y modificar fechas (cada cambio de fecha se avisa por mail)'],['repuestos','Elegir repuestos del catálogo'],['recepcion','Confirmar la recepción de los repuestos (pedido en tránsito → recibido)'],['avisar_repuestos','Reenviar el aviso al sector Repuestos (mail)'],['dar_ok','Dar OK: la máquina pasa a Disponible']] },
+  { key:'repuestos',     label:'Pedidos de Repuestos (sector Repuestos)', acciones:[['ver','Ver la cartera de pedidos de todas las sucursales'],['gestionar','Marcar pedido a fábrica y despachar informando el N° de remito'],['cancelar','Cancelar pedidos']] },
   { key:'trazabilidad',  label:'Trazabilidad',    acciones:[['ver','Ver / usar']] },
   { key:'pendientes',    label:'Pendientes de Facturación', acciones:[['ver','Ver'],['facturar','Facturar'],['eliminar','Eliminar']] },
   { key:'reportes',      label:'Reportes',      acciones:[['ver','Ver']] },
@@ -9628,7 +9688,7 @@ function aplicarPermisosUI(){
   document.querySelectorAll('nav button[data-tab]').forEach(btn=>{
     const tab = btn.dataset.tab;
     if(tab === 'inicio' || tab === 'usuarios') return;
-    btn.style.display = puede(tab === 'accesosweb' ? 'accesos_web' : (tab === 'haulotte_articulos' ? 'haulotte_repuestos' : tab), 'ver') ? '' : 'none';
+    btn.style.display = (tab === 'repuestos' ? (puede('repuestos','ver') || puede('servicio','ver')) : puede(tab === 'accesosweb' ? 'accesos_web' : (tab === 'haulotte_articulos' ? 'haulotte_repuestos' : tab), 'ver')) ? '' : 'none';
   });
 
   document.getElementById('nav-usuarios').style.display = puede('usuarios','ver') ? 'inline-block' : 'none';
@@ -9637,7 +9697,7 @@ function aplicarPermisosUI(){
   const activeTab = document.querySelector('nav button.active');
   if(activeTab){
     const tab = activeTab.dataset.tab;
-    const permitido = tab === 'inicio' || (tab === 'usuarios' && puede('usuarios','ver')) || puede(tab === 'accesosweb' ? 'accesos_web' : tab,'ver');
+    const permitido = tab === 'inicio' || (tab === 'usuarios' && puede('usuarios','ver')) || (tab === 'repuestos' && (puede('repuestos','ver') || puede('servicio','ver'))) || puede(tab === 'accesosweb' ? 'accesos_web' : tab,'ver');
     if(!permitido) activarTab('inicio');
   }
 }
@@ -10342,7 +10402,7 @@ const PM_CATEGORIAS = [
     {sk:'solicitudoc', t:'Solicitud de OC', i:'📝'}, {sk:'panoramacobranzas', t:'Panorama de Cobranzas', i:'📊'},
     {sk:'cuentacliente', t:'Cuenta Cliente', i:'🧾'} ]},
   { k:'logistica', t:'Logística', i:'🚜', e:'horizon', mods:[
-    {sk:'equipos', t:'Equipos', i:'🚜'}, {sk:'pizarra', t:'Pizarra de Flota', i:'🗂️'}, {sk:'servicio', t:'Monitor de Servicio', i:'🛠️'}, {sk:'trazabilidad', t:'Trazabilidad', i:'🔍'},
+    {sk:'equipos', t:'Equipos', i:'🚜'}, {sk:'pizarra', t:'Pizarra de Flota', i:'🗂️'}, {sk:'servicio', t:'Monitor de Servicio', i:'🛠️'}, {sk:'repuestos', t:'Pedidos de Repuestos', i:'📦'}, {sk:'trazabilidad', t:'Trazabilidad', i:'🔍'},
     {sk:'planning', t:'Planning', i:'📅'}, {sk:'retiros', t:'Pendientes de Retiro', i:'🚨'}, {sk:'remitos', t:'Remitos', i:'📋'} ]},
   { k:'compras', t:'Compras', i:'🧾', e:'horizon', mods:[
     {sk:'panoramaproveedores', t:'Panorama de Deuda a Proveedores', i:'📉'}, {sk:'datos_bancarios', t:'Datos Bancarios de Proveedores', i:'🏦'},
@@ -10360,6 +10420,7 @@ const PM_CATEGORIAS = [
 ];
 const PM_DESC = {
   'clientes.ver':'Entrar y consultar la lista de clientes', 'contratos.ver':'Entrar y consultar contratos',
+  'servicio.recepcion':'Confirmar que llegaron los repuestos despachados (solo de las máquinas de su sucursal)', 'repuestos.gestionar':'Para el sector Repuestos: marcar pedido a fábrica y despachar con N° de remito (queda en tránsito)', 'repuestos.ver':'Ver los pedidos de repuestos de todas las sucursales',
   'contratos.editar_precio':'Cambiar el precio de un contrato que ya tiene precio',
   'contratos.requiere_autorizacion':'Cada contrato que cargue queda en “Pendientes de autorización” hasta que un maestro lo apruebe',
   'contratos.autorizar':'Ver la card y autorizar / rechazar contratos pendientes (solo maestros de confianza)',
@@ -10378,7 +10439,7 @@ PM_CATEGORIAS.forEach(c => c.mods.forEach(m => {
   if(m.sk === 'contratos' && m.uk === 'contratos') m.risk = [['requiere_autorizacion','Sus contratos nuevos requieren autorización']];
 }));
 
-let pmMenus = 'ambos', pmMenusOrig = 'ambos';
+let pmMenus = 'ambos', pmMenusOrig = 'ambos', pmSvcSuc = '', pmSvcSucOrig = '';
 let pmDraft = {}, pmOrig = {}, pmEmp = 'horizon', pmCat = null, pmMod = null, pmQ = '';
 const pmNorm = (permisos) => {
   const out = {};
@@ -10390,7 +10451,7 @@ const pmAcc = m => [...m.a, ...m.risk].map(x => x[0]);
 const pmCnt = m => pmAcc(m).filter(a => pmHas(m, a)).length;
 const pmTot = m => pmAcc(m).length;
 const pmEstado = m => { const c = pmCnt(m); if(!c) return 'none'; const tieneVer = m.a.some(x => x[0]==='ver'); return (c === pmTot(m) && (!tieneVer || pmHas(m,'ver'))) ? 'full' : 'part'; };
-const pmCambios = () => { let n = (pmMenus !== pmMenusOrig) ? 1 : 0; Object.keys(pmDraft).forEach(sk => Object.keys(pmDraft[sk]).forEach(a => { if(pmDraft[sk][a] !== pmOrig[sk][a]) n++; })); return n; };
+const pmCambios = () => { let n = ((pmMenus !== pmMenusOrig) ? 1 : 0) + ((pmSvcSuc !== pmSvcSucOrig) ? 1 : 0); Object.keys(pmDraft).forEach(sk => Object.keys(pmDraft[sk]).forEach(a => { if(pmDraft[sk][a] !== pmOrig[sk][a]) n++; })); return n; };
 function pmSet(m, a, v){
   pmDraft[m.sk][a] = v;
   if(a === 'ver' && !v && m.a.some(x => x[0]==='ver')) m.a.forEach(x => { pmDraft[m.sk][x[0]] = false; });
@@ -10428,8 +10489,10 @@ function pmRender(){
     const main = m.a.map(x => row(x, hasVer && x[0] !== 'ver', hasVer && x[0] !== 'ver' && !verOn)).join('');
     b.innerHTML = `<div class="pm-mod"><div class="pm-mod-head"><div class="ic">${m.i}</div><div><h3>${escapeHtml(m.t)}</h3><div class="d">${escapeHtml(cat.t)} · ${pmCnt(m)} de ${pmTot(m)} permisos activos</div></div><div class="pm-quick"><button class="pm-btn" id="pm-all">Activar todo</button><button class="pm-btn" id="pm-none">Quitar todo</button></div></div>
       ${hasVer ? `<div class="pm-hint"><b>Ver</b> es la llave de entrada: si está apagado, el usuario no ve la card y el resto de las acciones queda sin efecto.</div>` : ''}
+      ${m.sk === 'servicio' ? `<div class="pm-hint" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><b>Sucursal de este usuario en el Monitor</b><select id="pm-svc-suc" style="background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:5px 8px;"><option value="">— Sin asignar (no ve máquinas) —</option>${sucursales.map(sc => `<option value="${sc.id}"${String(pmSvcSuc) === String(sc.id) ? ' selected' : ''}>${escapeHtml(sc.nombre)}</option>`).join('')}</select><span class="muted" style="font-size:11.5px;">Solo ve y opera las máquinas de esa sucursal (salvo que tenga “Ver y operar las 3 sucursales”).</span></div>` : ''}
       <div class="pm-rows">${main}</div>
       ${m.risk.length ? `<div class="pm-grp">⚠ Restricciones especiales</div><div class="pm-rows risk">${m.risk.map(x => row(x, false, false)).join('')}</div>` : ''}</div>`;
+    const selSuc = document.getElementById('pm-svc-suc'); if(selSuc) selSuc.onchange = () => { pmSvcSuc = selSuc.value; pmRender(); };
     document.getElementById('pm-all').onclick = () => { m.a.forEach(x => pmDraft[m.sk][x[0]] = true); pmRender(); };
     document.getElementById('pm-none').onclick = () => { pmAcc(m).forEach(a => pmDraft[m.sk][a] = false); pmRender(); };
     b.querySelectorAll('.pm-sw:not(.lock)').forEach(sw => sw.onclick = () => pmSet(m, sw.dataset.a, !pmHas(m, sw.dataset.a)));
@@ -10446,6 +10509,7 @@ function abrirPermisosUsuario(userId){
   document.getElementById('modal-permisos-title').textContent = `Permisos — ${u.nombre}`;
   pmOrig = pmNorm(u.permisos || {});
   pmMenusOrig = pmMenus = menusDePermisos(u.permisos);
+  pmSvcSucOrig = pmSvcSuc = u.servicio_sucursal_id ? String(u.servicio_sucursal_id) : '';
   document.getElementById('pm-menus-sel').value = pmMenus;
   document.getElementById('pm-menus').style.display = u.rol === 'maestro' ? 'none' : '';
   pmDraft = JSON.parse(JSON.stringify(pmOrig));
@@ -10501,10 +10565,11 @@ document.getElementById('btn-permisos-save').addEventListener('click', async ()=
   if(u && u.rol === 'maestro') pmMenus = 'ambos';
   if(pmMenus === 'ambos') delete nuevoPermisos._menus; else nuevoPermisos._menus = pmMenus; // clave aparte: no es una sección, puede() no la lee
   try{
-    const { error } = await supabaseClient.from('perfiles').update({ permisos: nuevoPermisos }).eq('id', userId);
+    const upd = { permisos: nuevoPermisos }; if(pmSvcSuc !== pmSvcSucOrig) upd.servicio_sucursal_id = pmSvcSuc ? Number(pmSvcSuc) : null;
+    const { error } = await supabaseClient.from('perfiles').update(upd).eq('id', userId);
     if(error) throw error;
     showToast('Permisos actualizados correctamente');
-    pmOrig = JSON.parse(JSON.stringify(pmDraft)); pmMenusOrig = pmMenus;
+    pmOrig = JSON.parse(JSON.stringify(pmDraft)); pmMenusOrig = pmMenus; pmSvcSucOrig = pmSvcSuc;
     document.getElementById('modal-permisos-overlay').classList.remove('open');
     await loadUsuarios();
   } catch(err){
@@ -10691,6 +10756,7 @@ function renderDashboard(){
     { key:'logistica', titulo:'Logística', icon:'🚜', tiles:[
       { tab:'equipos',    icon:'🚜', title:'Equipos',    count:`${equiposCache.length} en catálogo`, visible:puede('equipos','ver'), urgencia:null },
       { tab:'pizarra',    icon:'🗂️', title:'Pizarra de Flota', count:'Disponible / Alquilada / VOR / PDI / Demo', visible:puede('pizarra','ver'), urgencia:null },
+      { tab:'repuestos', icon:'📦', title:'Pedidos de Repuestos', count: (puede('repuestos','ver')||puede('servicio','ver')) ? 'Solicitudes SR, remitos y tránsito' : '', visible:(puede('repuestos','ver')||puede('servicio','ver')), urgencia:null },
       { tab:'servicio', icon:'🛠️', title:'Monitor de Servicio', count: puede('servicio','ver') ? 'PDI y VOR en reparación' : '', visible:puede('servicio','ver'), urgencia:null },
       { tab:'trazabilidad', icon:'🔍', title:'Trazabilidad', count:'Historial de una máquina', visible:puede('trazabilidad','ver'), urgencia:null },
       { tab:'planning',   icon:'📅', title:'Planning',   count:'Ocupación de flota', visible:puede('planning','ver'), urgencia:null },
@@ -21899,6 +21965,7 @@ const SYNC_TABS = {
   datosbancarios:async () => { await loadDatosBancarios(); renderDatosBancarios(); },
   portalprov:    async () => { await ppCargar(); },
   servicio:      async () => { await syncNucleo(); await svcCargar(); },
+  repuestos:     async () => { await syncNucleo(); await servicioCargarCasos(); await srCargar(); },
   gastosobra:    async () => { await loadGastosObra(); renderGastosObraLista(); renderStatsGastosObra(); },
   haulotte_articulos: async () => { hrepPagina = 0; await hrepCargarPagina(); hpActualizarEstadoCatalogo(); },
   haulotte_presupuestos: async () => { await loadHaulottePresup(); renderHaulottePresup(); },
@@ -23672,7 +23739,7 @@ document.getElementById('btn-hv-pdf-previo').addEventListener('click', async ()=
 // =====================================================================
 var servicioCasos = new Map();   // equipo_id -> caso abierto (lo usan la Pizarra y el Monitor)
 var servicioTs = 0, servicioCargando = false;
-var SVC = { casos:[], reps:new Map(), desde:new Map(), eventos:[], sel:null, tipo:'todos', suc:'', etapa:'', orden:'dias', q:'', confirmando:false, busq:[], busqQ:'', busqTimer:null, cargado:false };
+var SVC = { casos:[], reps:new Map(), srs:new Map(), desde:new Map(), eventos:[], sel:null, tipo:'todos', suc:'', etapa:'', orden:'dias', q:'', confirmando:false, busq:[], busqQ:'', busqTimer:null, cargado:false };
 const SVC_ETAPAS = {
   sin_diag:  { t:'Sin diagnóstico',     c:'var(--danger)' },
   sin_pedir: { t:'Repuestos sin pedir', c:'var(--warn)' },
@@ -23723,10 +23790,12 @@ async function svcCargar(silencioso){
   if(casos === null && !servicioCasos.size && !SVC.cargado){ svcRender(); return; }
   SVC.casos = [...servicioCasos.values()];
   const ids = SVC.casos.map(c => c.id);
-  const [rr, hh] = await Promise.all([
+  const [rr, hh, ss] = await Promise.all([
     ids.length ? supabaseClient.from('servicio_repuestos').select('*').in('caso_id', ids).order('id') : Promise.resolve({ data:[] }),
     supabaseClient.from('equipos_historial_estado').select('equipo_id, estado, fecha_desde').is('fecha_hasta', null).in('estado', ['pdi','vor']).limit(3000),
+    ids.length ? supabaseClient.from('repuestos_pedidos').select('*').in('caso_id', ids).order('id') : Promise.resolve({ data:[] }),
   ]);
+  const srs = new Map(); (ss.data || []).forEach(r => srs.set(r.caso_id, r)); SVC.srs = srs; // queda el último pedido de cada caso
   const reps = new Map(); (rr.data || []).forEach(r => { const a = reps.get(r.caso_id) || []; a.push(r); reps.set(r.caso_id, a); });
   SVC.reps = reps;
   SVC.desde = new Map((hh.data || []).map(r => [r.equipo_id, r.fecha_desde]));
@@ -23819,10 +23888,6 @@ function svcFila(x){
     <div class="svc-eta${eta.venc ? ' venc' : ''}${eta.sin ? ' sin' : ''}"><div class="l">Disponible</div><div class="d">${eta.sin ? 'Sin fecha' : eta.fecha}</div>${eta.sin ? '' : `<div class="s">${eta.rel}</div>`}</div>
   </div>`;
 }
-function svcYN(campo, valor, habilitado){
-  const dis = habilitado ? '' : ' disabled';
-  return `<div class="svc-yn"><button type="button" class="si${valor === true ? ' on' : ''}" data-svc-yn="${campo}" data-v="true"${dis}>Sí</button><button type="button" class="no${valor === false ? ' on' : ''}" data-svc-yn="${campo}" data-v="false"${dis}>No</button></div>`;
-}
 function svcFH(iso){ return iso ? new Date(iso).toLocaleString('es-AR', { timeZone:'America/Argentina/Buenos_Aires', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false }) : ''; }
 const SVC_CAMPO_TXT = { necesita_repuestos:'¿Necesita repuestos?', repuestos_pedidos:'Repuestos pedidos', repuestos_recibidos:'Repuestos recibidos', entrega_parcial:'Entrega parcial', fecha_pedido:'Fecha del pedido', fecha_llegada:'Llegada de repuestos / resto', fecha_estimada:'Disponible estimada', notas:'Notas' };
 function svcEventoTxt(ev){
@@ -23831,90 +23896,331 @@ function svcEventoTxt(ev){
   if(ev.tipo === 'edicion') return Object.entries(d).map(([k, v]) => `${SVC_CAMPO_TXT[k] || k}: ${k === 'notas' ? 'actualizadas' : `${val(v.antes)} → <b>${val(v.despues)}</b>`}`).join(' · ');
   if(ev.tipo === 'repuesto_agregado') return `Agregó repuesto <b>${escapeHtml(d.codigo || '')}</b> ×${d.cantidad || 1}`;
   if(ev.tipo === 'repuesto_quitado') return `Quitó repuesto <b>${escapeHtml(d.codigo || '')}</b>`;
-  if(ev.tipo === 'aviso_repuestos') return `Avisó al sector Repuestos (${(d.items || []).length} ítem/s)`;
+  if(ev.tipo === 'repuestos_editados') return `Actualizó la lista de repuestos (${d.items || 0} ítem/s)`;
+  if(ev.tipo === 'sr_creado') return `Generó la solicitud <b>${escapeHtml(d.numero || '')}</b> y avisó a Repuestos`;
+  if(ev.tipo === 'aviso_repuestos') return `Avisó al sector Repuestos${d.numero ? ' (' + escapeHtml(d.numero) + ')' : ''} (${(d.items || []).length} ítem/s)`;
   if(ev.tipo === 'ok') return '<b>Dio el OK</b>: pasó a Disponible';
   return escapeHtml(ev.tipo);
 }
+
+// ---------- estados de los pedidos (los usan el Monitor y la pantalla Pedidos de Repuestos) ----------
+const SR_EST = {
+  solicitado:       { t:'Solicitado',        c:'var(--accent)' },
+  pedido:           { t:'Pedido a fábrica',  c:'var(--warn)' },
+  en_transito:      { t:'En tránsito',       c:'#a99cff' },
+  recibido_parcial: { t:'Recibido parcial',  c:'var(--warn)' },
+  recibido:         { t:'Recibido',          c:'var(--ok)' },
+  cancelado:        { t:'Cancelado',         c:'var(--danger)' },
+};
+const SR_ETAPAS = ['Solicitado','Pedido a fábrica','En tránsito','Recibido'];
+function srAbierto(est){ return est !== 'recibido' && est !== 'cancelado'; }
+function srIdx(est){ return est === 'solicitado' ? 0 : est === 'pedido' ? 1 : (est === 'en_transito' || est === 'recibido_parcial') ? 2 : est === 'recibido' ? 3 : -1; }
+function srChip(est){ const E = SR_EST[est] || { t:est, c:'var(--text-dim)' }; return `<span class="sr-chip" style="--c:${E.c}">${E.t}</span>`; }
+function srFlow(est){
+  const i = srIdx(est);
+  return `<div class="sr-flow">${[0,1,2,3].map(k => `<i class="${est === 'cancelado' ? 'x' : (est === 'recibido' || k < i) ? 'on' : k === i ? 'cur' : ''}"></i>`).join('')}</div>`;
+}
+function svcSrUlt(casoId){ return SVC.srs.get(casoId) || null; }
+function svcSrAbierto(casoId){ const s = svcSrUlt(casoId); return s && srAbierto(s.estado) ? s : null; }
+
+// ---------- ficha de la máquina (panel derecho del Monitor) ----------
 function svcRenderPanel(){
   const el = document.getElementById('svc-panel'); if(!el) return;
   const x = svcItems().find(i => i.c.id === SVC.sel);
-  if(!x){ el.innerHTML = '<div class="svc-vacio">Elegí una máquina de la lista para gestionar su diagnóstico, repuestos y fechas.</div>'; return; }
-  const { c, e } = x; const pD = puede('servicio','diagnosticar'), pF = puede('servicio','editar_fechas'), pR = puede('servicio','repuestos'), pA = puede('servicio','avisar_repuestos'), pOk = puede('servicio','dar_ok');
+  if(!x){ el.innerHTML = '<div class="svc-vacio">Elegí una máquina de la lista para ver su ficha y cargar el diagnóstico.</div>'; return; }
+  const { c, e } = x; const pOk = puede('servicio','dar_ok'), pAv = puede('servicio','avisar_repuestos');
+  const puedeCargar = ['diagnosticar','repuestos','editar_fechas','recepcion'].some(a => puede('servicio', a));
   const reps = SVC.reps.get(c.id) || []; const dias = svcDias(e.id); const foto = fotoUrlDeModelo(e.modelo);
-  const suc = sucursales.find(s => s.id === e.sucursal_id)?.nombre || '';
-  const fecha = (campo, etiqueta, ayuda) => `<div style="margin-top:8px;"><label class="muted" style="font-size:11.5px;font-weight:700;">${etiqueta}</label><input type="date" class="svc-in" data-svc-fecha="${campo}" value="${escapeHtml(c[campo] || '')}"${pF ? '' : ' disabled'}>${ayuda ? `<div class="muted" style="font-size:10.5px;margin-top:2px;">${ayuda}</div>` : ''}</div>`;
+  const suc = sucursales.find(s => s.id === e.sucursal_id)?.nombre || ''; const sr = svcSrUlt(c.id); const eta = svcEta(c);
+  const fila = (l, v) => `<div class="svc-fr"><span>${l}</span><div>${v}</div></div>`;
   let h = `<div style="display:flex;gap:12px;align-items:center;"><div class="svc-foto" style="width:84px;height:62px;">${foto ? `<img src="${escapeHtml(foto)}" alt="">` : '🚜'}</div>
     <div style="min-width:0;"><div style="font-weight:800;font-size:15px;">${escapeHtml(e.modelo || '')}</div><div class="svc-ser">${escapeHtml(e.numero_serie || '')}</div>
     <div style="margin-top:4px;"><span class="svc-badge ${c.tipo}">${c.tipo.toUpperCase()}</span> <span class="svc-suc">${escapeHtml(suc)}${dias === null ? '' : ' · ' + dias + ' d.'}</span></div></div></div>`;
-  h += `<div class="svc-q"><div class="svc-ql">1 · ¿Necesita repuestos?</div>${svcYN('necesita_repuestos', c.necesita_repuestos, pD)}</div>`;
+  h += `<button type="button" class="svc-go" id="svc-wiz-open"${puedeCargar ? '' : ' disabled'}>${c.necesita_repuestos === null || c.necesita_repuestos === undefined ? '▶ Cargar diagnóstico' : '✏️ Actualizar diagnóstico y pedido'}</button>`;
+  if(!puedeCargar) h += '<div class="muted" style="font-size:10.5px;text-align:center;margin-top:3px;">Tu usuario no tiene permisos para cargar datos en el Monitor.</div>';
+  h += '<div class="svc-ficha">';
+  h += fila('Diagnóstico', c.necesita_repuestos === null || c.necesita_repuestos === undefined ? '<b style="color:var(--danger);">Sin diagnóstico</b>' : c.necesita_repuestos ? '<b>Necesita repuestos</b>' : '<b>No necesita repuestos</b>');
   if(c.necesita_repuestos === true){
-    h += `<div class="svc-sub"><div class="svc-q"><div class="svc-ql">2 · ¿Ya están pedidos?</div>${svcYN('repuestos_pedidos', c.repuestos_pedidos, pD)}`;
-    if(c.repuestos_pedidos === true) h += fecha('fecha_pedido', 'Fecha en que se pidieron');
-    h += '</div>';
-    if(c.repuestos_pedidos === true){
-      h += `<div class="svc-q"><div class="svc-ql">3 · ¿Ya fueron recibidos?</div>${svcYN('repuestos_recibidos', c.repuestos_recibidos, pD)}`;
-      if(c.repuestos_recibidos === false) h += fecha('fecha_llegada', 'Llegan el (estimado)');
-      h += '</div>';
-      if(c.repuestos_recibidos === true){
-        h += `<div class="svc-q"><div class="svc-ql">¿La entrega fue parcial?</div>${svcYN('entrega_parcial', c.entrega_parcial, pD)}`;
-        if(c.entrega_parcial === true) h += fecha('fecha_llegada', 'Llega el resto el (estimado)');
-        h += '</div>';
-      }
-    }
-    h += `<div class="svc-q"><div class="svc-ql">Repuestos necesarios</div>`;
-    h += reps.length ? reps.map(r => `<div class="svc-rep"><b>${escapeHtml(r.codigo)}</b><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(r.descripcion || '')}</span><span style="margin-left:auto;font-weight:800;">×${r.cantidad}</span>${pR ? `<button type="button" class="x" data-svc-quitar="${r.id}" title="Quitar">×</button>` : ''}</div>`).join('') : '<div class="muted" style="font-size:12px;">Todavía no se cargó ningún repuesto.</div>';
-    if(pR) h += `<input type="search" class="svc-in" id="svc-busq" placeholder="Buscar en el catálogo Haulotte (código o descripción)…" style="margin-top:6px;" value="${escapeHtml(SVC.busqQ)}" autocomplete="off"><div class="svc-res" id="svc-res" style="display:${SVC.busq.length ? 'block' : 'none'};">${SVC.busq.map(r => `<div data-svc-add="${r.id}"><b>${escapeHtml(r.codigo)}</b> — ${escapeHtml(r.descripcion || '')}</div>`).join('')}</div>`;
-    if(pA){
-      h += `<button type="button" class="btn secondary" id="svc-avisar" style="width:100%;margin-top:8px;"${reps.length ? '' : ' disabled'}>📧 ${c.repuestos_avisado_at ? 'Reenviar aviso a Repuestos' : 'Avisar a Repuestos'}</button>`;
-      if(c.repuestos_avisado_at) h += `<div class="muted" style="font-size:10.5px;margin-top:3px;">Último aviso: ${svcFH(c.repuestos_avisado_at)}. Si cambiás la lista, volvé a avisar.</div>`;
-    }
-    h += '</div></div>';
-  } else if(c.necesita_repuestos === false){
-    h += '<div class="muted" style="font-size:12px;margin-top:6px;">Se repara con lo que hay en stock. Indicá cuándo queda disponible.</div>';
+    h += fila('Pedido de repuestos', sr
+      ? `<a class="sr-link" data-sr-go="${sr.id}">${escapeHtml(sr.numero)}</a> ${srChip(sr.estado)}<div class="svc-fs">${sr.fecha_pedido ? 'Pedido ' + fmtDate(sr.fecha_pedido) : 'Todavía sin pedir a fábrica'}${sr.remito ? ' · Remito <b>' + escapeHtml(sr.remito) + '</b>' : ''}${sr.fecha_llegada && srAbierto(sr.estado) ? ' · Llega ' + fmtDate(sr.fecha_llegada) : ''}</div>`
+      : (reps.length ? '<span class="muted">Sin solicitud generada</span>' : '<span class="muted">Sin repuestos cargados</span>'));
+    if(reps.length) h += fila('Repuestos', reps.map(r => `<div class="svc-rep"><b>${escapeHtml(r.codigo)}</b><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(r.descripcion || '')}</span><span style="margin-left:auto;font-weight:800;">×${r.cantidad}</span></div>`).join(''));
   }
-  h += `<div class="svc-q" style="margin-top:16px;"><div class="svc-ql">${c.necesita_repuestos === false ? '2' : '4'} · ¿Cuándo queda disponible?</div>${fecha('fecha_estimada', 'Fecha estimada', 'Si cambiás una fecha ya cargada, se avisa enseguida por mail.')}</div>`;
-  h += `<div class="svc-q"><div class="svc-ql">Notas</div><textarea class="svc-in" id="svc-notas" rows="3" placeholder="Detalle de la reparación, a quién se espera, etc."${pD ? '' : ' disabled'}>${escapeHtml(c.notas || '')}</textarea></div>`;
+  h += fila('Disponible estimada', eta.sin ? '<span class="muted">Sin fecha</span>' : `<b style="${eta.venc ? 'color:var(--danger);' : ''}">${fmtDate(c.fecha_estimada)}</b> <span class="muted" style="font-size:11.5px;">${eta.rel}</span>`);
+  if(c.notas) h += fila('Notas', `<span style="white-space:pre-wrap;">${escapeHtml(c.notas)}</span>`);
+  h += '</div>';
+  if(pAv && c.necesita_repuestos === true && reps.length) h += `<button type="button" class="btn secondary" id="svc-avisar" style="width:100%;margin-top:8px;">📧 Reenviar aviso a Repuestos</button>`;
   h += `<button type="button" class="svc-ok${SVC.confirmando ? ' conf' : ''}" id="svc-dar-ok"${pOk ? '' : ' disabled'}>${SVC.confirmando ? '¿Confirmás? Tocá de nuevo: pasa a Disponible' : '✅ Dar OK — pasar a Disponible'}</button>`;
   if(!pOk) h += '<div class="muted" style="font-size:10.5px;text-align:center;margin-top:3px;">Tu usuario no tiene permiso para dar el OK.</div>';
   h += `<details style="margin-top:14px;"><summary style="cursor:pointer;font-size:12px;font-weight:700;">Historial de la máquina</summary>${SVC.eventos.length ? SVC.eventos.map(ev => `<div class="svc-hist"><b>${escapeHtml(ev.usuario_nombre || '')}</b> · ${svcFH(ev.created_at)}<br>${svcEventoTxt(ev)}</div>`).join('') : '<div class="muted" style="font-size:12px;">Sin movimientos todavía.</div>'}</details>`;
   el.innerHTML = h;
 }
-async function svcGuardar(patch){
-  const caso = SVC.sel; if(!caso) return;
-  const { data, error } = await supabaseClient.rpc('servicio_guardar', { p_caso:caso, p:patch });
-  if(error){ showToast(error.message || 'No se pudo guardar', true); await svcCargar(true); return; }
-  if(data && data.id){ servicioCasos.set(data.equipo_id, data); SVC.casos = SVC.casos.map(c => c.id === data.id ? data : c); }
-  svcRender(); svcCargarEventos(caso);
+
+// ---------- asistente por pasos: todo se guarda recién al confirmar ----------
+var SVCW = null;
+const svcwNorm = items => JSON.stringify((items || []).map(i => [Number(i.repuesto_id), Number(i.cantidad)]).sort((a, b) => a[0] - b[0]));
+function svcwAbrir(casoId){
+  const c = SVC.casos.find(k => k.id === casoId); if(!c) return;
+  const items = (SVC.reps.get(casoId) || []).map(r => ({ repuesto_id:r.repuesto_id, codigo:r.codigo, descripcion:r.descripcion, cantidad:r.cantidad }));
+  SVCW = { caso:casoId, paso:0, sr:svcSrAbierto(casoId), c,
+    orig:{ necesita:c.necesita_repuestos === undefined ? null : c.necesita_repuestos, fecha:c.fecha_estimada || '', notas:c.notas || '', items:svcwNorm(items) },
+    d:{ necesita:c.necesita_repuestos === undefined ? null : c.necesita_repuestos, items, fecha:c.fecha_estimada || '', notas:c.notas || '', rec:null, resto:'' },
+    busq:[], busqQ:'', guardando:false, cerrando:false };
+  svcwRender();
+  document.getElementById('svc-wiz').classList.add('open');
 }
-async function svcBuscarRepuestos(q){
-  SVC.busqQ = q;
+function svcwPasos(){
+  const p = [{ k:'diag', t:'Diagnóstico' }];
+  if(SVCW.d.necesita === true) p.push({ k:'reps', t:'Repuestos' }, { k:'pedido', t:'Pedido y recepción' });
+  p.push({ k:'fecha', t:'Fecha y notas' }, { k:'conf', t:'Confirmar' });
+  return p;
+}
+function svcwBloqueado(){ return !!(SVCW.sr && SVCW.sr.estado !== 'solicitado'); }
+function svcwValido(k){
+  if(k === 'diag') return SVCW.d.necesita === true || SVCW.d.necesita === false;
+  if(k === 'reps') return SVCW.d.items.length > 0;
+  return true;
+}
+function svcwCambios(){
+  const d = SVCW.d, o = SVCW.orig, c = SVCW.c, p = {};
+  if(d.necesita !== o.necesita) p.necesita_repuestos = d.necesita;
+  if((d.fecha || '') !== o.fecha) p.fecha_estimada = d.fecha || null;
+  if((d.notas || '') !== o.notas) p.notas = d.notas;
+  const itemsCamb = d.necesita === true && svcwNorm(d.items) !== o.items;
+  const p_items = itemsCamb ? d.items.map(i => ({ repuesto_id:i.repuesto_id, cantidad:i.cantidad })) : null;
+  const p_rec = d.necesita === true && d.rec === 'completa' ? { completa:true } : (d.necesita === true && d.rec === 'parcial' ? { completa:false, resto:d.resto || null } : null);
+  const crea = d.necesita === true && !SVCW.sr && d.items.length > 0 && c.repuestos_recibidos !== true;
+  return { p, p_items, p_rec, crea, hay: Object.keys(p).length > 0 || !!p_items || !!p_rec || crea };
+}
+function svcwRender(){
+  const box = document.getElementById('svcw-box'); if(!box || !SVCW) return;
+  const pasos = svcwPasos(); if(SVCW.paso > pasos.length - 1) SVCW.paso = pasos.length - 1;
+  const paso = pasos[SVCW.paso], c = SVCW.c, d = SVCW.d;
+  const e = equiposCache.find(q => q.id === c.equipo_id) || {}; const suc = sucursales.find(s => s.id === e.sucursal_id)?.nombre || ''; const dias = svcDias(c.equipo_id); const foto = fotoUrlDeModelo(e.modelo);
+  const pD = puede('servicio','diagnosticar'), pR = puede('servicio','repuestos'), pF = puede('servicio','editar_fechas'), pRec = puede('servicio','recepcion');
+  const E = escapeHtml;
+  let h = `<div class="svcw-hd"><div class="svc-foto" style="width:84px;height:60px;">${foto ? `<img src="${E(foto)}" alt="">` : '🚜'}</div>
+    <div style="min-width:0;"><div style="font-size:17px;font-weight:800;">${E(e.modelo || '')} <span class="svc-badge ${c.tipo}">${c.tipo.toUpperCase()}</span></div>
+    <div class="svc-ser">${E(e.numero_serie || '')} · ${E(suc)}${dias === null ? '' : ' · ' + dias + ' d. en ' + c.tipo.toUpperCase()}</div></div>
+    <button type="button" class="svcw-x" data-w="close" title="Cerrar">✕</button></div>`;
+  h += '<div class="svcw-steps">' + pasos.map((p, i) => `${i ? `<div class="svcw-ln${i <= SVCW.paso ? ' done' : ''}"></div>` : ''}<div class="svcw-st${i < SVCW.paso ? ' done' : i === SVCW.paso ? ' cur' : ''}"><i>${i < SVCW.paso ? '✓' : i + 1}</i><span>${p.t}</span></div>`).join('') + '</div>';
+  h += '<div class="svcw-body">';
+  if(paso.k === 'diag'){
+    h += `<div class="svcw-q">¿La máquina necesita repuestos?</div><div class="svcw-sub">Es lo primero que Servicio determina al revisarla.</div>
+      <div class="svcw-cards"><button type="button" class="svcw-card${d.necesita === true ? ' on' : ''}" data-wn="si"${pD ? '' : ' disabled'}><div class="ic">🔩</div><b>Sí, necesita repuestos</b><small>Se arma el pedido a Repuestos</small></button>
+      <button type="button" class="svcw-card${d.necesita === false ? ' on no' : ''}" data-wn="no"${pD ? '' : ' disabled'}><div class="ic">🛠️</div><b>No, se repara con stock</b><small>Solo indicás cuándo queda lista</small></button></div>`;
+    if(!pD) h += '<div class="svcw-note">Tu usuario no tiene permiso para cargar el diagnóstico.</div>';
+    if(SVCW.sr && d.necesita === false) h += `<div class="svcw-note warn">Hay un pedido abierto (${E(SVCW.sr.numero)}). ${SVCW.sr.estado === 'solicitado' ? 'Se cancela solo al confirmar.' : 'Ya lo tomó Repuestos: pedile que lo cancele antes de cambiar el diagnóstico.'}</div>`;
+  } else if(paso.k === 'reps'){
+    const bl = svcwBloqueado();
+    h += `<div class="svcw-q">¿Qué repuestos necesita?</div><div class="svcw-sub">Elegilos del catálogo Haulotte. Con esto se arma la solicitud para el sector Repuestos.</div>`;
+    h += d.items.length ? d.items.map(r => `<div class="svc-rep svcw-rep"><b>${E(r.codigo)}</b><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${E(r.descripcion || '')}</span>
+      <span class="svcw-qty">${bl || !pR ? '' : `<button type="button" data-wq="${r.repuesto_id}:-1">−</button>`}<b>${r.cantidad}</b>${bl || !pR ? '' : `<button type="button" data-wq="${r.repuesto_id}:1">+</button>`}</span>
+      ${bl || !pR ? '' : `<button type="button" class="x" data-wdel="${r.repuesto_id}" title="Quitar">×</button>`}</div>`).join('') : '<div class="svcw-vacio">Todavía no cargaste ningún repuesto.</div>';
+    if(bl) h += `<div class="svcw-note warn">El pedido ${E(SVCW.sr.numero)} ya lo tomó Repuestos: la lista no se puede modificar.</div>`;
+    else if(pR) h += `<input type="search" class="svc-in" id="svcw-busq" placeholder="Buscar en el catálogo (código o descripción)…" style="margin-top:8px;" value="${E(SVCW.busqQ)}" autocomplete="off"><div class="svc-res" id="svcw-res" style="display:none;"></div>`;
+    else h += '<div class="svcw-note">Tu usuario no tiene permiso para elegir repuestos.</div>';
+  } else if(paso.k === 'pedido'){
+    const sr = SVCW.sr;
+    h += `<div class="svcw-q">Pedido y recepción</div>`;
+    if(!sr){
+      if(c.repuestos_recibidos === true) h += '<div class="svcw-sub">Los repuestos de esta máquina ya figuran como recibidos.</div>';
+      else h += `<div class="svcw-sub">Todavía no hay solicitud generada.</div><div class="svcw-note info">📨 Al confirmar se genera la <b>Solicitud de repuestos N° SR-AAAA-NNNN</b> (numerada) y se avisa al sector Repuestos, que la gestiona desde su pantalla <b>Pedidos de Repuestos</b>.</div>`;
+    } else {
+      h += `<div class="svcw-sub">Solicitud <b class="sr-num">${E(sr.numero)}</b> ${srChip(sr.estado)}</div>${srFlow(sr.estado)}
+        <div class="svcw-flowl">${SR_ETAPAS.map(t => `<span>${t}</span>`).join('')}</div>
+        <div class="svcw-kv"><div><span>Pedido a fábrica</span><b>${sr.fecha_pedido ? fmtDate(sr.fecha_pedido) : '—'}</b></div><div><span>Remito de despacho</span><b>${sr.remito ? E(sr.remito) : '—'}</b></div><div><span>${sr.estado === 'recibido_parcial' ? 'Llega el resto' : 'Llegada estimada'}</span><b>${sr.fecha_llegada ? fmtDate(sr.fecha_llegada) : '—'}</b></div></div>`;
+      if(sr.estado === 'en_transito'){
+        h += `<div class="svcw-q" style="font-size:17px;margin-top:20px;">¿Llegaron los repuestos a la sucursal?</div><div class="svcw-sub">Repuestos ya los despachó (remito ${E(sr.remito || '')}). Confirmá la recepción cuando lleguen.</div>
+          <div class="svcw-cards three"><button type="button" class="svcw-card sm${d.rec === null ? ' on' : ''}" data-wrec="null"><b>⏳ Todavía no</b></button>
+          <button type="button" class="svcw-card sm${d.rec === 'completa' ? ' on' : ''}" data-wrec="completa"${pRec ? '' : ' disabled'}><b>📦 Sí, completos</b></button>
+          <button type="button" class="svcw-card sm${d.rec === 'parcial' ? ' on' : ''}" data-wrec="parcial"${pRec ? '' : ' disabled'}><b>◐ Sí, parcial</b></button></div>`;
+        if(d.rec === 'parcial') h += `<div style="margin-top:14px;max-width:300px;"><label class="svcw-lb">¿Cuándo llega el resto? (estimado)</label><input type="date" class="svc-in" id="svcw-resto" value="${E(d.resto)}"></div>`;
+        if(!pRec) h += '<div class="svcw-note">Tu usuario no tiene permiso para confirmar la recepción.</div>';
+      } else if(sr.estado === 'recibido_parcial'){
+        h += `<div class="svcw-note warn">Se recibió una parte. Para el resto, Repuestos tiene que despacharlo con un nuevo remito; después podés confirmar esa recepción acá.</div>`;
+      } else {
+        h += `<div class="svcw-note info">Repuestos todavía no despachó el pedido. Cuando lo despache informando el N° de remito, queda <b>en tránsito</b> y vas a poder confirmar la recepción.</div>`;
+      }
+    }
+  } else if(paso.k === 'fecha'){
+    h += `<div class="svcw-q">¿Cuándo queda disponible?</div><div class="svcw-sub">Esta fecha se ve en la Pizarra y en el modo TV. Si cambiás una ya cargada, se avisa enseguida por mail.</div>
+      <div style="max-width:300px;"><label class="svcw-lb">Fecha estimada</label><input type="date" class="svc-in" id="svcw-fecha" value="${E(d.fecha)}"${pF ? '' : ' disabled'}></div>
+      <div style="margin-top:16px;"><label class="svcw-lb">Notas</label><textarea class="svc-in" id="svcw-notas" rows="4" placeholder="Detalle de la reparación, a quién se espera, etc."${pD ? '' : ' disabled'}>${E(d.notas)}</textarea></div>`;
+  } else {
+    const ch = svcwCambios();
+    const sr = SVCW.sr;
+    h += `<div class="svcw-q">Revisá y confirmá</div><div class="svcw-grid">
+      <div class="svcw-k"><div class="l">Diagnóstico</div><div class="v">${d.necesita === true ? 'Necesita repuestos' : 'Se repara con stock'}</div></div>
+      <div class="svcw-k"><div class="l">Disponible estimada</div><div class="v">${d.fecha ? fmtDate(d.fecha) : 'Sin fecha'}</div></div>`;
+    if(d.necesita === true){
+      h += `<div class="svcw-k"><div class="l">Pedido</div><div class="v">${sr ? E(sr.numero) + ' · ' + (SR_EST[sr.estado]?.t || '') : (ch.crea ? 'Se genera una solicitud nueva' : '—')}</div>${d.rec ? `<div class="muted" style="font-size:12px;margin-top:2px;">Recepción: ${d.rec === 'completa' ? 'completa' : 'parcial' + (d.resto ? ' · resto ' + fmtDate(d.resto) : '')}</div>` : ''}</div>
+      <div class="svcw-k"><div class="l">Repuestos (${d.items.length})</div>${d.items.map(r => `<div class="svcw-rl"><b>${E(r.codigo)}</b> ${E(r.descripcion || '')} ×${r.cantidad}</div>`).join('')}</div>`;
+    }
+    h += '</div>';
+    if(d.notas) h += `<div class="svcw-k" style="margin-top:12px;"><div class="l">Notas</div><div class="v" style="font-weight:600;white-space:pre-wrap;">${E(d.notas)}</div></div>`;
+    if(ch.crea) h += `<div class="svcw-note warn">📧 Al confirmar se genera la <b>Solicitud de repuestos</b> con número SR y se avisa al sector Repuestos.</div>`;
+    if(!ch.hay) h += '<div class="svcw-note">No hay cambios para guardar.</div>';
+  }
+  h += '</div>';
+  const ult = SVCW.paso === pasos.length - 1; const ch2 = ult ? svcwCambios() : null;
+  h += `<div class="svcw-ft"><button type="button" class="btn secondary" data-w="back"${SVCW.paso === 0 ? ' disabled' : ''}>← Atrás</button>
+    <span class="svcw-prog${SVCW.cerrando ? ' warn' : ''}">${SVCW.cerrando ? 'Tenés cambios sin guardar: tocá ✕ de nuevo para descartarlos' : `Paso ${SVCW.paso + 1} de ${pasos.length} · nada se guarda hasta confirmar`}</span>
+    ${ult ? `<button type="button" class="svcw-confirm" data-w="confirm"${ch2.hay && !SVCW.guardando ? '' : ' disabled'}>${SVCW.guardando ? 'Guardando…' : '✓ Confirmar y guardar'}</button>`
+          : `<button type="button" class="btn svcw-next" data-w="next"${svcwValido(paso.k) ? '' : ' disabled'}>Siguiente →</button>`}</div>`;
+  box.innerHTML = h;
+}
+function svcwCerrar(forzar){
+  if(!SVCW){ document.getElementById('svc-wiz').classList.remove('open'); return; }
+  if(!forzar && !SVCW.guardando && svcwCambios().hay && !SVCW.cerrando){ SVCW.cerrando = true; svcwRender(); setTimeout(() => { if(SVCW){ SVCW.cerrando = false; svcwRender(); } }, 4000); return; }
+  SVCW = null; document.getElementById('svc-wiz').classList.remove('open');
+}
+async function svcwBuscar(q){
+  SVCW.busqQ = q;
   const t = q.trim().replace(/[%,()*\\]/g, ' ').trim();
-  if(t.length < 2){ SVC.busq = []; const r = document.getElementById('svc-res'); if(r) r.style.display = 'none'; return; }
+  const r = document.getElementById('svcw-res'); if(!r) return;
+  if(t.length < 2){ SVCW.busq = []; r.style.display = 'none'; return; }
   const { data } = await supabaseClient.from('haulotte_repuestos').select('id, codigo, descripcion').eq('activo', true).or(`codigo.ilike.%${t}%,descripcion.ilike.%${t}%`).order('codigo').limit(8);
-  if(SVC.busqQ !== q) return;
-  SVC.busq = data || [];
-  const r = document.getElementById('svc-res'); if(!r) return;
-  r.innerHTML = SVC.busq.map(x => `<div data-svc-add="${x.id}"><b>${escapeHtml(x.codigo)}</b> — ${escapeHtml(x.descripcion || '')}</div>`).join('') || '<div class="muted">Sin resultados</div>';
+  if(!SVCW || SVCW.busqQ !== q) return;
+  SVCW.busq = data || [];
+  r.innerHTML = SVCW.busq.map(x => `<div data-wadd="${x.id}"><b>${escapeHtml(x.codigo)}</b> — ${escapeHtml(x.descripcion || '')}</div>`).join('') || '<div class="muted">Sin resultados</div>';
   r.style.display = 'block';
 }
-async function svcRecargarReps(casoId){
-  const { data } = await supabaseClient.from('servicio_repuestos').select('*').eq('caso_id', casoId).order('id');
-  SVC.reps.set(casoId, data || []);
+async function svcwConfirmar(){
+  if(!SVCW || SVCW.guardando) return;
+  const ch = svcwCambios(); if(!ch.hay){ showToast('No hay cambios para guardar'); return; }
+  const tenia = !!SVCW.sr; const caso = SVCW.caso;
+  SVCW.guardando = true; svcwRender();
+  const { data, error } = await supabaseClient.rpc('servicio_confirmar', { p_caso:caso, p:ch.p, p_items:ch.p_items, p_recepcion:ch.p_rec });
+  if(error){ if(SVCW) SVCW.guardando = false; showToast(error.message || 'No se pudo guardar', true); if(SVCW) svcwRender(); return; }
+  SVCW = null; document.getElementById('svc-wiz').classList.remove('open');
+  showToast(ch.crea && !tenia && data && data.sr ? `Guardado · se generó la solicitud ${data.sr} y se avisó a Repuestos` : 'Guardado');
+  await svcCargar(true); svcCargarEventos(caso);
+  if(document.getElementById('tab-repuestos')?.style.display === 'block') srCargar(true);
 }
+
+// ---------- pantalla Pedidos de Repuestos (cartera numerada) ----------
+var SR = { rows:[], eventos:[], filtro:'abiertos', suc:'', q:'', sel:null, cargado:false, cargando:false };
+function srPuedeVer(){ return puede('repuestos','ver') || puede('servicio','ver'); }
+async function srCargar(silencioso){
+  if(!srPuedeVer()){ srRender(); return; }
+  if(SR.cargando) return; SR.cargando = true;
+  try{
+    const { data, error } = await supabaseClient.from('repuestos_pedidos').select('*, repuestos_pedido_items(id, repuesto_id, codigo, descripcion, cantidad)').order('id', { ascending:false }).limit(3000);
+    if(error) throw error;
+    SR.rows = data || []; SR.cargado = true;
+  }catch(e){ console.warn('Pedidos de repuestos: no se pudieron leer', e); if(!silencioso) showToast('No se pudieron cargar los pedidos de repuestos', true); }
+  finally{ SR.cargando = false; }
+  srRender();
+  if(SR.sel && document.getElementById('sr-det')?.classList.contains('open')){ if(SR.rows.some(r => r.id === SR.sel)) srPintarDetalle(); else srCerrarDetalle(); }
+}
+function srEq(r){ return equiposCache.find(e => e.id === r.equipo_id) || {}; }
+function srVencido(r){ return ['pedido','en_transito','recibido_parcial'].includes(r.estado) && r.fecha_llegada && r.fecha_llegada < hoyIso(); }
+function srFiltrados(){
+  const q = SR.q.trim().toLowerCase();
+  return SR.rows.filter(r => {
+    if(SR.filtro === 'abiertos' && !srAbierto(r.estado)) return false;
+    if(SR.filtro === 'cerrados' && srAbierto(r.estado)) return false;
+    if(SR.suc && String(r.sucursal_id) !== SR.suc) return false;
+    if(!q) return true;
+    const e = srEq(r);
+    return `${r.numero} ${e.numero_serie || ''} ${e.modelo || ''} ${(r.remitos || []).join(' ')} ${(r.repuestos_pedido_items || []).map(i => i.codigo + ' ' + (i.descripcion || '')).join(' ')}`.toLowerCase().includes(q);
+  });
+}
+function srRender(){
+  const kEl = document.getElementById('sr-kpis'); if(!kEl) return;
+  const lista = document.getElementById('sr-lista');
+  if(!srPuedeVer()){ kEl.innerHTML = ''; document.getElementById('sr-bar').innerHTML = ''; lista.innerHTML = '<div class="svc-vacio">No tenés permiso para ver los pedidos de repuestos.</div>'; return; }
+  const n = est => SR.rows.filter(r => r.estado === est).length; const mes = hoyIso().slice(0, 7);
+  const K = [['Solicitados (sin pedir)', n('solicitado'), 'var(--accent)'], ['Pedidos a fábrica', n('pedido'), 'var(--warn)'], ['En tránsito', n('en_transito'), '#a99cff'], ['Recibidos parcial', n('recibido_parcial'), 'var(--warn)'],
+    ['Con fecha vencida', SR.rows.filter(srVencido).length, 'var(--danger)'], ['Cerrados este mes', SR.rows.filter(r => r.estado === 'recibido' && String(r.cerrado_at || '').slice(0, 7) === mes).length, 'var(--ok)']];
+  kEl.innerHTML = K.map(k => `<div class="svc-kpi" style="--c:${k[2]}"><div class="v">${k[1]}</div><div class="t">${k[0]}</div></div>`).join('');
+  const sPerm = puede('repuestos','ver') ? sucursales : svcSucursalesPermitidas();
+  document.getElementById('sr-bar').innerHTML = [['abiertos','Abiertos'],['todos','Todos'],['cerrados','Cerrados']].map(([k, t]) => `<button type="button" class="svc-chip${SR.filtro === k ? ' on' : ''}" data-sr-filtro="${k}">${t}</button>`).join('') +
+    `<select id="sr-f-suc">${(sPerm.length > 1 ? '<option value="">Todas las sucursales</option>' : '') + sPerm.map(s => `<option value="${s.id}"${SR.suc === String(s.id) ? ' selected' : ''}>${escapeHtml(s.nombre)}</option>`).join('')}</select>` +
+    `<input id="sr-f-q" type="search" placeholder="Buscar N°, serie, remito o repuesto…" value="${escapeHtml(SR.q)}" style="min-width:230px;">`;
+  const rows = srFiltrados();
+  lista.innerHTML = rows.length ? `<div class="sr-tw"><table class="sr-t"><thead><tr><th>N°</th><th>Máquina</th><th>Sucursal</th><th>Ítems</th><th>Seguimiento</th><th>Estado</th><th>Pedido</th><th>Llega</th><th>Remito</th><th>Solicitó</th></tr></thead><tbody>` + rows.map(r => {
+    const e = srEq(r); const its = r.repuestos_pedido_items || []; const suc = sucursales.find(s => s.id === r.sucursal_id)?.nombre || '';
+    const cs = servicioCasos.get(r.equipo_id);
+    return `<tr data-sr-id="${r.id}"><td class="n">${escapeHtml(r.numero)}</td><td><b>${escapeHtml(e.modelo || '—')}</b> <span class="svc-ser">${escapeHtml(e.numero_serie || '')}</span>${cs ? ` <span class="svc-badge ${cs.tipo}">${cs.tipo.toUpperCase()}</span>` : ''}</td>
+      <td>${escapeHtml(suc)}</td><td>${its.reduce((a, i) => a + (i.cantidad || 0), 0)}</td><td>${srFlow(r.estado)}</td><td>${srChip(r.estado)}</td>
+      <td>${r.fecha_pedido ? fmtDate(r.fecha_pedido) : '—'}</td><td style="${srVencido(r) ? 'color:var(--danger);font-weight:800;' : 'font-weight:700;'}">${r.fecha_llegada && srAbierto(r.estado) ? fmtDate(r.fecha_llegada) + (srVencido(r) ? ' · vencida' : '') : '—'}</td>
+      <td class="svc-ser">${escapeHtml(r.remito || '—')}</td><td class="muted" style="font-size:12px;">${escapeHtml(r.creado_nombre || '')}</td></tr>`;
+  }).join('') + '</tbody></table></div>' : `<div class="svc-vacio">${SR.cargado ? 'No hay pedidos con estos filtros.' : 'Cargando…'}</div>`;
+}
+async function srAbrir(id){
+  SR.sel = id; SR.eventos = [];
+  srPintarDetalle(); document.getElementById('sr-det').classList.add('open');
+  const { data } = await supabaseClient.from('repuestos_pedido_eventos').select('*').eq('pedido_id', id).order('created_at', { ascending:false }).limit(60);
+  if(SR.sel === id){ SR.eventos = data || []; srPintarDetalle(); }
+}
+function srCerrarDetalle(){ SR.sel = null; document.getElementById('sr-det').classList.remove('open'); }
+function srEventoTxt(ev){
+  const d = ev.detalle || {};
+  switch(ev.tipo){
+    case 'creado': return `Creó la solicitud (${(d.items || []).length} ítem/s)`;
+    case 'items_editados': return 'Servicio modificó la lista de repuestos';
+    case 'pedido': return `Marcó <b>pedido a fábrica</b>${d.llegada ? ' · llega ' + fmtDate(d.llegada) : ''}`;
+    case 'despachado': return `<b>Despachó</b> con remito <b>${escapeHtml(d.remito || '')}</b>${d.llegada ? ' · llega ' + fmtDate(d.llegada) : ''}`;
+    case 'recibido': return 'Confirmó la recepción: <b>completo</b>';
+    case 'recibido_parcial': return `Confirmó la recepción <b>parcial</b>${d.resto ? ' · resto ' + fmtDate(d.resto) : ''}`;
+    case 'cancelado': return `<b>Canceló</b> el pedido: ${escapeHtml(d.motivo || '')}`;
+    default: return escapeHtml(ev.tipo);
+  }
+}
+function srPintarDetalle(){
+  const box = document.getElementById('sr-det-box'); if(!box) return;
+  const r = SR.rows.find(x => x.id === SR.sel); if(!r){ box.innerHTML = ''; return; }
+  const e = srEq(r), suc = sucursales.find(s => s.id === r.sucursal_id)?.nombre || '', its = r.repuestos_pedido_items || [], cs = servicioCasos.get(r.equipo_id), E = escapeHtml;
+  const pG = puede('repuestos','gestionar'), pC = puede('repuestos','cancelar'), pRec = puede('servicio','recepcion');
+  const idx = srIdx(r.estado);
+  const fechas = [r.creado_at ? fmtDate(String(r.creado_at).slice(0, 10)) : '', r.fecha_pedido ? fmtDate(r.fecha_pedido) : '', r.fecha_despacho ? fmtDate(r.fecha_despacho) : '', r.recibido_at && r.estado === 'recibido' ? fmtDate(String(r.recibido_at).slice(0, 10)) : ''];
+  let h = `<div class="svcw-hd"><div style="min-width:0;"><div class="sr-num" style="font-size:20px;">${E(r.numero)} ${srChip(r.estado)}</div>
+    <div style="margin-top:3px;font-weight:700;">${E(e.modelo || '—')} <span class="svc-ser">${E(e.numero_serie || '')}</span>${cs ? ` <span class="svc-badge ${cs.tipo}">${cs.tipo.toUpperCase()}</span>` : ''} <span class="svc-suc">${E(suc)}</span></div></div>
+    <button type="button" class="svcw-x" data-sr-close title="Cerrar">✕</button></div><div class="svcw-body" style="min-height:0;">`;
+  h += `<div class="sr-steps">${SR_ETAPAS.map((t, i) => `<div class="sr-stp${r.estado === 'cancelado' ? ' x' : (r.estado === 'recibido' || i < idx) ? ' done' : i === idx ? ' cur' : ''}"><i>${r.estado !== 'cancelado' && (r.estado === 'recibido' || i < idx) ? '✓' : i + 1}</i><b>${t}</b><small>${fechas[i] || (i === 2 && r.estado === 'recibido_parcial' ? 'parcial' : '')}</small></div>`).join('')}</div>`;
+  h += `<div class="svcw-kv"><div><span>Solicitó</span><b>${E(r.creado_nombre || '—')}</b></div><div><span>Remito${(r.remitos || []).length > 1 ? 's' : ''}</span><b>${(r.remitos || []).length ? E(r.remitos.join(' · ')) : '—'}</b></div><div><span>${r.estado === 'recibido_parcial' ? 'Llega el resto' : 'Llegada estimada'}</span><b style="${srVencido(r) ? 'color:var(--danger);' : ''}">${r.fecha_llegada && srAbierto(r.estado) ? fmtDate(r.fecha_llegada) : '—'}</b></div></div>`;
+  if(r.estado === 'cancelado') h += `<div class="svcw-note warn">Cancelado: ${E(r.motivo_cancelacion || '')}</div>`;
+  h += `<div class="svc-ql" style="margin-top:14px;">Repuestos solicitados</div>` + (its.length ? its.map(i => `<div class="svc-rep"><b>${E(i.codigo)}</b><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${E(i.descripcion || '')}</span><span style="margin-left:auto;font-weight:800;">×${i.cantidad}</span></div>`).join('') : '<div class="muted">Sin ítems</div>');
+  if(r.notas) h += `<div class="svcw-note" style="white-space:pre-wrap;"><b>Notas de Servicio:</b> ${E(r.notas)}</div>`;
+  const hoy = hoyIso(); let acc = '';
+  if(pG && r.estado === 'solicitado') acc += `<div class="sr-acc"><div class="svc-ql">📋 Marcar como pedido a fábrica</div><div class="sr-f2"><div><label class="svcw-lb">Fecha del pedido</label><input type="date" class="svc-in" id="sr-a-fped" value="${hoy}"></div><div><label class="svcw-lb">Llegada estimada</label><input type="date" class="svc-in" id="sr-a-llp" value="${E(r.fecha_llegada || '')}"></div></div><button type="button" class="btn" data-sr-act="pedido">Marcar pedido</button></div>`;
+  if(pG && ['solicitado','pedido','recibido_parcial'].includes(r.estado)) acc += `<div class="sr-acc"><div class="svc-ql">🚚 Despachar${r.estado === 'recibido_parcial' ? ' el resto' : ''} — queda en tránsito</div><div class="sr-f3"><div><label class="svcw-lb">N° de remito *</label><input type="text" class="svc-in" id="sr-a-rem" placeholder="Ej. 0001-00012345" autocomplete="off"></div><div><label class="svcw-lb">Fecha de despacho</label><input type="date" class="svc-in" id="sr-a-fdes" value="${hoy}"></div><div><label class="svcw-lb">Llegada estimada</label><input type="date" class="svc-in" id="sr-a-lld" value="${E(r.fecha_llegada || '')}"></div></div><button type="button" class="btn" data-sr-act="despachar">Despachar pedido</button><div class="muted" style="font-size:11px;margin-top:4px;">El pedido queda en tránsito hasta que la sucursal confirme la recepción.</div></div>`;
+  if(pRec && r.estado === 'en_transito') acc += `<div class="sr-acc"><div class="svc-ql">📦 Confirmar recepción en la sucursal</div><div class="sr-f2"><div><label class="svcw-lb">Si llegó parcial: ¿cuándo llega el resto?</label><input type="date" class="svc-in" id="sr-a-resto"></div></div><div style="display:flex;gap:8px;flex-wrap:wrap;"><button type="button" class="btn" style="background:var(--ok);border-color:var(--ok);color:#fff;" data-sr-act="recibir-ok">✅ Llegó completo</button><button type="button" class="btn secondary" data-sr-act="recibir-parcial">◐ Llegó parcial</button></div><div class="muted" style="font-size:11px;margin-top:4px;">Solo puede confirmarla Servicio de la sucursal de la máquina.</div></div>`;
+  if(pC && srAbierto(r.estado)) acc += `<details class="sr-acc"><summary style="cursor:pointer;font-weight:800;font-size:12px;color:var(--danger);">Cancelar pedido</summary><div style="margin-top:8px;"><textarea class="svc-in" id="sr-a-mot" rows="2" placeholder="Motivo de la cancelación (obligatorio)"></textarea><button type="button" class="btn secondary" style="margin-top:6px;" data-sr-act="cancelar">Cancelar este pedido</button></div></details>`;
+  if(acc) h += `<div class="svc-ql" style="margin-top:16px;">Acciones</div>${acc}`;
+  h += `<details style="margin-top:14px;" ${SR.eventos.length ? 'open' : ''}><summary style="cursor:pointer;font-size:12px;font-weight:700;">Historial del pedido</summary>${SR.eventos.length ? SR.eventos.map(ev => `<div class="svc-hist"><b>${E(ev.usuario_nombre || '')}</b> · ${svcFH(ev.created_at)}<br>${srEventoTxt(ev)}</div>`).join('') : '<div class="muted" style="font-size:12px;">Cargando…</div>'}</details></div>`;
+  box.innerHTML = h;
+}
+async function srAccion(act){
+  const id = SR.sel; if(!id) return;
+  const v = i => (document.getElementById(i)?.value || '').trim();
+  let rpc, args, ok;
+  if(act === 'pedido'){ rpc = 'repuestos_marcar_pedido'; args = { p_id:id, p_llegada:v('sr-a-llp') || null, p_fecha:v('sr-a-fped') || null }; ok = 'Pedido marcado'; }
+  else if(act === 'despachar'){ if(!v('sr-a-rem')){ showToast('Ingresá el N° de remito para despachar', true); document.getElementById('sr-a-rem')?.focus(); return; }
+    rpc = 'repuestos_despachar'; args = { p_id:id, p_remito:v('sr-a-rem'), p_despacho:v('sr-a-fdes') || null, p_llegada:v('sr-a-lld') || null }; ok = 'Pedido despachado: queda en tránsito'; }
+  else if(act === 'recibir-ok'){ rpc = 'repuestos_recibir'; args = { p_id:id, p_completa:true, p_resto:null }; ok = 'Recepción confirmada: pedido completo'; }
+  else if(act === 'recibir-parcial'){ rpc = 'repuestos_recibir'; args = { p_id:id, p_completa:false, p_resto:v('sr-a-resto') || null }; ok = 'Recepción parcial registrada'; }
+  else if(act === 'cancelar'){ if(!v('sr-a-mot')){ showToast('Indicá el motivo de la cancelación', true); return; } rpc = 'repuestos_cancelar'; args = { p_id:id, p_motivo:v('sr-a-mot') }; ok = 'Pedido cancelado'; }
+  else return;
+  const { error } = await supabaseClient.rpc(rpc, args);
+  if(error){ showToast(error.message || 'No se pudo completar la acción', true); return; }
+  showToast(ok);
+  await srCargar(true); servicioRefrescar();
+  const { data } = await supabaseClient.from('repuestos_pedido_eventos').select('*').eq('pedido_id', id).order('created_at', { ascending:false }).limit(60);
+  if(SR.sel === id){ SR.eventos = data || []; srPintarDetalle(); }
+}
+
 function svcInit(){
   const sec = document.getElementById('tab-servicio'); if(!sec || sec.dataset.init) return; sec.dataset.init = '1';
   sec.addEventListener('click', async ev => {
     const t = ev.target;
     const tipo = t.closest('[data-svc-tipo]'); if(tipo){ SVC.tipo = tipo.dataset.svcTipo; svcRender(); return; }
-    const fila = t.closest('[data-svc-caso]'); if(fila){ SVC.sel = Number(fila.dataset.svcCaso); SVC.eventos = []; SVC.busq = []; SVC.busqQ = ''; SVC.confirmando = false; svcRender(); svcCargarEventos(SVC.sel); if(window.innerWidth < 1150) document.getElementById('svc-panel').scrollIntoView({ behavior:'smooth', block:'start' }); return; }
-    const yn = t.closest('[data-svc-yn]');
-    if(yn && !yn.disabled){ await svcGuardar({ [yn.dataset.svcYn]: yn.dataset.v === 'true' }); return; }
-    const add = t.closest('[data-svc-add]');
-    if(add){ const { error } = await supabaseClient.rpc('servicio_repuesto_agregar', { p_caso:SVC.sel, p_repuesto:Number(add.dataset.svcAdd), p_cantidad:1 });
-      if(error){ showToast(error.message, true); return; } SVC.busq = []; SVC.busqQ = ''; await svcRecargarReps(SVC.sel); svcRender(); svcCargarEventos(SVC.sel); return; }
-    const q = t.closest('[data-svc-quitar]');
-    if(q){ const { error } = await supabaseClient.rpc('servicio_repuesto_quitar', { p_id:Number(q.dataset.svcQuitar) });
-      if(error){ showToast(error.message, true); return; } await svcRecargarReps(SVC.sel); svcRender(); svcCargarEventos(SVC.sel); return; }
+    const fila = t.closest('[data-svc-caso]'); if(fila){ SVC.sel = Number(fila.dataset.svcCaso); SVC.eventos = []; SVC.confirmando = false; svcRender(); svcCargarEventos(SVC.sel); if(window.innerWidth < 1150) document.getElementById('svc-panel').scrollIntoView({ behavior:'smooth', block:'start' }); return; }
+    if(t.closest('#svc-wiz-open')){ svcwAbrir(SVC.sel); return; }
+    const go = t.closest('[data-sr-go]');
+    if(go){ const id = Number(go.dataset.srGo); activarTab('repuestos'); await srCargar(true); srAbrir(id); return; }
     if(t.closest('#svc-avisar')){
       const { error } = await supabaseClient.rpc('servicio_avisar_repuestos', { p_caso:SVC.sel });
       if(error){ showToast(error.message, true); return; }
@@ -23926,22 +24232,72 @@ function svcInit(){
       if(error){ showToast(error.message, true); svcRenderPanel(); return; }
       showToast('Máquina liberada: pasó a Disponible'); SVC.sel = null; await loadEquipos(); await svcCargar(true); }
   });
-  sec.addEventListener('change', async ev => {
+  sec.addEventListener('change', ev => {
     const t = ev.target;
     if(t.id === 'svc-f-suc'){ SVC.suc = t.value; svcRender(); }
     else if(t.id === 'svc-f-etapa'){ SVC.etapa = t.value; svcRender(); }
     else if(t.id === 'svc-f-orden'){ SVC.orden = t.value; svcRender(); }
-    else if(t.dataset && t.dataset.svcFecha){ await svcGuardar({ [t.dataset.svcFecha]: t.value || null }); }
-    else if(t.id === 'svc-notas'){ await svcGuardar({ notas: t.value }); }
   });
   sec.addEventListener('input', ev => {
     const t = ev.target;
     if(t.id === 'svc-f-q'){ SVC.q = t.value; const pos = t.selectionStart; svcRender(); const n = document.getElementById('svc-f-q'); if(n){ n.focus(); try{ n.setSelectionRange(pos, pos); }catch(_){} } }
-    else if(t.id === 'svc-busq'){ clearTimeout(SVC.busqTimer); const v = t.value; SVC.busqTimer = setTimeout(() => svcBuscarRepuestos(v), 250); }
+  });
+  // asistente
+  const wiz = document.getElementById('svc-wiz');
+  wiz.addEventListener('click', ev => {
+    if(ev.target === wiz){ svcwCerrar(false); return; }
+    if(!SVCW) return;
+    const t = ev.target;
+    const w = t.closest('[data-w]');
+    if(w){
+      const a = w.dataset.w;
+      if(a === 'close') svcwCerrar(false);
+      else if(a === 'back'){ SVCW.paso = Math.max(0, SVCW.paso - 1); svcwRender(); }
+      else if(a === 'next'){ const ps = svcwPasos(); if(svcwValido(ps[SVCW.paso].k)){ SVCW.paso = Math.min(ps.length - 1, SVCW.paso + 1); svcwRender(); } }
+      else if(a === 'confirm') svcwConfirmar();
+      return;
+    }
+    const wn = t.closest('[data-wn]');
+    if(wn && !wn.disabled){ SVCW.d.necesita = wn.dataset.wn === 'si'; if(!SVCW.d.necesita){ SVCW.d.rec = null; } svcwRender(); return; }
+    const rec = t.closest('[data-wrec]');
+    if(rec && !rec.disabled){ SVCW.d.rec = rec.dataset.wrec === 'null' ? null : rec.dataset.wrec; svcwRender(); return; }
+    const q = t.closest('[data-wq]');
+    if(q){ const [id, dlt] = q.dataset.wq.split(':').map(Number); const it = SVCW.d.items.find(i => i.repuesto_id === id); if(it){ it.cantidad = Math.max(1, it.cantidad + dlt); svcwRender(); const b = document.getElementById('svcw-busq'); if(b) b.value = SVCW.busqQ; } return; }
+    const del = t.closest('[data-wdel]');
+    if(del){ const id = Number(del.dataset.wdel); SVCW.d.items = SVCW.d.items.filter(i => i.repuesto_id !== id); svcwRender(); return; }
+    const add = t.closest('[data-wadd]');
+    if(add){ const r = SVCW.busq.find(x => x.id === Number(add.dataset.wadd)); if(r){ const ex = SVCW.d.items.find(i => i.repuesto_id === r.id); if(ex) ex.cantidad++; else SVCW.d.items.push({ repuesto_id:r.id, codigo:r.codigo, descripcion:r.descripcion, cantidad:1 }); SVCW.busq = []; SVCW.busqQ = ''; svcwRender(); setTimeout(() => document.getElementById('svcw-busq')?.focus(), 0); } return; }
+  });
+  wiz.addEventListener('input', ev => {
+    if(!SVCW) return; const t = ev.target;
+    if(t.id === 'svcw-busq'){ clearTimeout(SVC.busqTimer); const v = t.value; SVCW.busqQ = v; SVC.busqTimer = setTimeout(() => svcwBuscar(v), 250); }
+    else if(t.id === 'svcw-notas') SVCW.d.notas = t.value;
+    else if(t.id === 'svcw-fecha') SVCW.d.fecha = t.value;
+    else if(t.id === 'svcw-resto') SVCW.d.resto = t.value;
+  });
+  document.addEventListener('keydown', ev => {
+    if(ev.key !== 'Escape') return;
+    if(document.getElementById('svc-wiz').classList.contains('open')) svcwCerrar(false);
+    else if(document.getElementById('sr-det').classList.contains('open')) srCerrarDetalle();
   });
 }
-document.addEventListener('DOMContentLoaded', svcInit);
-svcInit();
+function srInit(){
+  const sec = document.getElementById('tab-repuestos'); if(!sec || sec.dataset.init) return; sec.dataset.init = '1';
+  sec.addEventListener('click', ev => {
+    const t = ev.target;
+    const f = t.closest('[data-sr-filtro]'); if(f){ SR.filtro = f.dataset.srFiltro; srRender(); return; }
+    const tr = t.closest('[data-sr-id]'); if(tr){ srAbrir(Number(tr.dataset.srId)); return; }
+  });
+  sec.addEventListener('change', ev => { if(ev.target.id === 'sr-f-suc'){ SR.suc = ev.target.value; srRender(); } });
+  sec.addEventListener('input', ev => { const t = ev.target; if(t.id === 'sr-f-q'){ SR.q = t.value; const pos = t.selectionStart; srRender(); const n = document.getElementById('sr-f-q'); if(n){ n.focus(); try{ n.setSelectionRange(pos, pos); }catch(_){} } } });
+  const det = document.getElementById('sr-det');
+  det.addEventListener('click', ev => {
+    if(ev.target === det || ev.target.closest('[data-sr-close]')){ srCerrarDetalle(); return; }
+    const a = ev.target.closest('[data-sr-act]'); if(a) srAccion(a.dataset.srAct);
+  });
+}
+document.addEventListener('DOMContentLoaded', () => { svcInit(); srInit(); });
+svcInit(); srInit();
 
 // =====================================================================
 // PORTAL DE PROVEEDORES (administración)
