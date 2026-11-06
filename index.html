@@ -444,8 +444,8 @@
   .svc-chip{border:1px solid var(--border);background:var(--panel);color:var(--text-dim);border-radius:999px;padding:5px 13px;font-size:12.5px;font-weight:700;cursor:pointer;}
   .svc-chip.on{background:var(--accent);color:#04121c;border-color:var(--accent);}
   .svc-bar select,.svc-bar input{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12.5px;}
-  .svc-grid{display:grid;grid-template-columns:minmax(0,1fr) 440px;gap:14px;align-items:start;}
-  @media(max-width:1150px){.svc-grid{grid-template-columns:1fr;}}
+  .svc-grid{display:block;}
+  @media(min-width:1150px){#tab-servicio.svc-open .svc-grid{padding-right:488px;}}
   .svc-row{display:grid;grid-template-columns:78px minmax(0,1fr) auto;gap:14px;align-items:center;background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--c,var(--border));border-radius:12px;padding:11px 14px;margin-bottom:8px;cursor:pointer;}
   .svc-row:hover{border-color:var(--accent);} .svc-row.sel{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 35%,transparent);}
   .svc-foto{width:78px;height:56px;border-radius:8px;background:var(--panel-2);display:grid;place-items:center;overflow:hidden;font-size:22px;}
@@ -466,7 +466,8 @@
   .svc-eta .d{font-size:18px;font-weight:800;margin-top:1px;} .svc-eta .s{font-size:11px;font-weight:700;margin-top:1px;}
   .svc-eta.venc .d,.svc-eta.venc .s{color:var(--danger);} .svc-eta.sin .d{color:var(--text-dim);font-size:14px;}
   .svc-etp{font-size:11px;font-weight:700;margin-top:6px;color:var(--c);}
-  #svc-panel{position:sticky;top:76px;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px;max-height:calc(100vh - 96px);overflow-y:auto;}
+  #svc-panel{display:none;position:fixed;top:0;right:0;bottom:0;width:min(470px,100%);z-index:45;background:var(--panel);border-left:2px solid var(--accent);box-shadow:-18px 0 40px rgba(0,0,0,.35);padding:16px 18px 24px;overflow-y:auto;}
+  .svc-pclose{position:absolute;top:8px;right:10px;border:0;background:none;color:var(--text-dim);font-size:20px;cursor:pointer;padding:4px 8px;}
   .svc-q{margin:14px 0 4px;} .svc-ql{font-size:12px;font-weight:800;letter-spacing:.3px;margin-bottom:6px;}
   .svc-yn{display:flex;gap:8px;} .svc-yn button{flex:1;border:1px solid var(--border);background:var(--panel-2);color:var(--text);border-radius:9px;padding:9px;font-weight:800;font-size:13px;cursor:pointer;}
   .svc-yn button.on.si{background:var(--ok);border-color:var(--ok);color:#fff;} .svc-yn button.on.no{background:var(--danger);border-color:var(--danger);color:#fff;} .svc-yn button:disabled{opacity:.5;cursor:not-allowed;}
@@ -518,6 +519,9 @@
   .svcw-confirm{background:var(--ok);border:0;color:#fff;font-weight:800;font-size:14px;border-radius:10px;padding:11px 22px;cursor:pointer;} .svcw-confirm:disabled{opacity:.45;cursor:not-allowed;}
   .sr-steps{display:flex;gap:8px;} .sr-stp{flex:1;border:1px solid var(--border);border-radius:10px;padding:9px 10px;background:var(--panel-2);} .sr-stp i{font-style:normal;display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;border:2px solid var(--border);font-size:10.5px;font-weight:800;margin-right:6px;}
   .sr-stp b{font-size:12px;} .sr-stp small{display:block;color:var(--text-dim);font-size:11px;margin-top:3px;min-height:13px;} .sr-stp.done i{background:var(--ok);border-color:var(--ok);color:#fff;} .sr-stp.cur{border-color:var(--accent);} .sr-stp.cur i{background:var(--accent);border-color:var(--accent);color:#04121c;} .sr-stp.x{opacity:.5;}
+  .sr-th{display:inline-grid;place-items:center;flex:none;border-radius:8px;background:#fff;border:1px solid var(--border);overflow:hidden;font-size:15px;} .sr-th img{width:100%;height:100%;object-fit:contain;display:block;} .sr-th a{display:block;width:100%;height:100%;}
+  .sr-ths{display:inline-flex;align-items:center;gap:4px;} .sr-ths .mas{font-size:11px;color:var(--text-dim);font-weight:700;}
+  .svc-rep.conf{padding:6px 10px 6px 6px;gap:10px;} .svc-res div.rr{display:flex;align-items:center;gap:10px;}
   .sr-acc{border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;background:var(--panel-2);} .sr-f2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px;} .sr-f3{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:10px;margin-bottom:8px;}
   @media(max-width:720px){.svcw-cards,.svcw-grid,.svcw-kv,.sr-f2,.sr-f3{grid-template-columns:1fr;}.svcw-cards.three{grid-template-columns:1fr;}.sr-steps{flex-direction:column;}}
   .pp-kpi{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;gap:12px;align-items:center;position:relative;overflow:hidden;}
@@ -23927,13 +23931,15 @@ function svcSrAbierto(casoId){ const s = svcSrUlt(casoId); return s && srAbierto
 function svcRenderPanel(){
   const el = document.getElementById('svc-panel'); if(!el) return;
   const x = svcItems().find(i => i.c.id === SVC.sel);
-  if(!x){ el.innerHTML = '<div class="svc-vacio">Elegí una máquina de la lista para ver su ficha y cargar el diagnóstico.</div>'; return; }
+  const secc = document.getElementById('tab-servicio');
+  if(!x){ el.style.display = 'none'; el.innerHTML = ''; if(secc) secc.classList.remove('svc-open'); return; }
+  el.style.display = 'block'; if(secc) secc.classList.add('svc-open');
   const { c, e } = x; const pOk = puede('servicio','dar_ok'), pAv = puede('servicio','avisar_repuestos');
   const puedeCargar = ['diagnosticar','repuestos','editar_fechas','recepcion'].some(a => puede('servicio', a));
   const reps = SVC.reps.get(c.id) || []; const dias = svcDias(e.id); const foto = fotoUrlDeModelo(e.modelo);
   const suc = sucursales.find(s => s.id === e.sucursal_id)?.nombre || ''; const sr = svcSrUlt(c.id); const eta = svcEta(c);
   const fila = (l, v) => `<div class="svc-fr"><span>${l}</span><div>${v}</div></div>`;
-  let h = `<div style="display:flex;gap:12px;align-items:center;"><div class="svc-foto" style="width:84px;height:62px;">${foto ? `<img src="${escapeHtml(foto)}" alt="">` : '🚜'}</div>
+  let h = `<button type="button" class="svc-pclose" data-svc-cerrar title="Cerrar (Esc)">✕</button><div style="display:flex;gap:12px;align-items:center;padding-right:28px;"><div class="svc-foto" style="width:84px;height:62px;">${foto ? `<img src="${escapeHtml(foto)}" alt="">` : '🚜'}</div>
     <div style="min-width:0;"><div style="font-weight:800;font-size:15px;">${escapeHtml(e.modelo || '')}</div><div class="svc-ser">${escapeHtml(e.numero_serie || '')}</div>
     <div style="margin-top:4px;"><span class="svc-badge ${c.tipo}">${c.tipo.toUpperCase()}</span> <span class="svc-suc">${escapeHtml(suc)}${dias === null ? '' : ' · ' + dias + ' d.'}</span></div></div></div>`;
   h += `<button type="button" class="svc-go" id="svc-wiz-open"${puedeCargar ? '' : ' disabled'}>${c.necesita_repuestos === null || c.necesita_repuestos === undefined ? '▶ Cargar diagnóstico' : '✏️ Actualizar diagnóstico y pedido'}</button>`;
@@ -23944,7 +23950,8 @@ function svcRenderPanel(){
     h += fila('Pedido de repuestos', sr
       ? `<a class="sr-link" data-sr-go="${sr.id}">${escapeHtml(sr.numero)}</a> ${srChip(sr.estado)}<div class="svc-fs">${sr.fecha_pedido ? 'Pedido ' + fmtDate(sr.fecha_pedido) : 'Todavía sin pedir a fábrica'}${sr.remito ? ' · Remito <b>' + escapeHtml(sr.remito) + '</b>' : ''}${sr.fecha_llegada && srAbierto(sr.estado) ? ' · Llega ' + fmtDate(sr.fecha_llegada) : ''}</div>`
       : (reps.length ? '<span class="muted">Sin solicitud generada</span>' : '<span class="muted">Sin repuestos cargados</span>'));
-    if(reps.length) h += fila('Repuestos', reps.map(r => `<div class="svc-rep"><b>${escapeHtml(r.codigo)}</b><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(r.descripcion || '')}</span><span style="margin-left:auto;font-weight:800;">×${r.cantidad}</span></div>`).join(''));
+    if(reps.length) h += fila('Repuestos', reps.map(r => `<div class="svc-rep conf">${srThumb(r.codigo, 36)}<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><b>${escapeHtml(r.codigo)}</b> ${escapeHtml(r.descripcion || '')}</span><span style="margin-left:auto;font-weight:800;">×${r.cantidad}</span></div>`).join(''));
+    srFotos(reps.map(r => r.codigo)).then(nuevo => { if(nuevo && SVC.sel === c.id) svcRenderPanel(); });
   }
   h += fila('Disponible estimada', eta.sin ? '<span class="muted">Sin fecha</span>' : `<b style="${eta.venc ? 'color:var(--danger);' : ''}">${fmtDate(c.fecha_estimada)}</b> <span class="muted" style="font-size:11.5px;">${eta.rel}</span>`);
   if(c.notas) h += fila('Notas', `<span style="white-space:pre-wrap;">${escapeHtml(c.notas)}</span>`);
@@ -24015,9 +24022,10 @@ function svcwRender(){
   } else if(paso.k === 'reps'){
     const bl = svcwBloqueado();
     h += `<div class="svcw-q">¿Qué repuestos necesita?</div><div class="svcw-sub">Elegilos del catálogo Haulotte. Con esto se arma la solicitud para el sector Repuestos.</div>`;
-    h += d.items.length ? d.items.map(r => `<div class="svc-rep svcw-rep"><b>${E(r.codigo)}</b><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${E(r.descripcion || '')}</span>
+    h += d.items.length ? d.items.map(r => `<div class="svc-rep svcw-rep conf">${srThumb(r.codigo, 44, true)}<div style="min-width:0;flex:1;"><b>${E(r.codigo)}</b><div style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${E(r.descripcion || '')}</div></div>
       <span class="svcw-qty">${bl || !pR ? '' : `<button type="button" data-wq="${r.repuesto_id}:-1">−</button>`}<b>${r.cantidad}</b>${bl || !pR ? '' : `<button type="button" data-wq="${r.repuesto_id}:1">+</button>`}</span>
       ${bl || !pR ? '' : `<button type="button" class="x" data-wdel="${r.repuesto_id}" title="Quitar">×</button>`}</div>`).join('') : '<div class="svcw-vacio">Todavía no cargaste ningún repuesto.</div>';
+    srFotos(d.items.map(r => r.codigo)).then(nuevo => { if(nuevo && SVCW && svcwPasos()[SVCW.paso].k === 'reps'){ const b = document.getElementById('svcw-busq'); const v = b ? b.value : ''; svcwRender(); const b2 = document.getElementById('svcw-busq'); if(b2 && v) b2.value = v; } });
     if(bl) h += `<div class="svcw-note warn">El pedido ${E(SVCW.sr.numero)} ya lo tomó Repuestos: la lista no se puede modificar.</div>`;
     else if(pR) h += `<input type="search" class="svc-in" id="svcw-busq" placeholder="Buscar en el catálogo (código o descripción)…" style="margin-top:8px;" value="${E(SVCW.busqQ)}" autocomplete="off"><div class="svc-res" id="svcw-res" style="display:none;"></div>`;
     else h += '<div class="svcw-note">Tu usuario no tiene permiso para elegir repuestos.</div>';
@@ -24082,10 +24090,11 @@ async function svcwBuscar(q){
   const t = q.trim().replace(/[%,()*\\]/g, ' ').trim();
   const r = document.getElementById('svcw-res'); if(!r) return;
   if(t.length < 2){ SVCW.busq = []; r.style.display = 'none'; return; }
-  const { data } = await supabaseClient.from('haulotte_repuestos').select('id, codigo, descripcion').eq('activo', true).or(`codigo.ilike.%${t}%,descripcion.ilike.%${t}%`).order('codigo').limit(8);
+  const { data } = await supabaseClient.rpc('servicio_buscar_repuestos', { p_q:t });
   if(!SVCW || SVCW.busqQ !== q) return;
   SVCW.busq = data || [];
-  r.innerHTML = SVCW.busq.map(x => `<div data-wadd="${x.id}"><b>${escapeHtml(x.codigo)}</b> — ${escapeHtml(x.descripcion || '')}</div>`).join('') || '<div class="muted">Sin resultados</div>';
+  SVCW.busq.forEach(x => { SR_FOTOS[x.codigo] = x.imagen_url || null; });
+  r.innerHTML = SVCW.busq.map(x => `<div class="rr" data-wadd="${x.id}">${srThumb(x.codigo, 40)}<span><b>${escapeHtml(x.codigo)}</b> — ${escapeHtml(x.descripcion || '')}</span></div>`).join('') || '<div class="muted">Sin resultados</div>';
   r.style.display = 'block';
 }
 async function svcwConfirmar(){
@@ -24102,6 +24111,22 @@ async function svcwConfirmar(){
 }
 
 // ---------- pantalla Pedidos de Repuestos (cartera numerada) ----------
+var SR_FOTOS = {}; // codigo -> url | null
+async function srFotos(codes){
+  const faltan = [...new Set((codes || []).filter(c => c && !(c in SR_FOTOS)))]; if(!faltan.length) return false;
+  for(let i = 0; i < faltan.length; i += 200){
+    const lote = faltan.slice(i, i + 200);
+    const { data } = await supabaseClient.rpc('repuestos_fotos', { p_codigos:lote });
+    const m = {}; (data || []).forEach(r => { m[r.codigo] = r.imagen_url; });
+    lote.forEach(c => { SR_FOTOS[c] = m[c] || null; });
+  }
+  return true;
+}
+function srThumb(codigo, px, link){
+  const u = SR_FOTOS[codigo];
+  const img = u ? `<img src="${escapeHtml(u)}" alt="" loading="lazy" onerror="this.remove()">` : '🔩';
+  return `<span class="sr-th" style="width:${px}px;height:${px}px;">${u && link ? `<a href="${escapeHtml(u)}" target="_blank" rel="noopener" title="Ver foto">${img}</a>` : img}</span>`;
+}
 var SR = { rows:[], eventos:[], filtro:'abiertos', suc:'', q:'', sel:null, cargado:false, cargando:false };
 function srPuedeVer(){ return puede('repuestos','ver') || puede('servicio','ver'); }
 async function srCargar(silencioso){
@@ -24111,6 +24136,7 @@ async function srCargar(silencioso){
     const { data, error } = await supabaseClient.from('repuestos_pedidos').select('*, repuestos_pedido_items(id, repuesto_id, codigo, descripcion, cantidad)').order('id', { ascending:false }).limit(3000);
     if(error) throw error;
     SR.rows = data || []; SR.cargado = true;
+    srFotos(SR.rows.flatMap(r => (r.repuestos_pedido_items || []).slice(0, 3).map(i => i.codigo))).then(nuevo => { if(nuevo) srRender(); });
   }catch(e){ console.warn('Pedidos de repuestos: no se pudieron leer', e); if(!silencioso) showToast('No se pudieron cargar los pedidos de repuestos', true); }
   finally{ SR.cargando = false; }
   srRender();
@@ -24142,11 +24168,11 @@ function srRender(){
     `<select id="sr-f-suc">${(sPerm.length > 1 ? '<option value="">Todas las sucursales</option>' : '') + sPerm.map(s => `<option value="${s.id}"${SR.suc === String(s.id) ? ' selected' : ''}>${escapeHtml(s.nombre)}</option>`).join('')}</select>` +
     `<input id="sr-f-q" type="search" placeholder="Buscar N°, serie, remito o repuesto…" value="${escapeHtml(SR.q)}" style="min-width:230px;">`;
   const rows = srFiltrados();
-  lista.innerHTML = rows.length ? `<div class="sr-tw"><table class="sr-t"><thead><tr><th>N°</th><th>Máquina</th><th>Sucursal</th><th>Ítems</th><th>Seguimiento</th><th>Estado</th><th>Pedido</th><th>Llega</th><th>Remito</th><th>Solicitó</th></tr></thead><tbody>` + rows.map(r => {
+  lista.innerHTML = rows.length ? `<div class="sr-tw"><table class="sr-t"><thead><tr><th>N°</th><th>Máquina</th><th>Sucursal</th><th>Repuestos</th><th>Seguimiento</th><th>Estado</th><th>Pedido</th><th>Llega</th><th>Remito</th><th>Solicitó</th></tr></thead><tbody>` + rows.map(r => {
     const e = srEq(r); const its = r.repuestos_pedido_items || []; const suc = sucursales.find(s => s.id === r.sucursal_id)?.nombre || '';
     const cs = servicioCasos.get(r.equipo_id);
     return `<tr data-sr-id="${r.id}"><td class="n">${escapeHtml(r.numero)}</td><td><b>${escapeHtml(e.modelo || '—')}</b> <span class="svc-ser">${escapeHtml(e.numero_serie || '')}</span>${cs ? ` <span class="svc-badge ${cs.tipo}">${cs.tipo.toUpperCase()}</span>` : ''}</td>
-      <td>${escapeHtml(suc)}</td><td>${its.reduce((a, i) => a + (i.cantidad || 0), 0)}</td><td>${srFlow(r.estado)}</td><td>${srChip(r.estado)}</td>
+      <td>${escapeHtml(suc)}</td><td><span class="sr-ths">${its.slice(0, 3).map(i => srThumb(i.codigo, 30)).join('')}${its.length > 3 ? `<span class="mas">+${its.length - 3}</span>` : ''}</span></td><td>${srFlow(r.estado)}</td><td>${srChip(r.estado)}</td>
       <td>${r.fecha_pedido ? fmtDate(r.fecha_pedido) : '—'}</td><td style="${srVencido(r) ? 'color:var(--danger);font-weight:800;' : 'font-weight:700;'}">${r.fecha_llegada && srAbierto(r.estado) ? fmtDate(r.fecha_llegada) + (srVencido(r) ? ' · vencida' : '') : '—'}</td>
       <td class="svc-ser">${escapeHtml(r.remito || '—')}</td><td class="muted" style="font-size:12px;">${escapeHtml(r.creado_nombre || '')}</td></tr>`;
   }).join('') + '</tbody></table></div>' : `<div class="svc-vacio">${SR.cargado ? 'No hay pedidos con estos filtros.' : 'Cargando…'}</div>`;
@@ -24184,7 +24210,8 @@ function srPintarDetalle(){
   h += `<div class="sr-steps">${SR_ETAPAS.map((t, i) => `<div class="sr-stp${r.estado === 'cancelado' ? ' x' : (r.estado === 'recibido' || i < idx) ? ' done' : i === idx ? ' cur' : ''}"><i>${r.estado !== 'cancelado' && (r.estado === 'recibido' || i < idx) ? '✓' : i + 1}</i><b>${t}</b><small>${fechas[i] || (i === 2 && r.estado === 'recibido_parcial' ? 'parcial' : '')}</small></div>`).join('')}</div>`;
   h += `<div class="svcw-kv"><div><span>Solicitó</span><b>${E(r.creado_nombre || '—')}</b></div><div><span>Remito${(r.remitos || []).length > 1 ? 's' : ''}</span><b>${(r.remitos || []).length ? E(r.remitos.join(' · ')) : '—'}</b></div><div><span>${r.estado === 'recibido_parcial' ? 'Llega el resto' : 'Llegada estimada'}</span><b style="${srVencido(r) ? 'color:var(--danger);' : ''}">${r.fecha_llegada && srAbierto(r.estado) ? fmtDate(r.fecha_llegada) : '—'}</b></div></div>`;
   if(r.estado === 'cancelado') h += `<div class="svcw-note warn">Cancelado: ${E(r.motivo_cancelacion || '')}</div>`;
-  h += `<div class="svc-ql" style="margin-top:14px;">Repuestos solicitados</div>` + (its.length ? its.map(i => `<div class="svc-rep"><b>${E(i.codigo)}</b><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${E(i.descripcion || '')}</span><span style="margin-left:auto;font-weight:800;">×${i.cantidad}</span></div>`).join('') : '<div class="muted">Sin ítems</div>');
+  h += `<div class="svc-ql" style="margin-top:14px;">Repuestos solicitados</div>` + (its.length ? its.map(i => `<div class="svc-rep conf">${srThumb(i.codigo, 56, true)}<div style="min-width:0;"><b>${E(i.codigo)}</b><div style="font-size:12.5px;">${E(i.descripcion || '')}</div></div><span style="margin-left:auto;font-weight:800;font-size:14px;">×${i.cantidad}</span></div>`).join('') : '<div class="muted">Sin ítems</div>');
+  srFotos(its.map(i => i.codigo)).then(nuevo => { if(nuevo && SR.sel === r.id && document.getElementById('sr-det')?.classList.contains('open')) srPintarDetalle(); });
   if(r.notas) h += `<div class="svcw-note" style="white-space:pre-wrap;"><b>Notas de Servicio:</b> ${E(r.notas)}</div>`;
   const hoy = hoyIso(); let acc = '';
   if(pG && r.estado === 'solicitado') acc += `<div class="sr-acc"><div class="svc-ql">📋 Marcar como pedido a fábrica</div><div class="sr-f2"><div><label class="svcw-lb">Fecha del pedido</label><input type="date" class="svc-in" id="sr-a-fped" value="${hoy}"></div><div><label class="svcw-lb">Llegada estimada</label><input type="date" class="svc-in" id="sr-a-llp" value="${E(r.fecha_llegada || '')}"></div></div><button type="button" class="btn" data-sr-act="pedido">Marcar pedido</button></div>`;
@@ -24218,8 +24245,9 @@ function svcInit(){
   const sec = document.getElementById('tab-servicio'); if(!sec || sec.dataset.init) return; sec.dataset.init = '1';
   sec.addEventListener('click', async ev => {
     const t = ev.target;
+    if(t.closest('[data-svc-cerrar]')){ SVC.sel = null; SVC.confirmando = false; svcRender(); return; }
     const tipo = t.closest('[data-svc-tipo]'); if(tipo){ SVC.tipo = tipo.dataset.svcTipo; svcRender(); return; }
-    const fila = t.closest('[data-svc-caso]'); if(fila){ SVC.sel = Number(fila.dataset.svcCaso); SVC.eventos = []; SVC.confirmando = false; svcRender(); svcCargarEventos(SVC.sel); if(window.innerWidth < 1150) document.getElementById('svc-panel').scrollIntoView({ behavior:'smooth', block:'start' }); return; }
+    const fila = t.closest('[data-svc-caso]'); if(fila){ SVC.sel = Number(fila.dataset.svcCaso); SVC.eventos = []; SVC.confirmando = false; svcRender(); svcCargarEventos(SVC.sel); return; }
     if(t.closest('#svc-wiz-open')){ svcwAbrir(SVC.sel); return; }
     const go = t.closest('[data-sr-go]');
     if(go){ const id = Number(go.dataset.srGo); activarTab('repuestos'); await srCargar(true); srAbrir(id); return; }
@@ -24282,6 +24310,7 @@ function svcInit(){
     if(ev.key !== 'Escape') return;
     if(document.getElementById('svc-wiz').classList.contains('open')) svcwCerrar(false);
     else if(document.getElementById('sr-det').classList.contains('open')) srCerrarDetalle();
+    else if(SVC.sel && document.getElementById('tab-servicio')?.style.display === 'block'){ SVC.sel = null; svcRender(); }
   });
 }
 function srInit(){
