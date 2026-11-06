@@ -436,6 +436,49 @@
   .aw-log{font-size:12px;color:var(--text-dim);border-left:2px solid var(--border);padding-left:12px;margin:6px 0;}
   .aw-log b{color:var(--text);}
   .overlay.open{display:flex;}
+  /* ===== Monitor de Servicio (PDI / VOR) ===== */
+  .svc-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(142px,1fr));gap:10px;margin-bottom:14px;}
+  .svc-kpi{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 14px;border-top:3px solid var(--c,var(--accent));}
+  .svc-kpi .v{font-size:25px;font-weight:800;line-height:1;} .svc-kpi .t{color:var(--text-dim);font-size:11.5px;margin-top:4px;font-weight:600;}
+  .svc-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px;}
+  .svc-chip{border:1px solid var(--border);background:var(--panel);color:var(--text-dim);border-radius:999px;padding:5px 13px;font-size:12.5px;font-weight:700;cursor:pointer;}
+  .svc-chip.on{background:var(--accent);color:#04121c;border-color:var(--accent);}
+  .svc-bar select,.svc-bar input{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12.5px;}
+  .svc-grid{display:grid;grid-template-columns:minmax(0,1fr) 440px;gap:14px;align-items:start;}
+  @media(max-width:1150px){.svc-grid{grid-template-columns:1fr;}}
+  .svc-row{display:grid;grid-template-columns:78px minmax(0,1fr) auto;gap:14px;align-items:center;background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--c,var(--border));border-radius:12px;padding:11px 14px;margin-bottom:8px;cursor:pointer;}
+  .svc-row:hover{border-color:var(--accent);} .svc-row.sel{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 35%,transparent);}
+  .svc-foto{width:78px;height:56px;border-radius:8px;background:var(--panel-2);display:grid;place-items:center;overflow:hidden;font-size:22px;}
+  .svc-foto img{width:100%;height:100%;object-fit:contain;}
+  .svc-t1{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-weight:700;font-size:14px;}
+  .svc-ser{font-family:var(--font-mono);font-size:12px;color:var(--text-dim);font-weight:600;}
+  .svc-badge{font-size:10.5px;font-weight:800;letter-spacing:.5px;border-radius:5px;padding:2px 7px;color:#fff;} .svc-badge.pdi{background:#6d5fd4;} .svc-badge.vor{background:#d97706;}
+  .svc-suc{font-size:11.5px;color:var(--text-dim);} .svc-dias{font-size:11.5px;font-weight:800;border-radius:999px;padding:1px 9px;background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok);}
+  .svc-dias.a{background:color-mix(in srgb,var(--warn) 20%,transparent);color:var(--warn);} .svc-dias.r{background:color-mix(in srgb,var(--danger) 18%,transparent);color:var(--danger);}
+  .svc-steps{display:flex;align-items:center;margin-top:9px;gap:0;}
+  .svc-st{display:flex;align-items:center;flex:1;min-width:0;} .svc-st:last-child{flex:none;}
+  .svc-dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--border);background:var(--panel);flex:none;display:grid;place-items:center;font-size:9px;font-weight:800;color:#fff;}
+  .svc-st.done .svc-dot{background:var(--ok);border-color:var(--ok);} .svc-st.cur .svc-dot{border-color:var(--accent);background:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 28%,transparent);}
+  .svc-st.skip .svc-dot{opacity:.4;border-style:dashed;}
+  .svc-ln{height:2px;flex:1;background:var(--border);margin:0 3px;} .svc-st.done .svc-ln{background:var(--ok);}
+  .svc-lbls{display:flex;justify-content:space-between;font-size:9.5px;color:var(--text-dim);margin-top:3px;font-weight:600;letter-spacing:.2px;}
+  .svc-eta{text-align:right;min-width:104px;} .svc-eta .l{font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:var(--text-dim);font-weight:700;}
+  .svc-eta .d{font-size:18px;font-weight:800;margin-top:1px;} .svc-eta .s{font-size:11px;font-weight:700;margin-top:1px;}
+  .svc-eta.venc .d,.svc-eta.venc .s{color:var(--danger);} .svc-eta.sin .d{color:var(--text-dim);font-size:14px;}
+  .svc-etp{font-size:11px;font-weight:700;margin-top:6px;color:var(--c);}
+  #svc-panel{position:sticky;top:76px;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px;max-height:calc(100vh - 96px);overflow-y:auto;}
+  .svc-q{margin:14px 0 4px;} .svc-ql{font-size:12px;font-weight:800;letter-spacing:.3px;margin-bottom:6px;}
+  .svc-yn{display:flex;gap:8px;} .svc-yn button{flex:1;border:1px solid var(--border);background:var(--panel-2);color:var(--text);border-radius:9px;padding:9px;font-weight:800;font-size:13px;cursor:pointer;}
+  .svc-yn button.on.si{background:var(--ok);border-color:var(--ok);color:#fff;} .svc-yn button.on.no{background:var(--danger);border-color:var(--danger);color:#fff;} .svc-yn button:disabled{opacity:.5;cursor:not-allowed;}
+  .svc-in{width:100%;background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px;box-sizing:border-box;}
+  .svc-sub{margin-left:12px;padding-left:12px;border-left:2px solid var(--border);}
+  .svc-rep{display:flex;gap:8px;align-items:center;padding:6px 8px;background:var(--panel-2);border-radius:8px;margin-bottom:5px;font-size:12px;}
+  .svc-rep b{font-family:var(--font-mono);} .svc-rep .x{margin-left:auto;cursor:pointer;color:var(--danger);font-weight:800;border:0;background:none;font-size:15px;}
+  .svc-res{border:1px solid var(--border);border-radius:8px;margin-top:4px;max-height:200px;overflow-y:auto;background:var(--panel);}
+  .svc-res div{padding:7px 10px;font-size:12px;cursor:pointer;border-bottom:1px solid var(--border);} .svc-res div:hover{background:var(--panel-2);} .svc-res b{font-family:var(--font-mono);}
+  .svc-ok{width:100%;margin-top:16px;padding:14px;border:0;border-radius:11px;background:var(--ok);color:#fff;font-size:15px;font-weight:800;cursor:pointer;} .svc-ok.conf{background:var(--danger);} .svc-ok:disabled{opacity:.45;cursor:not-allowed;}
+  .svc-hist{font-size:11.5px;color:var(--text-dim);border-left:2px solid var(--border);padding-left:10px;margin:5px 0;} .svc-hist b{color:var(--text);}
+  .svc-vacio{text-align:center;color:var(--text-dim);padding:40px 10px;}
   .pp-kpi{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;gap:12px;align-items:center;position:relative;overflow:hidden;}
   .pp-kpi:before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--c);}
   .pp-kic{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;font-size:19px;background:color-mix(in srgb,var(--c) 18%,transparent);}
@@ -1037,6 +1080,9 @@ input.fecha-ar.fecha-ar-invalida{ border-color:var(--danger) !important; color:v
 .pizarra-transito .l{ font-size:9.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--text-dim); }
 .pizarra-transito .cl{ font-weight:700; overflow-wrap:anywhere; }
 .pizarra-transito .m{ color:var(--text-dim); overflow-wrap:anywhere; }
+.pizarra-svc{ margin-top:5px; font-size:10.5px; font-weight:700; border-radius:6px; padding:3px 7px; background:color-mix(in srgb,var(--accent) 14%,transparent); color:var(--accent); line-height:1.35; }
+.pizarra-svc.v{ background:color-mix(in srgb,var(--danger) 16%,transparent); color:var(--danger); }
+.pizarra-svc small{ display:block; font-weight:600; opacity:.85; font-size:10px; }
 .pizarra-dias{ display:inline-block; margin-top:4px; font-size:10.5px; font-weight:700; border-radius:999px; padding:1px 8px; background:rgba(34,197,94,.15); color:var(--ok); }
 .pizarra-dias.a{ background:rgba(255,179,71,.18); color:#ffc36e; }
 .pizarra-dias.r{ background:rgba(255,92,92,.18); color:#ff8a8a; }
@@ -1093,6 +1139,7 @@ input.fecha-ar.fecha-ar-invalida{ border-color:var(--danger) !important; color:v
 .tv-card .sg{ margin-left:auto; font-size:10px; font-weight:800; color:var(--text-dim); border:1px solid var(--border); border-radius:4px; padding:0 4px; flex:none; }
 .tv-card .r2{ display:flex; align-items:center; gap:6px; min-width:0; margin-top:1px; }
 .tv-card .c{ font-size:13px; color:var(--accent); font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1; min-width:0; }
+.tv-card .eta{ font-size:12px; font-weight:800; margin-top:3px; color:var(--accent); } .tv-card .eta.v{ color:#ff8a8a; }
 .tv-card .tag{ margin-left:auto; flex:none; font-size:11px; font-weight:800; border-radius:4px; padding:0 6px; }
 .tv-card .tag.rojo{ background:rgba(255,92,92,.18); color:#ff8a8a; }
 .tv-card .tag.ambar{ background:rgba(255,179,71,.18); color:#ffc36e; }
@@ -1260,6 +1307,7 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
   <button data-tab="planning">Planning</button>
   <button data-tab="retiros">Pendientes de Retiro</button>
   <button data-tab="remitos">Remitos</button>
+  <button data-tab="servicio">Monitor de Servicio</button>
   <button data-tab="presupuestos">Presupuestos</button>
   <button data-tab="solicitudoc">Solicitud de OC</button>
   <button data-tab="editorobs">Editor de Observaciones</button>
@@ -3162,6 +3210,33 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
   <section id="tab-conciliacioncompras" style="display:none;margin:-24px calc(-50vw + 50% - 0px);padding:0;">
     <iframe src="herramientas/conciliacion-compras.html" title="Conciliación de Compras GP vs ARCA"
       style="width:100%;height:calc(100vh - 113px);border:none;display:block;background:#0a0c10;"></iframe>
+  </section>
+
+  <section id="tab-servicio" style="display:none;">
+    <div class="dash-hero" style="margin-bottom:14px;">
+      <h1 style="font-size:16px;">Monitor de Servicio · PDI y VOR</h1>
+      <div class="sub">Seguimiento diario de las máquinas en revisión: diagnóstico, repuestos y fecha en que quedan disponibles. Al dar el OK, la máquina pasa sola a Disponible en la Pizarra.</div>
+    </div>
+    <div class="svc-kpis" id="svc-kpis"></div>
+    <div class="svc-bar" id="svc-bar"></div>
+    <div class="svc-grid">
+      <div id="svc-lista"></div>
+      <div id="svc-panel"></div>
+    </div>
+    <div class="panel-solo-maestro" id="svc-mail-panels" style="display:none;">
+      <div class="panel" style="padding:14px 16px;margin-top:16px;">
+        <div id="email-dest-servicio_repuestos-header" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;"><div style="font-weight:700;font-size:13.5px;">📧 Aviso al sector Repuestos (pedido de repuestos) — destinatarios</div><div class="muted" id="email-dest-servicio_repuestos-hint" style="font-size:12px;">▸ desplegar</div></div>
+        <div id="email-dest-servicio_repuestos-body" style="display:none;margin-top:10px;"></div>
+      </div>
+      <div class="panel" style="padding:14px 16px;margin-top:16px;">
+        <div id="email-dest-servicio_fechas-header" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;"><div style="font-weight:700;font-size:13.5px;">🔔 Aviso inmediato de cambio de fechas — destinatarios</div><div class="muted" id="email-dest-servicio_fechas-hint" style="font-size:12px;">▸ desplegar</div></div>
+        <div id="email-dest-servicio_fechas-body" style="display:none;margin-top:10px;"></div>
+      </div>
+      <div class="panel" style="padding:14px 16px;margin-top:16px;">
+        <div id="email-dest-servicio_diario-header" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;"><div style="font-weight:700;font-size:13.5px;">📊 Informe diario para el jefe de Servicio — destinatarios</div><div class="muted" id="email-dest-servicio_diario-hint" style="font-size:12px;">▸ desplegar</div></div>
+        <div id="email-dest-servicio_diario-body" style="display:none;margin-top:10px;"></div>
+      </div>
+    </div>
   </section>
 
   <section id="tab-portalprov" style="display:none;">
@@ -5183,6 +5258,7 @@ const TAB_TITLES = {
   conciliacioncompras: 'Conciliación de Compras (GP vs ARCA)',
   gastosobra: 'Gastos de Reforma',
   portalprov: 'Portal de Proveedores',
+  servicio: 'Monitor de Servicio (PDI / VOR)',
   chequescustodia: 'Cheques en Custodia vs GP',
   autorizaciones: 'Contratos pendientes de autorización',
 };
@@ -8119,6 +8195,7 @@ function renderPizarra(opts = {}){
     ? `${equiposDeLaSucursal.length} equipo(s) en toda la flota`
     : `${equiposDeLaSucursal.length} equipo(s) en esta sucursal`);
   pizarraRenderLeyenda();
+  if(!opts.sinCargar && Date.now() - servicioTs > 120000 && !servicioCargando) servicioCargarCasos().then(() => { if(document.getElementById('pizarra-board')?.offsetParent) renderPizarra({ conservarScroll:true, sinCargar:true }); });
 
   // Los días en tránsito salen del historial: se pide si falta alguno o pasó más de un minuto
   if(!opts.sinCargar){
@@ -8153,6 +8230,12 @@ function renderPizarra(opts = {}){
             ${dT === null ? '' : `<span class="pizarra-dias ${clsT}">${dT === 0 ? 'Hoy' : dT + (dT === 1 ? ' día' : ' días')} en tránsito</span>`}
           </div>`;
       }
+      // PDI / VOR: fecha estimada y etapa que cargó Servicio en su Monitor
+      let svcHtml = '';
+      if(col.estado === 'pdi' || col.estado === 'vor'){
+        const sc = servicioCasos.get(e.id);
+        if(sc){ const eta = svcEta(sc); svcHtml = `<div class="pizarra-svc${eta.venc ? ' v' : ''}" title="Cargado por Servicio en el Monitor de Servicio">🛠 ${eta.sin ? 'Sin fecha estimada' : 'Disponible ' + eta.fecha + ' · ' + eta.rel}<small>${SVC_ETAPAS[svcEtapa(sc)].t}</small></div>`; }
+      }
       // En la vista TODAS se indica a qué sucursal pertenece cada equipo
       const sucNombre = esTodas ? (sucursales.find(s => String(s.id) === String(e.sucursal_id))?.nombre || '') : '';
       const sucSigla = sucNombre ? pizarraSiglaSucursal(sucNombre) : '';
@@ -8180,6 +8263,7 @@ function renderPizarra(opts = {}){
           <div class="muted" style="font-size:10.5px;font-family:var(--font-mono);margin-top:1px;overflow-wrap:anywhere;">${escapeHtml(e.numero_serie || '')}</div>
           ${cliente ? `<div style="font-size:10.5px;color:var(--accent);font-weight:600;margin-top:3px;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere;">${escapeHtml(cliente)}</div>` : ''}
           ${transitoHtml}
+          ${svcHtml}
           ${reservaHtml}
         </div>`;
     }).join('') || '<div class="muted" style="text-align:center;padding:18px 0;font-size:11.5px;">Sin equipos</div>';
@@ -8313,6 +8397,8 @@ function pizarraRenderTV(opts = {}){
     if(col.estado === 'transito') tag = pizarraTVEtiquetaEspera(e);
     else if(conCliente) tag = pizarraTVEtiquetaVence(e.id);
     else if(col.estado === 'vor' || col.estado === 'pdi') tag = pizarraTVEtiquetaEspera(e);
+    const scTv = (col.estado === 'vor' || col.estado === 'pdi') ? servicioCasos.get(e.id) : null;
+    const etaTv = scTv ? svcEta(scTv) : null;
     const sigla = esTodas ? pizarraSiglaSucursal(sucursales.find(s => String(s.id) === String(e.sucursal_id))?.nombre || '') : '';
     const tagHtml = tag ? `<span class="tag ${tag.clase}">${escapeHtml(tag.texto)}</span>` : '';
     const linea2 = conCliente
@@ -8321,7 +8407,7 @@ function pizarraRenderTV(opts = {}){
     const rsv = (col.estado === 'disponible' || col.estado === 'pdi') ? reservaDeEquipo(e.id) : null;
     return `<div class="tv-card${rsv ? ' reservada' : ''}${conCliente && tag?.clase === 'rojo' ? ' alerta' : ''}${(pizarraCambiosRecientes.get(e.id) || 0) > ahora ? ' pizarra-flash' : ''}" style="--t:${cat.color}" title="${escapeHtml(cat.label)}${cliente ? ' — ' + escapeHtml(cliente) : ''}">
       <div class="r1"><span class="m">${escapeHtml(e.modelo || '—')}</span>${conCliente ? `<span class="s">${escapeHtml(e.numero_serie || '')}</span>` : ''}${sigla ? `<span class="sg">${escapeHtml(sigla)}</span>` : ''}</div>
-      <div class="r2">${linea2}</div>${rsv ? `<div class="rsv"><b>RESERVADA</b><span>${escapeHtml(rsv.cliente_nombre || '')}</span></div>` : ''}</div>`;
+      <div class="r2">${linea2}</div>${etaTv ? `<div class="eta${etaTv.venc ? ' v' : ''}">${etaTv.sin ? 'Sin fecha estimada' : 'Disponible ' + etaTv.fecha + ' · ' + etaTv.rel}</div>` : ''}${rsv ? `<div class="rsv"><b>RESERVADA</b><span>${escapeHtml(rsv.cliente_nombre || '')}</span></div>` : ''}</div>`;
   }).join('') || '<div class="vacio">Sin equipos</div>';
 
   const board = cols.map(c => `<div class="tv-col" style="--c:${c.color}"><div class="tv-ch"><b>${c.titulo}</b><span class="ct">${porEstado[c.estado].length}</span></div><div class="tv-cards" data-col="${c.estado}" style="--w:${c.w}">${tarjetas(c)}</div></div>`).join('');
@@ -8647,6 +8733,7 @@ function pizarraLiveIniciar(){
     .on('postgres_changes', { event: '*', schema: 'public', table: 'equipos' }, pizarraProgramarRefresco)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'contratos' }, pizarraProgramarRefresco)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'equipos_reservas' }, pizarraProgramarRefresco)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'servicio_casos' }, () => { clearTimeout(window._svcDeb); window._svcDeb = setTimeout(servicioRefrescar, 1500); })
     .subscribe((status) => {
       pizarraLiveRealtimeOk = (status === 'SUBSCRIBED');
       if(status === 'SUBSCRIBED'){
@@ -9208,6 +9295,12 @@ function initPizarraDragAndDrop(){
         return;
       }
 
+      // PDI / VOR -> Disponible: solo desde el Monitor de Servicio (Dar OK). Los maestros pueden hacerlo a mano.
+      if((estadoActual === 'pdi' || estadoActual === 'vor') && colInfo.estado === 'disponible' && !(miPerfil && miPerfil.rol === 'maestro')){
+        showToast('Una máquina sale de PDI/VOR desde el Monitor de Servicio (botón Dar OK), no moviéndola a mano.', true);
+        return;
+      }
+
       // ¿Desde cuándo? (por defecto hoy; si se olvidaron de moverla a tiempo, se corrige el historial hacia atrás)
       const textoFecha = estadoActual === 'transito'
         ? `¿<strong>Qué día ingresó a la base</strong>? Desde esa fecha empieza a contar el tiempo en <strong>${escapeHtml(colInfo.titulo)}</strong>. Si llegó hoy, dejá la fecha de hoy; si se olvidaron de pasarla a tiempo, poné el día real.`
@@ -9482,6 +9575,7 @@ const SECCIONES_PERMISOS = [
   { key:'contratos',     label:'Contratos',     acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar'],['editar_precio','Editar precio ya guardado'],['cambiar_serie','Cambiar la serie de la máquina en un contrato activo'],['requiere_autorizacion','⚠ Sus contratos nuevos requieren autorización de un maestro'],['autorizar','Autorizar contratos (y ver Contratos pendientes de autorización)']] },
   { key:'equipos',       label:'Equipos',       acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
   { key:'pizarra',       label:'Pizarra de Flota', acciones:[['ver','Ver'],['mover_disponible','Arrastrar a Disponible'],['mover_pdi','Arrastrar a PDI'],['mover_vor','Arrastrar a VOR'],['editar_fecha','Corregir fecha de inicio (📅)'],['reservar','Reservar / liberar máquinas (🔖)']] },
+  { key:'servicio',      label:'Monitor de Servicio (PDI / VOR)', acciones:[['ver','Ver el monitor'],['diagnosticar','Cargar diagnóstico (¿necesita repuestos? / pedidos / recibidos / notas)'],['editar_fechas','Cargar y modificar fechas (cada cambio de fecha se avisa por mail)'],['repuestos','Elegir repuestos del catálogo'],['avisar_repuestos','Avisar al sector Repuestos (mail)'],['dar_ok','Dar OK: la máquina pasa a Disponible']] },
   { key:'trazabilidad',  label:'Trazabilidad',    acciones:[['ver','Ver / usar']] },
   { key:'pendientes',    label:'Pendientes de Facturación', acciones:[['ver','Ver'],['facturar','Facturar'],['eliminar','Eliminar']] },
   { key:'reportes',      label:'Reportes',      acciones:[['ver','Ver']] },
@@ -10243,7 +10337,7 @@ const PM_CATEGORIAS = [
     {sk:'solicitudoc', t:'Solicitud de OC', i:'📝'}, {sk:'panoramacobranzas', t:'Panorama de Cobranzas', i:'📊'},
     {sk:'cuentacliente', t:'Cuenta Cliente', i:'🧾'} ]},
   { k:'logistica', t:'Logística', i:'🚜', e:'horizon', mods:[
-    {sk:'equipos', t:'Equipos', i:'🚜'}, {sk:'pizarra', t:'Pizarra de Flota', i:'🗂️'}, {sk:'trazabilidad', t:'Trazabilidad', i:'🔍'},
+    {sk:'equipos', t:'Equipos', i:'🚜'}, {sk:'pizarra', t:'Pizarra de Flota', i:'🗂️'}, {sk:'servicio', t:'Monitor de Servicio', i:'🛠️'}, {sk:'trazabilidad', t:'Trazabilidad', i:'🔍'},
     {sk:'planning', t:'Planning', i:'📅'}, {sk:'retiros', t:'Pendientes de Retiro', i:'🚨'}, {sk:'remitos', t:'Remitos', i:'📋'} ]},
   { k:'compras', t:'Compras', i:'🧾', e:'horizon', mods:[
     {sk:'panoramaproveedores', t:'Panorama de Deuda a Proveedores', i:'📉'}, {sk:'datos_bancarios', t:'Datos Bancarios de Proveedores', i:'🏦'},
@@ -10589,6 +10683,7 @@ function renderDashboard(){
     { key:'logistica', titulo:'Logística', icon:'🚜', tiles:[
       { tab:'equipos',    icon:'🚜', title:'Equipos',    count:`${equiposCache.length} en catálogo`, visible:puede('equipos','ver'), urgencia:null },
       { tab:'pizarra',    icon:'🗂️', title:'Pizarra de Flota', count:'Disponible / Alquilada / VOR / PDI / Demo', visible:puede('pizarra','ver'), urgencia:null },
+      { tab:'servicio', icon:'🛠️', title:'Monitor de Servicio', count: puede('servicio','ver') ? `PDI y VOR en reparación${servicioCasos.size ? ' — ' + servicioCasos.size + ' máquina(s)' : ''}` : '', visible:puede('servicio','ver'), urgencia:null },
       { tab:'trazabilidad', icon:'🔍', title:'Trazabilidad', count:'Historial de una máquina', visible:puede('trazabilidad','ver'), urgencia:null },
       { tab:'planning',   icon:'📅', title:'Planning',   count:'Ocupación de flota', visible:puede('planning','ver'), urgencia:null },
       { tab:'retiros',    icon:'🚨', title:'Pendientes de Retiro', count: puede('retiros','ver') ? `${nRetirosUrgentes} urgente(s)` : '', visible:puede('retiros','ver'), urgencia: nRetirosUrgentes>0 ? 'danger' : 'ok' },
@@ -14710,6 +14805,12 @@ const EMAIL_DEST_CONFIG = {
     descripcion: 'Cada vez que un contrato nuevo queda pendiente de autorización, o alguien edita un contrato, se envía enseguida un mail a las direcciones activas de abajo con quién lo hizo y qué dato cambió (antes y ahora).' },
   baja_pdi: { headerId: 'email-dest-baja_pdi-header', bodyId: 'email-dest-baja_pdi-body', hintId: 'email-dest-baja_pdi-hint',
     descripcion: 'Aviso para servicios: se envía enseguida un mail cuando una máquina efectivamente ingresa a PDI. Es en el momento de la baja del contrato si la máquina ya está en base, o cuando se arrastra su tarjeta de "En tránsito" a PDI (equipo, último cliente, sucursal, fecha de retiro e ingreso a PDI).' },
+  servicio_repuestos: { headerId: 'email-dest-servicio_repuestos-header', bodyId: 'email-dest-servicio_repuestos-body', hintId: 'email-dest-servicio_repuestos-hint',
+    descripcion: 'Sector Repuestos: cuando Servicio carga qué repuestos necesita una máquina y toca "Avisar a Repuestos", se envía enseguida un mail con el equipo, la sucursal, quién lo pidió y la lista de repuestos (código, descripción y cantidad).' },
+  servicio_fechas: { headerId: 'email-dest-servicio_fechas-header', bodyId: 'email-dest-servicio_fechas-body', hintId: 'email-dest-servicio_fechas-hint',
+    descripcion: 'Cada vez que alguien modifica una fecha ya cargada en el Monitor de Servicio (pedido, llegada de repuestos o disponible estimada) se envía enseguida un mail con quién fue y el antes / ahora.' },
+  servicio_diario: { headerId: 'email-dest-servicio_diario-header', bodyId: 'email-dest-servicio_diario-body', hintId: 'email-dest-servicio_diario-hint',
+    descripcion: 'Jefe del área de Servicio: todos los días a las 08:00 se envía un informe de PDI y VOR de las tres sucursales (días, etapa, repuestos, fechas, vencidas, listas para OK y novedades de las últimas 24 h), con PDF y Excel adjuntos.' },
   baja_contrato: { headerId: 'email-dest-baja_contrato-header', bodyId: 'email-dest-baja_contrato-body', hintId: 'email-dest-baja_contrato-hint',
     descripcion: 'Aviso para finanzas: se envía enseguida un mail cuando se da de baja un contrato (equipo, cliente, sucursal, fecha de baja) e indica si la máquina ya ingresó a base o sigue en tránsito (con transporte y llegada estimada si se cargaron).' },
 };
@@ -14915,6 +15016,9 @@ initPanelDestinatarios('vencimientos');
 initPanelDestinatarios('pdi_vor');
 initPanelDestinatarios('baja_pdi');
 initPanelDestinatarios('baja_contrato');
+initPanelDestinatarios('servicio_repuestos');
+initPanelDestinatarios('servicio_fechas');
+initPanelDestinatarios('servicio_diario');
 initPanelDestinatarios('autorizacion_contratos');
 
 
@@ -21786,6 +21890,7 @@ const SYNC_TABS = {
   personal:      async () => { await loadPersonal(); renderPersonalCards(); },
   datosbancarios:async () => { await loadDatosBancarios(); renderDatosBancarios(); },
   portalprov:    async () => { await ppCargar(); },
+  servicio:      async () => { await syncNucleo(); await svcCargar(); },
   gastosobra:    async () => { await loadGastosObra(); renderGastosObraLista(); renderStatsGastosObra(); },
   haulotte_articulos: async () => { hrepPagina = 0; await hrepCargarPagina(); hpActualizarEstadoCatalogo(); },
   haulotte_presupuestos: async () => { await loadHaulottePresup(); renderHaulottePresup(); },
@@ -23553,6 +23658,265 @@ document.getElementById('btn-hv-pdf-previo').addEventListener('click', async ()=
   showLogin();
 
 })();
+
+// =====================================================================
+// MONITOR DE SERVICIO (PDI / VOR)
+// =====================================================================
+var servicioCasos = new Map();   // equipo_id -> caso abierto (lo usan la Pizarra y el Monitor)
+var servicioTs = 0, servicioCargando = false;
+var SVC = { casos:[], reps:new Map(), desde:new Map(), eventos:[], sel:null, tipo:'todos', suc:'', etapa:'', orden:'dias', q:'', confirmando:false, busq:[], busqQ:'', busqTimer:null, cargado:false };
+const SVC_ETAPAS = {
+  sin_diag:  { t:'Sin diagnóstico',     c:'var(--danger)' },
+  sin_pedir: { t:'Repuestos sin pedir', c:'var(--warn)' },
+  esperando: { t:'Esperando repuestos', c:'var(--warn)' },
+  reparacion:{ t:'En reparación',       c:'var(--accent)' },
+};
+function svcEtapa(c){
+  if(c.necesita_repuestos === null || c.necesita_repuestos === undefined) return 'sin_diag';
+  if(c.necesita_repuestos === false) return 'reparacion';
+  if(c.repuestos_pedidos !== true) return 'sin_pedir';
+  if(c.repuestos_recibidos !== true) return 'esperando';
+  return 'reparacion';
+}
+const SVC_PASO = { sin_diag:1, sin_pedir:2, esperando:3, reparacion:4 };
+const SVC_LBL = ['Ingreso','Diagnóstico','Pedido','Recibidos','Reparación'];
+function svcFechaCorta(iso){ if(!iso) return ''; const [y,m,d] = String(iso).slice(0,10).split('-'); return `${d}/${m}`; }
+// Texto corto con el estado de la fecha estimada (para Pizarra, TV y Monitor)
+function svcEta(c){
+  if(!c || !c.fecha_estimada) return { sin:true, fecha:'', rel:'Sin fecha', venc:false, dias:null };
+  const dd = pizarraDiasEntreIso(hoyIso(), c.fecha_estimada);
+  let rel;
+  if(dd < 0) rel = `vencida hace ${-dd} d`; else if(dd === 0) rel = 'hoy'; else if(dd === 1) rel = 'mañana'; else rel = `en ${dd} d`;
+  return { sin:false, fecha:svcFechaCorta(c.fecha_estimada), rel, venc:dd < 0, dias:dd };
+}
+async function servicioCargarCasos(){
+  if(!(puede('servicio','ver') || puede('pizarra','ver'))) return null;
+  if(servicioCargando) return null;
+  servicioCargando = true;
+  try{
+    const { data, error } = await supabaseClient.from('servicio_casos').select('*').is('cerrado_en', null);
+    if(error) throw error;
+    servicioCasos = new Map((data || []).map(c => [c.equipo_id, c]));
+    servicioTs = Date.now();
+    return data || [];
+  }catch(e){ console.warn('Servicio: no se pudieron leer los casos', e); servicioTs = Date.now(); return null; }
+  finally{ servicioCargando = false; }
+}
+async function servicioRefrescar(){
+  await servicioCargarCasos();
+  try{ if(document.getElementById('pizarra-board')?.offsetParent) renderPizarra({ conservarScroll:true, sinCargar:true }); }catch(_){}
+  if(document.getElementById('tab-servicio')?.style.display === 'block') svcCargar(true);
+}
+async function svcCargar(silencioso){
+  if(!puede('servicio','ver')){ svcRender(); return; }
+  const casos = await servicioCargarCasos();
+  if(casos === null && !servicioCasos.size && !SVC.cargado){ svcRender(); return; }
+  SVC.casos = [...servicioCasos.values()];
+  const ids = SVC.casos.map(c => c.id);
+  const [rr, hh] = await Promise.all([
+    ids.length ? supabaseClient.from('servicio_repuestos').select('*').in('caso_id', ids).order('id') : Promise.resolve({ data:[] }),
+    supabaseClient.from('equipos_historial_estado').select('equipo_id, estado, fecha_desde').is('fecha_hasta', null).in('estado', ['pdi','vor']).limit(3000),
+  ]);
+  const reps = new Map(); (rr.data || []).forEach(r => { const a = reps.get(r.caso_id) || []; a.push(r); reps.set(r.caso_id, a); });
+  SVC.reps = reps;
+  SVC.desde = new Map((hh.data || []).map(r => [r.equipo_id, r.fecha_desde]));
+  SVC.cargado = true;
+  if(SVC.sel && !SVC.casos.some(c => c.id === SVC.sel)) SVC.sel = null;
+  if(SVC.sel) svcCargarEventos(SVC.sel);
+  svcRender();
+}
+async function svcCargarEventos(casoId){
+  const { data } = await supabaseClient.from('servicio_eventos').select('*').eq('caso_id', casoId).order('created_at', { ascending:false }).limit(40);
+  if(SVC.sel === casoId){ SVC.eventos = data || []; svcRenderPanel(); }
+}
+function svcItems(){
+  const eqMap = new Map(equiposCache.map(e => [e.id, e]));
+  return SVC.casos.map(c => ({ c, e:eqMap.get(c.equipo_id) })).filter(x => x.e && !equipoTieneContratoActivo(x.e.id));
+}
+function svcDias(equipoId){
+  const d = SVC.desde.get(equipoId);
+  return d ? Math.max(0, pizarraDiasEntreIso(d, hoyIso())) : null;
+}
+function svcFiltrados(){
+  const q = SVC.q.trim().toLowerCase();
+  let l = svcItems().filter(x =>
+    (SVC.tipo === 'todos' || x.c.tipo === SVC.tipo) &&
+    (!SVC.suc || String(x.e.sucursal_id) === SVC.suc) &&
+    (!SVC.etapa || svcEtapa(x.c) === SVC.etapa) &&
+    (!q || `${x.e.numero_serie} ${x.e.modelo}`.toLowerCase().includes(q)));
+  const nz = (v, d) => v === null || v === undefined ? d : v;
+  if(SVC.orden === 'eta') l.sort((a,b) => (a.c.fecha_estimada || '9999').localeCompare(b.c.fecha_estimada || '9999'));
+  else if(SVC.orden === 'serie') l.sort((a,b) => String(a.e.numero_serie).localeCompare(String(b.e.numero_serie)));
+  else l.sort((a,b) => nz(svcDias(b.e.id), -1) - nz(svcDias(a.e.id), -1));
+  return l;
+}
+function svcRender(){
+  const kEl = document.getElementById('svc-kpis'); if(!kEl) return;
+  document.getElementById('svc-mail-panels').style.display = (miPerfil && miPerfil.rol === 'maestro') ? 'block' : 'none';
+  if(!puede('servicio','ver')){ document.getElementById('svc-lista').innerHTML = '<div class="svc-vacio">No tenés permiso para ver el Monitor de Servicio.</div>'; kEl.innerHTML = ''; document.getElementById('svc-bar').innerHTML = ''; document.getElementById('svc-panel').innerHTML = ''; return; }
+  const todos = svcItems();
+  const n = f => todos.filter(f).length;
+  const K = [
+    ['En PDI', n(x => x.c.tipo === 'pdi'), 'var(--accent)'], ['En VOR', n(x => x.c.tipo === 'vor'), 'var(--warn)'],
+    ['Sin diagnóstico', n(x => svcEtapa(x.c) === 'sin_diag'), 'var(--danger)'],
+    ['Esperando repuestos', n(x => ['sin_pedir','esperando'].includes(svcEtapa(x.c))), 'var(--warn)'],
+    ['Fecha vencida', n(x => svcEta(x.c).venc), 'var(--danger)'], ['Sin fecha estimada', n(x => !x.c.fecha_estimada), 'var(--text-dim)'],
+    ['En reparación', n(x => svcEtapa(x.c) === 'reparacion'), 'var(--ok)'],
+  ];
+  kEl.innerHTML = K.map(k => `<div class="svc-kpi" style="--c:${k[2]}"><div class="v">${k[1]}</div><div class="t">${k[0]}</div></div>`).join('');
+  const sOpts = '<option value="">Todas las sucursales</option>' + sucursales.map(s => `<option value="${s.id}"${SVC.suc === String(s.id) ? ' selected' : ''}>${escapeHtml(s.nombre)}</option>`).join('');
+  const eOpts = '<option value="">Todas las etapas</option>' + Object.entries(SVC_ETAPAS).map(([k,v]) => `<option value="${k}"${SVC.etapa === k ? ' selected' : ''}>${v.t}</option>`).join('');
+  document.getElementById('svc-bar').innerHTML =
+    ['todos','pdi','vor'].map(t => `<button type="button" class="svc-chip${SVC.tipo === t ? ' on' : ''}" data-svc-tipo="${t}">${t === 'todos' ? 'Todas' : t.toUpperCase()}</button>`).join('') +
+    `<select id="svc-f-suc">${sOpts}</select><select id="svc-f-etapa">${eOpts}</select>` +
+    `<select id="svc-f-orden"><option value="dias"${SVC.orden === 'dias' ? ' selected' : ''}>Más días primero</option><option value="eta"${SVC.orden === 'eta' ? ' selected' : ''}>Fecha estimada</option><option value="serie"${SVC.orden === 'serie' ? ' selected' : ''}>Serie</option></select>` +
+    `<input id="svc-f-q" type="search" placeholder="Buscar serie o modelo…" value="${escapeHtml(SVC.q)}" style="min-width:180px;">` +
+    `<span class="muted" style="margin-left:auto;font-size:12px;">Los días cuentan desde la fecha de inicio de la Pizarra</span>`;
+  const lista = svcFiltrados();
+  document.getElementById('svc-lista').innerHTML = lista.length ? lista.map(x => svcFila(x)).join('')
+    : `<div class="svc-vacio">${SVC.cargado ? 'No hay máquinas en PDI / VOR con estos filtros.' : 'Cargando…'}</div>`;
+  svcRenderPanel();
+}
+function svcFila(x){
+  const { c, e } = x; const et = svcEtapa(c); const E = SVC_ETAPAS[et]; const dias = svcDias(e.id); const eta = svcEta(c);
+  const foto = fotoUrlDeModelo(e.modelo);
+  const suc = sucursales.find(s => s.id === e.sucursal_id)?.nombre || '';
+  const cur = SVC_PASO[et]; const salto = c.necesita_repuestos === false;
+  const pasos = SVC_LBL.map((l, i) => {
+    const cls = i < cur ? ((salto && (i === 2 || i === 3)) ? 'skip' : 'done') : (i === cur ? 'cur' : '');
+    return `<div class="svc-st ${cls}"><div class="svc-dot">${cls === 'done' ? '✓' : ''}</div>${i < 4 ? '<div class="svc-ln"></div>' : ''}</div>`;
+  }).join('');
+  const dcls = dias === null ? '' : (dias >= 30 ? 'r' : (dias >= 10 ? 'a' : ''));
+  return `<div class="svc-row${SVC.sel === c.id ? ' sel' : ''}" data-svc-caso="${c.id}" style="--c:${E.c}">
+    <div class="svc-foto">${foto ? `<img src="${escapeHtml(foto)}" alt="" loading="lazy">` : '🚜'}</div>
+    <div style="min-width:0;">
+      <div class="svc-t1"><span>${escapeHtml(e.modelo || '—')}</span><span class="svc-ser">${escapeHtml(e.numero_serie || '')}</span><span class="svc-badge ${c.tipo}">${c.tipo.toUpperCase()}</span>
+        <span class="svc-suc">${escapeHtml(suc)}</span>${dias === null ? '' : `<span class="svc-dias ${dcls}">${dias === 0 ? 'hoy' : dias + (dias === 1 ? ' día' : ' días')}</span>`}</div>
+      <div class="svc-steps">${pasos}</div>
+      <div class="svc-lbls">${SVC_LBL.map(l => `<span>${l}</span>`).join('')}</div>
+      <div class="svc-etp">${E.t}${c.necesita_repuestos && (SVC.reps.get(c.id) || []).length ? ` · ${(SVC.reps.get(c.id) || []).length} repuesto(s)` : ''}</div>
+    </div>
+    <div class="svc-eta${eta.venc ? ' venc' : ''}${eta.sin ? ' sin' : ''}"><div class="l">Disponible</div><div class="d">${eta.sin ? 'Sin fecha' : eta.fecha}</div>${eta.sin ? '' : `<div class="s">${eta.rel}</div>`}</div>
+  </div>`;
+}
+function svcYN(campo, valor, habilitado){
+  const dis = habilitado ? '' : ' disabled';
+  return `<div class="svc-yn"><button type="button" class="si${valor === true ? ' on' : ''}" data-svc-yn="${campo}" data-v="true"${dis}>Sí</button><button type="button" class="no${valor === false ? ' on' : ''}" data-svc-yn="${campo}" data-v="false"${dis}>No</button></div>`;
+}
+function svcFH(iso){ return iso ? new Date(iso).toLocaleString('es-AR', { timeZone:'America/Argentina/Buenos_Aires', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false }) : ''; }
+const SVC_CAMPO_TXT = { necesita_repuestos:'¿Necesita repuestos?', repuestos_pedidos:'Repuestos pedidos', repuestos_recibidos:'Repuestos recibidos', fecha_pedido:'Fecha del pedido', fecha_llegada:'Llegada de repuestos', fecha_estimada:'Disponible estimada', notas:'Notas' };
+function svcEventoTxt(ev){
+  const d = ev.detalle || {};
+  const val = v => v === true ? 'Sí' : v === false ? 'No' : (v === null || v === undefined || v === '') ? '—' : (/^\d{4}-\d\d-\d\d/.test(String(v)) ? fmtDate(v) : String(v));
+  if(ev.tipo === 'edicion') return Object.entries(d).map(([k, v]) => `${SVC_CAMPO_TXT[k] || k}: ${k === 'notas' ? 'actualizadas' : `${val(v.antes)} → <b>${val(v.despues)}</b>`}`).join(' · ');
+  if(ev.tipo === 'repuesto_agregado') return `Agregó repuesto <b>${escapeHtml(d.codigo || '')}</b> ×${d.cantidad || 1}`;
+  if(ev.tipo === 'repuesto_quitado') return `Quitó repuesto <b>${escapeHtml(d.codigo || '')}</b>`;
+  if(ev.tipo === 'aviso_repuestos') return `Avisó al sector Repuestos (${(d.items || []).length} ítem/s)`;
+  if(ev.tipo === 'ok') return '<b>Dio el OK</b>: pasó a Disponible';
+  return escapeHtml(ev.tipo);
+}
+function svcRenderPanel(){
+  const el = document.getElementById('svc-panel'); if(!el) return;
+  const x = svcItems().find(i => i.c.id === SVC.sel);
+  if(!x){ el.innerHTML = '<div class="svc-vacio">Elegí una máquina de la lista para gestionar su diagnóstico, repuestos y fechas.</div>'; return; }
+  const { c, e } = x; const pD = puede('servicio','diagnosticar'), pF = puede('servicio','editar_fechas'), pR = puede('servicio','repuestos'), pA = puede('servicio','avisar_repuestos'), pOk = puede('servicio','dar_ok');
+  const reps = SVC.reps.get(c.id) || []; const dias = svcDias(e.id); const foto = fotoUrlDeModelo(e.modelo);
+  const suc = sucursales.find(s => s.id === e.sucursal_id)?.nombre || '';
+  const fecha = (campo, etiqueta, ayuda) => `<div style="margin-top:8px;"><label class="muted" style="font-size:11.5px;font-weight:700;">${etiqueta}</label><input type="date" class="svc-in" data-svc-fecha="${campo}" value="${escapeHtml(c[campo] || '')}"${pF ? '' : ' disabled'}>${ayuda ? `<div class="muted" style="font-size:10.5px;margin-top:2px;">${ayuda}</div>` : ''}</div>`;
+  let h = `<div style="display:flex;gap:12px;align-items:center;"><div class="svc-foto" style="width:84px;height:62px;">${foto ? `<img src="${escapeHtml(foto)}" alt="">` : '🚜'}</div>
+    <div style="min-width:0;"><div style="font-weight:800;font-size:15px;">${escapeHtml(e.modelo || '')}</div><div class="svc-ser">${escapeHtml(e.numero_serie || '')}</div>
+    <div style="margin-top:4px;"><span class="svc-badge ${c.tipo}">${c.tipo.toUpperCase()}</span> <span class="svc-suc">${escapeHtml(suc)}${dias === null ? '' : ' · ' + dias + ' d.'}</span></div></div></div>`;
+  h += `<div class="svc-q"><div class="svc-ql">1 · ¿Necesita repuestos?</div>${svcYN('necesita_repuestos', c.necesita_repuestos, pD)}</div>`;
+  if(c.necesita_repuestos === true){
+    h += `<div class="svc-sub"><div class="svc-q"><div class="svc-ql">2 · ¿Ya están pedidos?</div>${svcYN('repuestos_pedidos', c.repuestos_pedidos, pD)}`;
+    if(c.repuestos_pedidos === true) h += fecha('fecha_pedido', 'Fecha en que se pidieron');
+    h += '</div>';
+    if(c.repuestos_pedidos === true){
+      h += `<div class="svc-q"><div class="svc-ql">3 · ¿Ya fueron recibidos?</div>${svcYN('repuestos_recibidos', c.repuestos_recibidos, pD)}`;
+      if(c.repuestos_recibidos === false) h += fecha('fecha_llegada', 'Llegan el (estimado)');
+      h += '</div>';
+    }
+    h += `<div class="svc-q"><div class="svc-ql">Repuestos necesarios</div>`;
+    h += reps.length ? reps.map(r => `<div class="svc-rep"><b>${escapeHtml(r.codigo)}</b><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(r.descripcion || '')}</span><span style="margin-left:auto;font-weight:800;">×${r.cantidad}</span>${pR ? `<button type="button" class="x" data-svc-quitar="${r.id}" title="Quitar">×</button>` : ''}</div>`).join('') : '<div class="muted" style="font-size:12px;">Todavía no se cargó ningún repuesto.</div>';
+    if(pR) h += `<input type="search" class="svc-in" id="svc-busq" placeholder="Buscar en el catálogo Haulotte (código o descripción)…" style="margin-top:6px;" value="${escapeHtml(SVC.busqQ)}" autocomplete="off"><div class="svc-res" id="svc-res" style="display:${SVC.busq.length ? 'block' : 'none'};">${SVC.busq.map(r => `<div data-svc-add="${r.id}"><b>${escapeHtml(r.codigo)}</b> — ${escapeHtml(r.descripcion || '')}</div>`).join('')}</div>`;
+    if(pA){
+      h += `<button type="button" class="btn secondary" id="svc-avisar" style="width:100%;margin-top:8px;"${reps.length ? '' : ' disabled'}>📧 ${c.repuestos_avisado_at ? 'Reenviar aviso a Repuestos' : 'Avisar a Repuestos'}</button>`;
+      if(c.repuestos_avisado_at) h += `<div class="muted" style="font-size:10.5px;margin-top:3px;">Último aviso: ${svcFH(c.repuestos_avisado_at)}. Si cambiás la lista, volvé a avisar.</div>`;
+    }
+    h += '</div></div>';
+  } else if(c.necesita_repuestos === false){
+    h += '<div class="muted" style="font-size:12px;margin-top:6px;">Se repara con lo que hay en stock. Indicá cuándo queda disponible.</div>';
+  }
+  h += `<div class="svc-q" style="margin-top:16px;"><div class="svc-ql">${c.necesita_repuestos === false ? '2' : '4'} · ¿Cuándo queda disponible?</div>${fecha('fecha_estimada', 'Fecha estimada', 'Si cambiás una fecha ya cargada, se avisa enseguida por mail.')}</div>`;
+  h += `<div class="svc-q"><div class="svc-ql">Notas</div><textarea class="svc-in" id="svc-notas" rows="3" placeholder="Detalle de la reparación, a quién se espera, etc."${pD ? '' : ' disabled'}>${escapeHtml(c.notas || '')}</textarea></div>`;
+  h += `<button type="button" class="svc-ok${SVC.confirmando ? ' conf' : ''}" id="svc-dar-ok"${pOk ? '' : ' disabled'}>${SVC.confirmando ? '¿Confirmás? Tocá de nuevo: pasa a Disponible' : '✅ Dar OK — pasar a Disponible'}</button>`;
+  if(!pOk) h += '<div class="muted" style="font-size:10.5px;text-align:center;margin-top:3px;">Tu usuario no tiene permiso para dar el OK.</div>';
+  h += `<details style="margin-top:14px;"><summary style="cursor:pointer;font-size:12px;font-weight:700;">Historial de la máquina</summary>${SVC.eventos.length ? SVC.eventos.map(ev => `<div class="svc-hist"><b>${escapeHtml(ev.usuario_nombre || '')}</b> · ${svcFH(ev.created_at)}<br>${svcEventoTxt(ev)}</div>`).join('') : '<div class="muted" style="font-size:12px;">Sin movimientos todavía.</div>'}</details>`;
+  el.innerHTML = h;
+}
+async function svcGuardar(patch){
+  const caso = SVC.sel; if(!caso) return;
+  const { data, error } = await supabaseClient.rpc('servicio_guardar', { p_caso:caso, p:patch });
+  if(error){ showToast(error.message || 'No se pudo guardar', true); await svcCargar(true); return; }
+  if(data && data.id){ servicioCasos.set(data.equipo_id, data); SVC.casos = SVC.casos.map(c => c.id === data.id ? data : c); }
+  svcRender(); svcCargarEventos(caso);
+}
+async function svcBuscarRepuestos(q){
+  SVC.busqQ = q;
+  const t = q.trim().replace(/[%,()*\\]/g, ' ').trim();
+  if(t.length < 2){ SVC.busq = []; const r = document.getElementById('svc-res'); if(r) r.style.display = 'none'; return; }
+  const { data } = await supabaseClient.from('haulotte_repuestos').select('id, codigo, descripcion').eq('activo', true).or(`codigo.ilike.%${t}%,descripcion.ilike.%${t}%`).order('codigo').limit(8);
+  if(SVC.busqQ !== q) return;
+  SVC.busq = data || [];
+  const r = document.getElementById('svc-res'); if(!r) return;
+  r.innerHTML = SVC.busq.map(x => `<div data-svc-add="${x.id}"><b>${escapeHtml(x.codigo)}</b> — ${escapeHtml(x.descripcion || '')}</div>`).join('') || '<div class="muted">Sin resultados</div>';
+  r.style.display = 'block';
+}
+async function svcRecargarReps(casoId){
+  const { data } = await supabaseClient.from('servicio_repuestos').select('*').eq('caso_id', casoId).order('id');
+  SVC.reps.set(casoId, data || []);
+}
+function svcInit(){
+  const sec = document.getElementById('tab-servicio'); if(!sec || sec.dataset.init) return; sec.dataset.init = '1';
+  sec.addEventListener('click', async ev => {
+    const t = ev.target;
+    const tipo = t.closest('[data-svc-tipo]'); if(tipo){ SVC.tipo = tipo.dataset.svcTipo; svcRender(); return; }
+    const fila = t.closest('[data-svc-caso]'); if(fila){ SVC.sel = Number(fila.dataset.svcCaso); SVC.eventos = []; SVC.busq = []; SVC.busqQ = ''; SVC.confirmando = false; svcRender(); svcCargarEventos(SVC.sel); if(window.innerWidth < 1150) document.getElementById('svc-panel').scrollIntoView({ behavior:'smooth', block:'start' }); return; }
+    const yn = t.closest('[data-svc-yn]');
+    if(yn && !yn.disabled){ await svcGuardar({ [yn.dataset.svcYn]: yn.dataset.v === 'true' }); return; }
+    const add = t.closest('[data-svc-add]');
+    if(add){ const { error } = await supabaseClient.rpc('servicio_repuesto_agregar', { p_caso:SVC.sel, p_repuesto:Number(add.dataset.svcAdd), p_cantidad:1 });
+      if(error){ showToast(error.message, true); return; } SVC.busq = []; SVC.busqQ = ''; await svcRecargarReps(SVC.sel); svcRender(); svcCargarEventos(SVC.sel); return; }
+    const q = t.closest('[data-svc-quitar]');
+    if(q){ const { error } = await supabaseClient.rpc('servicio_repuesto_quitar', { p_id:Number(q.dataset.svcQuitar) });
+      if(error){ showToast(error.message, true); return; } await svcRecargarReps(SVC.sel); svcRender(); svcCargarEventos(SVC.sel); return; }
+    if(t.closest('#svc-avisar')){
+      const { error } = await supabaseClient.rpc('servicio_avisar_repuestos', { p_caso:SVC.sel });
+      if(error){ showToast(error.message, true); return; }
+      showToast('Aviso enviado al sector Repuestos'); await svcCargar(true); return; }
+    if(t.closest('#svc-dar-ok')){
+      if(!SVC.confirmando){ SVC.confirmando = true; svcRenderPanel(); setTimeout(() => { if(SVC.confirmando){ SVC.confirmando = false; svcRenderPanel(); } }, 5000); return; }
+      SVC.confirmando = false;
+      const { error } = await supabaseClient.rpc('servicio_dar_ok', { p_caso:SVC.sel });
+      if(error){ showToast(error.message, true); svcRenderPanel(); return; }
+      showToast('Máquina liberada: pasó a Disponible'); SVC.sel = null; await loadEquipos(); await svcCargar(true); }
+  });
+  sec.addEventListener('change', async ev => {
+    const t = ev.target;
+    if(t.id === 'svc-f-suc'){ SVC.suc = t.value; svcRender(); }
+    else if(t.id === 'svc-f-etapa'){ SVC.etapa = t.value; svcRender(); }
+    else if(t.id === 'svc-f-orden'){ SVC.orden = t.value; svcRender(); }
+    else if(t.dataset && t.dataset.svcFecha){ await svcGuardar({ [t.dataset.svcFecha]: t.value || null }); }
+    else if(t.id === 'svc-notas'){ await svcGuardar({ notas: t.value }); }
+  });
+  sec.addEventListener('input', ev => {
+    const t = ev.target;
+    if(t.id === 'svc-f-q'){ SVC.q = t.value; const pos = t.selectionStart; svcRender(); const n = document.getElementById('svc-f-q'); if(n){ n.focus(); try{ n.setSelectionRange(pos, pos); }catch(_){} } }
+    else if(t.id === 'svc-busq'){ clearTimeout(SVC.busqTimer); const v = t.value; SVC.busqTimer = setTimeout(() => svcBuscarRepuestos(v), 250); }
+  });
+}
+document.addEventListener('DOMContentLoaded', svcInit);
+svcInit();
 
 // =====================================================================
 // PORTAL DE PROVEEDORES (administración)
