@@ -23668,6 +23668,7 @@ var SVC = { casos:[], reps:new Map(), desde:new Map(), eventos:[], sel:null, tip
 const SVC_ETAPAS = {
   sin_diag:  { t:'Sin diagnóstico',     c:'var(--danger)' },
   sin_pedir: { t:'Repuestos sin pedir', c:'var(--warn)' },
+  parcial:   { t:'Entrega parcial: falta el resto', c:'var(--warn)' },
   esperando: { t:'Esperando repuestos', c:'var(--warn)' },
   reparacion:{ t:'En reparación',       c:'var(--accent)' },
 };
@@ -23676,9 +23677,10 @@ function svcEtapa(c){
   if(c.necesita_repuestos === false) return 'reparacion';
   if(c.repuestos_pedidos !== true) return 'sin_pedir';
   if(c.repuestos_recibidos !== true) return 'esperando';
+  if(c.entrega_parcial === true) return 'parcial';
   return 'reparacion';
 }
-const SVC_PASO = { sin_diag:1, sin_pedir:2, esperando:3, reparacion:4 };
+const SVC_PASO = { sin_diag:1, sin_pedir:2, esperando:3, parcial:3, reparacion:4 };
 const SVC_LBL = ['Ingreso','Diagnóstico','Pedido','Recibidos','Reparación'];
 function svcFechaCorta(iso){ if(!iso) return ''; const [y,m,d] = String(iso).slice(0,10).split('-'); return `${d}/${m}`; }
 // Texto corto con el estado de la fecha estimada (para Pizarra, TV y Monitor)
@@ -23759,7 +23761,7 @@ function svcRender(){
   const K = [
     ['En PDI', n(x => x.c.tipo === 'pdi'), 'var(--accent)'], ['En VOR', n(x => x.c.tipo === 'vor'), 'var(--warn)'],
     ['Sin diagnóstico', n(x => svcEtapa(x.c) === 'sin_diag'), 'var(--danger)'],
-    ['Esperando repuestos', n(x => ['sin_pedir','esperando'].includes(svcEtapa(x.c))), 'var(--warn)'],
+    ['Esperando repuestos', n(x => ['sin_pedir','esperando','parcial'].includes(svcEtapa(x.c))), 'var(--warn)'],
     ['Fecha vencida', n(x => svcEta(x.c).venc), 'var(--danger)'], ['Sin fecha estimada', n(x => !x.c.fecha_estimada), 'var(--text-dim)'],
     ['En reparación', n(x => svcEtapa(x.c) === 'reparacion'), 'var(--ok)'],
   ];
@@ -23804,7 +23806,7 @@ function svcYN(campo, valor, habilitado){
   return `<div class="svc-yn"><button type="button" class="si${valor === true ? ' on' : ''}" data-svc-yn="${campo}" data-v="true"${dis}>Sí</button><button type="button" class="no${valor === false ? ' on' : ''}" data-svc-yn="${campo}" data-v="false"${dis}>No</button></div>`;
 }
 function svcFH(iso){ return iso ? new Date(iso).toLocaleString('es-AR', { timeZone:'America/Argentina/Buenos_Aires', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false }) : ''; }
-const SVC_CAMPO_TXT = { necesita_repuestos:'¿Necesita repuestos?', repuestos_pedidos:'Repuestos pedidos', repuestos_recibidos:'Repuestos recibidos', fecha_pedido:'Fecha del pedido', fecha_llegada:'Llegada de repuestos', fecha_estimada:'Disponible estimada', notas:'Notas' };
+const SVC_CAMPO_TXT = { necesita_repuestos:'¿Necesita repuestos?', repuestos_pedidos:'Repuestos pedidos', repuestos_recibidos:'Repuestos recibidos', entrega_parcial:'Entrega parcial', fecha_pedido:'Fecha del pedido', fecha_llegada:'Llegada de repuestos / resto', fecha_estimada:'Disponible estimada', notas:'Notas' };
 function svcEventoTxt(ev){
   const d = ev.detalle || {};
   const val = v => v === true ? 'Sí' : v === false ? 'No' : (v === null || v === undefined || v === '') ? '—' : (/^\d{4}-\d\d-\d\d/.test(String(v)) ? fmtDate(v) : String(v));
@@ -23835,6 +23837,11 @@ function svcRenderPanel(){
       h += `<div class="svc-q"><div class="svc-ql">3 · ¿Ya fueron recibidos?</div>${svcYN('repuestos_recibidos', c.repuestos_recibidos, pD)}`;
       if(c.repuestos_recibidos === false) h += fecha('fecha_llegada', 'Llegan el (estimado)');
       h += '</div>';
+      if(c.repuestos_recibidos === true){
+        h += `<div class="svc-q"><div class="svc-ql">¿La entrega fue parcial?</div>${svcYN('entrega_parcial', c.entrega_parcial, pD)}`;
+        if(c.entrega_parcial === true) h += fecha('fecha_llegada', 'Llega el resto el (estimado)');
+        h += '</div>';
+      }
     }
     h += `<div class="svc-q"><div class="svc-ql">Repuestos necesarios</div>`;
     h += reps.length ? reps.map(r => `<div class="svc-rep"><b>${escapeHtml(r.codigo)}</b><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(r.descripcion || '')}</span><span style="margin-left:auto;font-weight:800;">×${r.cantidad}</span>${pR ? `<button type="button" class="x" data-svc-quitar="${r.id}" title="Quitar">×</button>` : ''}</div>`).join('') : '<div class="muted" style="font-size:12px;">Todavía no se cargó ningún repuesto.</div>';
