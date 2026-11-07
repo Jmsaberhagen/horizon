@@ -23288,6 +23288,40 @@ function generarCotizacionVentaPDF(cot){
     doc.setFont('helvetica', 'normal'); doc.text(notasLs, marginX, y); y += notasLs.length * 4.6;
   }
 
+  // ---------- Anexo: ficha técnica de cada modelo cotizado (igual que los presupuestos de alquiler) ----------
+  const modelosFicha = [...new Set((cot.items || []).filter(it => Number(it.cantidad) > 0).map(it => it.modelo).filter(Boolean))];
+  modelosFicha.forEach(modelo => {
+    const ficha = buscarFichaTecnica(modelo);
+    const specs = ficha && Array.isArray(ficha.especificaciones) ? ficha.especificaciones : [];
+    if(!specs.length) return;
+    const foto = ((cot.items || []).find(it => it.modelo === modelo && it.foto) || {}).foto || null;
+    doc.addPage();
+    let fy = encabezado();
+    doc.setFillColor(...NEGRO); doc.rect(marginX, fy - 6, pageWidth - marginX * 2, 10, 'F');
+    doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+    doc.text(`FICHA TÉCNICA — ${ficha.modelo}`, marginX + 4, fy + 1);
+    doc.setTextColor(0);
+    fy += 10;
+    if(ficha.categoria){ doc.setFont('helvetica', 'italic'); doc.setFontSize(9.5); doc.setTextColor(90); doc.text(ficha.categoria, marginX + 4, fy); doc.setTextColor(0); }
+    fy += 8;
+    if(foto){
+      const bw = 80, bh = 55, esc = Math.min(bw / foto.w, bh / foto.h), w = foto.w * esc, h = foto.h * esc;
+      try{ doc.addImage(foto.data, 'JPEG', (pageWidth - w) / 2, fy, w, h); } catch(e){ console.error(e); }
+      fy += h + 8;
+    }
+    const filaH = 8.5;
+    specs.forEach((s, idx) => {
+      if(fy + filaH > LIM){ doc.addPage(); fy = encabezado(); }
+      if(idx % 2 === 0){ doc.setFillColor(244, 245, 247); doc.rect(marginX, fy - 5.5, pageWidth - marginX * 2, filaH, 'F'); }
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(100); doc.text(String(s.label || ''), marginX + 4, fy);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); doc.setTextColor(...NEGRO); doc.text(String(s.valor ?? ''), marginX + 92, fy);
+      doc.setTextColor(0);
+      fy += filaH;
+    });
+    fy += 6;
+    if(fy + 6 < LIM){ doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(130); doc.text('Los valores son de catálogo del fabricante y pueden variar levemente según la unidad y su configuración.', marginX, fy); doc.setTextColor(0); }
+  });
+
   // ---------- Pie: mismo banner y dirección que los presupuestos de alquiler ----------
   const total = doc.internal.getNumberOfPages();
   for(let p = 1; p <= total; p++){
