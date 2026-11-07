@@ -9699,6 +9699,13 @@ const SECCIONES_PERMISOS = [
   { key:'usuarios',      label:'Usuarios',      acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar']] },
 ];
 
+// Pestaña -> clave de permiso (cuando el nombre de la pestaña no coincide con el de la sección)
+const TAB_PERMISO = { accesosweb:'accesos_web', haulotte_articulos:'haulotte_repuestos', datosbancarios:'datos_bancarios', gastosobra:'gastos_obra', portalprov:'portal_proveedores' };
+function puedeVerTab(tab){
+  if(tab === 'repuestos') return puede('repuestos','ver') || puede('servicio','ver');
+  if(tab === 'autorizaciones') return puede('contratos','autorizar');
+  return puede(TAB_PERMISO[tab] || tab, 'ver');
+}
 function aplicarPermisosUI(){
   aplicarMenusVisibles();
   if(!miPerfil) return;
@@ -9714,7 +9721,7 @@ function aplicarPermisosUI(){
   document.querySelectorAll('nav button[data-tab]').forEach(btn=>{
     const tab = btn.dataset.tab;
     if(tab === 'inicio' || tab === 'usuarios') return;
-    btn.style.display = (tab === 'repuestos' ? (puede('repuestos','ver') || puede('servicio','ver')) : puede(tab === 'accesosweb' ? 'accesos_web' : (tab === 'haulotte_articulos' ? 'haulotte_repuestos' : tab), 'ver')) ? '' : 'none';
+    btn.style.display = puedeVerTab(tab) ? '' : 'none';
   });
 
   document.getElementById('nav-usuarios').style.display = puede('usuarios','ver') ? 'inline-block' : 'none';
@@ -9723,7 +9730,7 @@ function aplicarPermisosUI(){
   const activeTab = document.querySelector('nav button.active');
   if(activeTab){
     const tab = activeTab.dataset.tab;
-    const permitido = tab === 'inicio' || (tab === 'usuarios' && puede('usuarios','ver')) || (tab === 'repuestos' && (puede('repuestos','ver') || puede('servicio','ver'))) || puede(tab === 'accesosweb' ? 'accesos_web' : tab,'ver');
+    const permitido = tab === 'inicio' || (tab === 'usuarios' && puede('usuarios','ver')) || puedeVerTab(tab);
     if(!permitido) activarTab('inicio');
   }
 }
