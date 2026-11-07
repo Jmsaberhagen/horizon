@@ -10442,6 +10442,7 @@ const PM_CATEGORIAS = [
   { k:'usuarios', t:'Usuarios', i:'👤', e:'horizon', mods:[ {sk:'usuarios', t:'Usuarios', i:'👤'}, {sk:'accesos_web', t:'Usuarios y Claves Web', i:'🔐'} ]},
   { k:'haulotte_rep', t:'Reportes Haulotte', i:'🟠', e:'haulotte', mods:[ {sk:'stockvalorizado', t:'Stock Valorizado', i:'📦'} ]},
   { k:'haulotte_art', t:'Artículos Haulotte', i:'🔧', e:'haulotte', mods:[ {sk:'haulotte_repuestos', t:'Artículos', i:'🔧'} ]},
+  { k:'haulotte_ped', t:'Pedidos de Horizon', i:'📦', e:'haulotte', mods:[ {sk:'repuestos', t:'Pedidos de Repuestos', i:'📦'} ]},
   { k:'haulotte_vta', t:'Ventas Haulotte', i:'💼', e:'haulotte', mods:[ {sk:'haulotte_ventas', t:'Cotizador de Máquinas', i:'💼'}, {sk:'haulotte_presupuestos', t:'Presupuestos de Repuestos', i:'🔩'} ]},
 ];
 const PM_DESC = {
@@ -10861,6 +10862,9 @@ function renderDashboard(){
     ]},
     { key:'haulotte_articulos_cat', titulo:'Artículos Haulotte', icon:'🔧', tiles:[
       { tab:'haulotte_articulos', icon:'🔧', title:'Artículos', count:`${hrepTotal.toLocaleString('es-AR')} repuesto(s)`, visible:puede('haulotte_repuestos','ver'), urgencia:null },
+    ]},
+    { key:'haulotte_pedidos_cat', titulo:'Pedidos de Horizon', icon:'📦', tiles:[
+      { tab:'repuestos', icon:'📦', title:'Pedidos de Repuestos', count: puede('repuestos','ver') ? 'Solicitudes de Horizon, remitos y tránsito' : '', visible:puede('repuestos','ver'), urgencia:null },
     ]},
     { key:'haulotte_ventas_cat', titulo:'Ventas Haulotte', icon:'💼', tiles:[
       { tab:'clientes', icon:'🏢', title:'Clientes', count:`${clientesCache.length} cargados`, visible:puede('clientes','ver'), urgencia:null },
