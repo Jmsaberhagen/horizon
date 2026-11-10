@@ -508,6 +508,9 @@
   .svcw-lb{display:block;font-size:11.5px;font-weight:700;color:var(--text-dim);margin-bottom:5px;}
   .svcw-note{margin-top:14px;padding:10px 13px;border-radius:10px;border:1px solid var(--border);background:var(--panel-2);font-size:12.5px;} .svcw-note.warn{border-color:color-mix(in srgb,var(--warn) 55%,transparent);background:color-mix(in srgb,var(--warn) 10%,transparent);} .svcw-note.info{border-color:color-mix(in srgb,var(--accent) 45%,transparent);background:color-mix(in srgb,var(--accent) 8%,transparent);}
   .cs-chip{display:inline-block;border:1px solid var(--c);color:var(--c);border-radius:999px;padding:1px 10px;font-size:11.5px;font-weight:800;white-space:nowrap;}
+  .cs-multi{position:relative;} .cs-multi summary{cursor:pointer;list-style:none;display:block;} .cs-multi summary::-webkit-details-marker{display:none;} .cs-multi summary:after{content:'▾';float:right;color:var(--text-dim);}
+  .cs-multi-l{position:absolute;z-index:30;left:0;right:0;top:100%;margin-top:3px;max-height:220px;overflow-y:auto;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:4px;box-shadow:0 8px 24px rgba(0,0,0,.35);}
+  .cs-multi-l label{display:flex;gap:8px;align-items:center;padding:6px 8px;border-radius:6px;font-size:13px;cursor:pointer;} .cs-multi-l label:hover{background:var(--panel-2);}
   .cs-box{margin-top:14px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--panel-2);}
   .cs-f2{display:grid;grid-template-columns:1fr 1fr;gap:10px;} .cs-f3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
   @media(max-width:640px){.cs-f2,.cs-f3{grid-template-columns:1fr;}}
@@ -3330,16 +3333,12 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
   <section id="tab-casos" style="display:none;">
     <div class="dash-hero" style="margin-bottom:14px;">
       <h1 style="font-size:16px;">Casos</h1>
-      <div class="sub">Seguimiento de cobranzas, reclamos, documentación de altas de contratos, certificaciones de máquinas y cualquier trámite. Cada caso tiene responsable y una línea de tiempo de novedades; solo quien tiene permiso puede cerrarlo.</div>
+      <div class="sub">Seguimiento de cobranzas, reclamos, documentación de altas de contratos, certificaciones de máquinas y cualquier trámite. Cada caso tiene uno o varios responsables y una línea de tiempo de novedades; solo quien tiene permiso puede cerrarlo.</div>
     </div>
     <div class="svc-kpis" id="cs-kpis"></div>
     <div class="svc-bar" id="cs-bar"></div>
     <div id="cs-lista"></div>
     <div class="panel-solo-maestro" id="cs-mail-panels">
-      <div class="panel" style="padding:14px 16px;margin-top:16px;">
-        <div id="email-dest-casos_novedades-header" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;"><div style="font-weight:700;font-size:13.5px;">🔔 Aviso de cada novedad en un caso — destinatarios</div><div class="muted" id="email-dest-casos_novedades-hint" style="font-size:12px;">▸ desplegar</div></div>
-        <div id="email-dest-casos_novedades-body" style="display:none;margin-top:10px;"></div>
-      </div>
       <div class="panel" style="padding:14px 16px;margin-top:16px;">
         <div id="email-dest-casos_diario-header" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;"><div style="font-weight:700;font-size:13.5px;">📊 Resumen diario de casos (lunes a viernes) — destinatarios</div><div class="muted" id="email-dest-casos_diario-hint" style="font-size:12px;">▸ desplegar</div></div>
         <div id="email-dest-casos_diario-body" style="display:none;margin-top:10px;"></div>
@@ -15006,10 +15005,8 @@ const EMAIL_DEST_CONFIG = {
     descripcion: 'Cada vez que alguien modifica una fecha ya cargada en el Monitor de Servicio (pedido, llegada de repuestos o disponible estimada) se envía enseguida un mail con quién fue y el antes / ahora.' },
   servicio_diario: { headerId: 'email-dest-servicio_diario-header', bodyId: 'email-dest-servicio_diario-body', hintId: 'email-dest-servicio_diario-hint',
     descripcion: 'Jefe del área de Servicio: todos los días a las 08:00 se envía un informe de PDI y VOR de las tres sucursales (días, etapa, repuestos, fechas, vencidas, listas para OK y novedades de las últimas 24 h), con PDF y Excel adjuntos.' },
-  casos_novedades: { headerId: 'email-dest-casos_novedades-header', bodyId: 'email-dest-casos_novedades-body', hintId: 'email-dest-casos_novedades-hint',
-    descripcion: 'Cada vez que alguien agrega una novedad a un caso (o lo abre, lo cierra o lo reabre) se envía enseguida un mail con el detalle. Además de estas direcciones, lo reciben siempre quien abrió el caso y su responsable.' },
   casos_diario: { headerId: 'email-dest-casos_diario-header', bodyId: 'email-dest-casos_diario-body', hintId: 'email-dest-casos_diario-hint',
-    descripcion: 'De lunes a viernes a las 08:00 se envía el resumen de casos: abiertos, sin novedad hace 7 días o más, promesas de pago de hoy o vencidas, lo que se movió en las últimas 24 h y los cerrados, con Excel adjunto.' },
+    descripcion: 'Resumen diario de lunes a viernes a las 08:00 (las novedades de cada caso se avisan solas a los maestros y a los responsables elegidos, no hace falta cargar direcciones). Contiene los casos abiertos, abiertos, sin novedad hace 7 días o más, promesas de pago de hoy o vencidas, lo que se movió en las últimas 24 h y los cerrados, con Excel adjunto.' },
   baja_contrato: { headerId: 'email-dest-baja_contrato-header', bodyId: 'email-dest-baja_contrato-body', hintId: 'email-dest-baja_contrato-hint',
     descripcion: 'Aviso para finanzas: se envía enseguida un mail cuando se da de baja un contrato (equipo, cliente, sucursal, fecha de baja) e indica si la máquina ya ingresó a base o sigue en tránsito (con transporte y llegada estimada si se cargaron).' },
 };
@@ -24512,12 +24509,18 @@ function csAbierto(r){ return r.estado !== 'cerrado'; }
 function csSinNovedad(r){ return csAbierto(r) && csDiasDesde(r.ultima_novedad_at) >= CS_DIAS_SIN_NOVEDAD; }
 function csPromesaVencida(r){ return r.estado === 'promesa_pago' && r.fecha_promesa && r.fecha_promesa < hoyIso(); }
 function csChip(est){ const t = CS_EST[est] || [est, 'var(--text-dim)']; return `<span class="cs-chip" style="--c:${t[1]}">${escapeHtml(t[0])}</span>`; }
+function csRespIds(r){ return Array.isArray(r.responsables_ids) ? r.responsables_ids : (r.responsable_id ? [r.responsable_id] : []); }
+function csMultiTxt(ids){ const n = CS.usuarios.filter(u => ids.includes(u.id)).map(csNomUsuario); return n.length ? n.join(', ') : 'Sin asignar'; }
+function csMultiHtml(id, ids){
+  return `<details class="cs-multi" id="${id}"><summary class="svc-in"><span class="cs-multi-t">${escapeHtml(csMultiTxt(ids))}</span></summary><div class="cs-multi-l">${CS.usuarios.map(u => `<label><input type="checkbox" value="${escapeHtml(u.id)}"${ids.includes(u.id) ? ' checked' : ''}> ${escapeHtml(csNomUsuario(u))}</label>`).join('') || '<div class="muted" style="padding:6px;">No hay usuarios con acceso a Casos.</div>'}</div></details>`;
+}
+function csMultiVal(id){ return Array.from(document.querySelectorAll(`#${id} input:checked`)).map(i => i.value); }
 function csPrioHtml(p){ const t = CS_PRIO[p] || [p, 'var(--text-dim)']; return `<span style="color:${t[1]};font-weight:800;">● ${escapeHtml(t[0])}</span>`; }
 
 async function csCargarUsuarios(){
   try{
     const { data } = await supabaseClient.from('perfiles').select('id, nombre, nombre_mostrar, email, rol, permisos, activo').eq('activo', true);
-    CS.usuarios = (data || []).filter(u => u.rol === 'maestro' || (u.permisos && u.permisos.casos && u.permisos.casos.crear)).sort((a, b) => csNomUsuario(a).localeCompare(csNomUsuario(b)));
+    CS.usuarios = (data || []).filter(u => u.rol === 'maestro' || (u.permisos && u.permisos.casos && u.permisos.casos.ver)).sort((a, b) => csNomUsuario(a).localeCompare(csNomUsuario(b)));
   }catch(e){ console.warn('Casos: no se pudieron leer los usuarios', e); }
   if(miPerfil && !CS.usuarios.some(u => u.id === miPerfil.id)) CS.usuarios.unshift({ id:miPerfil.id, nombre:miPerfil.nombre, nombre_mostrar:miPerfil.nombre_mostrar, email:miPerfil.email });
 }
@@ -24544,19 +24547,19 @@ async function csAlAbrir(){
     csCargar(true);
     if(CS.sel && document.getElementById('cs-det')?.classList.contains('open')) csCargarEntradas(CS.sel, true);
   }, 60000);
-  if(esMaestro()){ ['casos_novedades', 'casos_diario'].forEach(t => { const b = document.getElementById(EMAIL_DEST_CONFIG[t].bodyId); if(b && b.style.display !== 'none') renderDestinatariosReporte(t); }); }
+  if(esMaestro()){ const b = document.getElementById(EMAIL_DEST_CONFIG.casos_diario.bodyId); if(b && b.style.display !== 'none') renderDestinatariosReporte('casos_diario'); }
 }
 function csFiltrados(){
   const q = CS.q.trim().toLowerCase();
   return CS.rows.filter(r => {
     if(CS.filtro === 'abiertos' && !csAbierto(r)) return false;
     if(CS.filtro === 'sinnov' && !csSinNovedad(r)) return false;
-    if(CS.filtro === 'mios' && !(csAbierto(r) && r.responsable_id === miPerfil?.id)) return false;
+    if(CS.filtro === 'mios' && !(csAbierto(r) && csRespIds(r).includes(miPerfil?.id))) return false;
     if(CS.filtro === 'cerrados' && csAbierto(r)) return false;
     if(CS.emp && r.empresa !== CS.emp) return false;
     if(CS.cat && r.categoria !== CS.cat) return false;
     if(CS.prio && r.prioridad !== CS.prio) return false;
-    if(CS.resp && (CS.resp === '_ninguno' ? r.responsable_id : r.responsable_id !== CS.resp)) return false;
+    if(CS.resp && (CS.resp === '_ninguno' ? csRespIds(r).length : !csRespIds(r).includes(CS.resp))) return false;
     if(!q) return true;
     return `${r.numero} ${r.cliente} ${r.asunto} ${r.responsable_nombre || ''} ${r.creado_nombre || ''}`.toLowerCase().includes(q);
   });
@@ -24566,7 +24569,7 @@ function csRender(){
   const lista = document.getElementById('cs-lista');
   if(!csPuedeVer()){ kEl.innerHTML = ''; document.getElementById('cs-bar').innerHTML = ''; lista.innerHTML = '<div class="svc-vacio">No tenés permiso para ver los casos.</div>'; return; }
   const ab = CS.rows.filter(csAbierto); const mes = hoyIso().slice(0, 7);
-  const K = [['Casos abiertos', ab.length, 'var(--accent)'], ['Mis casos abiertos', ab.filter(r => r.responsable_id === miPerfil?.id).length, '#a99cff'], ['Prioridad alta', ab.filter(r => r.prioridad === 'alta').length, 'var(--danger)'],
+  const K = [['Casos abiertos', ab.length, 'var(--accent)'], ['Mis casos abiertos', ab.filter(r => csRespIds(r).includes(miPerfil?.id)).length, '#a99cff'], ['Prioridad alta', ab.filter(r => r.prioridad === 'alta').length, 'var(--danger)'],
     [`Sin novedad ≥ ${CS_DIAS_SIN_NOVEDAD} días`, ab.filter(csSinNovedad).length, 'var(--danger)'], ['Promesas vencidas', ab.filter(csPromesaVencida).length, 'var(--warn)'],
     ['Cerrados este mes', CS.rows.filter(r => r.estado === 'cerrado' && csFechaAR(r.cerrado_at).slice(0, 7) === mes).length, 'var(--ok)']];
   kEl.innerHTML = K.map(k => `<div class="svc-kpi" style="--c:${k[2]}"><div class="v">${k[1]}</div><div class="t">${k[0]}</div></div>`).join('');
@@ -24580,7 +24583,7 @@ function csRender(){
     `<input id="cs-f-q" type="search" placeholder="Buscar N°, cliente o asunto…" value="${escapeHtml(CS.q)}" style="min-width:210px;">` +
     (csPuedeCrear() ? `<button type="button" class="btn" data-cs-nuevo style="margin-left:auto;">＋ Nuevo caso</button>` : '');
   const rows = csFiltrados();
-  lista.innerHTML = rows.length ? `<div class="sr-tw"><table class="sr-t"><thead><tr><th>N°</th><th>Cliente</th><th>Asunto</th><th>Tipo</th><th>Empresa</th><th>Responsable</th><th>Prioridad</th><th>Estado</th><th>Última novedad</th></tr></thead><tbody>` + rows.map(r => {
+  lista.innerHTML = rows.length ? `<div class="sr-tw"><table class="sr-t"><thead><tr><th>N°</th><th>Cliente</th><th>Asunto</th><th>Tipo</th><th>Empresa</th><th>Responsables</th><th>Prioridad</th><th>Estado</th><th>Última novedad</th></tr></thead><tbody>` + rows.map(r => {
     const d = csDiasDesde(r.ultima_novedad_at); const sn = csSinNovedad(r); const cat = CS_CAT[r.categoria] || [r.categoria, '📌'];
     return `<tr data-cs-id="${r.id}"><td class="n">${escapeHtml(r.numero)}</td><td><b>${escapeHtml(r.cliente)}</b></td><td style="max-width:300px;">${escapeHtml(r.asunto)}</td><td>${cat[1]} ${escapeHtml(cat[0])}</td>
       <td>${r.empresa === 'haulotte' ? 'Haulotte' : 'Horizon'}</td><td>${escapeHtml(r.responsable_nombre || '—')}</td><td>${csPrioHtml(r.prioridad)}</td>
@@ -24634,7 +24637,7 @@ function csPintarDetalle(){
     <button type="button" class="svcw-x" data-cs-close title="Cerrar">✕</button></div><div class="svcw-body" style="min-height:0;">`;
   h += `<div style="font-weight:800;font-size:15px;">${E(r.asunto)}</div>`;
   if(r.descripcion) h += `<div style="white-space:pre-wrap;margin-top:6px;font-size:13px;color:var(--text-dim);">${E(r.descripcion)}</div>`;
-  h += `<div class="svcw-kv" style="margin-top:12px;"><div><span>Abierto por</span><b>${E(r.creado_nombre || '—')}</b><small class="muted">${csFH(r.created_at)}</small></div><div><span>Responsable</span><b>${E(r.responsable_nombre || 'Sin asignar')}</b></div>
+  h += `<div class="svcw-kv" style="margin-top:12px;"><div><span>Abierto por</span><b>${E(r.creado_nombre || '—')}</b><small class="muted">${csFH(r.created_at)}</small></div><div><span>Responsables</span><b>${E(r.responsable_nombre || 'Sin asignar')}</b></div>
     <div><span>${abierto ? 'Última novedad' : 'Cerrado'}</span><b style="${sinNov ? 'color:var(--danger);' : ''}">${abierto ? (csDiasDesde(r.ultima_novedad_at) === 0 ? 'Hoy' : `Hace ${csDiasDesde(r.ultima_novedad_at)} días`) : E(r.cerrado_nombre || '')}</b>${abierto ? '' : `<small class="muted">${csFH(r.cerrado_at)}</small>`}</div>
     ${r.monto != null ? `<div><span>Monto</span><b>$ ${Number(r.monto).toLocaleString('es-AR', { minimumFractionDigits:2 })}</b></div>` : ''}${r.fecha_promesa && abierto ? `<div><span>Promesa de pago</span><b style="${csPromesaVencida(r) ? 'color:var(--danger);' : ''}">${fmtDate(r.fecha_promesa)}${csPromesaVencida(r) ? ' · vencida' : ''}</b></div>` : ''}</div>`;
   if(!abierto) h += `<div class="svcw-note info"><b>Motivo del cierre:</b> ${E(r.cerrado_motivo || '')}</div>`;
@@ -24643,7 +24646,7 @@ function csPintarDetalle(){
     h += `<div class="cs-box"><div class="svc-ql">Gestión del caso</div><div class="cs-f3">
       <div><label class="svcw-lb">Estado</label><select class="svc-in" id="cs-g-est">${['abierto','en_gestion','promesa_pago'].map(k => opt(k, CS_EST[k][0], r.estado)).join('')}</select></div>
       <div><label class="svcw-lb">Prioridad</label><select class="svc-in" id="cs-g-prio">${Object.entries(CS_PRIO).map(([k, v]) => opt(k, v[0], r.prioridad)).join('')}</select></div>
-      <div><label class="svcw-lb">Responsable</label><select class="svc-in" id="cs-g-resp"><option value="">Sin asignar</option>${CS.usuarios.map(u => opt(u.id, csNomUsuario(u), r.responsable_id)).join('')}</select></div></div>
+      <div><label class="svcw-lb">Responsables (uno o varios)</label>${csMultiHtml('cs-g-resp', csRespIds(r))}</div></div>
       <button type="button" class="btn secondary small" data-cs-act="guardar" style="margin-top:8px;">Guardar cambios</button></div>`;
     h += `<div class="cs-box"><div class="svc-ql">➕ Agregar novedad</div><div class="cs-f2">
       <div><label class="svcw-lb">Tipo de novedad</label><select class="svc-in" id="cs-e-tipo">${['nota','llamado','mail','promesa','documentacion'].map(k => opt(k, CS_TIPO[k][0] + ' ' + CS_TIPO[k][1], keep.tipo)).join('')}</select></div>
@@ -24680,8 +24683,8 @@ async function csAccion(act){
   const r = CS.rows.find(x => x.id === id); if(!r) return;
   try{
     if(act === 'guardar'){
-      const upd = {}; const est = v('cs-g-est'), pr = v('cs-g-prio'), rs = v('cs-g-resp') || null;
-      if(est !== r.estado) upd.estado = est; if(pr !== r.prioridad) upd.prioridad = pr; if(rs !== (r.responsable_id || null)) upd.responsable_id = rs;
+      const upd = {}; const est = v('cs-g-est'), pr = v('cs-g-prio'), rs = csMultiVal('cs-g-resp'), rs0 = csRespIds(r);
+      if(est !== r.estado) upd.estado = est; if(pr !== r.prioridad) upd.prioridad = pr; if(rs.slice().sort().join() !== rs0.slice().sort().join()) upd.responsables_ids = rs;
       if(!Object.keys(upd).length){ showToast('No hay cambios para guardar'); return; }
       const { error } = await supabaseClient.from('casos').update(upd).eq('id', id); if(error) throw error;
       showToast('Caso actualizado');
@@ -24723,7 +24726,7 @@ function csNuevoAbrir(){
       <div style="margin-top:10px;"><label class="svcw-lb">Cliente *</label><input class="svc-in" id="cs-n-cli" list="cs-n-cli-dl" placeholder="Razón social (elegí de la lista o escribila)" autocomplete="off"><datalist id="cs-n-cli-dl">${[...new Set(cl)].slice(0, 3000).map(x => `<option value="${E(x)}">`).join('')}</datalist></div>
       <div style="margin-top:10px;"><label class="svcw-lb">Asunto *</label><input class="svc-in" id="cs-n-asu" placeholder="Ej. Factura 0003-00001288 vencida hace 45 días" maxlength="160"></div>
       <div style="margin-top:10px;"><label class="svcw-lb">Detalle</label><textarea class="svc-in" id="cs-n-desc" rows="4" placeholder="Contexto, facturas involucradas, qué se necesita…"></textarea></div>
-      <div class="cs-f2" style="margin-top:10px;"><div><label class="svcw-lb">Responsable</label><select class="svc-in" id="cs-n-resp"><option value="">Sin asignar</option>${CS.usuarios.map(u => `<option value="${E(u.id)}"${u.id === miPerfil?.id ? ' selected' : ''}>${E(csNomUsuario(u))}</option>`).join('')}</select></div>
+      <div class="cs-f2" style="margin-top:10px;"><div><label class="svcw-lb">Responsables (uno o varios)</label>${csMultiHtml('cs-n-resp', CS.usuarios.some(u => u.id === miPerfil?.id) ? [miPerfil.id] : [])}</div>
         <div><label class="svcw-lb">Monto involucrado (opcional)</label><input class="svc-in" id="cs-n-monto" type="number" step="0.01" min="0" placeholder="0,00"></div></div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;"><label class="btn secondary small" style="cursor:pointer;">📎 Adjuntar archivos<input type="file" id="cs-n-file" multiple style="display:none;"></label><span id="cs-n-files"></span></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;"><button type="button" class="btn secondary" data-cs-nclose>Cancelar</button><button type="button" class="btn" data-cs-ncrear id="cs-n-crear">Abrir caso</button></div>
@@ -24741,7 +24744,7 @@ async function csNuevoCrear(){
   try{
     const monto = v('cs-n-monto');
     const { data, error } = await supabaseClient.from('casos').insert({ empresa:v('cs-n-emp'), categoria:v('cs-n-cat'), prioridad:v('cs-n-prio'), cliente:cli, asunto:asu, descripcion:v('cs-n-desc') || null,
-      responsable_id:v('cs-n-resp') || null, monto:monto !== '' ? Number(monto) : null }).select().single();
+      responsables_ids:csMultiVal('cs-n-resp'), monto:monto !== '' ? Number(monto) : null }).select().single();
     if(error) throw error;
     if(CS.archivosNuevo.length){
       try{
@@ -24784,6 +24787,7 @@ function csInit(){
   });
   det.addEventListener('change', ev => {
     const t = ev.target;
+    if(t.closest('.cs-multi')){ const d = t.closest('.cs-multi'); d.querySelector('.cs-multi-t').textContent = csMultiTxt(csMultiVal(d.id)); return; }
     if(t.id === 'cs-e-tipo'){ document.getElementById('cs-e-fp-wrap').style.display = t.value === 'promesa' ? '' : 'none'; }
     if(t.id === 'cs-e-file'){ CS.archivos.push(...Array.from(t.files)); t.value = ''; document.getElementById('cs-e-files').innerHTML = csArchivosHtml(CS.archivos, 'data-cs-quitar'); }
   });
@@ -24796,14 +24800,16 @@ function csInit(){
   });
   nw.addEventListener('change', ev => {
     const t = ev.target;
+    if(t.closest('.cs-multi')){ const d = t.closest('.cs-multi'); d.querySelector('.cs-multi-t').textContent = csMultiTxt(csMultiVal(d.id)); return; }
     if(t.id === 'cs-n-file'){ CS.archivosNuevo.push(...Array.from(t.files)); t.value = ''; document.getElementById('cs-n-files').innerHTML = csArchivosHtml(CS.archivosNuevo, 'data-cs-nquitar'); }
   });
+  document.addEventListener('click', ev => { document.querySelectorAll('.cs-multi[open]').forEach(d => { if(!d.contains(ev.target)) d.removeAttribute('open'); }); });
   document.addEventListener('keydown', ev => {
     if(ev.key !== 'Escape') return;
     if(nw.classList.contains('open')) nw.classList.remove('open');
     else if(det.classList.contains('open')) csCerrarDetalle();
   });
-  initPanelDestinatarios('casos_novedades'); initPanelDestinatarios('casos_diario');
+  initPanelDestinatarios('casos_diario');
 }
 
 // =====================================================================
