@@ -507,6 +507,18 @@
   .svcw-card:hover:not(:disabled){border-color:var(--accent);} .svcw-card.on{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 10%,var(--panel-2));} .svcw-card.on.no{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--panel-2));} .svcw-card:disabled{opacity:.5;cursor:not-allowed;}
   .svcw-lb{display:block;font-size:11.5px;font-weight:700;color:var(--text-dim);margin-bottom:5px;}
   .svcw-note{margin-top:14px;padding:10px 13px;border-radius:10px;border:1px solid var(--border);background:var(--panel-2);font-size:12.5px;} .svcw-note.warn{border-color:color-mix(in srgb,var(--warn) 55%,transparent);background:color-mix(in srgb,var(--warn) 10%,transparent);} .svcw-note.info{border-color:color-mix(in srgb,var(--accent) 45%,transparent);background:color-mix(in srgb,var(--accent) 8%,transparent);}
+  .cs-chip{display:inline-block;border:1px solid var(--c);color:var(--c);border-radius:999px;padding:1px 10px;font-size:11.5px;font-weight:800;white-space:nowrap;}
+  .cs-box{margin-top:14px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--panel-2);}
+  .cs-f2{display:grid;grid-template-columns:1fr 1fr;gap:10px;} .cs-f3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+  @media(max-width:640px){.cs-f2,.cs-f3{grid-template-columns:1fr;}}
+  .cs-tl{border-left:2px solid var(--border);margin-left:8px;padding-left:16px;}
+  .cs-ent{position:relative;margin-bottom:12px;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--panel);}
+  .cs-ent:before{content:'';position:absolute;left:-24px;top:14px;width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--bg);}
+  .cs-ent.sis{background:transparent;border-style:dashed;font-size:12.5px;} .cs-ent.sis:before{background:var(--text-dim);}
+  .cs-ent.t-cierre:before{background:var(--ok);} .cs-ent.t-reapertura:before{background:var(--danger);} .cs-ent.t-promesa:before{background:#a99cff;}
+  .cs-ent-hd{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:13px;} .cs-ent-tx{white-space:pre-wrap;margin-top:5px;font-size:13.5px;}
+  .cs-adjs{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px;} .cs-adj,.cs-file{background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:3px 9px;font-size:12px;cursor:pointer;font-family:inherit;}
+  .cs-file{cursor:default;display:inline-flex;gap:4px;align-items:center;margin:2px;} .cs-file button{border:0;background:none;color:var(--text-dim);cursor:pointer;} .cs-adj:hover{border-color:var(--accent);}
   .svcw-vacio{text-align:center;color:var(--text-dim);padding:22px 10px;border:1px dashed var(--border);border-radius:10px;font-size:13px;}
   .svcw-rep{padding:8px 10px;font-size:12.5px;} .svcw-qty{margin-left:auto;display:flex;align-items:center;gap:6px;} .svcw-qty button{width:24px;height:24px;border-radius:6px;border:1px solid var(--border);background:var(--panel);color:var(--text);font-weight:800;cursor:pointer;}
   .svcw-kv{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px;} .svcw-kv>div{background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:9px 12px;} .svcw-kv span{display:block;font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--text-dim);font-weight:700;} .svcw-kv b{display:block;margin-top:3px;font-size:14px;}
@@ -1372,6 +1384,7 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
   <button data-tab="remitos">Remitos</button>
   <button data-tab="servicio">Monitor de Servicio</button>
   <button data-tab="repuestos">Pedidos de Repuestos</button>
+  <button data-tab="casos">Casos</button>
   <button data-tab="presupuestos">Presupuestos</button>
   <button data-tab="solicitudoc">Solicitud de OC</button>
   <button data-tab="editorobs">Editor de Observaciones</button>
@@ -3314,6 +3327,26 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
     <div id="sr-lista"></div>
   </section>
 
+  <section id="tab-casos" style="display:none;">
+    <div class="dash-hero" style="margin-bottom:14px;">
+      <h1 style="font-size:16px;">Casos</h1>
+      <div class="sub">Seguimiento de cobranzas, reclamos, documentación de altas de contratos, certificaciones de máquinas y cualquier trámite. Cada caso tiene responsable y una línea de tiempo de novedades; solo quien tiene permiso puede cerrarlo.</div>
+    </div>
+    <div class="svc-kpis" id="cs-kpis"></div>
+    <div class="svc-bar" id="cs-bar"></div>
+    <div id="cs-lista"></div>
+    <div class="panel-solo-maestro" id="cs-mail-panels">
+      <div class="panel" style="padding:14px 16px;margin-top:16px;">
+        <div id="email-dest-casos_novedades-header" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;"><div style="font-weight:700;font-size:13.5px;">🔔 Aviso de cada novedad en un caso — destinatarios</div><div class="muted" id="email-dest-casos_novedades-hint" style="font-size:12px;">▸ desplegar</div></div>
+        <div id="email-dest-casos_novedades-body" style="display:none;margin-top:10px;"></div>
+      </div>
+      <div class="panel" style="padding:14px 16px;margin-top:16px;">
+        <div id="email-dest-casos_diario-header" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;"><div style="font-weight:700;font-size:13.5px;">📊 Resumen diario de casos (lunes a viernes) — destinatarios</div><div class="muted" id="email-dest-casos_diario-hint" style="font-size:12px;">▸ desplegar</div></div>
+        <div id="email-dest-casos_diario-body" style="display:none;margin-top:10px;"></div>
+      </div>
+    </div>
+  </section>
+
   <section id="tab-portalprov" style="display:none;">
     <div class="dash-hero" style="margin-bottom:14px;">
       <h1 style="font-size:16px;">Portal de Proveedores</h1>
@@ -4091,6 +4124,9 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
 <div class="overlay" id="svc-wiz"><div class="modal svcw" id="svcw-box"></div></div>
 <!-- DETALLE DE UN PEDIDO DE REPUESTOS -->
 <div class="overlay" id="sr-det"><div class="modal svcw" id="sr-det-box"></div></div>
+<!-- CASOS: detalle y nuevo caso -->
+<div class="overlay" id="cs-det"><div class="modal svcw" id="cs-det-box"></div></div>
+<div class="overlay" id="cs-new"><div class="modal svcw" id="cs-new-box"></div></div>
 
 <!-- MODAL PERMISOS GRANULARES (solo maestro) — navegación por cards -->
 <div class="overlay" id="modal-permisos-overlay">
@@ -5345,6 +5381,7 @@ const TAB_TITLES = {
   portalprov: 'Portal de Proveedores',
   servicio: 'Monitor de Servicio (PDI / VOR)',
   repuestos: 'Pedidos de Repuestos',
+  casos: 'Casos',
   chequescustodia: 'Cheques en Custodia vs GP',
   autorizaciones: 'Contratos pendientes de autorización',
 };
@@ -5377,6 +5414,7 @@ function activarTab(tab){
       (catTxt ? `<a onclick="crumbIr(1)">${escapeHtml(catTxt)}</a><i>/</i>` : '') +
       `<b>${escapeHtml(TAB_TITLES[tab] || '')}</b>`;
   }
+  if(tab === 'casos' && typeof csAlAbrir === 'function') csAlAbrir();
   if(typeof syncAlAbrirTab === 'function') syncAlAbrirTab(tab);
 }
 
@@ -9667,6 +9705,7 @@ const SECCIONES_PERMISOS = [
   { key:'pizarra',       label:'Pizarra de Flota', acciones:[['ver','Ver'],['mover_disponible','Arrastrar a Disponible'],['mover_pdi','Arrastrar a PDI'],['mover_vor','Arrastrar a VOR'],['editar_fecha','Corregir fecha de inicio (📅)'],['reservar','Reservar / liberar máquinas (🔖)']] },
   { key:'servicio',      label:'Monitor de Servicio (PDI / VOR)', acciones:[['ver','Ver el monitor (solo las máquinas de su sucursal asignada)'],['ver_todas','Ver y operar las 3 sucursales (jefe de Servicio)'],['diagnosticar','Cargar diagnóstico (¿necesita repuestos? / notas)'],['editar_fechas','Cargar y modificar fechas (cada cambio de fecha se avisa por mail)'],['repuestos','Elegir repuestos del catálogo'],['recepcion','Confirmar la recepción de los repuestos (pedido en tránsito → recibido)'],['avisar_repuestos','Reenviar el aviso al sector Repuestos (mail)'],['dar_ok','Dar OK: la máquina pasa a Disponible']] },
   { key:'repuestos',     label:'Pedidos de Repuestos (sector Repuestos)', acciones:[['ver','Ver la cartera de pedidos de todas las sucursales'],['gestionar','Marcar pedido a fábrica y despachar informando el N° de remito'],['cancelar','Cancelar pedidos']] },
+  { key:'casos',         label:'Casos (seguimiento de cobranzas y trámites)', acciones:[['ver','Ver todos los casos'],['crear','Abrir casos, agregar novedades y adjuntar archivos'],['cerrar','Cerrar y reabrir casos']] },
   { key:'trazabilidad',  label:'Trazabilidad',    acciones:[['ver','Ver / usar']] },
   { key:'pendientes',    label:'Pendientes de Facturación', acciones:[['ver','Ver'],['facturar','Facturar'],['eliminar','Eliminar']] },
   { key:'reportes',      label:'Reportes',      acciones:[['ver','Ver']] },
@@ -10434,6 +10473,7 @@ const PM_CATEGORIAS = [
     {sk:'pendientes', t:'Pendientes de Facturación', i:'💰'}, {sk:'presupuestos', t:'Presupuestos', i:'🧾'},
     {sk:'solicitudoc', t:'Solicitud de OC', i:'📝'}, {sk:'panoramacobranzas', t:'Panorama de Cobranzas', i:'📊'},
     {sk:'cuentacliente', t:'Cuenta Cliente', i:'🧾'} ]},
+  { k:'casos', t:'Casos', i:'📂', e:'horizon', mods:[ {sk:'casos', t:'Casos', i:'📂'} ]},
   { k:'logistica', t:'Logística', i:'🚜', e:'horizon', mods:[
     {sk:'equipos', t:'Equipos', i:'🚜'}, {sk:'pizarra', t:'Pizarra de Flota', i:'🗂️'}, {sk:'servicio', t:'Monitor de Servicio', i:'🛠️'}, {sk:'repuestos', t:'Pedidos de Repuestos', i:'📦'}, {sk:'trazabilidad', t:'Trazabilidad', i:'🔍'},
     {sk:'planning', t:'Planning', i:'📅'}, {sk:'retiros', t:'Pendientes de Retiro', i:'🚨'}, {sk:'remitos', t:'Remitos', i:'📋'} ]},
@@ -10449,6 +10489,7 @@ const PM_CATEGORIAS = [
   { k:'usuarios', t:'Usuarios', i:'👤', e:'horizon', mods:[ {sk:'usuarios', t:'Usuarios', i:'👤'}, {sk:'accesos_web', t:'Usuarios y Claves Web', i:'🔐'} ]},
   { k:'haulotte_rep', t:'Reportes Haulotte', i:'🟠', e:'haulotte', mods:[ {sk:'stockvalorizado', t:'Stock Valorizado', i:'📦'} ]},
   { k:'haulotte_art', t:'Artículos Haulotte', i:'🔧', e:'haulotte', mods:[ {sk:'haulotte_repuestos', t:'Artículos', i:'🔧'} ]},
+  { k:'haulotte_casos', t:'Casos', i:'📂', e:'haulotte', mods:[ {sk:'casos', t:'Casos', i:'📂'} ]},
   { k:'haulotte_ped', t:'Pedidos de Horizon', i:'📦', e:'haulotte', mods:[ {sk:'repuestos', t:'Pedidos de Repuestos', i:'📦'} ]},
   { k:'haulotte_vta', t:'Ventas Haulotte', i:'💼', e:'haulotte', mods:[ {sk:'haulotte_ventas', t:'Cotizador de Máquinas', i:'💼'}, {sk:'haulotte_presupuestos', t:'Presupuestos de Repuestos', i:'🔩'} ]},
 ];
@@ -10461,6 +10502,7 @@ const PM_DESC = {
   'accesos_web.ver_claves':'Mostrar y copiar las contraseñas (cada uso queda registrado). Sin esto ve los portales pero no las claves',
   'contratos.cambiar_serie':'Reemplaza la máquina de un contrato activo por otra serie sin dar de baja el contrato ni tocar la facturación',
   'pizarra.editar_fecha':'Cambiar la fecha de inicio de una máquina ya movida',
+  'casos.ver':'Entrar a Casos y ver todos los casos, sus novedades y adjuntos', 'casos.crear':'Abrir casos, agregar novedades, cambiar estado / prioridad / responsable y adjuntar archivos', 'casos.cerrar':'Cerrar y reabrir casos (con motivo obligatorio). Los maestros siempre pueden',
 };
 // Resuelve cada módulo del menú contra SECCIONES_PERMISOS
 PM_CATEGORIAS.forEach(c => c.mods.forEach(m => {
@@ -10823,6 +10865,9 @@ function renderDashboard(){
       { tab:'panoramacobranzas', icon:'📊', title:'Panorama de Cobranzas', count: '', visible:puede('panoramacobranzas','ver'), urgencia:null },
       { tab:'cuentacliente', icon:'🧾', title:'Cuenta Cliente', count:'Historial por cliente', visible:puede('cuentacliente','ver'), urgencia:null },
     ]},
+    { key:'casos', titulo:'Casos', icon:'📂', tiles:[
+      { tab:'casos', icon:'📂', title:'Casos', count: puede('casos','ver') ? 'Cobranzas, reclamos y trámites' : '', visible:puede('casos','ver'), urgencia:null },
+    ]},
     { key:'logistica', titulo:'Logística', icon:'🚜', tiles:[
       { tab:'equipos',    icon:'🚜', title:'Equipos',    count:`${equiposCache.length} en catálogo`, visible:puede('equipos','ver'), urgencia:null },
       { tab:'pizarra',    icon:'🗂️', title:'Pizarra de Flota', count:'Disponible / Alquilada / VOR / PDI / Demo', visible:puede('pizarra','ver'), urgencia:null },
@@ -10869,6 +10914,9 @@ function renderDashboard(){
     ]},
     { key:'haulotte_articulos_cat', titulo:'Artículos Haulotte', icon:'🔧', tiles:[
       { tab:'haulotte_articulos', icon:'🔧', title:'Artículos', count:`${hrepTotal.toLocaleString('es-AR')} repuesto(s)`, visible:puede('haulotte_repuestos','ver'), urgencia:null },
+    ]},
+    { key:'haulotte_casos_cat', titulo:'Casos', icon:'📂', tiles:[
+      { tab:'casos', icon:'📂', title:'Casos', count: puede('casos','ver') ? 'Cobranzas, reclamos y trámites' : '', visible:puede('casos','ver'), urgencia:null },
     ]},
     { key:'haulotte_pedidos_cat', titulo:'Pedidos de Horizon', icon:'📦', tiles:[
       { tab:'repuestos', icon:'📦', title:'Pedidos de Repuestos', count: puede('repuestos','ver') ? 'Solicitudes de Horizon, remitos y tránsito' : '', visible:puede('repuestos','ver'), urgencia:null },
@@ -14958,6 +15006,10 @@ const EMAIL_DEST_CONFIG = {
     descripcion: 'Cada vez que alguien modifica una fecha ya cargada en el Monitor de Servicio (pedido, llegada de repuestos o disponible estimada) se envía enseguida un mail con quién fue y el antes / ahora.' },
   servicio_diario: { headerId: 'email-dest-servicio_diario-header', bodyId: 'email-dest-servicio_diario-body', hintId: 'email-dest-servicio_diario-hint',
     descripcion: 'Jefe del área de Servicio: todos los días a las 08:00 se envía un informe de PDI y VOR de las tres sucursales (días, etapa, repuestos, fechas, vencidas, listas para OK y novedades de las últimas 24 h), con PDF y Excel adjuntos.' },
+  casos_novedades: { headerId: 'email-dest-casos_novedades-header', bodyId: 'email-dest-casos_novedades-body', hintId: 'email-dest-casos_novedades-hint',
+    descripcion: 'Cada vez que alguien agrega una novedad a un caso (o lo abre, lo cierra o lo reabre) se envía enseguida un mail con el detalle. Además de estas direcciones, lo reciben siempre quien abrió el caso y su responsable.' },
+  casos_diario: { headerId: 'email-dest-casos_diario-header', bodyId: 'email-dest-casos_diario-body', hintId: 'email-dest-casos_diario-hint',
+    descripcion: 'De lunes a viernes a las 08:00 se envía el resumen de casos: abiertos, sin novedad hace 7 días o más, promesas de pago de hoy o vencidas, lo que se movió en las últimas 24 h y los cerrados, con Excel adjunto.' },
   baja_contrato: { headerId: 'email-dest-baja_contrato-header', bodyId: 'email-dest-baja_contrato-body', hintId: 'email-dest-baja_contrato-hint',
     descripcion: 'Aviso para finanzas: se envía enseguida un mail cuando se da de baja un contrato (equipo, cliente, sucursal, fecha de baja) e indica si la máquina ya ingresó a base o sigue en tránsito (con transporte y llegada estimada si se cargaron).' },
 };
@@ -24436,6 +24488,323 @@ function srInit(){
 }
 document.addEventListener('DOMContentLoaded', () => { svcInit(); srInit(); });
 svcInit(); srInit();
+
+// =====================================================================
+// CASOS — seguimiento de cobranzas, reclamos, documentación de altas, certificaciones, etc.
+// Un caso se abre por cualquier motivo, tiene responsable y una línea de tiempo de novedades (notas, llamados,
+// mails, promesas de pago, adjuntos). Solo quien tenga el permiso "cerrar" puede cerrarlo o reabrirlo.
+// Los mails (novedad inmediata + resumen diario L-V) los envía la función casos-reportes.
+// =====================================================================
+const CS_CAT = { cobranza:['Cobranza','💰'], alta_contrato:['Documentación de alta de contrato','📄'], certificacion:['Certificación de máquina','✅'], reclamo:['Reclamo','📣'], otro:['Otro','📌'] };
+const CS_EST = { abierto:['Abierto','var(--accent)'], en_gestion:['En gestión','var(--warn)'], promesa_pago:['Promesa de pago','#a99cff'], cerrado:['Cerrado','var(--ok)'] };
+const CS_PRIO = { alta:['Alta','var(--danger)'], media:['Media','var(--warn)'], baja:['Baja','var(--text-dim)'] };
+const CS_TIPO = { nota:['📝','Nota'], llamado:['📞','Llamado'], mail:['✉️','Mail'], promesa:['🤝','Promesa de pago'], documentacion:['📎','Documentación'], apertura:['🆕','Apertura del caso'], cambio:['🔄','Cambio'], cierre:['🔒','Caso cerrado'], reapertura:['🔓','Caso reabierto'] };
+const CS_DIAS_SIN_NOVEDAD = 7;
+var CS = { rows:[], entradas:[], sel:null, filtro:'abiertos', emp:'', cat:'', resp:'', prio:'', q:'', cargado:false, cargando:false, usuarios:[], archivos:[], archivosNuevo:[], ocupado:false, timer:null };
+function csPuedeVer(){ return puede('casos','ver'); }
+function csPuedeCrear(){ return puede('casos','crear'); }
+function csPuedeCerrar(){ return puede('casos','cerrar'); }
+function csNomUsuario(u){ return u.nombre_mostrar || u.nombre || u.email || '—'; }
+function csFechaAR(iso){ return iso ? new Date(iso).toLocaleDateString('en-CA', { timeZone:'America/Argentina/Buenos_Aires' }) : ''; }
+function csDiasDesde(iso){ if(!iso) return 0; return Math.round((Date.parse(hoyIso() + 'T00:00:00Z') - Date.parse(csFechaAR(iso) + 'T00:00:00Z')) / 86400000); }
+function csFH(iso){ return iso ? new Date(iso).toLocaleString('es-AR', { timeZone:'America/Argentina/Buenos_Aires', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false }) : ''; }
+function csAbierto(r){ return r.estado !== 'cerrado'; }
+function csSinNovedad(r){ return csAbierto(r) && csDiasDesde(r.ultima_novedad_at) >= CS_DIAS_SIN_NOVEDAD; }
+function csPromesaVencida(r){ return r.estado === 'promesa_pago' && r.fecha_promesa && r.fecha_promesa < hoyIso(); }
+function csChip(est){ const t = CS_EST[est] || [est, 'var(--text-dim)']; return `<span class="cs-chip" style="--c:${t[1]}">${escapeHtml(t[0])}</span>`; }
+function csPrioHtml(p){ const t = CS_PRIO[p] || [p, 'var(--text-dim)']; return `<span style="color:${t[1]};font-weight:800;">● ${escapeHtml(t[0])}</span>`; }
+
+async function csCargarUsuarios(){
+  try{
+    const { data } = await supabaseClient.from('perfiles').select('id, nombre, nombre_mostrar, email, rol, permisos, activo').eq('activo', true);
+    CS.usuarios = (data || []).filter(u => u.rol === 'maestro' || (u.permisos && u.permisos.casos && u.permisos.casos.crear)).sort((a, b) => csNomUsuario(a).localeCompare(csNomUsuario(b)));
+  }catch(e){ console.warn('Casos: no se pudieron leer los usuarios', e); }
+  if(miPerfil && !CS.usuarios.some(u => u.id === miPerfil.id)) CS.usuarios.unshift({ id:miPerfil.id, nombre:miPerfil.nombre, nombre_mostrar:miPerfil.nombre_mostrar, email:miPerfil.email });
+}
+async function csCargar(silencioso){
+  if(!csPuedeVer()){ csRender(); return; }
+  if(CS.cargando) return; CS.cargando = true;
+  try{
+    const { data, error } = await supabaseClient.from('casos').select('*').order('id', { ascending:false }).limit(5000);
+    if(error) throw error;
+    CS.rows = data || []; CS.cargado = true;
+  }catch(e){ console.warn('Casos: no se pudieron leer', e); if(!silencioso) showToast('No se pudieron cargar los casos', true); }
+  finally{ CS.cargando = false; }
+  csRender();
+  if(CS.sel && document.getElementById('cs-det')?.classList.contains('open')){ if(CS.rows.some(r => r.id === CS.sel)) csPintarDetalle(); else csCerrarDetalle(); }
+}
+async function csAlAbrir(){
+  csInit();
+  if(!CS.usuarios.length) await csCargarUsuarios();
+  await csCargar(true);
+  clearInterval(CS.timer);
+  CS.timer = setInterval(() => {
+    if(document.getElementById('tab-casos')?.style.display !== 'block'){ clearInterval(CS.timer); CS.timer = null; return; }
+    if(document.hidden || document.querySelector('#cs-new.open, #cs-det.open textarea:focus')) return;
+    csCargar(true);
+    if(CS.sel && document.getElementById('cs-det')?.classList.contains('open')) csCargarEntradas(CS.sel, true);
+  }, 60000);
+  if(esMaestro()){ ['casos_novedades', 'casos_diario'].forEach(t => { const b = document.getElementById(EMAIL_DEST_CONFIG[t].bodyId); if(b && b.style.display !== 'none') renderDestinatariosReporte(t); }); }
+}
+function csFiltrados(){
+  const q = CS.q.trim().toLowerCase();
+  return CS.rows.filter(r => {
+    if(CS.filtro === 'abiertos' && !csAbierto(r)) return false;
+    if(CS.filtro === 'sinnov' && !csSinNovedad(r)) return false;
+    if(CS.filtro === 'mios' && !(csAbierto(r) && r.responsable_id === miPerfil?.id)) return false;
+    if(CS.filtro === 'cerrados' && csAbierto(r)) return false;
+    if(CS.emp && r.empresa !== CS.emp) return false;
+    if(CS.cat && r.categoria !== CS.cat) return false;
+    if(CS.prio && r.prioridad !== CS.prio) return false;
+    if(CS.resp && (CS.resp === '_ninguno' ? r.responsable_id : r.responsable_id !== CS.resp)) return false;
+    if(!q) return true;
+    return `${r.numero} ${r.cliente} ${r.asunto} ${r.responsable_nombre || ''} ${r.creado_nombre || ''}`.toLowerCase().includes(q);
+  });
+}
+function csRender(){
+  const kEl = document.getElementById('cs-kpis'); if(!kEl) return;
+  const lista = document.getElementById('cs-lista');
+  if(!csPuedeVer()){ kEl.innerHTML = ''; document.getElementById('cs-bar').innerHTML = ''; lista.innerHTML = '<div class="svc-vacio">No tenés permiso para ver los casos.</div>'; return; }
+  const ab = CS.rows.filter(csAbierto); const mes = hoyIso().slice(0, 7);
+  const K = [['Casos abiertos', ab.length, 'var(--accent)'], ['Mis casos abiertos', ab.filter(r => r.responsable_id === miPerfil?.id).length, '#a99cff'], ['Prioridad alta', ab.filter(r => r.prioridad === 'alta').length, 'var(--danger)'],
+    [`Sin novedad ≥ ${CS_DIAS_SIN_NOVEDAD} días`, ab.filter(csSinNovedad).length, 'var(--danger)'], ['Promesas vencidas', ab.filter(csPromesaVencida).length, 'var(--warn)'],
+    ['Cerrados este mes', CS.rows.filter(r => r.estado === 'cerrado' && csFechaAR(r.cerrado_at).slice(0, 7) === mes).length, 'var(--ok)']];
+  kEl.innerHTML = K.map(k => `<div class="svc-kpi" style="--c:${k[2]}"><div class="v">${k[1]}</div><div class="t">${k[0]}</div></div>`).join('');
+  const opt = (v, t, sel) => `<option value="${escapeHtml(v)}"${sel === v ? ' selected' : ''}>${escapeHtml(t)}</option>`;
+  document.getElementById('cs-bar').innerHTML =
+    [['abiertos','Abiertos'],['mios','Mis casos'],['sinnov','Sin novedad'],['cerrados','Cerrados'],['todos','Todos']].map(([k, t]) => `<button type="button" class="svc-chip${CS.filtro === k ? ' on' : ''}" data-cs-filtro="${k}">${t}</button>`).join('') +
+    `<select id="cs-f-emp">${opt('', 'Horizon y Haulotte', CS.emp)}${opt('horizon', 'Horizon', CS.emp)}${opt('haulotte', 'Haulotte', CS.emp)}</select>` +
+    `<select id="cs-f-cat">${opt('', 'Todos los tipos', CS.cat)}${Object.entries(CS_CAT).map(([k, v]) => opt(k, v[0], CS.cat)).join('')}</select>` +
+    `<select id="cs-f-prio">${opt('', 'Toda prioridad', CS.prio)}${Object.entries(CS_PRIO).map(([k, v]) => opt(k, v[0], CS.prio)).join('')}</select>` +
+    `<select id="cs-f-resp">${opt('', 'Todos los responsables', CS.resp)}${opt('_ninguno', 'Sin asignar', CS.resp)}${CS.usuarios.map(u => opt(u.id, csNomUsuario(u), CS.resp)).join('')}</select>` +
+    `<input id="cs-f-q" type="search" placeholder="Buscar N°, cliente o asunto…" value="${escapeHtml(CS.q)}" style="min-width:210px;">` +
+    (csPuedeCrear() ? `<button type="button" class="btn" data-cs-nuevo style="margin-left:auto;">＋ Nuevo caso</button>` : '');
+  const rows = csFiltrados();
+  lista.innerHTML = rows.length ? `<div class="sr-tw"><table class="sr-t"><thead><tr><th>N°</th><th>Cliente</th><th>Asunto</th><th>Tipo</th><th>Empresa</th><th>Responsable</th><th>Prioridad</th><th>Estado</th><th>Última novedad</th></tr></thead><tbody>` + rows.map(r => {
+    const d = csDiasDesde(r.ultima_novedad_at); const sn = csSinNovedad(r); const cat = CS_CAT[r.categoria] || [r.categoria, '📌'];
+    return `<tr data-cs-id="${r.id}"><td class="n">${escapeHtml(r.numero)}</td><td><b>${escapeHtml(r.cliente)}</b></td><td style="max-width:300px;">${escapeHtml(r.asunto)}</td><td>${cat[1]} ${escapeHtml(cat[0])}</td>
+      <td>${r.empresa === 'haulotte' ? 'Haulotte' : 'Horizon'}</td><td>${escapeHtml(r.responsable_nombre || '—')}</td><td>${csPrioHtml(r.prioridad)}</td>
+      <td>${csChip(r.estado)}${csPromesaVencida(r) ? `<div style="color:var(--danger);font-size:11px;font-weight:700;margin-top:2px;">Promesa vencida ${fmtDate(r.fecha_promesa)}</div>` : (r.estado === 'promesa_pago' && r.fecha_promesa ? `<div class="muted" style="font-size:11px;margin-top:2px;">Promete ${fmtDate(r.fecha_promesa)}</div>` : '')}</td>
+      <td style="white-space:nowrap;${sn ? 'color:var(--danger);font-weight:800;' : ''}">${csAbierto(r) ? (d === 0 ? 'Hoy' : `Hace ${d} d.`) : fmtDate(csFechaAR(r.cerrado_at))}</td></tr>`;
+  }).join('') + '</tbody></table></div>' : `<div class="svc-vacio">${CS.cargado ? 'No hay casos con estos filtros.' : 'Cargando…'}</div>`;
+}
+
+// ---------- detalle ----------
+async function csAbrir(id){
+  CS.sel = id; CS.entradas = []; CS.archivos = [];
+  csPintarDetalle(); document.getElementById('cs-det').classList.add('open');
+  csCargarEntradas(id);
+}
+function csCerrarDetalle(){ CS.sel = null; document.getElementById('cs-det').classList.remove('open'); }
+async function csCargarEntradas(id, silencioso){
+  const { data, error } = await supabaseClient.from('casos_entradas').select('*').eq('caso_id', id).order('id', { ascending:false }).limit(500);
+  if(error){ if(!silencioso) showToast('No se pudo leer la línea de tiempo: ' + error.message, true); return; }
+  if(CS.sel === id){
+    const cambio = (data || []).length !== CS.entradas.length || (data || [])[0]?.id !== CS.entradas[0]?.id;
+    CS.entradas = data || [];
+    if(cambio) csPintarTimeline();
+  }
+}
+function csTimelineHtml(){
+  const E = escapeHtml;
+  if(!CS.entradas.length) return '<div class="muted" style="font-size:12px;">Cargando…</div>';
+  return CS.entradas.map(en => {
+    const t = CS_TIPO[en.tipo] || ['•', en.tipo]; const adj = en.adjuntos || [];
+    const sis = en.tipo === 'cambio';
+    return `<div class="cs-ent${sis ? ' sis' : ''} t-${en.tipo}"><div class="cs-ent-hd"><span class="cs-ico">${t[0]}</span><b>${E(t[1])}</b>${sis ? '' : ` · ${E(en.usuario_nombre || '—')}`}<span class="muted" style="margin-left:auto;font-size:11.5px;">${csFH(en.created_at)}</span></div>
+      ${en.tipo === 'cambio' ? `<div class="cs-ent-tx muted">${E(en.usuario_nombre || '')}:<br>${E(en.texto || '').replace(/\n/g, '<br>')}</div>` : (en.texto ? `<div class="cs-ent-tx">${E(en.texto)}</div>` : '')}
+      ${en.fecha_promesa ? `<div style="font-size:12.5px;margin-top:4px;">🤝 Promete pagar el <b>${fmtDate(en.fecha_promesa)}</b></div>` : ''}
+      ${adj.length ? `<div class="cs-adjs">${adj.map(a => `<button type="button" class="cs-adj" data-cs-adj="${E(a.path)}" title="Abrir">📎 ${E(a.nombre)}${a.size ? ` <small>(${Math.max(1, Math.round(a.size / 1024))} KB)</small>` : ''}</button>`).join('')}</div>` : ''}</div>`;
+  }).join('');
+}
+function csPintarTimeline(){ const el = document.getElementById('cs-tl'); if(el) el.innerHTML = csTimelineHtml(); }
+function csArchivosHtml(lista, dataAttr){
+  return lista.length ? lista.map((f, i) => `<span class="cs-file">📎 ${escapeHtml(f.name)} <small>(${Math.max(1, Math.round(f.size / 1024))} KB)</small> <button type="button" ${dataAttr}="${i}" title="Quitar">✕</button></span>`).join('') : '';
+}
+function csPintarDetalle(){
+  const box = document.getElementById('cs-det-box'); if(!box) return;
+  const r = CS.rows.find(x => x.id === CS.sel); if(!r){ box.innerHTML = ''; return; }
+  const E = escapeHtml, cat = CS_CAT[r.categoria] || [r.categoria, '📌'];
+  const pC = csPuedeCrear(), pK = csPuedeCerrar(), abierto = csAbierto(r);
+  const sinNov = csSinNovedad(r);
+  // conservar lo que se estaba escribiendo si se repinta
+  const keep = { tx:document.getElementById('cs-e-tx')?.value || '', tipo:document.getElementById('cs-e-tipo')?.value || 'nota', fp:document.getElementById('cs-e-fp')?.value || '' };
+  let h = `<div class="svcw-hd"><div style="min-width:0;"><div class="sr-num" style="font-size:20px;">${E(r.numero)} ${csChip(r.estado)} <span style="font-size:13px;">${csPrioHtml(r.prioridad)}</span></div>
+    <div style="margin-top:3px;font-weight:700;">${E(r.cliente)} <span class="svc-suc">· ${r.empresa === 'haulotte' ? 'Haulotte' : 'Horizon'} · ${cat[1]} ${E(cat[0])}</span></div></div>
+    <button type="button" class="svcw-x" data-cs-close title="Cerrar">✕</button></div><div class="svcw-body" style="min-height:0;">`;
+  h += `<div style="font-weight:800;font-size:15px;">${E(r.asunto)}</div>`;
+  if(r.descripcion) h += `<div style="white-space:pre-wrap;margin-top:6px;font-size:13px;color:var(--text-dim);">${E(r.descripcion)}</div>`;
+  h += `<div class="svcw-kv" style="margin-top:12px;"><div><span>Abierto por</span><b>${E(r.creado_nombre || '—')}</b><small class="muted">${csFH(r.created_at)}</small></div><div><span>Responsable</span><b>${E(r.responsable_nombre || 'Sin asignar')}</b></div>
+    <div><span>${abierto ? 'Última novedad' : 'Cerrado'}</span><b style="${sinNov ? 'color:var(--danger);' : ''}">${abierto ? (csDiasDesde(r.ultima_novedad_at) === 0 ? 'Hoy' : `Hace ${csDiasDesde(r.ultima_novedad_at)} días`) : E(r.cerrado_nombre || '')}</b>${abierto ? '' : `<small class="muted">${csFH(r.cerrado_at)}</small>`}</div>
+    ${r.monto != null ? `<div><span>Monto</span><b>$ ${Number(r.monto).toLocaleString('es-AR', { minimumFractionDigits:2 })}</b></div>` : ''}${r.fecha_promesa && abierto ? `<div><span>Promesa de pago</span><b style="${csPromesaVencida(r) ? 'color:var(--danger);' : ''}">${fmtDate(r.fecha_promesa)}${csPromesaVencida(r) ? ' · vencida' : ''}</b></div>` : ''}</div>`;
+  if(!abierto) h += `<div class="svcw-note info"><b>Motivo del cierre:</b> ${E(r.cerrado_motivo || '')}</div>`;
+  if(abierto && pC){
+    const opt = (v, t, sel) => `<option value="${E(v)}"${sel === v ? ' selected' : ''}>${E(t)}</option>`;
+    h += `<div class="cs-box"><div class="svc-ql">Gestión del caso</div><div class="cs-f3">
+      <div><label class="svcw-lb">Estado</label><select class="svc-in" id="cs-g-est">${['abierto','en_gestion','promesa_pago'].map(k => opt(k, CS_EST[k][0], r.estado)).join('')}</select></div>
+      <div><label class="svcw-lb">Prioridad</label><select class="svc-in" id="cs-g-prio">${Object.entries(CS_PRIO).map(([k, v]) => opt(k, v[0], r.prioridad)).join('')}</select></div>
+      <div><label class="svcw-lb">Responsable</label><select class="svc-in" id="cs-g-resp"><option value="">Sin asignar</option>${CS.usuarios.map(u => opt(u.id, csNomUsuario(u), r.responsable_id)).join('')}</select></div></div>
+      <button type="button" class="btn secondary small" data-cs-act="guardar" style="margin-top:8px;">Guardar cambios</button></div>`;
+    h += `<div class="cs-box"><div class="svc-ql">➕ Agregar novedad</div><div class="cs-f2">
+      <div><label class="svcw-lb">Tipo de novedad</label><select class="svc-in" id="cs-e-tipo">${['nota','llamado','mail','promesa','documentacion'].map(k => opt(k, CS_TIPO[k][0] + ' ' + CS_TIPO[k][1], keep.tipo)).join('')}</select></div>
+      <div id="cs-e-fp-wrap" style="${keep.tipo === 'promesa' ? '' : 'display:none;'}"><label class="svcw-lb">Fecha prometida de pago *</label><input type="date" class="svc-in" id="cs-e-fp" value="${E(keep.fp)}"></div></div>
+      <textarea class="svc-in" id="cs-e-tx" rows="3" placeholder="Qué pasó, con quién hablaste, qué se acordó…" style="margin-top:8px;">${E(keep.tx)}</textarea>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;"><label class="btn secondary small" style="cursor:pointer;">📎 Adjuntar archivos<input type="file" id="cs-e-file" multiple style="display:none;"></label><span id="cs-e-files">${csArchivosHtml(CS.archivos, 'data-cs-quitar')}</span>
+        <label style="margin-left:auto;font-size:12px;display:flex;gap:5px;align-items:center;" class="muted"><input type="checkbox" id="cs-e-notif" checked> Avisar por mail</label>
+        <button type="button" class="btn" data-cs-act="entrada"${CS.ocupado ? ' disabled' : ''}>${CS.ocupado ? 'Guardando…' : 'Agregar novedad'}</button></div></div>`;
+  }
+  h += `<div class="svc-ql" style="margin-top:16px;">Línea de tiempo</div><div id="cs-tl" class="cs-tl">${csTimelineHtml()}</div>`;
+  if(abierto){
+    h += pK ? `<details class="cs-box" style="margin-top:14px;"><summary style="cursor:pointer;font-weight:800;font-size:12.5px;">🔒 Cerrar este caso</summary><div style="margin-top:8px;"><textarea class="svc-in" id="cs-c-mot" rows="2" placeholder="Motivo del cierre (obligatorio): cobrado, regularizado, entregada la documentación…"></textarea><button type="button" class="btn" style="margin-top:6px;background:var(--ok);border-color:var(--ok);color:#fff;" data-cs-act="cerrar">Cerrar caso</button></div></details>`
+      : `<div class="muted" style="font-size:11.5px;margin-top:14px;">🔒 El cierre del caso lo hace un maestro o un usuario con permiso para cerrar casos.</div>`;
+  } else if(pK){
+    h += `<div style="margin-top:14px;"><button type="button" class="btn secondary" data-cs-act="reabrir">🔓 Reabrir caso</button></div>`;
+  }
+  h += `</div>`;
+  box.innerHTML = h;
+}
+async function csSubirArchivos(casoId, files){
+  const out = [];
+  for(const f of files){
+    const limpio = f.name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9._-]+/g, '_');
+    const path = `${casoId}/${Date.now()}_${Math.random().toString(36).slice(2, 7)}_${limpio}`;
+    const { error } = await supabaseClient.storage.from('casos-adjuntos').upload(path, f, { contentType:f.type || 'application/octet-stream' });
+    if(error) throw new Error(`No se pudo subir "${f.name}": ${error.message}`);
+    out.push({ path, nombre:f.name, size:f.size, tipo:f.type || '' });
+  }
+  return out;
+}
+async function csAccion(act){
+  const id = CS.sel; if(!id || CS.ocupado) return;
+  const v = i => (document.getElementById(i)?.value || '').trim();
+  const r = CS.rows.find(x => x.id === id); if(!r) return;
+  try{
+    if(act === 'guardar'){
+      const upd = {}; const est = v('cs-g-est'), pr = v('cs-g-prio'), rs = v('cs-g-resp') || null;
+      if(est !== r.estado) upd.estado = est; if(pr !== r.prioridad) upd.prioridad = pr; if(rs !== (r.responsable_id || null)) upd.responsable_id = rs;
+      if(!Object.keys(upd).length){ showToast('No hay cambios para guardar'); return; }
+      const { error } = await supabaseClient.from('casos').update(upd).eq('id', id); if(error) throw error;
+      showToast('Caso actualizado');
+    } else if(act === 'entrada'){
+      const tipo = v('cs-e-tipo'), texto = v('cs-e-tx'), fp = v('cs-e-fp');
+      if(!texto && !CS.archivos.length){ showToast('Escribí la novedad o adjuntá un archivo', true); return; }
+      if(tipo === 'promesa' && !fp){ showToast('Indicá la fecha prometida de pago', true); document.getElementById('cs-e-fp')?.focus(); return; }
+      CS.ocupado = true; csPintarDetalle();
+      const adjuntos = CS.archivos.length ? await csSubirArchivos(id, CS.archivos) : [];
+      const { error } = await supabaseClient.from('casos_entradas').insert({ caso_id:id, tipo, texto:texto || null, fecha_promesa:tipo === 'promesa' ? fp : null, adjuntos, notificar:!!document.getElementById('cs-e-notif')?.checked }); if(error) throw error;
+      CS.archivos = []; const tx = document.getElementById('cs-e-tx'); if(tx) tx.value = '';
+      showToast('Novedad agregada');
+    } else if(act === 'cerrar'){
+      const mot = v('cs-c-mot'); if(!mot){ showToast('Indicá el motivo del cierre', true); document.getElementById('cs-c-mot')?.focus(); return; }
+      if(!confirm(`¿Cerrar el caso ${r.numero}? Queda registrado con tu nombre y el motivo.`)) return;
+      const { error } = await supabaseClient.from('casos').update({ estado:'cerrado', cerrado_motivo:mot }).eq('id', id); if(error) throw error;
+      showToast('Caso cerrado');
+    } else if(act === 'reabrir'){
+      if(!confirm(`¿Reabrir el caso ${r.numero}?`)) return;
+      const { error } = await supabaseClient.from('casos').update({ estado:'abierto' }).eq('id', id); if(error) throw error;
+      showToast('Caso reabierto');
+    }
+  }catch(e){ showToast(e.message || 'No se pudo completar la acción', true); }
+  finally{ CS.ocupado = false; }
+  await csCargar(true); await csCargarEntradas(id, true); csPintarDetalle();
+}
+
+// ---------- nuevo caso ----------
+function csNuevoAbrir(){
+  if(!csPuedeCrear()) return;
+  CS.archivosNuevo = [];
+  const E = escapeHtml, emp = (typeof getEmpresaActual === 'function' && getEmpresaActual() === 'haulotte') ? 'haulotte' : 'horizon';
+  const cl = (typeof clientesCache !== 'undefined' ? clientesCache : []).map(c => c.razon_social).filter(Boolean);
+  document.getElementById('cs-new-box').innerHTML = `<div class="svcw-hd"><div style="font-size:18px;font-weight:800;">📂 Nuevo caso</div><button type="button" class="svcw-x" data-cs-nclose title="Cerrar">✕</button></div>
+    <div class="svcw-body" style="min-height:0;">
+      <div class="cs-f3"><div><label class="svcw-lb">Empresa *</label><select class="svc-in" id="cs-n-emp"><option value="horizon"${emp === 'horizon' ? ' selected' : ''}>Horizon</option><option value="haulotte"${emp === 'haulotte' ? ' selected' : ''}>Haulotte</option></select></div>
+        <div><label class="svcw-lb">Tipo de caso *</label><select class="svc-in" id="cs-n-cat">${Object.entries(CS_CAT).map(([k, v]) => `<option value="${k}">${v[1]} ${E(v[0])}</option>`).join('')}</select></div>
+        <div><label class="svcw-lb">Prioridad</label><select class="svc-in" id="cs-n-prio"><option value="baja">Baja</option><option value="media" selected>Media</option><option value="alta">Alta</option></select></div></div>
+      <div style="margin-top:10px;"><label class="svcw-lb">Cliente *</label><input class="svc-in" id="cs-n-cli" list="cs-n-cli-dl" placeholder="Razón social (elegí de la lista o escribila)" autocomplete="off"><datalist id="cs-n-cli-dl">${[...new Set(cl)].slice(0, 3000).map(x => `<option value="${E(x)}">`).join('')}</datalist></div>
+      <div style="margin-top:10px;"><label class="svcw-lb">Asunto *</label><input class="svc-in" id="cs-n-asu" placeholder="Ej. Factura 0003-00001288 vencida hace 45 días" maxlength="160"></div>
+      <div style="margin-top:10px;"><label class="svcw-lb">Detalle</label><textarea class="svc-in" id="cs-n-desc" rows="4" placeholder="Contexto, facturas involucradas, qué se necesita…"></textarea></div>
+      <div class="cs-f2" style="margin-top:10px;"><div><label class="svcw-lb">Responsable</label><select class="svc-in" id="cs-n-resp"><option value="">Sin asignar</option>${CS.usuarios.map(u => `<option value="${E(u.id)}"${u.id === miPerfil?.id ? ' selected' : ''}>${E(csNomUsuario(u))}</option>`).join('')}</select></div>
+        <div><label class="svcw-lb">Monto involucrado (opcional)</label><input class="svc-in" id="cs-n-monto" type="number" step="0.01" min="0" placeholder="0,00"></div></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;"><label class="btn secondary small" style="cursor:pointer;">📎 Adjuntar archivos<input type="file" id="cs-n-file" multiple style="display:none;"></label><span id="cs-n-files"></span></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;"><button type="button" class="btn secondary" data-cs-nclose>Cancelar</button><button type="button" class="btn" data-cs-ncrear id="cs-n-crear">Abrir caso</button></div>
+    </div>`;
+  document.getElementById('cs-new').classList.add('open');
+  setTimeout(() => document.getElementById('cs-n-cli')?.focus(), 50);
+}
+async function csNuevoCrear(){
+  if(CS.ocupado) return;
+  const v = i => (document.getElementById(i)?.value || '').trim();
+  const cli = v('cs-n-cli'), asu = v('cs-n-asu');
+  if(!cli){ showToast('Indicá el cliente', true); document.getElementById('cs-n-cli')?.focus(); return; }
+  if(!asu){ showToast('Indicá el asunto del caso', true); document.getElementById('cs-n-asu')?.focus(); return; }
+  const btn = document.getElementById('cs-n-crear'); CS.ocupado = true; if(btn){ btn.disabled = true; btn.textContent = 'Abriendo…'; }
+  try{
+    const monto = v('cs-n-monto');
+    const { data, error } = await supabaseClient.from('casos').insert({ empresa:v('cs-n-emp'), categoria:v('cs-n-cat'), prioridad:v('cs-n-prio'), cliente:cli, asunto:asu, descripcion:v('cs-n-desc') || null,
+      responsable_id:v('cs-n-resp') || null, monto:monto !== '' ? Number(monto) : null }).select().single();
+    if(error) throw error;
+    if(CS.archivosNuevo.length){
+      try{
+        const adj = await csSubirArchivos(data.id, CS.archivosNuevo);
+        await supabaseClient.from('casos_entradas').insert({ caso_id:data.id, tipo:'documentacion', texto:'Documentación adjunta al abrir el caso', adjuntos:adj, notificar:false });
+      }catch(e){ showToast('El caso se abrió, pero falló un adjunto: ' + e.message, true); }
+    }
+    document.getElementById('cs-new').classList.remove('open');
+    showToast(`Caso ${data.numero} abierto`);
+    CS.filtro = CS.filtro === 'cerrados' ? 'abiertos' : CS.filtro;
+    await csCargar(true); csAbrir(data.id);
+  }catch(e){ showToast(e.message || 'No se pudo abrir el caso', true); if(btn){ btn.disabled = false; btn.textContent = 'Abrir caso'; } }
+  finally{ CS.ocupado = false; }
+}
+async function csAbrirAdjunto(path){
+  const { data, error } = await supabaseClient.storage.from('casos-adjuntos').createSignedUrl(path, 3600);
+  if(error || !data?.signedUrl){ showToast('No se pudo abrir el adjunto', true); return; }
+  window.open(data.signedUrl, '_blank', 'noopener');
+}
+function csInit(){
+  const sec = document.getElementById('tab-casos'); if(!sec || sec.dataset.init) return; sec.dataset.init = '1';
+  sec.addEventListener('click', ev => {
+    const t = ev.target;
+    const f = t.closest('[data-cs-filtro]'); if(f){ CS.filtro = f.dataset.csFiltro; csRender(); return; }
+    if(t.closest('[data-cs-nuevo]')){ csNuevoAbrir(); return; }
+    const tr = t.closest('[data-cs-id]'); if(tr){ csAbrir(Number(tr.dataset.csId)); return; }
+  });
+  sec.addEventListener('change', ev => {
+    const m = { 'cs-f-emp':'emp', 'cs-f-cat':'cat', 'cs-f-prio':'prio', 'cs-f-resp':'resp' }[ev.target.id];
+    if(m){ CS[m] = ev.target.value; csRender(); }
+  });
+  sec.addEventListener('input', ev => { const t = ev.target; if(t.id === 'cs-f-q'){ CS.q = t.value; const pos = t.selectionStart; csRender(); const n = document.getElementById('cs-f-q'); if(n){ n.focus(); try{ n.setSelectionRange(pos, pos); }catch(_){} } } });
+  const det = document.getElementById('cs-det');
+  det.addEventListener('click', ev => {
+    const t = ev.target;
+    if(t === det || t.closest('[data-cs-close]')){ csCerrarDetalle(); return; }
+    const a = t.closest('[data-cs-act]'); if(a){ csAccion(a.dataset.csAct); return; }
+    const adj = t.closest('[data-cs-adj]'); if(adj){ csAbrirAdjunto(adj.dataset.csAdj); return; }
+    const q = t.closest('[data-cs-quitar]'); if(q){ CS.archivos.splice(Number(q.dataset.csQuitar), 1); document.getElementById('cs-e-files').innerHTML = csArchivosHtml(CS.archivos, 'data-cs-quitar'); return; }
+  });
+  det.addEventListener('change', ev => {
+    const t = ev.target;
+    if(t.id === 'cs-e-tipo'){ document.getElementById('cs-e-fp-wrap').style.display = t.value === 'promesa' ? '' : 'none'; }
+    if(t.id === 'cs-e-file'){ CS.archivos.push(...Array.from(t.files)); t.value = ''; document.getElementById('cs-e-files').innerHTML = csArchivosHtml(CS.archivos, 'data-cs-quitar'); }
+  });
+  const nw = document.getElementById('cs-new');
+  nw.addEventListener('click', ev => {
+    const t = ev.target;
+    if(t.closest('[data-cs-nclose]')){ nw.classList.remove('open'); return; }
+    if(t.closest('[data-cs-ncrear]')){ csNuevoCrear(); return; }
+    const q = t.closest('[data-cs-nquitar]'); if(q){ CS.archivosNuevo.splice(Number(q.dataset.csNquitar), 1); document.getElementById('cs-n-files').innerHTML = csArchivosHtml(CS.archivosNuevo, 'data-cs-nquitar'); }
+  });
+  nw.addEventListener('change', ev => {
+    const t = ev.target;
+    if(t.id === 'cs-n-file'){ CS.archivosNuevo.push(...Array.from(t.files)); t.value = ''; document.getElementById('cs-n-files').innerHTML = csArchivosHtml(CS.archivosNuevo, 'data-cs-nquitar'); }
+  });
+  document.addEventListener('keydown', ev => {
+    if(ev.key !== 'Escape') return;
+    if(nw.classList.contains('open')) nw.classList.remove('open');
+    else if(det.classList.contains('open')) csCerrarDetalle();
+  });
+  initPanelDestinatarios('casos_novedades'); initPanelDestinatarios('casos_diario');
+}
 
 // =====================================================================
 // PORTAL DE PROVEEDORES (administración)
