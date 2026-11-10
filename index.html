@@ -2731,12 +2731,14 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
               <th>Cliente / Empresa</th>
               <th>Ítems</th>
               <th>Total</th>
+              <th>Vigente hasta</th>
               <th>Estado</th>
-              <th style="width:190px;">Acciones</th>
+              <th>Usado en</th>
+              <th style="width:230px;">Acciones</th>
             </tr>
           </thead>
           <tbody id="pres-tbody">
-            <tr><td colspan="7" class="empty-state">Cargando...</td></tr>
+            <tr><td colspan="9" class="empty-state">Cargando...</td></tr>
           </tbody>
         </table>
       </div>
@@ -4454,7 +4456,7 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
   <div class="modal wide">
     <h2 id="modal-contrato-title">Nuevo contrato</h2>
     <div class="muted" style="font-size:12px;margin-top:-10px;margin-bottom:16px;">
-      Paso 1: cargá lo que tengas seguro. El resto lo podés confirmar después — el contrato queda marcado como "a confirmar" hasta que completes el último período facturado.
+      Todo contrato nuevo se respalda con un presupuesto vigente del cliente. La facturación arranca en la fecha de salida de la máquina.
     </div>
     <input type="hidden" id="c-id">
 
@@ -4468,6 +4470,20 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
         <input type="hidden" id="c-cliente_id">
         <div class="autocomplete-list" id="c-cliente-results"></div>
         <div class="muted" id="c-cliente-selected" style="font-size:12px;margin-top:4px;"></div>
+      </div>
+
+      <div class="field full" id="c-resp-box" style="background:rgba(56,189,248,0.07);border:1px solid var(--accent-dim);border-radius:var(--radius);padding:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+          <strong style="font-size:13px;">📄 Presupuesto de respaldo</strong>
+          <span id="c-resp-estado" class="muted" style="font-size:12px;"></span>
+        </div>
+        <div class="field-grid cols-3">
+          <div class="field"><label>Presupuesto vigente *</label><select id="c-resp-pres"><option value="">Elegí primero el cliente</option></select></div>
+          <div class="field"><label>Modelo cotizado *</label><select id="c-resp-modelo" disabled><option value="">—</option></select></div>
+          <div class="field"><label>Modalidad *</label><select id="c-resp-modalidad" disabled><option value="">—</option></select></div>
+        </div>
+        <div class="muted" id="c-resp-info" style="font-size:12px;margin-top:8px;"></div>
+        <button type="button" class="btn secondary small" id="c-resp-cambiar" style="display:none;margin-top:8px;">Cambiar presupuesto de respaldo</button>
       </div>
 
       <div class="field" style="position:relative;">
@@ -4509,7 +4525,7 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
         </select>
       </div>
       <div class="field">
-        <label>Valor mensual (sin descuento)</label>
+        <label>Valor por período (según presupuesto)</label>
         <input type="number" step="0.01" id="c-precio_sin_descuento" placeholder="Lo que hoy sabés que vale el alquiler">
       </div>
       <div class="field">
@@ -4529,7 +4545,7 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
     </div>
 
     <button type="button" id="btn-toggle-paso2" class="btn secondary small" style="margin:18px 0 4px 0;">
-      ▾ Mostrar detalles para confirmar (periodicidad, TC, último período facturado...)
+      ▾ Mostrar más detalles (vencimiento, orden de compra, fletes...)
     </button>
 
     <div id="contrato-paso2" style="display:none;margin-top:10px;padding-top:14px;border-top:1px solid var(--border);">
@@ -4560,7 +4576,7 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
           </div>
         </div>
 
-        <div class="field full">
+        <div class="field full" id="c-ultimo-wrap">
           <label>Último período facturado — hasta</label>
           <div style="display:flex;gap:6px;">
             <input type="date" id="c-ultimo_periodo_facturado_hasta" style="flex:1;">
@@ -4571,6 +4587,14 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
           </div>
         </div>
 
+        <div class="field full" id="c-bonif-box" style="display:none;background:var(--panel-2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;">
+          <label style="color:var(--text);">🎁 Bonificación (rotura u otro imponderable) — solo maestros</label>
+          <div class="field-grid cols-3" style="margin-top:6px;">
+            <div class="field"><label>Monto a descontar por período</label><input type="number" step="0.01" min="0" id="c-bonif-monto" value="0"></div>
+            <div class="field" style="grid-column:span 2;"><label>Motivo (obligatorio si cambia el monto)</label><input type="text" id="c-bonif-motivo" placeholder="Ej: rotura de mástil, equipo parado 5 días"></div>
+          </div>
+          <div class="muted" id="c-bonif-hist" style="font-size:11.5px;margin-top:6px;"></div>
+        </div>
         <div class="field">
           <label>Orden de compra</label>
           <input type="text" id="c-orden_de_compra">
@@ -5134,10 +5158,10 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
         <thead>
           <tr>
             <th>Modelo (buscar en catálogo)</th>
-            <th style="width:110px;">Cantidad</th>
-            <th style="width:120px;">Período</th>
-            <th style="width:140px;">Precio unitario</th>
-            <th style="width:110px;">Subtotal</th>
+            <th style="width:90px;">Cantidad</th>
+            <th style="width:120px;">Precio por día</th>
+            <th style="width:120px;">Precio por semana</th>
+            <th style="width:120px;">Precio por mes</th>
             <th style="width:40px;"></th>
           </tr>
         </thead>
@@ -5163,7 +5187,8 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
         <input type="checkbox" id="pres-ocultar-total" style="width:auto;">
         Ocultar el total al exportar el PDF
       </label>
-      Total: <strong id="pres-total-preview">U$D 0,00</strong>
+      <span id="pres-vigencia-aviso"></span>
+      <span class="muted" id="pres-total-preview" style="font-size:12px;">Cada equipo se cotiza por día, semana y mes: el contrato toma el precio de la modalidad elegida.</span>
     </div>
 
     <div class="field full" style="margin-top:14px;">
@@ -5222,6 +5247,20 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
     <div class="modal-actions">
       <button class="btn secondary" id="btn-presupuesto-cancel">Cancelar</button>
       <button class="btn" id="btn-presupuesto-save">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EXTENDER VIGENCIA PRESUPUESTO -->
+<div class="overlay" id="modal-extender-pres-overlay">
+  <div class="modal">
+    <h2>Extender vigencia del presupuesto</h2>
+    <input type="hidden" id="ext-id">
+    <div class="muted" id="ext-resumen" style="font-size:13px;margin-bottom:14px;"></div>
+    <div class="field full"><label>Nueva fecha de vencimiento</label><input type="date" id="ext-nueva"></div>
+    <div class="modal-actions">
+      <button class="btn secondary" id="btn-ext-cancel">Cancelar</button>
+      <button class="btn" id="btn-ext-confirmar">Extender vigencia</button>
     </div>
   </div>
 </div>
@@ -5940,7 +5979,7 @@ async function loadContratos(){
   while(true){
     const { data, error } = await supabaseClient
       .from('contratos')
-      .select('*, clientes(razon_social), equipos(numero_serie, modelo), sucursales(nombre), creador:perfiles(nombre)')
+      .select('*, clientes(razon_social), equipos(numero_serie, modelo), sucursales(nombre), creador:perfiles(nombre), presupuestos(numero)')
       .order('created_at', { ascending: false })
       .range(from, from + pageSize - 1);
     if(error){
@@ -6461,7 +6500,7 @@ function renderContratos(list){
         <td class="muted c-fechas">${fmtDate(c.fecha_salida)} →<br>${fmtDate(c.fecha_vencimiento)}</td>
         <td class="muted c-nowrap">${fmtMoney(precio, c.moneda)}</td>
         <td class="c-nowrap">${c.estado === 'activo' ? '<span class="badge" style="color:var(--ok);border-color:var(--ok);">Activo</span>' : '<span class="badge" style="color:var(--danger);border-color:var(--danger);">De baja</span>'}</td>
-        <td class="c-avisos"><div class="avisos-wrap">${c.es_demo ? '<span class="badge" style="color:#38BDF8;border-color:#38BDF8;">🎁 DEMO</span>' : ''}${c.autorizacion === 'pendiente' ? '<span class="badge" style="color:#f43f5e;border-color:#f43f5e;" title="Espera la autorización de un maestro: no genera facturación">⏳ Autorización</span>' : ''}${c.datos_confirmados ? '' : '<span class="badge" style="color:#ff9f43;border-color:#ff9f43;" title="Falta confirmar periodicidad / último período facturado">⚠ A confirmar</span>'}${c.tiene_flete_entrega && !c.flete_entrega_facturado ? `<span class="badge" style="color:var(--accent);border-color:var(--accent-dim);" title="Flete de entrega sin facturar: ${fmtMoney(c.costo_flete_entrega,'USD')}">🚚 Entrega</span>` : ''}${c.tiene_flete_retiro && !c.flete_retiro_facturado ? `<span class="badge" style="color:#ff9f43;border-color:#ff9f43;" title="Flete de retiro sin facturar: ${fmtMoney(c.costo_flete_retiro,'USD')}">🚚 Retiro</span>` : ''}</div></td>
+        <td class="c-avisos"><div class="avisos-wrap">${c.es_demo ? '<span class="badge" style="color:#38BDF8;border-color:#38BDF8;">🎁 DEMO</span>' : ''}${c.autorizacion === 'pendiente' ? '<span class="badge" style="color:#f43f5e;border-color:#f43f5e;" title="Espera la autorización de un maestro: no genera facturación">⏳ Autorización</span>' : ''}${c.presupuesto_id ? `<span class="badge" style="color:var(--accent);border-color:var(--accent-dim);" title="Presupuesto de respaldo">PRE-${String(c.presupuestos?.numero||c.presupuesto_id).padStart(5,'0')}</span>` : ''}${c.datos_confirmados ? '' : '<span class="badge" style="color:#ff9f43;border-color:#ff9f43;" title="Falta confirmar periodicidad / último período facturado">⚠ A confirmar</span>'}${c.tiene_flete_entrega && !c.flete_entrega_facturado ? `<span class="badge" style="color:var(--accent);border-color:var(--accent-dim);" title="Flete de entrega sin facturar: ${fmtMoney(c.costo_flete_entrega,'USD')}">🚚 Entrega</span>` : ''}${c.tiene_flete_retiro && !c.flete_retiro_facturado ? `<span class="badge" style="color:#ff9f43;border-color:#ff9f43;" title="Flete de retiro sin facturar: ${fmtMoney(c.costo_flete_retiro,'USD')}">🚚 Retiro</span>` : ''}</div></td>
         <td class="muted c-creador" title="${escapeHtml(creadoPor)}">${escapeHtml(creadoPor)}</td>
         <td>
           <div class="row-actions">
@@ -6641,6 +6680,7 @@ clienteResultsBox.addEventListener('click', (e)=>{
   clienteSearchInput.value = item.dataset.nombre;
   document.getElementById('c-cliente-selected').textContent = '✓ Cliente seleccionado';
   clienteResultsBox.classList.remove('open');
+  respClienteElegido();
 });
 
 // ---------- Autocompletar Equipo ----------
@@ -6652,16 +6692,12 @@ equipoSearchInput.addEventListener('input', ()=>{
   document.getElementById('c-equipo_id').value = '';
   document.getElementById('c-equipo-modelo').value = '';
   document.getElementById('c-equipo-selected').textContent = '';
-  if(q.length < 1){ equipoResultsBox.classList.remove('open'); return; }
-  const matches = equiposCache.filter(e =>
-    (e.numero_serie||'').toLowerCase().includes(q) ||
-    (e.modelo||'').toLowerCase().includes(q)
-  ).slice(0, 30);
+  if(q.length < 1 && !respState.nuevo){ equipoResultsBox.classList.remove('open'); return; }
+  const matches = respEquiposCandidatos(q).slice(0, 30);
   if(matches.length === 0){
-    equipoResultsBox.innerHTML = `<div class="autocomplete-item muted">
-      Sin resultados. Todavía no está cargado el catálogo de equipos —
-      lo importamos apenas me pases el listado.
-    </div>`;
+    equipoResultsBox.innerHTML = respState.nuevo
+      ? `<div class="autocomplete-item muted">No hay series disponibles de ese modelo${q ? ' que coincidan' : ''}.</div>`
+      : `<div class="autocomplete-item muted">Sin resultados.</div>`;
   } else {
     equipoResultsBox.innerHTML = matches.map(e=>`
       <div class="autocomplete-item" data-id="${e.id}" data-serie="${escapeHtml(e.numero_serie)}" data-modelo="${escapeHtml(e.modelo || '')}">
@@ -6672,6 +6708,7 @@ equipoSearchInput.addEventListener('input', ()=>{
   equipoResultsBox.classList.add('open');
 });
 
+equipoSearchInput.addEventListener('focus', ()=>{ if(respState.nuevo && !equipoSearchInput.disabled) equipoSearchInput.dispatchEvent(new Event('input')); });
 equipoResultsBox.addEventListener('click', (e)=>{
   const item = e.target.closest('.autocomplete-item');
   if(!item || !item.dataset.id) return;
@@ -6717,6 +6754,179 @@ document.getElementById('c-tiene_flete_retiro').addEventListener('change', (e)=>
   document.getElementById('c-flete-retiro-box').style.display = e.target.checked ? 'block' : 'none';
 });
 
+// ---------- Presupuesto de respaldo del contrato ----------
+// respState.nuevo = el usuario debe elegir respaldo (contrato nuevo, o cambio de respaldo con permiso)
+// respState.backed = el contrato queda atado a un presupuesto (nuevo o ya existente)
+let respState = { nuevo:false, backed:false, contratoId:null, bonifActual:0, legacy:false };
+const RESP_PER = { diario:['Día','por día'], semanal:['Semana','por semana'], mensual:['Mes','por mes'] };
+function respPresDelCliente(){
+  const cid = document.getElementById('c-cliente_id').value;
+  if(!cid) return [];
+  return presupuestosCache.filter(p => String(p.cliente_id) === String(cid) && p.estado === 'vigente' && !presVencido(p));
+}
+function respItemsDe(p){
+  const g = {};
+  (p.presupuesto_items||[]).forEach(it => {
+    const k = (it.modelo||'').trim().toLowerCase();
+    (g[k] = g[k] || { modelo: it.modelo, cantidad: 0, precios:{} });
+    g[k].cantidad = Math.max(g[k].cantidad, Number(it.cantidad)||0);
+    g[k].precios[it.periodo] = Number(it.precio_unitario)||0;
+  });
+  return Object.values(g);
+}
+function respUsadas(presId, modelo){
+  const k = (modelo||'').trim().toLowerCase();
+  return (presUsoMap[presId]||[]).filter(c => c.estado === 'activo' && (c.presupuesto_modelo||'').trim().toLowerCase() === k && String(c.id) !== String(respState.contratoId||'')).length;
+}
+async function respClienteElegido(){
+  if(!respState.nuevo) return;
+  const sel = document.getElementById('c-resp-pres');
+  sel.innerHTML = '<option value="">Cargando...</option>';
+  try{ await loadPresupuestos(); }catch(e){}
+  respPoblarPresupuestos();
+}
+function respPoblarPresupuestos(preId){
+  const sel = document.getElementById('c-resp-pres');
+  const cid = document.getElementById('c-cliente_id').value;
+  if(!cid){ sel.innerHTML = '<option value="">Elegí primero el cliente</option>'; respPoblarModelos(); return; }
+  const l = respPresDelCliente();
+  sel.innerHTML = l.length
+    ? '<option value="">— Elegí el presupuesto —</option>' + l.map(p => `<option value="${p.id}">N° ${String(p.numero).padStart(5,'0')} · ${p.moneda} · vence ${fmtDate(presVenceFecha(p))}</option>`).join('')
+    : '<option value="">Este cliente no tiene presupuestos vigentes</option>';
+  if(preId) sel.value = String(preId);
+  respPoblarModelos();
+}
+function respPresActual(){ const id = document.getElementById('c-resp-pres').value; return id ? presupuestosCache.find(p => String(p.id) === id) : null; }
+function respPoblarModelos(modelo){
+  const sel = document.getElementById('c-resp-modelo'), p = respPresActual();
+  if(!p){ sel.innerHTML = '<option value="">—</option>'; sel.disabled = true; respPoblarModalidades(); return; }
+  sel.innerHTML = '<option value="">— Elegí el modelo —</option>' + respItemsDe(p).map(it => {
+    const quedan = it.cantidad - respUsadas(p.id, it.modelo);
+    return `<option value="${escapeHtml(it.modelo)}" ${quedan <= 0 ? 'disabled' : ''}>${escapeHtml(it.modelo)} — quedan ${Math.max(quedan,0)} de ${it.cantidad}</option>`;
+  }).join('');
+  sel.disabled = !respState.nuevo;
+  if(modelo) sel.value = modelo;
+  respPoblarModalidades();
+}
+function respPoblarModalidades(modalidad){
+  const sel = document.getElementById('c-resp-modalidad'), p = respPresActual(), modelo = document.getElementById('c-resp-modelo').value;
+  const it = p && modelo ? respItemsDe(p).find(x => x.modelo === modelo) : null;
+  if(!it){ sel.innerHTML = '<option value="">—</option>'; sel.disabled = true; }
+  else {
+    sel.innerHTML = '<option value="">— Elegí la modalidad —</option>' + Object.entries(RESP_PER).map(([k,[per,txt]]) => it.precios[per] ? `<option value="${k}">${k[0].toUpperCase()+k.slice(1)} — ${fmtMoney(it.precios[per], p.moneda)} ${txt}</option>` : '').join('');
+    sel.disabled = !respState.nuevo;
+    if(modalidad) sel.value = modalidad;
+  }
+  respAplicarPrecio();
+}
+function respAplicarPrecio(){
+  const p = respPresActual(), modelo = document.getElementById('c-resp-modelo').value, mod = document.getElementById('c-resp-modalidad').value;
+  const info = document.getElementById('c-resp-info');
+  const it = p && modelo ? respItemsDe(p).find(x => x.modelo === modelo) : null;
+  if(!(it && mod)){
+    info.textContent = p ? 'Elegí modelo y modalidad: el precio sale del presupuesto.' : '';
+    // el modelo elegido condiciona la serie
+    if(respState.nuevo){ document.getElementById('c-equipo_id').value=''; equipoSearchInput.value=''; document.getElementById('c-equipo-modelo').value=''; document.getElementById('c-equipo-selected').textContent=''; }
+    return;
+  }
+  const precio = it.precios[RESP_PER[mod][0]];
+  const bonif = respState.legacy ? 0 : (Number(respState.bonifActual)||0);
+  document.getElementById('c-moneda').value = p.moneda;
+  document.getElementById('c-periodicidad').value = mod;
+  document.getElementById('c-precio_sin_descuento').value = precio;
+  document.getElementById('c-porcentaje_descuento').value = 0;
+  document.getElementById('c-precio_con_descuento').value = precio - bonif;
+  info.innerHTML = `Precio ${RESP_PER[mod][1]}: <strong>${fmtMoney(precio, p.moneda)}</strong>${bonif ? ` − bonificación ${fmtMoney(bonif, p.moneda)} = <strong>${fmtMoney(precio-bonif, p.moneda)}</strong>` : ''} · vigente hasta ${fmtDate(presVenceFecha(p))}`;
+  // si la serie elegida no es de este modelo, se limpia
+  const eqModelo = document.getElementById('c-equipo-modelo').value;
+  if(respState.nuevo && eqModelo && eqModelo.trim().toLowerCase() !== modelo.trim().toLowerCase()){
+    document.getElementById('c-equipo_id').value=''; equipoSearchInput.value=''; document.getElementById('c-equipo-modelo').value=''; document.getElementById('c-equipo-selected').textContent='Elegí una serie del modelo cotizado.';
+  }
+}
+function respEquiposCandidatos(q){
+  const modelo = (document.getElementById('c-resp-modelo').value||'').trim().toLowerCase();
+  const cid = document.getElementById('c-cliente_id').value;
+  return equiposCache.filter(e => {
+    if(respState.nuevo){
+      if(!modelo) return false;
+      if((e.modelo||'').trim().toLowerCase() !== modelo) return false;
+      const rsv = reservaDeEquipo(e.id);
+      if(estadoActualEquipo(e) !== 'disponible') return false;
+      if(rsv && String(rsv.cliente_id) !== String(cid)) return false;
+    }
+    return !q || (e.numero_serie||'').toLowerCase().includes(q) || (e.modelo||'').toLowerCase().includes(q);
+  });
+}
+document.getElementById('c-resp-pres').addEventListener('change', ()=>{ respPoblarModelos(); });
+document.getElementById('c-resp-modelo').addEventListener('change', ()=>{ respPoblarModalidades(); });
+document.getElementById('c-resp-modalidad').addEventListener('change', respAplicarPrecio);
+document.getElementById('c-es_demo').addEventListener('change', ()=>{ if(!document.getElementById('c-id').value) respConfigurarNuevo(); });
+
+function respBloquearPrecio(bloquear){
+  ['c-precio_sin_descuento','c-precio_con_descuento','c-moneda','c-periodicidad','c-porcentaje_descuento'].forEach(id => {
+    const el = document.getElementById(id); el.disabled = bloquear;
+    el.title = bloquear ? 'Sale del presupuesto de respaldo: no se edita a mano' : '';
+  });
+}
+// Contrato nuevo: respaldo obligatorio (salvo DEMO)
+function respConfigurarNuevo(){
+  const demo = document.getElementById('c-es_demo').checked;
+  respState = { nuevo: !demo, backed: !demo, contratoId:null, bonifActual:0, legacy:false };
+  document.getElementById('c-resp-box').style.display = demo ? 'none' : '';
+  document.getElementById('c-resp-cambiar').style.display = 'none';
+  document.getElementById('c-resp-estado').textContent = demo ? '' : 'Obligatorio: el precio, la moneda y la periodicidad salen de acá';
+  document.getElementById('c-ultimo-wrap').style.display = demo ? '' : 'none';
+  document.getElementById('c-bonif-box').style.display = 'none';
+  respBloquearPrecio(!demo);
+  if(!demo){ respPoblarPresupuestos(); }
+}
+// Contrato existente
+function respConfigurarEdicion(c){
+  const backed = !!c.presupuesto_id;
+  respState = { nuevo:false, backed, contratoId:c.id, bonifActual:Number(c.bonificacion_monto)||0, legacy:!backed };
+  const box = document.getElementById('c-resp-box');
+  document.getElementById('c-bonif-box').style.display = 'none';
+  if(!backed){
+    box.style.display = '';
+    ['c-resp-pres','c-resp-modelo','c-resp-modalidad'].forEach(id => { const el=document.getElementById(id); el.innerHTML='<option value="">—</option>'; el.disabled=true; });
+    document.getElementById('c-resp-estado').textContent = 'Contrato anterior al sistema';
+    document.getElementById('c-resp-info').textContent = 'Fue cargado antes de que los contratos requirieran presupuesto de respaldo: mantiene su precio tal cual.';
+    document.getElementById('c-resp-cambiar').style.display = 'none';
+    document.getElementById('c-ultimo-wrap').style.display = '';
+    return;
+  }
+  box.style.display = '';
+  document.getElementById('c-ultimo-wrap').style.display = 'none';
+  const p = presupuestosCache.find(x => x.id === c.presupuesto_id);
+  const num = p ? String(p.numero).padStart(5,'0') : String(c.presupuesto_id);
+  document.getElementById('c-resp-estado').innerHTML = `Respaldo: <a href="#" onclick="generarPresupuestoPDF(${c.presupuesto_id});return false;" style="color:var(--accent);">PRE-${num} ↗</a>${p && p.estado==='anulado' ? ' <span style="color:var(--danger);">(anulado)</span>' : ''}`;
+  const sel = document.getElementById('c-resp-pres');
+  sel.innerHTML = `<option value="${c.presupuesto_id}">N° ${num}${p ? ' · '+p.moneda : ''}</option>`; sel.value = String(c.presupuesto_id); sel.disabled = true;
+  document.getElementById('c-resp-modelo').innerHTML = `<option value="${escapeHtml(c.presupuesto_modelo||'')}">${escapeHtml(c.presupuesto_modelo||'')}</option>`; document.getElementById('c-resp-modelo').disabled = true;
+  document.getElementById('c-resp-modalidad').innerHTML = `<option value="${c.modalidad}">${(c.modalidad||'')[0]?.toUpperCase()+(c.modalidad||'').slice(1)}</option>`; document.getElementById('c-resp-modalidad').disabled = true;
+  document.getElementById('c-resp-info').innerHTML = `Precio ${RESP_PER[c.modalidad]?.[1]||''}: <strong>${fmtMoney(c.precio_presupuesto, c.moneda)}</strong>${c.bonificacion_monto>0 ? ` − bonificación ${fmtMoney(c.bonificacion_monto, c.moneda)} = <strong>${fmtMoney(c.precio_mensual_con_descuento, c.moneda)}</strong>` : ''}`;
+  respBloquearPrecio(true);
+  document.getElementById('c-resp-cambiar').style.display = puede('contratos','editar_precio') ? '' : 'none';
+  // bonificación: solo la edita un maestro
+  const bb = document.getElementById('c-bonif-box');
+  bb.style.display = '';
+  document.getElementById('c-bonif-monto').value = c.bonificacion_monto || 0;
+  document.getElementById('c-bonif-motivo').value = c.bonificacion_motivo || '';
+  document.getElementById('c-bonif-monto').disabled = document.getElementById('c-bonif-motivo').disabled = !esMaestro();
+  document.getElementById('c-bonif-hist').textContent = '';
+  supabaseClient.from('contratos_bonificaciones_log').select('*').eq('contrato_id', c.id).order('created_at', { ascending:false }).then(({ data }) => {
+    if(data && data.length) document.getElementById('c-bonif-hist').innerHTML = '<b>Historial:</b><br>' + data.map(x => `${fmtDate((x.created_at||'').slice(0,10))} · ${escapeHtml(x.usuario_nombre||'—')} · ${fmtMoney(x.monto_anterior||0, c.moneda)} → ${fmtMoney(x.monto_nuevo||0, c.moneda)} · ${escapeHtml(x.motivo||'')}`).join('<br>');
+    else if(!esMaestro()) document.getElementById('c-bonif-hist').textContent = 'Solo un maestro puede cargar una bonificación.';
+  });
+}
+document.getElementById('c-resp-cambiar').addEventListener('click', async ()=>{
+  await loadPresupuestos();
+  respState.nuevo = true; respState.legacy = false;
+  document.getElementById('c-resp-estado').textContent = 'Elegí el nuevo presupuesto de respaldo (el precio pasa a ser el del nuevo)';
+  document.getElementById('c-resp-cambiar').style.display = 'none';
+  respPoblarPresupuestos();
+});
+
 function resetContratoForm(){
   equipoSearchInput.disabled = false; equipoSearchInput.title = '';
   { const b = document.getElementById('btn-contrato-cambiar-serie'); if(b) b.style.display = 'none'; const bx = document.getElementById('c-cambios-serie-box'); if(bx) bx.style.display = 'none'; }
@@ -6731,6 +6941,11 @@ function resetContratoForm(){
   document.getElementById('c-estado').value = 'activo';
   document.getElementById('c-periodicidad').value = 'mensual';
   document.getElementById('c-es_demo').checked = false;
+  respState = { nuevo:false, backed:false, contratoId:null, bonifActual:0, legacy:false };
+  document.getElementById('c-ultimo-wrap').style.display = '';
+  document.getElementById('c-bonif-box').style.display = 'none';
+  document.getElementById('c-resp-box').style.display = 'none';
+  document.getElementById('c-resp-info').textContent = '';
   document.getElementById('c-sucursal_id').value = '';
   document.getElementById('c-tiene_flete_entrega').checked = false;
   document.getElementById('c-flete-entrega-box').style.display = 'none';
@@ -6739,13 +6954,13 @@ function resetContratoForm(){
   document.getElementById('c-flete-retiro-box').style.display = 'none';
   document.getElementById('c-flete_retiro_facturado').checked = false;
   document.getElementById('contrato-paso2').style.display = 'none';
-  document.getElementById('btn-toggle-paso2').textContent = '▾ Mostrar detalles para confirmar (periodicidad, TC, último período facturado...)';
+  document.getElementById('btn-toggle-paso2').textContent = '▾ Mostrar más detalles (vencimiento, orden de compra, fletes...)';
   clienteSearchInput.value = '';
   equipoSearchInput.value = '';
   document.getElementById('c-equipo-modelo').value = '';
   document.getElementById('c-cliente-selected').textContent = '';
   document.getElementById('c-equipo-selected').textContent = '';
-  ['c-precio_sin_descuento','c-precio_con_descuento','c-moneda'].forEach(idCampo=>{
+  ['c-precio_sin_descuento','c-precio_con_descuento','c-moneda','c-periodicidad','c-porcentaje_descuento'].forEach(idCampo=>{
     const el = document.getElementById(idCampo);
     el.disabled = false;
     el.title = '';
@@ -6758,7 +6973,7 @@ document.getElementById('btn-toggle-paso2').addEventListener('click', ()=>{
   const abierto = box.style.display !== 'none';
   box.style.display = abierto ? 'none' : 'block';
   btn.textContent = abierto
-    ? '▾ Mostrar detalles para confirmar (periodicidad, TC, último período facturado...)'
+    ? '▾ Mostrar más detalles (vencimiento, orden de compra, fletes...)'
     : '▴ Ocultar detalles para confirmar';
 });
 
@@ -6768,7 +6983,9 @@ document.getElementById('btn-new-contrato').addEventListener('click', ()=>{
   document.getElementById('modal-contrato-title').textContent = 'Nuevo contrato';
   document.getElementById('btn-contrato-delete').style.display = 'none';
   { const b = document.getElementById('btn-contrato-enviar-aut'); if(b) b.style.display = 'none'; }
+  respConfigurarNuevo();
   openContratoOverlay();
+  loadPresupuestos().then(()=>{ if(respState.nuevo) respPoblarPresupuestos(); });
 });
 document.getElementById('btn-contrato-cancel').addEventListener('click', closeContratoOverlay);
 document.getElementById('modal-contrato-overlay').addEventListener('click', (e)=>{
@@ -6843,8 +7060,9 @@ function openEditContrato(id){
     el.disabled = bloquearPrecio;
     el.title = bloquearPrecio ? 'No tenés permiso para modificar el precio de un contrato ya guardado' : '';
   });
-
+  respConfigurarEdicion(c);
   openContratoOverlay();
+  if(c.presupuesto_id && !presupuestosCache.length) loadPresupuestos().then(()=> respConfigurarEdicion(c));
 }
 
 document.getElementById('btn-contrato-save').addEventListener('click', async ()=>{
@@ -6858,6 +7076,26 @@ document.getElementById('btn-contrato-save').addEventListener('click', async ()=
 
   const id = document.getElementById('c-id').value;
   const estadoNuevo = document.getElementById('c-estado').value;
+
+  if(respState.nuevo){
+    if(!document.getElementById('c-resp-pres').value){ showToast('Elegí el presupuesto de respaldo', true); return; }
+    if(!document.getElementById('c-resp-modelo').value){ showToast('Elegí el modelo cotizado', true); return; }
+    if(!document.getElementById('c-resp-modalidad').value){ showToast('Elegí la modalidad (diario, semanal o mensual)', true); return; }
+    const pr = respPresActual();
+    if(!pr || pr.estado !== 'vigente' || presVencido(pr)){ showToast('El presupuesto ya no está vigente: no se puede usar para el contrato', true); return; }
+    if(!id && !document.getElementById('c-fecha_salida').value){ showToast('Cargá la fecha de salida: la facturación arranca ese día', true); return; }
+    const itE = (equiposCache.find(e => String(e.id) === String(equipoId))||{}).modelo || '';
+    if(itE.trim().toLowerCase() !== document.getElementById('c-resp-modelo').value.trim().toLowerCase()){ showToast('La serie elegida no es del modelo cotizado', true); return; }
+  }
+  let bonifPayload = null;
+  if(respState.backed && !respState.nuevo && id && esMaestro()){
+    const m = Number(document.getElementById('c-bonif-monto').value) || 0;
+    if(m !== (Number(respState.bonifActual)||0)){
+      const mot = document.getElementById('c-bonif-motivo').value.trim();
+      if(!mot){ showToast('La bonificación necesita un motivo', true); return; }
+      bonifPayload = { bonificacion_monto: m, bonificacion_motivo: mot };
+    }
+  }
 
   if(estadoNuevo === 'activo'){
     const rsvEq = reservaDeEquipo(Number(equipoId));
@@ -6906,6 +7144,18 @@ document.getElementById('btn-contrato-save').addEventListener('click', async ()=
     es_demo: document.getElementById('c-es_demo').checked,
   };
 
+  if(respState.backed){
+    // el precio, la moneda y la periodicidad los fija la base a partir del presupuesto
+    ['precio_mensual_sin_descuento','precio_mensual_con_descuento','porcentaje_descuento','periodicidad','ultimo_periodo_facturado_hasta','datos_confirmados'].forEach(k => delete payload[k]);
+    if(respState.nuevo){
+      payload.presupuesto_id = Number(document.getElementById('c-resp-pres').value);
+      payload.presupuesto_modelo = document.getElementById('c-resp-modelo').value;
+      payload.modalidad = document.getElementById('c-resp-modalidad').value;
+    }
+    if(bonifPayload) Object.assign(payload, bonifPayload);
+  }
+  const confirmadoFinal = respState.backed ? true : payload.datos_confirmados;
+
   // Al pasar un contrato activo a "De baja" se pregunta si la máquina ya ingresó a base o sigue en tránsito
   const contratoPrevio = id ? contratosCache.find(c => String(c.id) === String(id)) : null;
   if(id && estadoNuevo === 'baja' && contratoPrevio && contratoPrevio.estado === 'activo'){
@@ -6948,7 +7198,7 @@ document.getElementById('btn-contrato-save').addEventListener('click', async ()=
     // TAMPOCO tocamos nunca un pendiente que tenga una Nota de Crédito asociada
     // (nc_numero): aunque su estado volvió a "pendiente", ese registro es
     // historial real de facturación/anulación, no un hueco descartable.
-    if(payload.datos_confirmados && payload.estado === 'activo' && contratoId){
+    if(confirmadoFinal && payload.estado === 'activo' && contratoId){
       const { error: errLimpiar } = await supabaseClient
         .from('pendientes_facturacion')
         .delete()
@@ -6962,7 +7212,7 @@ document.getElementById('btn-contrato-save').addEventListener('click', async ()=
     closeContratoOverlay();
     await loadContratos();
     renderEquipos(getFilteredEquipos());
-    if(payload.datos_confirmados) await autoGenerarPendientesDelMes();
+    if(confirmadoFinal) await autoGenerarPendientesDelMes();
     await refrescarPendientesSiCorresponde();
   } catch(err){
     console.error(err);
@@ -9679,7 +9929,6 @@ async function cargarMiPerfil(userId){
 
 // ---------- Permisos granulares por usuario ----------
 // Cargadores masivos (Excel / lotes de imágenes o PDFs): solo el rol maestro.
-function esMaestro(){ return !!(miPerfil && miPerfil.rol === 'maestro'); }
 // El maestro siempre tiene todo. Para el resto, se lee miPerfil.permisos (JSON guardado en Supabase).
 // Menú visible (solo cosmético): permisos._menus = 'horizon' | 'haulotte' (ausente = ambos). No interviene en puede() ni en la carga de datos.
 function menusDePermisos(perm){ const m = perm && perm._menus; return (m === 'horizon' || m === 'haulotte') ? m : 'ambos'; }
@@ -19699,12 +19948,52 @@ async function loadPresupuestos(){
     .order('numero', { ascending: false });
   if(error){ console.error('Error cargando presupuestos:', error); presupuestosCache = []; return; }
   presupuestosCache = data;
+  await loadPresupuestoUso();
 }
 
 function totalPresupuesto(p){
   const items = p.presupuesto_items || [];
   const totalItems = items.reduce((acc, it) => acc + (Number(it.cantidad)||0) * (Number(it.precio_unitario)||0), 0);
   return totalItems + (p.flete_incluir ? (Number(p.flete_monto)||0) : 0);
+}
+
+function esMaestro(){ return !!(miPerfil && miPerfil.rol === 'maestro'); }
+// ¿El presupuesto cotiza más de un período por equipo? Entonces no hay un "total" único.
+function presEsMulti(p){
+  const c = {};
+  (p.presupuesto_items||[]).forEach(it => { const k = (it.modelo||'').trim().toLowerCase(); c[k] = (c[k]||0) + 1; });
+  return Object.values(c).some(n => n > 1);
+}
+function presTotalTxt(p){
+  return presEsMulti(p) ? '<span title="Cotiza día / semana / mes por equipo">3 precios/equipo</span>' : fmtMoney(totalPresupuesto(p), p.moneda || 'USD');
+}
+function presVenceFecha(p){
+  if(!p.fecha_emision) return null;
+  const d = new Date(p.fecha_emision + 'T00:00:00'); d.setDate(d.getDate() + (Number(p.validez_dias)||7));
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function presVencido(p){ const v = presVenceFecha(p); return !!v && v < hoyIso(); }
+function presVenceTxt(p){
+  const v = presVenceFecha(p); if(!v) return '—';
+  return (p.estado === 'vigente' && presVencido(p)) ? `<span style="color:#ff9f43;" title="Venció: no se puede usar para contratos nuevos">${fmtDate(v)} · vencido</span>` : fmtDate(v);
+}
+// contratos que usan cada presupuesto (se consulta aparte: no depende de los permisos de la pantalla Contratos)
+let presUsoMap = {};
+async function loadPresupuestoUso(){
+  presUsoMap = {};
+  try{
+    const { data, error } = await supabaseClient.from('contratos')
+      .select('id, presupuesto_id, presupuesto_modelo, modalidad, estado, clientes(razon_social), equipos(numero_serie)')
+      .not('presupuesto_id', 'is', null);
+    if(error) throw error;
+    (data||[]).forEach(c => { (presUsoMap[c.presupuesto_id] = presUsoMap[c.presupuesto_id] || []).push(c); });
+  } catch(e){ console.warn('No se pudo cargar el uso de los presupuestos', e); }
+}
+function presUsoTxt(p){
+  const l = presUsoMap[p.id] || [];
+  if(!l.length) return '<span class="muted">—</span>';
+  const tip = l.map(c => `#${c.id} · ${c.clientes?.razon_social||'—'} · serie ${c.equipos?.numero_serie||'—'}`).join('\n');
+  return `<span title="${escapeHtml(tip)}" style="cursor:help;">${l.length} contrato(s)</span>`;
 }
 
 function getPresupuestosFiltrados(){
@@ -19727,7 +20016,7 @@ function renderPresupuestos(){
   const list = getPresupuestosFiltrados();
   const tbody = document.getElementById('pres-tbody');
   if(list.length === 0){
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No hay presupuestos con este filtro.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No hay presupuestos con este filtro.</td></tr>';
     document.getElementById('pres-results-count').textContent = '';
     return;
   }
@@ -19742,10 +20031,13 @@ function renderPresupuestos(){
         <td class="muted">${fmtDate(p.fecha_emision)}</td>
         <td>${escapeHtml(empresa)}${p.contacto_nombre ? ` <span class="muted" style="font-size:11px;">— ${escapeHtml(p.contacto_nombre)}</span>` : ''}</td>
         <td class="muted">${cantItems} equipo(s)</td>
-        <td class="muted">${fmtMoney(totalPresupuesto(p), p.moneda || 'USD')}</td>
+        <td class="muted">${presTotalTxt(p)}</td>
+        <td class="muted">${presVenceTxt(p)}</td>
         <td><span class="badge" style="color:${color};border-color:${color};">${p.estado}</span></td>
+        <td class="muted" style="font-size:12px;">${presUsoTxt(p)}</td>
         <td>
           <div class="row-actions">
+            ${p.estado === 'vigente' && esMaestro() ? `<button class="btn secondary small" title="Extender la vigencia (solo maestros)" onclick="abrirExtenderVigencia(${p.id})">⏱ Extender</button>` : ''}
             <button class="btn secondary small" onclick="abrirEditarPresupuesto(${p.id})">${p.estado === 'anulado' ? 'Ver' : 'Editar'}</button>
             <button class="btn secondary small" onclick="generarPresupuestoPDF(${p.id})">PDF</button>
             ${p.estado !== 'anulado' && puede('presupuestos','anular') ? `<button class="btn danger small" onclick="abrirAnularPresupuesto(${p.id})">Anular</button>` : ''}
@@ -19768,7 +20060,7 @@ function presupuestosToRows(list){
   const headers = ['Numero','Fecha','Cliente Empresa','Contacto','Cantidad Items','Total','Moneda','Estado'];
   const rows = list.map(p => [
     p.numero, p.fecha_emision, p.clientes?.razon_social || p.empresa_nombre || '', p.contacto_nombre || '',
-    (p.presupuesto_items || []).length, totalPresupuesto(p), p.moneda, p.estado,
+    (p.presupuesto_items || []).length, presEsMulti(p) ? '' : totalPresupuesto(p), p.moneda, p.estado,
   ]);
   return { headers, rows };
 }
@@ -19824,13 +20116,9 @@ function populateSucursalSelectPresupuesto(){
 }
 
 // ---------- Ítems del presupuesto (tabla dinámica) ----------
-function calcularTotalPresupuestoForm(){
-  const totalItems = presupuestoItemsState.reduce((acc,it)=> acc + (Number(it.cantidad)||0)*(Number(it.precio_unitario)||0), 0);
-  const flete = document.getElementById('pres-flete-incluir').checked ? (Number(document.getElementById('pres-flete-monto').value)||0) : 0;
-  return totalItems + flete;
-}
+function calcularTotalPresupuestoForm(){ return 0; }
 function actualizarTotalPresupuestoPreview(){
-  document.getElementById('pres-total-preview').textContent = fmtMoney(calcularTotalPresupuestoForm(), document.getElementById('pres-moneda').value);
+  /* sin total: cada equipo lleva 3 precios (día / semana / mes) */
 }
 function presThumbHtml(modelo){
   const u = fotoUrlDeModelo(modelo);
@@ -19856,96 +20144,70 @@ function presThumbHtml(modelo){
 })();
 document.getElementById('btn-pres-fotos').addEventListener('click', abrirCargadorFotos);
 
+const PRES_PERIODOS = [['dia','Día'],['sem','Semana'],['mes','Mes']];
+function presItemVacio(){ return { modelo:'', categoria:'', cantidad:1, dia:'', sem:'', mes:'' }; }
+function presAgruparItems(items){
+  const g = [], idx = {};
+  (items||[]).slice().sort((a,b)=>(a.orden||0)-(b.orden||0)).forEach(it => {
+    const k = (it.modelo||'').trim().toLowerCase();
+    if(!(k in idx)){ idx[k] = g.length; g.push({ modelo: it.modelo||'', categoria: it.categoria||'', cantidad: Number(it.cantidad)||1, dia:'', sem:'', mes:'' }); }
+    const o = g[idx[k]];
+    o.cantidad = Math.max(o.cantidad, Number(it.cantidad)||1);
+    const col = it.periodo === 'Día' ? 'dia' : it.periodo === 'Semana' ? 'sem' : 'mes';
+    o[col] = it.precio_unitario;
+  });
+  return g;
+}
 function renderPresItemsTabla(){
   const tbody = document.getElementById('pres-items-tbody');
   if(presupuestoItemsState.length === 0){
     tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Agregá al menos un equipo.</td></tr>';
-  } else {
-    tbody.innerHTML = presupuestoItemsState.map((it, idx) => {
-      const subtotal = (Number(it.cantidad)||0) * (Number(it.precio_unitario)||0);
-      return `
-        <tr data-idx="${idx}">
-          <td><div style="display:flex;align-items:center;gap:8px;">
-            <span class="pres-thumb" data-idx="${idx}" title="${fotoUrlDeModelo(it.modelo) ? '' : 'Este modelo todavía no tiene foto'}">${presThumbHtml(it.modelo)}</span>
-            <input type="text" class="pres-item-modelo" data-idx="${idx}" list="pres-modelos-datalist" value="${escapeHtml(it.modelo||'')}" placeholder="Ej: HA20RTJPRO" style="min-width:180px;">
-          </div></td>
-          <td><input type="number" class="pres-item-cantidad" data-idx="${idx}" value="${it.cantidad}" min="1" style="width:70px;"></td>
-          <td>
-            <select class="pres-item-periodo" data-idx="${idx}">
-              <option value="Día" ${it.periodo==='Día'?'selected':''}>Día</option>
-              <option value="Semana" ${it.periodo==='Semana'?'selected':''}>Semana</option>
-              <option value="Mes" ${it.periodo==='Mes'?'selected':''}>Mes</option>
-            </select>
-          </td>
-          <td><input type="number" class="pres-item-precio" data-idx="${idx}" value="${it.precio_unitario}" step="0.01" style="width:110px;"></td>
-          <td class="muted pres-item-subtotal" data-idx="${idx}">${fmtMoney(subtotal, document.getElementById('pres-moneda').value)}</td>
-          <td style="white-space:nowrap;">
-            <button type="button" class="btn secondary small" title="Duplicar este equipo con otro período" onclick="duplicarItemPresupuesto(${idx})">⧉</button>
-            <button type="button" class="btn secondary small" onclick="quitarItemPresupuesto(${idx})">✕</button>
-          </td>
-        </tr>`;
-    }).join('');
+    return;
   }
-  actualizarTotalPresupuestoPreview();
+  tbody.innerHTML = presupuestoItemsState.map((it, idx) => `
+    <tr data-idx="${idx}">
+      <td><div style="display:flex;align-items:center;gap:8px;">
+        <span class="pres-thumb" data-idx="${idx}" title="${fotoUrlDeModelo(it.modelo) ? '' : 'Este modelo todavía no tiene foto'}">${presThumbHtml(it.modelo)}</span>
+        <input type="text" class="pres-item-modelo" data-idx="${idx}" list="pres-modelos-datalist" value="${escapeHtml(it.modelo||'')}" placeholder="Ej: HA20RTJPRO" style="min-width:180px;">
+      </div></td>
+      <td><input type="number" class="pres-item-cantidad" data-idx="${idx}" value="${it.cantidad}" min="1" style="width:70px;"></td>
+      ${PRES_PERIODOS.map(([k]) => `<td><input type="number" class="pres-item-precio" data-idx="${idx}" data-col="${k}" value="${it[k] ?? ''}" step="0.01" min="0" placeholder="0,00" style="width:105px;"></td>`).join('')}
+      <td style="white-space:nowrap;"><button type="button" class="btn secondary small" onclick="quitarItemPresupuesto(${idx})">✕</button></td>
+    </tr>`).join('');
 }
-// Al tipear: NO se reconstruye la tabla (eso destruye el <input> y hace saltar el
-// cursor al principio en cada tecla). Solo se actualiza el estado en memoria y,
-// puntualmente, el texto del subtotal de esa fila + el total — nunca el input en sí.
+// Al tipear: NO se reconstruye la tabla (eso destruye el <input> y hace saltar el cursor).
 document.getElementById('pres-items-tbody').addEventListener('input', (e)=>{
   const idx = Number(e.target.dataset.idx);
   if(Number.isNaN(idx) || !presupuestoItemsState[idx]) return;
+  const it = presupuestoItemsState[idx];
   if(e.target.classList.contains('pres-item-modelo')){
-    presupuestoItemsState[idx].modelo = e.target.value;
+    it.modelo = e.target.value;
     const ficha = buscarFichaTecnica(e.target.value);
-    presupuestoItemsState[idx].categoria = ficha ? ficha.categoria : '';
+    it.categoria = ficha ? ficha.categoria : '';
     const th = e.target.closest('tr')?.querySelector('.pres-thumb');
     if(th) th.innerHTML = presThumbHtml(e.target.value);
   }
-  if(e.target.classList.contains('pres-item-cantidad')) presupuestoItemsState[idx].cantidad = e.target.value;
-  if(e.target.classList.contains('pres-item-precio')) presupuestoItemsState[idx].precio_unitario = e.target.value;
-  if(e.target.classList.contains('pres-item-cantidad') || e.target.classList.contains('pres-item-precio')){
-    const it = presupuestoItemsState[idx];
-    const subtotal = (Number(it.cantidad)||0) * (Number(it.precio_unitario)||0);
-    const celda = tbodyPresQuerySubtotal(idx);
-    if(celda) celda.textContent = fmtMoney(subtotal, document.getElementById('pres-moneda').value);
-    actualizarTotalPresupuestoPreview();
-  }
+  if(e.target.classList.contains('pres-item-cantidad')) it.cantidad = e.target.value;
+  if(e.target.classList.contains('pres-item-precio')) it[e.target.dataset.col] = e.target.value;
 });
-function tbodyPresQuerySubtotal(idx){
-  return document.querySelector(`#pres-items-tbody .pres-item-subtotal[data-idx="${idx}"]`);
-}
-document.getElementById('pres-items-tbody').addEventListener('change', (e)=>{
-  const idx = Number(e.target.dataset.idx);
-  if(Number.isNaN(idx) || !presupuestoItemsState[idx]) return;
-  if(e.target.classList.contains('pres-item-periodo')) presupuestoItemsState[idx].periodo = e.target.value;
-});
-document.getElementById('pres-moneda').addEventListener('change', renderPresItemsTabla);
+document.getElementById('pres-moneda').addEventListener('change', ()=>{});
 document.getElementById('pres-flete-incluir').addEventListener('change', (e)=>{
   document.getElementById('pres-flete-monto-wrap').style.display = e.target.checked ? 'block' : 'none';
-  actualizarTotalPresupuestoPreview();
 });
-document.getElementById('pres-flete-monto').addEventListener('input', actualizarTotalPresupuestoPreview);
-function duplicarItemPresupuesto(idx){
-  const original = presupuestoItemsState[idx];
-  if(!original) return;
-  // Sugiere el período que todavía no se cotizó para este mismo modelo (Mes -> Semana -> Día),
-  // para armar rápido el desglose de 3 precios que pide Comercial sin tener que buscar el
-  // equipo de nuevo cada vez.
-  const modeloNorm = (original.modelo||'').trim().toLowerCase();
-  const periodosUsados = presupuestoItemsState
-    .filter(it => (it.modelo||'').trim().toLowerCase() === modeloNorm)
-    .map(it => it.periodo);
-  const periodoSugerido = ['Mes','Semana','Día'].find(p => !periodosUsados.includes(p)) || 'Mes';
-  const nuevo = { modelo: original.modelo, categoria: original.categoria, cantidad: 1, periodo: periodoSugerido, precio_unitario: 0 };
-  presupuestoItemsState.splice(idx + 1, 0, nuevo);
-  renderPresItemsTabla();
-}
 function quitarItemPresupuesto(idx){
+  const it = presupuestoItemsState[idx];
+  const usados = it ? presContratosDeModelo(document.getElementById('pres-id').value, it.modelo) : [];
+  if(usados.length){ showToast(`No se puede quitar ${it.modelo}: ${usados.length} contrato(s) activo(s) lo usan como respaldo.`, true); return; }
   presupuestoItemsState.splice(idx, 1);
   renderPresItemsTabla();
 }
+function presContratosDeModelo(presId, modelo){
+  if(!presId) return [];
+  const k = (modelo||'').trim().toLowerCase();
+  return (presUsoMap[Number(presId)]||[]).filter(c => c.estado === 'activo' && (c.presupuesto_modelo||'').trim().toLowerCase() === k);
+}
 document.getElementById('btn-pres-agregar-item').addEventListener('click', ()=>{
-  presupuestoItemsState.push({ modelo:'', categoria:'', cantidad:1, periodo:'Mes', precio_unitario:0 });
+  presupuestoItemsState.push(presItemVacio());
   renderPresItemsTabla();
 });
 
@@ -19982,8 +20244,9 @@ function resetPresupuestoForm(){
   document.getElementById('pres-ocultar-total').checked = false;
   document.getElementById('pres-modelos-datalist').innerHTML =
     catalogoTecnicoCache.filter(c => c.especificaciones && c.especificaciones.length).map(c=>`<option value="${escapeHtml(c.modelo)}">`).join('');
-  presupuestoItemsState = [{ modelo:'', categoria:'', cantidad:1, periodo:'Mes', precio_unitario:0 }];
+  presupuestoItemsState = [presItemVacio()];
   renderPresItemsTabla();
+  document.getElementById('pres-vigencia-aviso').innerHTML = '';
 }
 
 document.getElementById('btn-nuevo-presupuesto').addEventListener('click', ()=>{
@@ -20032,9 +20295,10 @@ function abrirEditarPresupuesto(id){
   document.getElementById('pres-flete-monto').value = p.flete_monto || 0;
   document.getElementById('pres-flete-monto-wrap').style.display = p.flete_incluir ? 'block' : 'none';
   document.getElementById('pres-ocultar-total').checked = !!p.ocultar_total;
-  presupuestoItemsState = (p.presupuesto_items || []).length > 0
-    ? p.presupuesto_items.map(it => ({ modelo: it.modelo||'', categoria: it.categoria||'', cantidad: it.cantidad, periodo: it.periodo||'Mes', precio_unitario: it.precio_unitario }))
-    : [{ modelo:'', categoria:'', cantidad:1, periodo:'Mes', precio_unitario:0 }];
+  presupuestoItemsState = (p.presupuesto_items || []).length > 0 ? presAgruparItems(p.presupuesto_items) : [presItemVacio()];
+  const usoN = (presUsoMap[p.id]||[]).length;
+  document.getElementById('pres-vigencia-aviso').innerHTML = usoN
+    ? `<div style="margin-top:8px;font-size:12px;color:#ff9f43;text-align:left;">Este presupuesto respalda ${usoN} contrato(s). Cambiar precios acá NO modifica los contratos ya creados.</div>` : '';
   renderPresItemsTabla();
   document.getElementById('modal-presupuesto-overlay').classList.add('open');
 }
@@ -20043,6 +20307,20 @@ document.getElementById('btn-presupuesto-save').addEventListener('click', async 
   const id = document.getElementById('pres-id').value;
   const itemsValidos = presupuestoItemsState.filter(it => it.modelo && Number(it.cantidad) > 0);
   if(itemsValidos.length === 0){ showToast('Agregá al menos un equipo con modelo y cantidad', true); return; }
+  for(const it of itemsValidos){
+    if(!(Number(it.dia) > 0 && Number(it.sem) > 0 && Number(it.mes) > 0)){
+      showToast(`${it.modelo}: completá los TRES precios (día, semana y mes)`, true); return;
+    }
+  }
+  if(id){
+    for(const c of (presUsoMap[Number(id)]||[]).filter(c => c.estado === 'activo')){
+      const k = (c.presupuesto_modelo||'').trim().toLowerCase();
+      const it = itemsValidos.find(x => x.modelo.trim().toLowerCase() === k);
+      const usados = presContratosDeModelo(id, c.presupuesto_modelo).length;
+      if(!it){ showToast(`No se puede quitar ${c.presupuesto_modelo}: hay contratos activos que lo usan.`, true); return; }
+      if(Number(it.cantidad) < usados){ showToast(`${it.modelo}: hay ${usados} contrato(s) activos, la cantidad no puede ser menor.`, true); return; }
+    }
+  }
 
   const payload = {
     cliente_id: document.getElementById('pres-cliente_id').value ? Number(document.getElementById('pres-cliente_id').value) : null,
@@ -20087,16 +20365,19 @@ document.getElementById('btn-presupuesto-save').addEventListener('click', async 
       presupuestoId = data.id;
     }
 
-    const itemsPayload = itemsValidos.map((it, i) => ({
-      presupuesto_id: presupuestoId,
-      modelo: it.modelo,
-      categoria: it.categoria || null,
-      descripcion: it.modelo,
-      cantidad: Number(it.cantidad),
-      periodo: it.periodo,
-      precio_unitario: Number(it.precio_unitario) || 0,
-      orden: i,
-    }));
+    const itemsPayload = [];
+    itemsValidos.forEach((it, i) => {
+      [['mes','Mes'],['sem','Semana'],['dia','Día']].forEach(([k, per], j) => itemsPayload.push({
+        presupuesto_id: presupuestoId,
+        modelo: it.modelo,
+        categoria: it.categoria || null,
+        descripcion: it.modelo,
+        cantidad: Number(it.cantidad),
+        periodo: per,
+        precio_unitario: Number(it[k]),
+        orden: i * 3 + j,
+      }));
+    });
     const { error: itemsError } = await supabaseClient.from('presupuesto_items').insert(itemsPayload);
     if(itemsError) throw itemsError;
 
@@ -20114,11 +20395,23 @@ document.getElementById('btn-presupuesto-save').addEventListener('click', async 
 function abrirAnularPresupuesto(id){
   const p = presupuestosCache.find(x => x.id === id);
   if(!p) return;
-  document.getElementById('anp-id').value = p.id;
-  document.getElementById('anp-resumen').innerHTML = `
-    <strong>N° ${String(p.numero).padStart(5,'0')}</strong> — ${escapeHtml(p.clientes?.razon_social || p.empresa_nombre || '—')}<br>
-    ${fmtMoney(totalPresupuesto(p), p.moneda||'USD')}
-  `;
+  const uso = presUsoMap[p.id] || [];
+  const lista = uso.map(c => `<li>Contrato #${c.id} · ${escapeHtml(c.clientes?.razon_social||'—')} · serie ${escapeHtml(c.equipos?.numero_serie||'—')} · ${escapeHtml(c.presupuesto_modelo||'')} (${escapeHtml(c.modalidad||'')})${c.estado==='baja'?' · de baja':''}</li>`).join('');
+  if(uso.length && !esMaestro()){
+    document.getElementById('anp-id').value = '';
+    document.getElementById('anp-resumen').innerHTML = `<div style="color:var(--danger);font-weight:600;margin-bottom:8px;">⛔ No se puede anular: el presupuesto N° ${String(p.numero).padStart(5,'0')} es el respaldo de ${uso.length} contrato(s).</div><ul style="margin:0 0 8px 18px;padding:0;">${lista}</ul><div>Si realmente hay que anularlo, pedile a un maestro que lo haga (con motivo).</div>`;
+    document.getElementById('anp-motivo').parentElement.style.display = 'none';
+    document.getElementById('btn-anular-presupuesto-confirmar').style.display = 'none';
+  } else {
+    document.getElementById('anp-id').value = p.id;
+    document.getElementById('anp-resumen').innerHTML = `
+      <strong>N° ${String(p.numero).padStart(5,'0')}</strong> — ${escapeHtml(p.clientes?.razon_social || p.empresa_nombre || '—')}<br>
+      ${presTotalTxt(p)}
+      ${uso.length ? `<div style="color:#ff9f43;font-weight:600;margin:10px 0 6px;">⚠ Este presupuesto respalda ${uso.length} contrato(s). Como maestro podés forzar la anulación; los contratos quedan con su precio actual y se registra el motivo.</div><ul style="margin:0 0 4px 18px;padding:0;">${lista}</ul>` : ''}`;
+    document.getElementById('anp-motivo').parentElement.style.display = '';
+    document.getElementById('btn-anular-presupuesto-confirmar').style.display = '';
+    document.getElementById('btn-anular-presupuesto-confirmar').textContent = uso.length ? 'Forzar anulación' : 'Anular presupuesto';
+  }
   document.getElementById('anp-motivo').value = '';
   document.getElementById('modal-anular-presupuesto-overlay').classList.add('open');
 }
@@ -20131,10 +20424,14 @@ document.getElementById('modal-anular-presupuesto-overlay').addEventListener('cl
 document.getElementById('btn-anular-presupuesto-confirmar').addEventListener('click', async ()=>{
   const id = document.getElementById('anp-id').value;
   if(!id) return;
+  const uso = presUsoMap[Number(id)] || [];
+  const motivo = document.getElementById('anp-motivo').value.trim();
+  if(uso.length && !motivo){ showToast('Para forzar la anulación tenés que escribir el motivo', true); return; }
   try{
     const { error } = await supabaseClient.from('presupuestos').update({
       estado: 'anulado',
-      motivo_anulacion: document.getElementById('anp-motivo').value || null,
+      motivo_anulacion: motivo || null,
+      anulacion_forzada: uso.length > 0,
     }).eq('id', id);
     if(error) throw error;
     document.getElementById('modal-anular-presupuesto-overlay').classList.remove('open');
@@ -20143,8 +20440,35 @@ document.getElementById('btn-anular-presupuesto-confirmar').addEventListener('cl
     showToast('Presupuesto anulado. Sigue en el listado con historial completo.');
   } catch(err){
     console.error(err);
-    showToast('Error al anular: ' + err.message, true);
+    showToast((String(err.message||'').startsWith('PRESUPUESTO_EN_USO') ? 'El presupuesto está en uso por contratos: ' : 'Error al anular: ') + err.message.replace(/^PRESUPUESTO_EN_USO: /,''), true);
   }
+});
+
+// ---------- Extender la vigencia (solo maestros) ----------
+function abrirExtenderVigencia(id){
+  const p = presupuestosCache.find(x => x.id === id);
+  if(!p || !esMaestro()) return;
+  document.getElementById('ext-id').value = p.id;
+  document.getElementById('ext-resumen').innerHTML = `<strong>N° ${String(p.numero).padStart(5,'0')}</strong> — ${escapeHtml(p.clientes?.razon_social || p.empresa_nombre || '—')}<br>Emitido el ${fmtDate(p.fecha_emision)} · vigente hasta <strong>${fmtDate(presVenceFecha(p))}</strong>${presVencido(p) ? ' (vencido)' : ''}`;
+  const base = presVencido(p) ? hoyIso() : presVenceFecha(p);
+  const d = new Date(base + 'T00:00:00'); d.setDate(d.getDate() + 7);
+  document.getElementById('ext-nueva').value = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  document.getElementById('modal-extender-pres-overlay').classList.add('open');
+}
+document.getElementById('btn-ext-cancel').addEventListener('click', ()=> document.getElementById('modal-extender-pres-overlay').classList.remove('open'));
+document.getElementById('btn-ext-confirmar').addEventListener('click', async ()=>{
+  const id = Number(document.getElementById('ext-id').value);
+  const p = presupuestosCache.find(x => x.id === id);
+  const nueva = document.getElementById('ext-nueva').value;
+  if(!p || !nueva) return;
+  const dias = Math.round((new Date(nueva + 'T00:00:00') - new Date(p.fecha_emision + 'T00:00:00')) / 86400000);
+  if(nueva < hoyIso()){ showToast('La nueva fecha no puede ser anterior a hoy', true); return; }
+  if(dias <= 0){ showToast('Fecha inválida', true); return; }
+  const { error } = await supabaseClient.from('presupuestos').update({ validez_dias: dias }).eq('id', id);
+  if(error){ showToast('No se pudo extender: ' + error.message, true); return; }
+  document.getElementById('modal-extender-pres-overlay').classList.remove('open');
+  await loadPresupuestos(); renderPresupuestos();
+  showToast('Vigencia extendida hasta ' + fmtDate(nueva));
 });
 
 // ---------- Generar el PDF del presupuesto (con fichas técnicas de anexo + links internos) ----------
@@ -20288,7 +20612,7 @@ async function generarPresupuestoPDF(id){
     y += 6;
     total += Number(p.flete_monto);
   }
-  if(!p.ocultar_total){
+  if(!p.ocultar_total && !presEsMulti(p)){
     doc.setFont('helvetica','bold');
     doc.setFontSize(11);
     doc.text(`TOTAL: ${fmtMoney(total, p.moneda)}`, pageWidth - marginX, y, { align:'right' });
