@@ -24917,7 +24917,7 @@ function csRender(){
 }
 
 // ---------- detalle ----------
-async function csAbrir(id){
+async function csCasoAbrir(id){
   CS.sel = id; CS.entradas = []; CS.archivos = [];
   csPintarDetalle(); document.getElementById('cs-det').classList.add('open');
   csCargarEntradas(id);
@@ -25079,7 +25079,7 @@ async function csNuevoCrear(){
     document.getElementById('cs-new').classList.remove('open');
     showToast(`Caso ${data.numero} abierto`);
     CS.filtro = CS.filtro === 'cerrados' ? 'abiertos' : CS.filtro;
-    await csCargar(true); csAbrir(data.id);
+    await csCargar(true); csCasoAbrir(data.id);
   }catch(e){ showToast(e.message || 'No se pudo abrir el caso', true); if(btn){ btn.disabled = false; btn.textContent = 'Abrir caso'; } }
   finally{ CS.ocupado = false; }
 }
@@ -25094,7 +25094,7 @@ function csInit(){
     const t = ev.target;
     const f = t.closest('[data-cs-filtro]'); if(f){ CS.filtro = f.dataset.csFiltro; csRender(); return; }
     if(t.closest('[data-cs-nuevo]')){ csNuevoAbrir(); return; }
-    const tr = t.closest('[data-cs-id]'); if(tr){ csAbrir(Number(tr.dataset.csId)); return; }
+    const tr = t.closest('[data-cs-id]'); if(tr){ csCasoAbrir(Number(tr.dataset.csId)); return; }
   });
   sec.addEventListener('change', ev => {
     const m = { 'cs-f-emp':'emp', 'cs-f-cat':'cat', 'cs-f-prio':'prio', 'cs-f-resp':'resp' }[ev.target.id];
