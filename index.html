@@ -2559,7 +2559,7 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
     <div class="muted" id="ret-results-count" style="margin-top:10px;font-size:12px;"></div>
   </section>
 
-  <div class="overlay" id="modal-ver-pdf-overlay">
+  <div class="overlay" id="modal-ver-pdf-overlay" style="z-index:1250;">
     <div class="modal wide" style="height:88vh;display:flex;flex-direction:column;padding:16px;">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
         <h2 id="modal-ver-pdf-titulo" style="margin:0;flex:1;font-size:15px;">Documento</h2>
@@ -6959,7 +6959,7 @@ function remitoArchivoRender(){
   if(r.file){
     h = `<span>📄 ${escapeHtml(r.file.name)} <span class="muted">(se sube al guardar)</span></span>`;
   } else if(r.url && !r.quitar){
-    h = `<a href="${escapeHtml(r.url)}" target="_blank" rel="noopener" style="font-weight:600;">📄 Ver remito escaneado</a><span class="muted">${escapeHtml(r.nombre || '')}</span>`;
+    h = `<a href="#" onclick="abrirVisorPDF(remitoArchivo.url, 'Remito ' + (document.getElementById('c-remito').value || '') + ' (escaneado)');return false;" style="font-weight:600;">📄 Ver remito escaneado</a><span class="muted">${escapeHtml(r.nombre || '')}</span>`;
   } else if(r.url && r.quitar){
     h = `<span class="muted">Se quitará el adjunto al guardar.</span> <a href="#" onclick="remitoArchivo.quitar=false;remitoArchivoRender();return false;">deshacer</a>`;
   }
