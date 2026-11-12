@@ -6787,6 +6787,7 @@ async function respClienteElegido(){
 }
 function respPoblarPresupuestos(preId){
   const sel = document.getElementById('c-resp-pres');
+  sel.disabled = !respState.nuevo;   // al editar un contrato queda bloqueado: hay que liberarlo al volver a elegir
   const cid = document.getElementById('c-cliente_id').value;
   if(!cid){ sel.innerHTML = '<option value="">Elegí primero el cliente</option>'; respPoblarModelos(); return; }
   const l = respPresDelCliente();
@@ -6946,6 +6947,7 @@ function resetContratoForm(){
   document.getElementById('c-bonif-box').style.display = 'none';
   document.getElementById('c-resp-box').style.display = 'none';
   document.getElementById('c-resp-info').textContent = '';
+  document.getElementById('c-resp-pres').disabled = false;
   document.getElementById('c-sucursal_id').value = '';
   document.getElementById('c-tiene_flete_entrega').checked = false;
   document.getElementById('c-flete-entrega-box').style.display = 'none';
