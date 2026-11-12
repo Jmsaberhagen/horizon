@@ -4507,7 +4507,12 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
       </div>
       <div class="field">
         <label>Remito</label>
-        <input type="text" id="c-remito">
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input type="text" id="c-remito" style="flex:0 0 118px;min-width:0;">
+          <button type="button" class="btn secondary small" id="c-remito-btn" onclick="document.getElementById('c-remito-file').click()" title="Adjuntar el PDF del remito escaneado">📎 PDF</button>
+          <input type="file" id="c-remito-file" accept="application/pdf,image/*" style="display:none;" onchange="remitoArchivoElegir(this)">
+        </div>
+        <div id="c-remito-adj" style="display:none;font-size:12px;margin-top:5px;align-items:center;gap:8px;flex-wrap:wrap;"></div>
       </div>
       <div class="field">
         <label>Fecha de salida</label>
@@ -6929,7 +6934,51 @@ document.getElementById('c-resp-cambiar').addEventListener('click', async ()=>{
   respPoblarPresupuestos();
 });
 
+// ---------- Remito escaneado adjunto al contrato
+let remitoArchivo = { file:null, url:null, nombre:null, quitar:false };
+function remitoArchivoElegir(inp){
+  const f = inp.files && inp.files[0];
+  inp.value = '';
+  if(!f) return;
+  const esPdf = f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
+  if(!esPdf && !(f.type||'').startsWith('image/')){ showToast('Adjuntá el remito en PDF (o una foto)', true); return; }
+  if(f.size > 15*1024*1024){ showToast('El archivo pesa más de 15 MB', true); return; }
+  remitoArchivo.file = f; remitoArchivo.quitar = false;
+  remitoArchivoRender();
+}
+function remitoArchivoQuitar(){
+  if(remitoArchivo.file){ remitoArchivo.file = null; }
+  else if(remitoArchivo.url){ remitoArchivo.quitar = true; }
+  remitoArchivoRender();
+}
+function remitoArchivoRender(){
+  const box = document.getElementById('c-remito-adj'), btn = document.getElementById('c-remito-btn');
+  if(!box) return;
+  const r = remitoArchivo;
+  let h = '';
+  if(r.file){
+    h = `<span>📄 ${escapeHtml(r.file.name)} <span class="muted">(se sube al guardar)</span></span>`;
+  } else if(r.url && !r.quitar){
+    h = `<a href="${escapeHtml(r.url)}" target="_blank" rel="noopener" style="font-weight:600;">📄 Ver remito escaneado</a><span class="muted">${escapeHtml(r.nombre || '')}</span>`;
+  } else if(r.url && r.quitar){
+    h = `<span class="muted">Se quitará el adjunto al guardar.</span> <a href="#" onclick="remitoArchivo.quitar=false;remitoArchivoRender();return false;">deshacer</a>`;
+  }
+  const hayAdj = r.file || (r.url && !r.quitar);
+  if(hayAdj) h += ` <a href="#" onclick="remitoArchivoQuitar();return false;" style="color:var(--danger,#e5484d);">✕ quitar</a>`;
+  box.innerHTML = h;
+  box.style.display = h ? 'flex' : 'none';
+  if(btn) btn.textContent = hayAdj ? '📎 Cambiar' : '📎 PDF';
+}
+async function remitoArchivoSubir(){
+  const f = remitoArchivo.file;
+  const path = `contrato_${Date.now()}_${f.name.replace(/[^a-zA-Z0-9.\-_]/g,'_')}`;
+  const { error } = await supabaseClient.storage.from('remitos').upload(path, f, { contentType: f.type || 'application/pdf' });
+  if(error) throw error;
+  return { url: supabaseClient.storage.from('remitos').getPublicUrl(path).data.publicUrl, nombre: f.name };
+}
+
 function resetContratoForm(){
+  remitoArchivo = { file:null, url:null, nombre:null, quitar:false }; remitoArchivoRender();
   equipoSearchInput.disabled = false; equipoSearchInput.title = '';
   { const b = document.getElementById('btn-contrato-cambiar-serie'); if(b) b.style.display = 'none'; const bx = document.getElementById('c-cambios-serie-box'); if(bx) bx.style.display = 'none'; }
   ['id','cliente_id','equipo_id','remito','fecha_salida','fecha_vencimiento',
@@ -7031,6 +7080,7 @@ function openEditContrato(id){
 
   document.getElementById('c-sucursal_id').value = c.sucursal_id || '';
   document.getElementById('c-remito').value = c.remito || '';
+  remitoArchivo = { file:null, url:c.remito_archivo_url || null, nombre:c.remito_archivo_nombre || null, quitar:false }; remitoArchivoRender();
   document.getElementById('c-fecha_salida').value = c.fecha_salida || '';
   document.getElementById('c-fecha_vencimiento').value = c.fecha_vencimiento || '';
   document.getElementById('c-moneda').value = c.moneda || 'USD';
@@ -7180,6 +7230,12 @@ document.getElementById('btn-contrato-save').addEventListener('click', async ()=
   try{
     let contratoId = id;
     let avisoAut = '';
+    if(remitoArchivo.file){
+      const up = await remitoArchivoSubir();
+      payload.remito_archivo_url = up.url; payload.remito_archivo_nombre = up.nombre;
+    } else if(remitoArchivo.quitar){
+      payload.remito_archivo_url = null; payload.remito_archivo_nombre = null;
+    }
     if(id){
       const { data: act, error } = await supabaseClient.from('contratos').update(payload).eq('id', id).select('id, autorizacion, autorizacion_tipo').maybeSingle();
       if(error) throw error;
