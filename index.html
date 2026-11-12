@@ -6840,17 +6840,18 @@ function respAplicarPrecio(){
   info.innerHTML = `Precio ${RESP_PER[mod][1]}: <strong>${fmtMoney(precio, p.moneda)}</strong>${bonif ? ` − bonificación ${fmtMoney(bonif, p.moneda)} = <strong>${fmtMoney(precio-bonif, p.moneda)}</strong>` : ''} · vigente hasta ${fmtDate(presVenceFecha(p))}`;
   // si la serie elegida no es de este modelo, se limpia
   const eqModelo = document.getElementById('c-equipo-modelo').value;
-  if(respState.nuevo && eqModelo && eqModelo.trim().toLowerCase() !== modelo.trim().toLowerCase()){
+  if(respState.nuevo && eqModelo && modeloGrupo(eqModelo) !== modeloGrupo(modelo)){
     document.getElementById('c-equipo_id').value=''; equipoSearchInput.value=''; document.getElementById('c-equipo-modelo').value=''; document.getElementById('c-equipo-selected').textContent='Elegí una serie del modelo cotizado.';
   }
 }
 function respEquiposCandidatos(q){
-  const modelo = (document.getElementById('c-resp-modelo').value||'').trim().toLowerCase();
+  const modelo = document.getElementById('c-resp-modelo').value||'';
+  const grupo = modeloGrupo(modelo);
   const cid = document.getElementById('c-cliente_id').value;
   return equiposCache.filter(e => {
     if(respState.nuevo){
       if(!modelo) return false;
-      if((e.modelo||'').trim().toLowerCase() !== modelo) return false;
+      if(modeloGrupo(e.modelo) !== grupo) return false;
       const rsv = reservaDeEquipo(e.id);
       if(estadoActualEquipo(e) !== 'disponible') return false;
       if(rsv && String(rsv.cliente_id) !== String(cid)) return false;
@@ -7087,7 +7088,7 @@ document.getElementById('btn-contrato-save').addEventListener('click', async ()=
     if(!pr || pr.estado !== 'vigente' || presVencido(pr)){ showToast('El presupuesto ya no está vigente: no se puede usar para el contrato', true); return; }
     if(!id && !document.getElementById('c-fecha_salida').value){ showToast('Cargá la fecha de salida: la facturación arranca ese día', true); return; }
     const itE = (equiposCache.find(e => String(e.id) === String(equipoId))||{}).modelo || '';
-    if(itE.trim().toLowerCase() !== document.getElementById('c-resp-modelo').value.trim().toLowerCase()){ showToast('La serie elegida no es del modelo cotizado', true); return; }
+    if(modeloGrupo(itE) !== modeloGrupo(document.getElementById('c-resp-modelo').value)){ showToast('La serie elegida no es del modelo cotizado', true); return; }
   }
   let bonifPayload = null;
   if(respState.backed && !respState.nuevo && id && esMaestro()){
@@ -19981,7 +19982,20 @@ function presVenceTxt(p){
 }
 // contratos que usan cada presupuesto (se consulta aparte: no depende de los permisos de la pantalla Contratos)
 let presUsoMap = {};
+// Modelos equivalentes (misma máquina con otro nombre, ej. HTL7732 = HTL3510): comparten series al crear el contrato
+let modelosEquivMap = {};
+function normModelo(m){ return String(m||'').replace(/[\s\-_.]/g,'').toUpperCase(); }
+function modeloGrupo(m){ const k = normModelo(m); return modelosEquivMap[k] || k; }
+async function loadModelosEquivalentes(){
+  try{
+    const { data, error } = await supabaseClient.from('modelos_equivalentes').select('modelo, grupo');
+    if(error) throw error;
+    modelosEquivMap = {};
+    (data||[]).forEach(r => { modelosEquivMap[normModelo(r.modelo)] = normModelo(r.grupo); });
+  } catch(e){ console.warn('No se pudieron cargar los modelos equivalentes', e); }
+}
 async function loadPresupuestoUso(){
+  await loadModelosEquivalentes();
   presUsoMap = {};
   try{
     const { data, error } = await supabaseClient.from('contratos')
