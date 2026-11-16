@@ -3839,6 +3839,13 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
           <option value="devengado">Factura a alquiler devengado</option>
         </select>
       </div>
+      <div class="field full" id="cli-bloqueo-wrap" style="display:none;border:1px solid #ef4444;border-radius:8px;padding:10px 12px;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:#ef4444;font-weight:600;">
+          <input type="checkbox" id="f-bloqueado" style="width:auto;"> 🔒 Bloquear cliente (solo maestros)
+        </label>
+        <div class="muted" style="font-size:11.5px;margin:4px 0 8px;">Mientras esté bloqueado no se le puede hacer presupuestos ni crear contratos nuevos (alquiler, repuestos ni venta). Lo que ya existe no se modifica.</div>
+        <input type="text" id="f-bloqueado_motivo" placeholder="Motivo (ej: deuda vencida, cheque rechazado)">
+      </div>
       <div class="field">
         <label>Portal web (opcional)</label>
         <input type="text" id="f-portal_web">
@@ -5609,7 +5616,7 @@ function renderClientes(list){
     return `
       <tr>
         <td class="muted">${c.numero_cliente || '—'}</td>
-        <td>${escapeHtml(c.razon_social)}</td>
+        <td>${escapeHtml(c.razon_social)}${cliBloqBadge(c)}</td>
         <td class="muted">${escapeHtml(c.ciudad || '')}${c.provincia ? ', '+escapeHtml(c.provincia) : ''}</td>
         <td class="muted">${c.cuit || '—'}</td>
         <td>${sucursalNombre !== '—' ? `<span class="badge">${sucursalNombre}</span>` : '<span class="muted">—</span>'}</td>
@@ -5622,6 +5629,21 @@ function renderClientes(list){
       </tr>`;
   }).join('');
   document.getElementById('results-count').textContent = `${list.length} cliente(s)`;
+}
+
+// ---------- Bloqueo comercial de clientes (solo lo cambian los maestros) ----------
+function cliBloqBadge(c){
+  return c && c.bloqueado ? ` <span class="badge" style="color:#ef4444;border-color:#ef4444;" title="${escapeHtml(c.bloqueado_motivo || 'Cliente bloqueado comercialmente')}">🔒 BLOQUEADO</span>` : '';
+}
+function cliItemHtml(c){
+  return `<div class="autocomplete-item" data-id="${c.id}" data-nombre="${escapeHtml(c.razon_social)}" data-bloq="${c.bloqueado ? 1 : 0}" ${c.bloqueado ? 'style="opacity:.6;"' : ''}>${escapeHtml(c.razon_social)}${cliBloqBadge(c)}</div>`;
+}
+// true (y avisa) si el ítem elegido del autocompletado es un cliente bloqueado
+function cliBloqueadoElegido(item){
+  if(item.dataset.bloq !== '1') return false;
+  const c = clientesCache.find(x => String(x.id) === item.dataset.id);
+  showToast(`🔒 ${item.dataset.nombre} está bloqueado${c && c.bloqueado_motivo ? ' (' + c.bloqueado_motivo + ')' : ''}: no se puede cotizar ni crear contratos hasta que se regularice.`, true);
+  return true;
 }
 
 function escapeHtml(str){
@@ -5693,6 +5715,9 @@ function resetForm(){
    .forEach(f => document.getElementById('f-'+f).value = '');
   document.getElementById('f-sucursal_habitual_id').value = '';
   document.getElementById('f-modalidad_facturacion').value = '';
+  document.getElementById('f-bloqueado').checked = false;
+  document.getElementById('f-bloqueado_motivo').value = '';
+  document.getElementById('cli-bloqueo-wrap').style.display = esMaestro() ? '' : 'none';
   document.getElementById('req-list').innerHTML = '';
   reqCounter = 0;
   document.getElementById('cert-list').innerHTML = '<div class="muted" style="font-size:12px;">Guardá el cliente para poder subir certificados.</div>';
@@ -5709,6 +5734,8 @@ function openEdit(id){
   document.getElementById('f-id').value = c.id;
   document.getElementById('f-numero_cliente').value = c.numero_cliente || '';
   document.getElementById('f-razon_social').value = c.razon_social || '';
+  document.getElementById('f-bloqueado').checked = !!c.bloqueado;
+  document.getElementById('f-bloqueado_motivo').value = c.bloqueado_motivo || '';
   document.getElementById('f-direccion').value = c.direccion || '';
   document.getElementById('f-ciudad').value = c.ciudad || '';
   document.getElementById('f-provincia').value = c.provincia || '';
@@ -5915,6 +5942,15 @@ document.getElementById('btn-save').addEventListener('click', async ()=>{
     portal_password: document.getElementById('f-portal_password').value.trim() || null,
     sucursal_habitual_id: document.getElementById('f-sucursal_habitual_id').value || null,
   };
+  // Bloqueo comercial: solo maestros (la base también lo exige)
+  if(esMaestro()){
+    const bloq = document.getElementById('f-bloqueado').checked;
+    const motivo = document.getElementById('f-bloqueado_motivo').value.trim();
+    if(bloq && !motivo){ showToast('Indicá el motivo del bloqueo', true); return; }
+    payload.bloqueado = bloq;
+    payload.bloqueado_motivo = bloq ? motivo : null;
+    payload.bloqueado_por = bloq ? (miPerfil?.nombre || null) : null;
+  }
   // Modalidad de facturación: si cambió respecto de lo guardado, se registra quién y cuándo
   {
     const nuevaModalidad = document.getElementById('f-modalidad_facturacion').value || null;
@@ -6713,8 +6749,8 @@ clienteSearchInput.addEventListener('input', ()=>{
     clienteResultsBox.innerHTML = '<div class="autocomplete-item muted">Sin resultados</div>';
   } else {
     clienteResultsBox.innerHTML = matches.map(c=>`
-      <div class="autocomplete-item" data-id="${c.id}" data-nombre="${escapeHtml(c.razon_social)}">
-        ${escapeHtml(c.razon_social)}
+      <div class="autocomplete-item" data-id="${c.id}" data-nombre="${escapeHtml(c.razon_social)}" data-bloq="${c.bloqueado ? 1 : 0}" ${c.bloqueado ? 'style="opacity:.6;"' : ''}>
+        ${escapeHtml(c.razon_social)}${cliBloqBadge(c)}
         <span class="sub">${c.numero_cliente || 's/n'} — ${c.cuit || 'sin CUIT'}${c.provincia ? ' — '+escapeHtml(c.provincia) : ''}</span>
       </div>`).join('');
   }
@@ -6724,6 +6760,7 @@ clienteSearchInput.addEventListener('input', ()=>{
 clienteResultsBox.addEventListener('click', (e)=>{
   const item = e.target.closest('.autocomplete-item');
   if(!item || !item.dataset.id) return;
+  if(cliBloqueadoElegido(item)) return;
   document.getElementById('c-cliente_id').value = item.dataset.id;
   clienteSearchInput.value = item.dataset.nombre;
   document.getElementById('c-cliente-selected').textContent = '✓ Cliente seleccionado';
@@ -20746,12 +20783,13 @@ presClienteSearchInput.addEventListener('input', ()=>{
   ).slice(0, 30);
   presClienteResultsBox.innerHTML = matches.length === 0
     ? '<div class="autocomplete-item muted">Sin resultados — dejalo así si es un prospecto nuevo y completá "Empresa" abajo</div>'
-    : matches.map(c=>`<div class="autocomplete-item" data-id="${c.id}" data-nombre="${escapeHtml(c.razon_social)}">${escapeHtml(c.razon_social)}</div>`).join('');
+    : matches.map(c=>cliItemHtml(c)).join('');
   presClienteResultsBox.classList.add('open');
 });
 presClienteResultsBox.addEventListener('click', (e)=>{
   const item = e.target.closest('.autocomplete-item');
   if(!item || !item.dataset.id) return;
+  if(cliBloqueadoElegido(item)) return;
   document.getElementById('pres-cliente_id').value = item.dataset.id;
   presClienteSearchInput.value = item.dataset.nombre;
   presClienteResultsBox.classList.remove('open');
@@ -23757,12 +23795,13 @@ hpClienteInput.addEventListener('input', ()=>{
     (c.razon_social||'').toLowerCase().includes(q) || (c.cuit||'').toLowerCase().includes(q) || (c.numero_cliente||'').toLowerCase().includes(q)).slice(0, 30);
   hpClienteBox.innerHTML = matches.length === 0
     ? '<div class="autocomplete-item muted">Sin resultados — dejalo así si es un prospecto nuevo y completá "Empresa" abajo</div>'
-    : matches.map(c=>`<div class="autocomplete-item" data-id="${c.id}" data-nombre="${escapeHtml(c.razon_social)}">${escapeHtml(c.razon_social)}</div>`).join('');
+    : matches.map(c=>cliItemHtml(c)).join('');
   hpClienteBox.classList.add('open');
 });
 hpClienteBox.addEventListener('click', (e)=>{
   const item = e.target.closest('.autocomplete-item');
   if(!item || !item.dataset.id) return;
+  if(cliBloqueadoElegido(item)) return;
   document.getElementById('hp-cliente_id').value = item.dataset.id;
   hpClienteInput.value = item.dataset.nombre;
   hpClienteBox.classList.remove('open');
@@ -24627,12 +24666,13 @@ hvClienteInput.addEventListener('input', ()=>{
   ).slice(0, 30);
   hvClienteBox.innerHTML = matches.length === 0
     ? '<div class="autocomplete-item muted">Sin resultados — dejalo así si es un prospecto nuevo y completá "Empresa" abajo</div>'
-    : matches.map(c=>`<div class="autocomplete-item" data-id="${c.id}" data-nombre="${escapeHtml(c.razon_social)}">${escapeHtml(c.razon_social)}</div>`).join('');
+    : matches.map(c=>cliItemHtml(c)).join('');
   hvClienteBox.classList.add('open');
 });
 hvClienteBox.addEventListener('click', (e)=>{
   const item = e.target.closest('.autocomplete-item');
   if(!item || !item.dataset.id) return;
+  if(cliBloqueadoElegido(item)) return;
   document.getElementById('hv-cliente_id').value = item.dataset.id;
   hvClienteInput.value = item.dataset.nombre;
   hvClienteBox.classList.remove('open');
