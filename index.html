@@ -1593,6 +1593,7 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
       <button class="btn secondary" id="btn-export-pendientes-csv">Exportar CSV</button>
       <button class="btn secondary" id="btn-export-pendientes-xls">Exportar XLSX</button>
       <button class="btn secondary" id="btn-export-pendientes-agrupado">📊 Exportar Agrupado por Cliente</button>
+      <button class="btn" id="btn-export-pendientes-devengados" style="background:#16a34a;border-color:#16a34a;color:#fff;" title="Excel con los períodos ya devengados (período terminado) y pendientes de facturar">✅ DEVENGADOS</button>
       <button class="btn secondary" id="btn-nuevo-pendiente">+ Pendiente manual</button>
     </div>
 
@@ -7717,6 +7718,72 @@ document.getElementById('btn-export-pendientes-agrupado').addEventListener('clic
   const { headers, rows } = pendientesAgrupadoToRows(getFilteredPendientesLista());
   exportXLS('pendientes_horizon_agrupado_por_cliente', headers, rows);
 });
+
+// ---------- Smartlist de DEVENGADOS ----------
+// Listado listo para facturar: solo pendientes cuyo período ya terminó (periodo_hasta < hoy).
+// Mismas columnas que la vista agrupada, sin estado / factura / modalidad, con valores
+// numéricos en formato contabilidad (USD / ARS) y subtotal por cliente.
+function exportarPendientesDevengados(){
+  const hoy = hoyIso();
+  // Respeta buscador, sucursal, provincia y modalidad; el estado siempre es "pendiente".
+  const q = document.getElementById('pend-search-input').value.trim().toLowerCase();
+  const sucursalId = document.getElementById('pend-filter-sucursal').value;
+  const provincia = document.getElementById('pend-filter-provincia').value;
+  const modalidadFiltro = document.getElementById('pend-filter-modalidad').value;
+  let list = pendientesCache.filter(p => p.estado === 'pendiente' && p.periodo_hasta && String(p.periodo_hasta).slice(0,10) < hoy);
+  if(modalidadFiltro === 'sin_definir') list = list.filter(p => !p.contratos?.clientes?.modalidad_facturacion);
+  else if(modalidadFiltro) list = list.filter(p => p.contratos?.clientes?.modalidad_facturacion === modalidadFiltro);
+  if(sucursalId) list = list.filter(p => String(p.contratos?.sucursales?.id) === sucursalId);
+  if(provincia) list = list.filter(p => p.contratos?.clientes?.provincia === provincia);
+  if(q) list = list.filter(p =>
+    (p.contratos?.clientes?.razon_social || '').toLowerCase().includes(q) ||
+    (p.contratos?.equipos?.numero_serie || '').toLowerCase().includes(q) ||
+    (p.contratos?.equipos?.modelo || '').toLowerCase().includes(q));
+  if(list.length === 0){ showToast('No hay períodos devengados pendientes de facturar con este filtro', true); return; }
+
+  const porCliente = new Map();
+  list.forEach(p=>{
+    const id = p.contratos?.clientes?.id || 'sin_cliente';
+    if(!porCliente.has(id)) porCliente.set(id, { nombre: p.contratos?.clientes?.razon_social || '(Sin cliente)', items: [], usd: 0, ars: 0 });
+    const g = porCliente.get(id);
+    g.items.push(p);
+    g.usd += Number(p.valor_alquiler_usd) || 0;
+    g.ars += Number(p.potencial_facturacion) || 0;
+  });
+  const grupos = [...porCliente.values()].sort((a,b)=> (b.usd - a.usd) || (b.ars - a.ars));
+
+  const headers = ['Cliente','N Equipo','Modelo','Sucursal','Periodo Desde','Periodo Hasta','Valor USD','Valor ARS'];
+  const rows = [];
+  const num = v => (v === null || v === undefined || v === '' || isNaN(Number(v))) ? '' : Number(v);
+  grupos.forEach(g=>{
+    g.items.sort((a,b)=> (a.contratos?.equipos?.numero_serie||'').localeCompare(b.contratos?.equipos?.numero_serie||'') || String(a.periodo_desde).localeCompare(String(b.periodo_desde)));
+    g.items.forEach(p=> rows.push([
+      g.nombre,
+      p.contratos?.equipos?.numero_serie || '',
+      p.contratos?.equipos?.modelo || '',
+      p.contratos?.sucursales?.nombre || '',
+      fmtDateExport(p.periodo_desde), fmtDateExport(p.periodo_hasta),
+      num(p.valor_alquiler_usd), num(p.potencial_facturacion),
+    ]));
+    rows.push([`TOTAL ${g.nombre} ►`,'','','','','', g.usd, g.ars]);
+    rows.push(['','','','','','','','']);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  const FMT_USD = '_-"USD"* #,##0.00_-;-"USD"* #,##0.00_-;_-"USD"* "-"??_-;_-@_-';
+  const FMT_ARS = '_-"ARS"* #,##0.00_-;-"ARS"* #,##0.00_-;_-"ARS"* "-"??_-;_-@_-';
+  for(let r = 1; r <= rows.length; r++){
+    [[6,FMT_USD],[7,FMT_ARS]].forEach(([c,fmt])=>{
+      const cell = ws[XLSX.utils.encode_cell({ r, c })];
+      if(cell && cell.t === 'n') cell.z = fmt;
+    });
+  }
+  ws['!cols'] = [{wch:46},{wch:12},{wch:16},{wch:16},{wch:14},{wch:14},{wch:20},{wch:22}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Devengados');
+  XLSX.writeFile(wb, `devengados_para_facturar_${hoy}.xlsx`);
+}
+document.getElementById('btn-export-pendientes-devengados').addEventListener('click', exportarPendientesDevengados);
 
 // Cache de requisitos por cliente_id, para no ir a buscar a supabase cada vez
 let clienteRequisitosCache = {};
