@@ -1375,6 +1375,7 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
   <button data-tab="reportes">Reportes</button>
   <button data-tab="resumenerp">Resumen ERP</button>
   <button data-tab="analisisfinanciero">Análisis Financiero</button>
+  <button data-tab="recibos">Recibos de Cobranza (GP)</button>
   <button data-tab="backlogfacturacion">Backlog de Facturación</button>
   <button data-tab="stockvalorizado">Stock Valorizado</button>
   <button data-tab="haulotte_articulos">Artículos Haulotte</button>
@@ -2902,6 +2903,36 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
       </div>
       <div id="fin-ranking-container"></div>
 
+    </div>
+  </section>
+
+  <section id="tab-recibos" style="display:none;">
+    <div class="toolbar" style="flex-wrap:wrap;gap:10px;align-items:center;">
+      <div class="pm-empresa" id="rec-emp"><button data-e="todas" class="on">Ambas</button><button data-e="horizon">Horizon</button><button data-e="haulotte">Haulotte</button></div>
+      <select id="rec-anio"></select>
+      <select id="rec-mes"></select>
+      <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn" id="rec-btn-subir">⬆ Actualizar listado de GP</button>
+        <button class="btn secondary" id="rec-btn-xls">📊 Exportar Excel</button>
+      </div>
+    </div>
+    <div class="muted" id="rec-info" style="font-size:12px;margin:6px 0 12px;"></div>
+    <div class="pm-empresa" id="rec-vistas" style="margin-bottom:16px;flex-wrap:wrap;">
+      <button data-v="cobranzas" class="on">💰 Cobranzas</button><button data-v="impuestos">🧾 Impuestos</button><button data-v="cheques">🏦 Cheques</button><button data-v="recibos">📋 Recibos</button><button data-v="importaciones">🕒 Importaciones</button>
+    </div>
+    <div id="rec-body"></div>
+
+    <div class="overlay" id="rec-overlay">
+      <div class="modal wide" style="max-width:760px;">
+        <h2 style="margin:0 0 4px;font-size:17px;">Actualizar listado de recibos de GP</h2>
+        <div class="muted" style="font-size:12px;margin-bottom:12px;">Subí el SmartList del año completo (desde el 01/01). Se compara con lo que ya está cargado: solo se agrega lo nuevo o lo que cambió, y no se borra nada sin avisarte.</div>
+        <div class="field" style="margin-bottom:12px;"><label>Empresa del listado *</label>
+          <select id="rec-imp-emp"><option value="">— Elegí la empresa —</option><option value="horizon">Horizon</option><option value="haulotte">Haulotte</option></select>
+        </div>
+        <input type="file" id="rec-imp-file" accept=".xls,.xlsx" style="display:none;">
+        <div id="rec-imp-body"></div>
+        <div class="modal-actions" style="margin-top:14px;"><button class="btn secondary" id="rec-imp-cerrar">Cancelar</button><button class="btn" id="rec-imp-ok" disabled>Confirmar y cargar</button></div>
+      </div>
     </div>
   </section>
 
@@ -5402,6 +5433,7 @@ const TAB_TITLES = {
   reportes: 'Reportes',
   resumenerp: 'Resumen de Alquileres (ERP)',
   analisisfinanciero: 'Análisis Financiero',
+  recibos: 'Recibos de Cobranza (GP)',
   backlogfacturacion: 'Backlog de Facturación',
   stockvalorizado: 'Stock Valorizado (Haulotte)',
   haulotte_articulos: 'Artículos Haulotte',
@@ -10026,6 +10058,7 @@ const SECCIONES_PERMISOS = [
   { key:'editorobs',          label:'Editor de Observaciones', acciones:[['ver','Ver / usar']] },
   { key:'resumenerp',         label:'Resumen de Alquileres (ERP)', acciones:[['ver','Ver / usar']] },
   { key:'analisisfinanciero', label:'Análisis Financiero',        acciones:[['ver','Ver / usar']] },
+  { key:'recibos', label:'Recibos de Cobranza (GP)', acciones:[['ver','Ver cobranzas, impuestos y cheques'],['importar','Subir / actualizar el listado de recibos de GP']] },
   { key:'backlogfacturacion', label:'Backlog de Facturación',     acciones:[['ver','Ver / usar']] },
   { key:'modalidadfact',      label:'Modalidad de Facturación (encuesta a comerciales)', acciones:[['ver','Ver'],['editar','Completar / editar']] },
   { key:'stockvalorizado',    label:'Stock Valorizado (Haulotte)', acciones:[['ver','Ver / usar']] },
@@ -10789,7 +10822,7 @@ const PM_CATEGORIAS = [
     {sk:'conciliacioncompras', t:'Conciliación de Compras', i:'🧾'}, {sk:'gastos_obra', t:'Gastos de Reforma', i:'🏗️'}, {sk:'portal_proveedores', t:'Portal de Proveedores', i:'🔗'} ]},
   { k:'herramientas', t:'Herramientas', i:'🛠️', e:'horizon', mods:[
     {sk:'editorobs', t:'Editor de Observaciones', i:'✏️'}, {sk:'resumenerp', t:'Resumen de Alquileres (ERP)', i:'📥'},
-    {sk:'analisisfinanciero', t:'Análisis Financiero', i:'📈'}, {sk:'backlogfacturacion', t:'Backlog de Facturación', i:'🧾'},
+    {sk:'analisisfinanciero', t:'Análisis Financiero', i:'📈'}, {sk:'recibos', t:'Recibos de Cobranza (GP)', i:'💳'}, {sk:'backlogfacturacion', t:'Backlog de Facturación', i:'🧾'},
     {sk:'modalidadfact', t:'Modalidad de Facturación', i:'🗓️'}, {sk:'reportes', t:'Reportes', i:'📊'}, {sk:'enviofacturas', t:'Envío de Facturas', i:'📧'} ]},
   { k:'finanzas', t:'Finanzas', i:'🏦', e:'horizon', mods:[ {sk:'chequescustodia', t:'Cheques en Custodia vs GP', i:'🧾'} ]},
   { k:'rrhh', t:'RRHH / Cumplimiento', i:'🪪', e:'horizon', mods:[ {sk:'vencimientos', t:'Control de Vencimientos', i:'⏰'}, {sk:'personal', t:'Personal', i:'🧑‍🔧'} ]},
@@ -11196,6 +11229,7 @@ function renderDashboard(){
       { tab:'editorobs', icon:'✏️', title:'Editor de Observaciones', count: '', visible:puede('editorobs','ver'), urgencia:null },
       { tab:'resumenerp', icon:'📥', title:'Resumen de Alquileres (ERP)', count:'Importar Excel de GP', visible:puede('resumenerp','ver'), urgencia:null },
       { tab:'analisisfinanciero', icon:'📈', title:'Análisis Financiero', count:'Importar Mayor de GP', visible:puede('analisisfinanciero','ver'), urgencia:null },
+      { tab:'recibos', icon:'💳', title:'Recibos de Cobranza (GP)', count:'Cobranzas, retenciones y cheques', visible:puede('recibos','ver'), urgencia:null },
       { tab:'backlogfacturacion', icon:'🧾', title:'Backlog de Facturación', count:'Mes en curso + proyección', visible:puede('backlogfacturacion','ver'), urgencia:null },
       { tab:'modalidadfact', icon:'🗓️', title:'Modalidad de Facturación', count:'Adelantado / devengado por cliente', visible:puede('modalidadfact','ver'), urgencia:null },
       { tab:'reportes',   icon:'📊', title:'Reportes',   count:'Mora y facturación', visible:puede('reportes','ver'), urgencia:null },
@@ -14688,6 +14722,486 @@ async function stkProcesarArchivo(file){
     stkMostrarError('No se pudo procesar el archivo: ' + e.message);
   }
 }
+
+// ============================================================================
+// Recibos de Cobranza (GP) — listado de recibos que sale del SmartList de GP.
+// Se sube el año completo cada vez; la base compara por recibo y carga lo nuevo / lo que cambió.
+// ============================================================================
+const REC = { empresa:'todas', anio:null, mes:'', vista:'cobranzas', filas:[], cargado:false, cargando:false, importaciones:[], q:'', abiertos:new Set(), pre:null, filasArchivo:null, archivo:'', empImp:'' };
+const REC_EMP = { horizon:'Horizon', haulotte:'Haulotte' };
+const REC_MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const REC_MESES_LARGO = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const REC_TIPOS_RET = ['ret_iva','ret_iibb','ret_gan','ret_suss','ret_mun','ret_otra'];
+const REC_TIPO_TXT = { ret_iva:'IVA', ret_iibb:'IIBB', ret_gan:'Ganancias', ret_suss:'SUSS', ret_mun:'Municipales', ret_otra:'Otras ret.', valores:'Valores (cheques)', transf:'Transferencias', efectivo:'Efectivo', otro:'Otros' };
+
+function recM(v){ return '$ ' + Math.round(Number(v) || 0).toLocaleString('es-AR'); }
+function recM2(v){ return '$ ' + (Number(v) || 0).toLocaleString('es-AR', { minimumFractionDigits:2, maximumFractionDigits:2 }); }
+function recPct(a, b){ return b ? (a / b * 100).toLocaleString('es-AR', { maximumFractionDigits:1 }) + '%' : '—'; }
+function recMesTxt(ym){ const [y, m] = String(ym).split('-'); return REC_MESES[Number(m) - 1] + ' ' + y; }
+
+function recTipoMedio(medio){
+  const m = String(medio || '').toUpperCase();
+  if(m.startsWith('IMP_MUNICIPAL')) return 'ret_mun';
+  if(m.startsWith('RETENCION')){
+    if(m.includes('IVA')) return 'ret_iva';
+    if(m.includes('IIBB')) return 'ret_iibb';
+    if(m.includes('GANANCIAS')) return 'ret_gan';
+    if(m.includes('SUSS')) return 'ret_suss';
+    return 'ret_otra';
+  }
+  if(m.startsWith('VALORES')) return 'valores';
+  if(m.startsWith('TRANSF')) return 'transf';
+  if(m.startsWith('EFECTIVO')) return 'efectivo';
+  return 'otro';
+}
+
+// Jurisdicción de una retención de IIBB, sacada del texto libre que cargan en GP ("CBA CERT 18090", "tuc cert 78942"…)
+const REC_JURIS = [
+  ['CABA', /\bcaba\b|capital federal|\bcap fed|ciudad autonoma|\bagip\b/],
+  ['Buenos Aires', /\bbs ?as\b|\bbsas\b|\bbs ?a ?s?cert|\bbs$|\bb as\b|\bbsa\b|buenos aires|\barba\b|\bpba\b|\bba\b/],
+  ['Córdoba', /(?<![a-z])cba(?![a-z])|cordo|\bcord\b/],
+  ['Mendoza', /mza|mendoza/],
+  ['Tucumán', /\btuc/],
+  ['San Luis', /san luis|\bs luis|\bsal luis|\bsl\b/],
+  ['Santa Fe', /santa fe|\bsta ?fe|\bsata fe|\bsant f\b|\bsfe\b|\bsf\b/],
+  ['Neuquén', /neuquen|\bnqn\b/],
+  ['Río Negro', /rio negro|\brn\b/],
+  ['Chubut', /chubut/],
+  ['Santa Cruz', /santa cruz/],
+  ['Tierra del Fuego', /tierra del fuego|\btdf\b/],
+  ['Salta', /\bsalta/],
+  ['San Juan', /\bs(?:an|n)? ?ju[an]{2}/],
+  ['Jujuy', /jujuy/],
+  ['Misiones', /misiones/],
+  ['Corrientes', /corrientes|\bctes?\b|\bcte s|ctews/],
+  ['Chaco', /\bchaco\b/],
+  ['Entre Ríos', /entre rios|\be ?rios\b/],
+  ['La Pampa', /la pampa/],
+  ['Catamarca', /catamarca/],
+  ['La Rioja', /la rioja/],
+  ['Santiago del Estero', /santiago|\bsgoi? del estero|\bsgo\b/],
+  ['Formosa', /formosa/],
+];
+function recJurisdiccion(desc){
+  const t = String(desc || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\./g, '').replace(/\s+/g, ' ');
+  for(const [n, re] of REC_JURIS) if(re.test(t)) return n;
+  return 'Sin identificar';
+}
+
+// ---------- clientes (el Id. de cliente del GP es el código de cliente o el CUIT) ----------
+let recCliMap = null;
+function recClienteNombre(id){
+  if(!id) return '(sin cliente)';
+  if(!recCliMap || recCliMap.n !== clientesCache.length){
+    recCliMap = { n: clientesCache.length, num: new Map(), cuit: new Map() };
+    clientesCache.forEach(c => {
+      if(c.numero_cliente) recCliMap.num.set(String(c.numero_cliente).trim(), c.razon_social);
+      const q = String(c.cuit || '').replace(/\D/g, ''); if(q) recCliMap.cuit.set(q, c.razon_social);
+    });
+  }
+  const s = String(id).trim();
+  return recCliMap.num.get(s) || recCliMap.cuit.get(s.replace(/\D/g, '')) || ('Cliente ' + s);
+}
+
+// ---------- carga ----------
+async function recCargar(forzar){
+  if(REC.cargando) return;
+  if(!puede('recibos', 'ver')){ recRender(); return; }
+  if(REC.cargado && !forzar){ recRender(); return; }
+  REC.cargando = true; recRender();
+  try{
+    const filas = [];
+    for(let desde = 0; ; desde += 1000){
+      const { data, error } = await supabaseClient.from('recibos_gp')
+        .select('empresa,numero_ingreso,tipo_ingreso,medio_cobro,cliente_gp,estado,banco_id,nro_documento,fecha_emision,fecha_vencimiento,descripcion,monto,no_figura_en_gp')
+        .order('id').range(desde, desde + 999);
+      if(error) throw error;
+      filas.push(...data);
+      if(data.length < 1000) break;
+    }
+    filas.forEach(f => { f.monto = Number(f.monto) || 0; f.tipo = recTipoMedio(f.medio_cobro); });
+    REC.filas = filas;
+    const { data: imps } = await supabaseClient.from('recibos_gp_importaciones').select('*').order('id', { ascending:false }).limit(40);
+    REC.importaciones = imps || [];
+    REC.cargado = true;
+    const anios = [...new Set(filas.map(f => (f.fecha_emision || '').slice(0, 4)).filter(Boolean))].sort();
+    if(!REC.anio || !anios.includes(REC.anio)) REC.anio = anios[anios.length - 1] || String(new Date().getFullYear());
+  } catch(e){
+    console.error('Recibos:', e); showToast('No se pudieron cargar los recibos: ' + (e.message || e), true);
+  }
+  REC.cargando = false; recRender();
+}
+
+// ---------- filtros y agregaciones ----------
+function recFiltradas(opt){
+  opt = opt || {};
+  return REC.filas.filter(f => !f.no_figura_en_gp
+    && (REC.empresa === 'todas' || f.empresa === REC.empresa)
+    && (f.fecha_emision || '').slice(0, 4) === REC.anio
+    && (opt.sinMes || !REC.mes || (f.fecha_emision || '').slice(5, 7) === REC.mes));
+}
+function recSumar(rows){
+  const o = { total:0, fondos:0, ret:0, recibos:new Set() };
+  REC_TIPOS_RET.concat(['valores','transf','efectivo','otro']).forEach(k => o[k] = 0);
+  rows.forEach(f => {
+    o[f.tipo] += f.monto; o.total += f.monto;
+    if(f.tipo.startsWith('ret_')) o.ret += f.monto; else o.fondos += f.monto;
+    o.recibos.add(f.empresa + '|' + f.numero_ingreso);
+  });
+  return o;
+}
+function recPorMes(rows){
+  const m = new Map();
+  rows.forEach(f => { const k = (f.fecha_emision || '').slice(0, 7); if(!k) return; if(!m.has(k)) m.set(k, []); m.get(k).push(f); });
+  return [...m.keys()].sort().map(k => ({ ym:k, rows:m.get(k), s:recSumar(m.get(k)) }));
+}
+function recClienteDeRecibo(){
+  const m = new Map();
+  REC.filas.forEach(f => { const k = f.empresa + '|' + f.numero_ingreso; if(f.cliente_gp && !m.has(k)) m.set(k, f.cliente_gp); });
+  return m;
+}
+function recPorCliente(rows){
+  const cli = recClienteDeRecibo(); const m = new Map();
+  rows.forEach(f => {
+    const id = cli.get(f.empresa + '|' + f.numero_ingreso) || '';
+    if(!m.has(id)) m.set(id, []);
+    m.get(id).push(f);
+  });
+  return [...m.entries()].map(([id, r]) => ({ id, nombre:recClienteNombre(id), s:recSumar(r), rows:r }));
+}
+
+// ---------- pantalla ----------
+function recEsc(s){ return escapeHtml(String(s == null ? '' : s)); }
+const recTh = (t, r) => `<th style="padding:6px 8px;${r ? 'text-align:right;' : ''}white-space:nowrap;">${t}</th>`;
+const recTd = (t, r, extra) => `<td style="padding:6px 8px;${r ? 'text-align:right;' : ''}${extra || ''}">${t}</td>`;
+function recTabla(head, body, foot){
+  return `<div style="overflow-x:auto;"><table style="width:100%;font-size:12.5px;border-collapse:collapse;"><thead><tr style="text-align:left;color:var(--muted);">${head}</tr></thead><tbody>${body}</tbody>${foot ? `<tfoot>${foot}</tfoot>` : ''}</table></div>`;
+}
+function recKpi(t, v, sub, color){
+  return `<div class="panel" style="padding:14px 16px;"><div class="muted" style="font-size:11px;text-transform:uppercase;">${t}</div><div style="font-size:18px;font-weight:700;margin-top:4px;white-space:nowrap;${color ? 'color:' + color + ';' : ''}">${v}</div>${sub ? `<div class="muted" style="font-size:11.5px;margin-top:2px;">${sub}</div>` : ''}</div>`;
+}
+const recTitulo = (t, sub) => `<div style="font-weight:700;font-size:14px;margin:22px 0 4px;">${t}</div>${sub ? `<div class="muted" style="font-size:11.5px;margin-bottom:8px;">${sub}</div>` : '<div style="height:6px;"></div>'}`;
+
+function recRender(){
+  const sec = document.getElementById('tab-recibos'); if(!sec) return;
+  const body = document.getElementById('rec-body'); if(!body) return;
+  const puedeImp = puede('recibos', 'importar');
+  document.getElementById('rec-btn-subir').style.display = puedeImp ? '' : 'none';
+  // selectores
+  const anios = [...new Set(REC.filas.map(f => (f.fecha_emision || '').slice(0, 4)).filter(Boolean))].sort().reverse();
+  if(!anios.length && REC.anio) anios.push(REC.anio);
+  document.getElementById('rec-anio').innerHTML = anios.map(a => `<option value="${a}"${a === REC.anio ? ' selected' : ''}>${a}</option>`).join('');
+  document.getElementById('rec-mes').innerHTML = '<option value="">Todo el año</option>' + REC_MESES_LARGO.map((n, i) => { const v = String(i + 1).padStart(2, '0'); return `<option value="${v}"${v === REC.mes ? ' selected' : ''}>${n}</option>`; }).join('');
+  document.querySelectorAll('#rec-emp button').forEach(b => b.classList.toggle('on', b.dataset.e === REC.empresa));
+  document.querySelectorAll('#rec-vistas button').forEach(b => b.classList.toggle('on', b.dataset.v === REC.vista));
+  const info = document.getElementById('rec-info');
+  if(REC.cargando){ body.innerHTML = '<div class="muted" style="padding:30px;text-align:center;">Cargando recibos…</div>'; info.textContent = ''; return; }
+  if(!puede('recibos', 'ver')){ body.innerHTML = '<div class="muted" style="padding:30px;text-align:center;">No tenés permiso para ver los recibos.</div>'; return; }
+  if(!REC.filas.length){
+    body.innerHTML = `<div class="panel" style="padding:30px;text-align:center;"><div style="font-size:34px;">🧾</div><div style="font-weight:700;margin:8px 0 4px;">Todavía no hay recibos cargados</div><div class="muted" style="font-size:13px;">${puedeImp ? 'Tocá “Actualizar listado de GP” y subí el SmartList de recibos (uno por empresa).' : 'Pedile a quien tenga permiso que suba el listado de GP.'}</div></div>`;
+    info.textContent = ''; return;
+  }
+  const rows = recFiltradas();
+  const nW = new Set(rows.filter(f => f.estado === 'Work').map(f => f.empresa + '|' + f.numero_ingreso)).size;
+  const ult = REC.importaciones.find(i => REC.empresa === 'todas' || i.empresa === REC.empresa);
+  const ausentes = new Set(REC.filas.filter(f => f.no_figura_en_gp).map(f => f.empresa + '|' + f.numero_ingreso)).size;
+  info.innerHTML = `${rows.length.toLocaleString('es-AR')} línea(s) · fecha de emisión del recibo${nW ? ` · incluye ${nW} recibo(s) en borrador (sin contabilizar en GP)` : ''}`
+    + (ult ? ` · última actualización: ${REC_EMP[ult.empresa]} ${recFH(ult.created_at)}` : '')
+    + (ausentes ? ` · <a href="#" data-rec-go="importaciones" style="color:var(--warn);">⚠ ${ausentes} recibo(s) ya no figuran en GP</a>` : '');
+  const v = REC.vista;
+  body.innerHTML = v === 'cobranzas' ? recVistaCobranzas(rows) : v === 'impuestos' ? recVistaImpuestos(rows) : v === 'cheques' ? recVistaCheques() : v === 'recibos' ? recVistaRecibos(rows) : recVistaImportaciones();
+}
+function recFH(iso){ const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('es-AR') + ' ' + d.toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' }); }
+
+function recVistaCobranzas(rows){
+  const s = recSumar(rows), meses = recPorMes(rows);
+  let h = `<div class="dash-grid" style="grid-template-columns:repeat(auto-fill,minmax(190px,1fr));margin-bottom:6px;">
+    ${recKpi('Total cobrado', recM(s.total), 'con retenciones', 'var(--ok)')}
+    ${recKpi('Ingreso de fondos', recM(s.fondos), recPct(s.fondos, s.total) + ' del total')}
+    ${recKpi('Retenciones', recM(s.ret), recPct(s.ret, s.total) + ' del total', 'var(--warn)')}
+    ${recKpi('Recibos', s.recibos.size.toLocaleString('es-AR'), s.recibos.size ? 'promedio ' + recM(s.total / s.recibos.size) : '')}
+  </div>`;
+  const max = Math.max(1, ...meses.map(m => m.s.total));
+  h += recTitulo('📅 Cobranzas mes a mes', 'Azul: ingreso de fondos (valores, transferencias, efectivo). Naranja: retenciones.');
+  h += `<div class="panel" style="padding:14px 14px 8px;"><div style="display:flex;align-items:flex-end;gap:10px;height:170px;">` + meses.map(m => {
+    const hf = m.s.fondos / max * 150, hr = m.s.ret / max * 150;
+    return `<div style="flex:1;min-width:34px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;" title="${recMesTxt(m.ym)}: ${recM(m.s.total)}">
+      <div style="font-size:10px;color:var(--muted);margin-bottom:2px;">${(m.s.total / 1e6).toLocaleString('es-AR', { maximumFractionDigits:0 })}M</div>
+      <div style="width:100%;max-width:44px;height:${hr.toFixed(1)}px;background:var(--warn);border-radius:3px 3px 0 0;"></div>
+      <div style="width:100%;max-width:44px;height:${hf.toFixed(1)}px;background:var(--accent);"></div>
+      <div style="font-size:11px;margin-top:4px;">${REC_MESES[Number(m.ym.slice(5)) - 1]}</div></div>`;
+  }).join('') + `</div></div>`;
+  const filas = meses.map(m => `<tr style="border-top:1px solid var(--border);">${recTd(recMesTxt(m.ym))}${recTd(m.s.recibos.size, 1)}${recTd(recM(m.s.valores), 1)}${recTd(recM(m.s.transf), 1)}${recTd(recM(m.s.efectivo + m.s.otro), 1)}${recTd(recM(m.s.ret), 1)}${recTd('<b>' + recM(m.s.total) + '</b>', 1)}</tr>`).join('');
+  h += recTitulo('Detalle por mes') + recTabla(recTh('Mes') + recTh('Recibos', 1) + recTh('Valores', 1) + recTh('Transferencias', 1) + recTh('Efectivo / otros', 1) + recTh('Retenciones', 1) + recTh('Total', 1), filas,
+    `<tr style="border-top:2px solid var(--border);font-weight:700;">${recTd('Total')}${recTd(s.recibos.size, 1)}${recTd(recM(s.valores), 1)}${recTd(recM(s.transf), 1)}${recTd(recM(s.efectivo + s.otro), 1)}${recTd(recM(s.ret), 1)}${recTd(recM(s.total), 1)}</tr>`);
+  if(REC.empresa === 'todas'){
+    const porEmp = ['horizon', 'haulotte'].map(e => ({ e, s:recSumar(rows.filter(f => f.empresa === e)) }));
+    h += recTitulo('🏢 Por empresa') + recTabla(recTh('Empresa') + recTh('Recibos', 1) + recTh('Ingreso de fondos', 1) + recTh('Retenciones', 1) + recTh('Total', 1),
+      porEmp.map(x => `<tr style="border-top:1px solid var(--border);">${recTd(REC_EMP[x.e])}${recTd(x.s.recibos.size, 1)}${recTd(recM(x.s.fondos), 1)}${recTd(recM(x.s.ret), 1)}${recTd('<b>' + recM(x.s.total) + '</b>', 1)}</tr>`).join(''));
+  }
+  // medios de cobro tal cual GP
+  const med = new Map(); rows.forEach(f => { const k = f.medio_cobro || '(sin medio)'; const o = med.get(k) || { n:0, m:0 }; o.n++; o.m += f.monto; med.set(k, o); });
+  h += recTitulo('💳 Por medio de cobro (como figura en GP)') + recTabla(recTh('Medio') + recTh('Líneas', 1) + recTh('Monto', 1) + recTh('%', 1),
+    [...med.entries()].sort((a, b) => b[1].m - a[1].m).map(([k, o]) => `<tr style="border-top:1px solid var(--border);">${recTd(recEsc(k))}${recTd(o.n, 1)}${recTd(recM(o.m), 1)}${recTd(recPct(o.m, s.total), 1)}</tr>`).join(''));
+  const cli = recPorCliente(rows).sort((a, b) => b.s.total - a.s.total).slice(0, 20);
+  h += recTitulo('🏆 Clientes que más pagaron', 'Top 20 del período filtrado.') + recTabla(recTh('Cliente') + recTh('Recibos', 1) + recTh('Ingreso de fondos', 1) + recTh('Retenciones', 1) + recTh('Total', 1) + recTh('% del total', 1),
+    cli.map(c => `<tr style="border-top:1px solid var(--border);">${recTd(recEsc(c.nombre))}${recTd(c.s.recibos.size, 1)}${recTd(recM(c.s.fondos), 1)}${recTd(recM(c.s.ret), 1)}${recTd('<b>' + recM(c.s.total) + '</b>', 1)}${recTd(recPct(c.s.total, s.total), 1)}</tr>`).join(''));
+  return h;
+}
+
+function recVistaImpuestos(rows){
+  const s = recSumar(rows), meses = recPorMes(rows);
+  let h = `<div class="dash-grid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr));margin-bottom:6px;">
+    ${recKpi('Retenciones totales', recM(s.ret), recPct(s.ret, s.total) + ' de lo cobrado', 'var(--warn)')}
+    ${REC_TIPOS_RET.filter(k => s[k] || k !== 'ret_otra').map(k => recKpi(REC_TIPO_TXT[k], recM(s[k]), recPct(s[k], s.ret) + ' de las retenciones')).join('')}
+  </div>`;
+  h += recTitulo('📅 Retenciones mes a mes') + recTabla(recTh('Mes') + REC_TIPOS_RET.map(k => recTh(REC_TIPO_TXT[k], 1)).join('') + recTh('Total', 1) + recTh('% s/ cobrado', 1),
+    meses.map(m => `<tr style="border-top:1px solid var(--border);">${recTd(recMesTxt(m.ym))}${REC_TIPOS_RET.map(k => recTd(recM(m.s[k]), 1)).join('')}${recTd('<b>' + recM(m.s.ret) + '</b>', 1)}${recTd(recPct(m.s.ret, m.s.total), 1)}</tr>`).join(''),
+    `<tr style="border-top:2px solid var(--border);font-weight:700;">${recTd('Total')}${REC_TIPOS_RET.map(k => recTd(recM(s[k]), 1)).join('')}${recTd(recM(s.ret), 1)}${recTd(recPct(s.ret, s.total), 1)}</tr>`);
+  // IIBB por jurisdicción
+  const iibb = rows.filter(f => f.tipo === 'ret_iibb');
+  const jur = new Map();
+  iibb.forEach(f => { const j = recJurisdiccion(f.descripcion); if(!jur.has(j)) jur.set(j, []); jur.get(j).push(f); });
+  const totIibb = iibb.reduce((a, f) => a + f.monto, 0);
+  const lista = [...jur.entries()].map(([j, r]) => ({ j, r, m:r.reduce((a, f) => a + f.monto, 0) })).sort((a, b) => (a.j === 'Sin identificar') - (b.j === 'Sin identificar') || b.m - a.m);
+  h += recTitulo('🗺️ IIBB por jurisdicción', 'La jurisdicción se deduce del texto que se carga en GP en cada retención (“CBA CERT 18090”, “tuc cert 78942”). Lo que no se puede deducir queda en “Sin identificar”.');
+  h += recTabla(recTh('Jurisdicción') + recTh('Certificados', 1) + recTh('Monto', 1) + recTh('% del IIBB', 1) + recTh('Mes a mes', 0),
+    lista.map(x => {
+      const pm = recPorMes(x.r);
+      return `<tr style="border-top:1px solid var(--border);">${recTd(x.j === 'Sin identificar' ? '<span style="color:var(--warn);">Sin identificar</span>' : recEsc(x.j))}${recTd(x.r.length, 1)}${recTd('<b>' + recM(x.m) + '</b>', 1)}${recTd(recPct(x.m, totIibb), 1)}${recTd('<span class="muted" style="font-size:11.5px;">' + pm.map(p => REC_MESES[Number(p.ym.slice(5)) - 1] + ' ' + recM(p.s.total / 1000).replace('$ ', '') + 'k').join(' · ') + '</span>')}</tr>`;
+    }).join(''),
+    `<tr style="border-top:2px solid var(--border);font-weight:700;">${recTd('Total IIBB')}${recTd(iibb.length, 1)}${recTd(recM(totIibb), 1)}${recTd('100%', 1)}${recTd('')}</tr>`);
+  const sin = jur.get('Sin identificar');
+  if(sin && sin.length){
+    const ej = [...new Set(sin.map(f => (f.descripcion || '(sin descripción)').trim()))].slice(0, 14);
+    h += `<div class="muted" style="font-size:11.5px;margin-top:6px;">Ejemplos de textos sin jurisdicción: ${ej.map(recEsc).join(' · ')}</div>`;
+  }
+  // clientes que retienen
+  const cli = recPorCliente(rows).filter(c => c.s.ret > 0).sort((a, b) => b.s.ret - a.s.ret).slice(0, 20);
+  h += recTitulo('🧾 Clientes que más retienen', 'Top 20 por monto retenido en el período.') + recTabla(recTh('Cliente') + recTh('IVA', 1) + recTh('IIBB', 1) + recTh('Ganancias', 1) + recTh('SUSS', 1) + recTh('Municipales', 1) + recTh('Total retenido', 1) + recTh('% de su pago', 1),
+    cli.map(c => `<tr style="border-top:1px solid var(--border);">${recTd(recEsc(c.nombre))}${recTd(recM(c.s.ret_iva), 1)}${recTd(recM(c.s.ret_iibb), 1)}${recTd(recM(c.s.ret_gan), 1)}${recTd(recM(c.s.ret_suss), 1)}${recTd(recM(c.s.ret_mun), 1)}${recTd('<b>' + recM(c.s.ret) + '</b>', 1)}${recTd(recPct(c.s.ret, c.s.total), 1)}</tr>`).join(''));
+  return h;
+}
+
+function recHoyIso(){ const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+function recVistaCheques(){
+  const rows = recFiltradas({ sinMes:true }).filter(f => f.tipo === 'valores');
+  const hoy = recHoyIso(); const en30 = new Date(); en30.setDate(en30.getDate() + 30);
+  const lim30 = `${en30.getFullYear()}-${String(en30.getMonth() + 1).padStart(2, '0')}-${String(en30.getDate()).padStart(2, '0')}`;
+  const fut = rows.filter(f => f.fecha_vencimiento && f.fecha_vencimiento > hoy);
+  const prox = fut.filter(f => f.fecha_vencimiento <= lim30);
+  const sum = r => r.reduce((a, f) => a + f.monto, 0);
+  const cli = recClienteDeRecibo();
+  let h = `<div class="muted" style="font-size:12px;margin-bottom:10px;">Valores (cheques) recibidos en ${REC.anio}${REC.empresa !== 'todas' ? ' · ' + REC_EMP[REC.empresa] : ''}. GP no informa si un cheque ya se depositó: se agrupan por fecha de vencimiento para ver qué se viene.</div>
+  <div class="dash-grid" style="grid-template-columns:repeat(auto-fill,minmax(190px,1fr));margin-bottom:6px;">
+    ${recKpi('Cheques recibidos', rows.length.toLocaleString('es-AR'), recM(sum(rows)))}
+    ${recKpi('Con vencimiento futuro', fut.length.toLocaleString('es-AR'), recM(sum(fut)), 'var(--ok)')}
+    ${recKpi('Vencen en 30 días', prox.length.toLocaleString('es-AR'), recM(sum(prox)), 'var(--warn)')}
+    ${recKpi('Ya vencidos', (rows.length - fut.length).toLocaleString('es-AR'), recM(sum(rows) - sum(fut)))}
+  </div>`;
+  const pm = new Map(); rows.forEach(f => { const k = (f.fecha_vencimiento || '').slice(0, 7) || 'sin'; const o = pm.get(k) || { n:0, m:0 }; o.n++; o.m += f.monto; pm.set(k, o); });
+  h += recTitulo('📆 Cheques por mes de vencimiento') + recTabla(recTh('Vencimiento') + recTh('Cheques', 1) + recTh('Monto', 1),
+    [...pm.keys()].sort().map(k => { const o = pm.get(k), cur = hoy.slice(0, 7), futuro = k !== 'sin' && k >= cur; return `<tr style="border-top:1px solid var(--border);${futuro ? 'background:rgba(56,189,248,.06);' : ''}">${recTd(k === 'sin' ? 'Sin fecha' : recMesTxt(k) + (k === cur ? ' <span class="muted" style="font-size:11px;">· en curso</span>' : futuro ? ' <span class="muted" style="font-size:11px;">· futuro</span>' : ''))}${recTd(o.n, 1)}${recTd('<b>' + recM(o.m) + '</b>', 1)}</tr>`; }).join(''));
+  const lista = fut.sort((a, b) => a.fecha_vencimiento.localeCompare(b.fecha_vencimiento) || a.numero_ingreso.localeCompare(b.numero_ingreso));
+  h += recTitulo('🗓️ Cheques con vencimiento futuro', lista.length > 300 ? 'Se muestran los primeros 300.' : '') + recTabla(recTh('Vencimiento') + recTh('Recibo') + recTh('Empresa') + recTh('Cliente') + recTh('Banco') + recTh('Nº cheque') + recTh('Monto', 1),
+    lista.slice(0, 300).map(f => `<tr style="border-top:1px solid var(--border);">${recTd(fmtDate(f.fecha_vencimiento))}${recTd(recEsc(f.numero_ingreso), 0, 'color:var(--muted);')}${recTd(REC_EMP[f.empresa])}${recTd(recEsc(recClienteNombre(cli.get(f.empresa + '|' + f.numero_ingreso))))}${recTd(recEsc(f.banco_id || ''), 0, 'color:var(--muted);')}${recTd(recEsc(f.nro_documento || ''), 0, 'color:var(--muted);')}${recTd(recM2(f.monto), 1)}</tr>`).join('') || `<tr><td colspan="7" class="muted" style="padding:14px;text-align:center;">No hay cheques con vencimiento futuro.</td></tr>`);
+  return h;
+}
+
+function recRecibosAgrupados(rows){
+  const cli = recClienteDeRecibo(); const m = new Map();
+  rows.forEach(f => { const k = f.empresa + '|' + f.numero_ingreso; if(!m.has(k)) m.set(k, { k, empresa:f.empresa, numero:f.numero_ingreso, fecha:f.fecha_emision, estado:f.estado, lineas:[] }); m.get(k).lineas.push(f); });
+  return [...m.values()].map(r => { r.s = recSumar(r.lineas); r.cliente = recClienteNombre(cli.get(r.k)); return r; });
+}
+function recVistaRecibos(rows){
+  const q = REC.q.trim().toLowerCase();
+  let list = recRecibosAgrupados(rows);
+  if(q) list = list.filter(r => (r.numero + ' ' + r.cliente + ' ' + REC_EMP[r.empresa] + ' ' + r.lineas.map(l => (l.descripcion || '') + ' ' + (l.nro_documento || '')).join(' ')).toLowerCase().includes(q));
+  list.sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '') || b.numero.localeCompare(a.numero));
+  const tot = list.reduce((a, r) => a + r.s.total, 0);
+  let h = `<div class="toolbar"><input type="text" id="rec-q" placeholder="Buscar por recibo, cliente, certificado, nº de cheque…" value="${recEsc(REC.q)}" style="flex:1;min-width:240px;"><span class="muted" style="font-size:12px;">${list.length.toLocaleString('es-AR')} recibo(s) · ${recM(tot)}</span></div>`;
+  h += recTabla(recTh('Fecha') + recTh('Recibo') + recTh('Empresa') + recTh('Cliente') + recTh('Fondos', 1) + recTh('Retenciones', 1) + recTh('Total', 1) + recTh('Estado'),
+    list.slice(0, 400).map(r => {
+      const ab = REC.abiertos.has(r.k);
+      let tr = `<tr data-rec-abrir="${recEsc(r.k)}" style="border-top:1px solid var(--border);cursor:pointer;">${recTd(fmtDate(r.fecha))}${recTd((ab ? '▾ ' : '▸ ') + recEsc(r.numero))}${recTd(REC_EMP[r.empresa])}${recTd(recEsc(r.cliente))}${recTd(recM(r.s.fondos), 1)}${recTd(recM(r.s.ret), 1)}${recTd('<b>' + recM(r.s.total) + '</b>', 1)}${recTd(r.estado === 'Work' ? '<span class="badge req">Borrador</span>' : '<span class="muted">' + recEsc(r.estado || '') + '</span>')}</tr>`;
+      if(ab) tr += `<tr><td colspan="8" style="padding:4px 8px 10px 28px;background:rgba(255,255,255,.02);">` + recTabla(recTh('Medio') + recTh('Descripción') + recTh('Nº doc.') + recTh('Vence') + recTh('Monto', 1),
+        r.lineas.map(l => `<tr style="border-top:1px solid var(--border);">${recTd(recEsc(l.medio_cobro || ''))}${recTd(recEsc(l.descripcion || ''), 0, 'color:var(--muted);')}${recTd(recEsc(l.nro_documento || ''), 0, 'color:var(--muted);')}${recTd(l.fecha_vencimiento ? fmtDate(l.fecha_vencimiento) : '')}${recTd(recM2(l.monto), 1)}</tr>`).join('')) + `</td></tr>`;
+      return tr;
+    }).join('') || `<tr><td colspan="8" class="muted" style="padding:14px;text-align:center;">Sin resultados.</td></tr>`);
+  if(list.length > 400) h += `<div class="muted" style="font-size:11.5px;margin-top:6px;">Se muestran los primeros 400: afiná la búsqueda o el mes.</div>`;
+  return h;
+}
+
+function recVistaImportaciones(){
+  const puedeImp = puede('recibos', 'importar');
+  const aus = new Map();
+  REC.filas.filter(f => f.no_figura_en_gp).forEach(f => { const k = f.empresa + '|' + f.numero_ingreso; const o = aus.get(k) || { empresa:f.empresa, numero:f.numero_ingreso, fecha:f.fecha_emision, m:0, cli:f.cliente_gp }; o.m += f.monto; aus.set(k, o); });
+  let h = '';
+  if(aus.size){
+    h += recTitulo('⚠ Recibos que ya no figuran en el listado de GP', 'Estaban cargados pero no vinieron en la última actualización (posible anulación en GP). Quedan fuera de las estadísticas. Si vuelven a aparecer en un listado, se reincorporan solos.');
+    h += recTabla(recTh('Fecha') + recTh('Recibo') + recTh('Empresa') + recTh('Cliente') + recTh('Monto', 1) + (puedeImp ? recTh('') : ''),
+      [...aus.values()].sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')).map(r => `<tr style="border-top:1px solid var(--border);">${recTd(fmtDate(r.fecha))}${recTd(recEsc(r.numero))}${recTd(REC_EMP[r.empresa])}${recTd(recEsc(recClienteNombre(r.cli)))}${recTd(recM2(r.m), 1)}${puedeImp ? recTd(`<button class="btn secondary small" data-rec-del="${recEsc(r.empresa + '|' + r.numero)}">Eliminar</button>`, 1) : ''}</tr>`).join(''));
+  }
+  h += recTitulo('🕒 Historial de actualizaciones');
+  h += recTabla(recTh('Fecha') + recTh('Empresa') + recTh('Usuario') + recTh('Archivo') + recTh('Recibos', 1) + recTh('Nuevos', 1) + recTh('Actualizados', 1) + recTh('Sin cambios', 1) + recTh('No figuran', 1),
+    REC.importaciones.map(i => `<tr style="border-top:1px solid var(--border);">${recTd(recFH(i.created_at))}${recTd(REC_EMP[i.empresa] || i.empresa)}${recTd(recEsc(i.usuario_nombre || ''))}${recTd(recEsc(i.archivo || ''), 0, 'color:var(--muted);')}${recTd(i.recibos, 1)}${recTd(i.nuevos, 1)}${recTd(i.actualizados, 1)}${recTd(i.sin_cambios, 1)}${recTd(i.no_figuran, 1)}</tr>`).join('') || `<tr><td colspan="9" class="muted" style="padding:14px;text-align:center;">Todavía no se subió ningún listado.</td></tr>`);
+  return h;
+}
+
+// ---------- subida del listado ----------
+const REC_COLS = { tipo_ingreso:'id. de tipo de ingreso', numero_ingreso:'numero de ingreso', medio_cobro:'medios de cobro', cliente_gp:'id. de cliente', entrada_impuestos:'entrada de impuestos', estado:'estado', banco_id:'id. de banco', moneda:'id. de moneda', nro_documento:'n de documento', localizacion:'nombre de localizacion', cuenta_principal:'cuenta principal', fecha_emision:'fecha de emision', fecha_vencimiento:'fecha de vencimiento', descripcion:'descripcion de estado', monto:'monto funcional', monto_origen:'monto de origen', cuenta_bancaria:'id. de cuenta bancaria', traspaso:'traspaso', chequera_integrada:'chequera integrada', fecha_integracion:'fecha de integracion', chequera_id:'id. de chequera', tipo_documento:'tipo de documento', fecha_contabilizacion:'fecha de contabilizacion' };
+function recNormCol(s){ return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[º°]/g, '').replace(/\bnº\b/g, 'n').replace(/\s+/g, ' ').trim(); }
+function recParsearHoja(aoa){
+  const head = (aoa[0] || []).map(recNormCol);
+  const idx = {}; Object.entries(REC_COLS).forEach(([k, n]) => { idx[k] = head.indexOf(n); });
+  // "Nº de documento" puede normalizarse como "n de documento" o "no de documento"
+  if(idx.nro_documento < 0) idx.nro_documento = head.findIndex(h => /^n.{0,2} de documento$/.test(h));
+  const falta = ['numero_ingreso', 'medio_cobro', 'fecha_emision', 'monto'].filter(k => idx[k] < 0);
+  if(falta.length) throw new Error('No parece el listado de recibos de GP: faltan las columnas ' + falta.map(k => '“' + REC_COLS[k] + '”').join(', ') + '.');
+  const txt = v => (v == null || v === '') ? null : String(v).trim() || null;
+  const filas = [];
+  for(let i = 1; i < aoa.length; i++){
+    const r = aoa[i]; if(!r || r.every(c => c == null || c === '')) continue;
+    const num = txt(r[idx.numero_ingreso]); if(!num) continue;
+    const o = {};
+    Object.keys(REC_COLS).forEach(k => {
+      const v = idx[k] >= 0 ? r[idx[k]] : null;
+      if(k.startsWith('fecha_')) o[k] = rerpFechaIso(v);
+      else if(k === 'monto' || k === 'monto_origen') o[k] = (v == null || v === '') ? null : Math.round(Number(v) * 100) / 100;
+      else o[k] = txt(v);
+    });
+    if(o.monto == null || isNaN(o.monto)) o.monto = 0;
+    filas.push(o);
+  }
+  return filas;
+}
+
+function recAbrirSubida(){
+  REC.pre = null; REC.filasArchivo = null; REC.archivo = '';
+  REC.empImp = REC.empresa !== 'todas' ? REC.empresa : '';
+  document.getElementById('rec-imp-emp').value = REC.empImp;
+  recRenderSubida();
+  document.getElementById('rec-overlay').classList.add('open');
+}
+function recCerrarSubida(){ document.getElementById('rec-overlay').classList.remove('open'); }
+function recRenderSubida(){
+  const box = document.getElementById('rec-imp-body'); const ok = document.getElementById('rec-imp-ok');
+  const p = REC.pre; let h = ''; let puedeConfirmar = false;
+  if(!REC.filasArchivo){
+    h = `<div id="rec-dz" style="border:2px dashed var(--border);border-radius:12px;padding:30px 20px;text-align:center;cursor:pointer;"><div style="font-size:30px;">🧾</div><div style="font-weight:600;margin-top:6px;">Arrastrá acá el SmartList de recibos de GP</div><div class="muted" style="font-size:12px;margin-top:4px;">Año completo, desde el 01/01 (.xlsx) — o hacé clic para elegir el archivo</div></div>`;
+  } else if(!p){
+    h = '<div class="muted" style="padding:20px;text-align:center;">Comparando con lo que ya está cargado…</div>';
+  } else {
+    const bloquea = p.recibos > 0 && p.otra_empresa >= Math.max(1, p.recibos * 0.5);
+    puedeConfirmar = !bloquea;
+    h = `<div class="muted" style="font-size:12px;margin-bottom:10px;">Archivo: <b>${recEsc(REC.archivo)}</b> · ${p.filas.toLocaleString('es-AR')} línea(s) · ${p.recibos.toLocaleString('es-AR')} recibo(s) · desde ${fmtDate(p.desde)} · empresa: <b>${REC_EMP[REC.empImp]}</b></div>
+    <div class="dash-grid" style="grid-template-columns:repeat(auto-fill,minmax(130px,1fr));margin-bottom:10px;">
+      ${recKpi('Nuevos', p.nuevos.toLocaleString('es-AR'), 'se van a cargar', 'var(--ok)')}
+      ${recKpi('Actualizados', p.actualizados.toLocaleString('es-AR'), 'cambiaron en GP', 'var(--accent)')}
+      ${recKpi('Sin cambios', p.sin_cambios.toLocaleString('es-AR'), 'ya estaban')}
+      ${recKpi('Ya no figuran', p.no_figuran.toLocaleString('es-AR'), 'posible anulación', p.no_figuran ? 'var(--warn)' : '')}
+    </div>`;
+    if(bloquea) h += `<div style="color:var(--danger,#ef4444);font-size:13px;margin:8px 0;">⛔ ${p.otra_empresa} de los ${p.recibos} recibos de este archivo ya están cargados en <b>${REC_EMP[REC.empImp === 'horizon' ? 'haulotte' : 'horizon']}</b>. Parece el listado de la otra empresa: revisá la empresa elegida.</div>`;
+    else if(p.otra_empresa) h += `<div style="color:var(--warn);font-size:12.5px;margin:8px 0;">⚠ ${p.otra_empresa} número(s) de recibo coinciden con los de la otra empresa. Verificá que elegiste bien la empresa.</div>`;
+    if(p.reaparecen) h += `<div class="muted" style="font-size:12.5px;margin:6px 0;">↩ ${p.reaparecen} recibo(s) que estaban marcados como “ya no figuran” volvieron a aparecer y se reincorporan.</div>`;
+    if(p.actualizados) h += `<div class="muted" style="font-size:12px;margin:6px 0;">Actualizados (ej.): ${(p.lista_actualizados || []).slice(0, 8).map(recEsc).join(', ')}${p.actualizados > 8 ? '…' : ''}</div>`;
+    if(p.no_figuran) h += `<div style="font-size:12px;margin:6px 0;color:var(--warn);">Ya no figuran en GP (ej.): ${(p.lista_no_figuran || []).slice(0, 6).map(x => recEsc(x.numero) + ' (' + fmtDate(x.fecha) + ', ' + recM(x.monto) + ')').join(' · ')}${p.no_figuran > 6 ? '…' : ''}<br><span class="muted">No se borran: quedan marcados, fuera de las estadísticas, y los revisás en la solapa Importaciones.</span></div>`;
+    if(!p.nuevos && !p.actualizados && !p.no_figuran && !p.reaparecen) h += `<div style="font-size:13px;margin:8px 0;">✅ Todo está al día: este listado no trae nada nuevo.</div>`;
+    h += `<div style="margin-top:8px;"><button class="btn secondary small" id="rec-imp-otro">Elegir otro archivo</button></div>`;
+  }
+  box.innerHTML = h;
+  document.getElementById('rec-imp-emp').disabled = !!REC.filasArchivo;
+  ok.disabled = !puedeConfirmar || !(REC.pre && (REC.pre.nuevos || REC.pre.actualizados || REC.pre.no_figuran || REC.pre.reaparecen));
+  ok.textContent = REC.pre && !ok.disabled ? `Confirmar y cargar (${REC.pre.nuevos + REC.pre.actualizados} recibo(s))` : 'Confirmar y cargar';
+  const dz = document.getElementById('rec-dz');
+  if(dz) dz.addEventListener('click', () => document.getElementById('rec-imp-file').click());
+  if(dz){
+    ['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.style.borderColor = 'var(--accent)'; }));
+    ['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.style.borderColor = 'var(--border)'; }));
+    dz.addEventListener('drop', e => { const f = e.dataTransfer?.files?.[0]; if(f) recProcesarArchivo(f); });
+  }
+}
+async function recProcesarArchivo(file){
+  const emp = document.getElementById('rec-imp-emp').value;
+  if(!emp){ showToast('Primero elegí la empresa del listado', true); return; }
+  if(!/\.xlsx?$/i.test(file.name)){ showToast('El archivo debe ser .xls o .xlsx', true); return; }
+  REC.empImp = emp; REC.archivo = file.name; REC.pre = null;
+  try{
+    const wb = XLSX.read(await file.arrayBuffer(), { type:'array', cellDates:true });
+    const aoa = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, raw:true, defval:null });
+    REC.filasArchivo = recParsearHoja(aoa);
+    if(!REC.filasArchivo.length) throw new Error('El archivo no tiene filas con número de ingreso.');
+    recRenderSubida();
+    const { data, error } = await supabaseClient.rpc('recibos_importar', { p_empresa:emp, p_filas:REC.filasArchivo, p_archivo:file.name, p_confirmar:false });
+    if(error) throw error;
+    REC.pre = data; recRenderSubida();
+  } catch(e){
+    console.error('Recibos subida:', e); showToast(e.message || 'No se pudo procesar el archivo', true);
+    REC.filasArchivo = null; REC.pre = null; recRenderSubida();
+  }
+}
+async function recConfirmarSubida(){
+  if(!REC.filasArchivo || !REC.pre) return;
+  const ok = document.getElementById('rec-imp-ok'); ok.disabled = true; ok.textContent = 'Cargando…';
+  const { data, error } = await supabaseClient.rpc('recibos_importar', { p_empresa:REC.empImp, p_filas:REC.filasArchivo, p_archivo:REC.archivo, p_confirmar:true });
+  if(error){ showToast(error.message, true); recRenderSubida(); return; }
+  showToast(`Listado cargado: ${data.nuevos} nuevo(s), ${data.actualizados} actualizado(s)`);
+  recCerrarSubida();
+  REC.empresa = REC.empImp;
+  await recCargar(true);
+}
+
+// ---------- exportar ----------
+function recExportar(){
+  const rows = recFiltradas(); const s = recSumar(rows), meses = recPorMes(rows);
+  const wb = XLSX.utils.book_new();
+  const add = (n, a) => XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(a), n);
+  add('Cobranzas por mes', [['Mes', 'Recibos', 'Valores', 'Transferencias', 'Efectivo/otros', 'Retenciones', 'Total']].concat(meses.map(m => [recMesTxt(m.ym), m.s.recibos.size, m.s.valores, m.s.transf, m.s.efectivo + m.s.otro, m.s.ret, m.s.total])).concat([['Total', s.recibos.size, s.valores, s.transf, s.efectivo + s.otro, s.ret, s.total]]));
+  add('Retenciones por mes', [['Mes'].concat(REC_TIPOS_RET.map(k => REC_TIPO_TXT[k]), ['Total'])].concat(meses.map(m => [recMesTxt(m.ym)].concat(REC_TIPOS_RET.map(k => m.s[k]), [m.s.ret]))).concat([['Total'].concat(REC_TIPOS_RET.map(k => s[k]), [s.ret])]));
+  const jur = new Map(); rows.filter(f => f.tipo === 'ret_iibb').forEach(f => { const j = recJurisdiccion(f.descripcion); const o = jur.get(j) || { n:0, m:0 }; o.n++; o.m += f.monto; jur.set(j, o); });
+  add('IIBB por jurisdicción', [['Jurisdicción', 'Certificados', 'Monto']].concat([...jur.entries()].sort((a, b) => b[1].m - a[1].m).map(([j, o]) => [j, o.n, o.m])));
+  const cli = recClienteDeRecibo();
+  add('Detalle', [['Empresa', 'Recibo', 'Fecha emisión', 'Cliente', 'Medio de cobro', 'Tipo', 'Descripción', 'Nº documento', 'Vencimiento', 'Banco', 'Estado', 'Monto']].concat(rows.map(f => [REC_EMP[f.empresa], f.numero_ingreso, fmtDateExport(f.fecha_emision), recClienteNombre(cli.get(f.empresa + '|' + f.numero_ingreso)), f.medio_cobro, REC_TIPO_TXT[f.tipo] || f.tipo, f.descripcion || '', f.nro_documento || '', fmtDateExport(f.fecha_vencimiento), f.banco_id || '', f.estado || '', f.monto])));
+  XLSX.writeFile(wb, `Recibos_${REC.empresa}_${REC.anio}${REC.mes ? '_' + REC.mes : ''}.xlsx`);
+}
+
+// ---------- eventos ----------
+(function recInit(){
+  const sec = document.getElementById('tab-recibos'); if(!sec) return;
+  sec.addEventListener('click', async ev => {
+    const t = ev.target;
+    const e = t.closest('#rec-emp button'); if(e){ REC.empresa = e.dataset.e; recRender(); return; }
+    const v = t.closest('#rec-vistas button'); if(v){ REC.vista = v.dataset.v; recRender(); return; }
+    const go = t.closest('[data-rec-go]'); if(go){ ev.preventDefault(); REC.vista = go.dataset.recGo; recRender(); return; }
+    const ab = t.closest('[data-rec-abrir]'); if(ab){ const k = ab.dataset.recAbrir; if(REC.abiertos.has(k)) REC.abiertos.delete(k); else REC.abiertos.add(k); const q = document.getElementById('rec-q'); recRender(); return; }
+    const del = t.closest('[data-rec-del]');
+    if(del){
+      const [emp, num] = del.dataset.recDel.split('|');
+      if(!confirm(`¿Eliminar definitivamente el recibo ${num} (${REC_EMP[emp]})? Ya no figura en GP.`)) return;
+      const { error } = await supabaseClient.rpc('recibos_eliminar_ausentes', { p_empresa:emp, p_numeros:[num] });
+      if(error){ showToast(error.message, true); return; }
+      showToast('Recibo eliminado'); await recCargar(true); return;
+    }
+    if(t.closest('#rec-btn-subir')){ recAbrirSubida(); return; }
+    if(t.closest('#rec-btn-xls')){ if(REC.filas.length) recExportar(); return; }
+  });
+  sec.addEventListener('change', ev => {
+    const t = ev.target;
+    if(t.id === 'rec-anio'){ REC.anio = t.value; recRender(); }
+    else if(t.id === 'rec-mes'){ REC.mes = t.value; recRender(); }
+    else if(t.id === 'rec-imp-file'){ if(t.files && t.files[0]) recProcesarArchivo(t.files[0]); t.value = ''; }
+    else if(t.id === 'rec-imp-emp'){ REC.empImp = t.value; }
+  });
+  sec.addEventListener('input', ev => {
+    if(ev.target.id === 'rec-q'){ REC.q = ev.target.value; const pos = ev.target.selectionStart; recRender(); const n = document.getElementById('rec-q'); if(n){ n.focus(); try{ n.setSelectionRange(pos, pos); }catch(_){} } }
+  });
+  document.getElementById('rec-imp-cerrar').addEventListener('click', recCerrarSubida);
+  document.getElementById('rec-imp-ok').addEventListener('click', recConfirmarSubida);
+  document.getElementById('rec-overlay').addEventListener('click', ev => {
+    if(ev.target.id === 'rec-overlay') recCerrarSubida();
+    if(ev.target.closest('#rec-imp-otro')){ REC.filasArchivo = null; REC.pre = null; recRenderSubida(); }
+  });
+})();
 
 (function initStkDropzone(){
   const dz = document.getElementById('stk-dropzone');
@@ -22486,6 +23000,7 @@ const SYNC_TABS = {
   datosbancarios:async () => { await loadDatosBancarios(); renderDatosBancarios(); },
   portalprov:    async () => { await ppCargar(); },
   servicio:      async () => { await syncNucleo(); await svcCargar(); },
+  recibos:       async () => { await recCargar(); },
   repuestos:     async () => { await syncNucleo(); await servicioCargarCasos(); await srCargar(); },
   gastosobra:    async () => { await loadGastosObra(); renderGastosObraLista(); renderStatsGastosObra(); },
   haulotte_articulos: async () => { hrepPagina = 0; await hrepCargarPagina(); hpActualizarEstadoCatalogo(); },
