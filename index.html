@@ -5190,6 +5190,16 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
     </div>
 
     <h3 style="margin:20px 0 10px 0;font-size:13px;color:var(--accent);">Equipos cotizados</h3>
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:10px;font-size:12.5px;">
+      <label for="pres-tier" style="margin:0;">Lista de precios:</label>
+      <select id="pres-tier" style="width:auto;">
+        <option value="3">Tier 3 — Precio a mercado</option>
+        <option value="2">Tier 2 — Empresas medianas / grandes paquetes</option>
+        <option value="1">Tier 1 — Sub-alquiler</option>
+      </select>
+      <span class="muted" id="pres-lista-info"></span>
+    </div>
+    <div class="muted" style="font-size:11.5px;margin-bottom:8px;">Al elegir un modelo de la lista, el precio por mes se completa solo; la semana es el mes ÷ 3 y el día es la semana ÷ 3. Todos se pueden editar a mano. Con "Ocultar en PDF" ese precio no sale en el presupuesto impreso.</div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -20588,7 +20598,7 @@ async function loadPresupuestos(){
     .order('numero', { ascending: false });
   if(error){ console.error('Error cargando presupuestos:', error); presupuestosCache = []; return; }
   presupuestosCache = data;
-  await loadPresupuestoUso();
+  await Promise.all([loadPresupuestoUso(), loadListaPrecios()]);
 }
 
 function totalPresupuesto(p){
@@ -20798,16 +20808,17 @@ function presThumbHtml(modelo){
 document.getElementById('btn-pres-fotos').addEventListener('click', abrirCargadorFotos);
 
 const PRES_PERIODOS = [['dia','Día'],['sem','Semana'],['mes','Mes']];
-function presItemVacio(){ return { modelo:'', categoria:'', cantidad:1, dia:'', sem:'', mes:'' }; }
+function presItemVacio(){ return { modelo:'', categoria:'', cantidad:1, dia:'', sem:'', mes:'', oc:{ dia:false, sem:false, mes:false }, man:{ dia:false, sem:false, mes:false } }; }
 function presAgruparItems(items){
   const g = [], idx = {};
   (items||[]).slice().sort((a,b)=>(a.orden||0)-(b.orden||0)).forEach(it => {
     const k = (it.modelo||'').trim().toLowerCase();
-    if(!(k in idx)){ idx[k] = g.length; g.push({ modelo: it.modelo||'', categoria: it.categoria||'', cantidad: Number(it.cantidad)||1, dia:'', sem:'', mes:'' }); }
+    if(!(k in idx)){ idx[k] = g.length; g.push({ modelo: it.modelo||'', categoria: it.categoria||'', cantidad: Number(it.cantidad)||1, dia:'', sem:'', mes:'', oc:{ dia:false, sem:false, mes:false }, man:{ dia:true, sem:true, mes:true } }); }
     const o = g[idx[k]];
     o.cantidad = Math.max(o.cantidad, Number(it.cantidad)||1);
     const col = it.periodo === 'Día' ? 'dia' : it.periodo === 'Semana' ? 'sem' : 'mes';
     o[col] = it.precio_unitario;
+    o.oc[col] = !!it.oculto;
   });
   return g;
 }
@@ -20824,7 +20835,7 @@ function renderPresItemsTabla(){
         <input type="text" class="pres-item-modelo" data-idx="${idx}" list="pres-modelos-datalist" value="${escapeHtml(it.modelo||'')}" placeholder="Ej: HA20RTJPRO" style="min-width:180px;">
       </div></td>
       <td><input type="number" class="pres-item-cantidad" data-idx="${idx}" value="${it.cantidad}" min="1" style="width:70px;"></td>
-      ${PRES_PERIODOS.map(([k]) => `<td><input type="number" class="pres-item-precio" data-idx="${idx}" data-col="${k}" value="${it[k] ?? ''}" step="0.01" min="0" placeholder="0,00" style="width:105px;"></td>`).join('')}
+      ${PRES_PERIODOS.map(([k]) => `<td><input type="number" class="pres-item-precio" data-idx="${idx}" data-col="${k}" value="${it[k] ?? ''}" step="0.01" min="0" placeholder="0,00" style="width:105px;"><label style="display:flex;align-items:center;gap:4px;margin-top:4px;font-size:11px;color:var(--muted);cursor:pointer;white-space:nowrap;"><input type="checkbox" class="pres-item-oc" data-idx="${idx}" data-col="${k}" ${it.oc && it.oc[k] ? 'checked' : ''} style="width:auto;"> Ocultar en PDF</label></td>`).join('')}
       <td style="white-space:nowrap;"><button type="button" class="btn secondary small" onclick="quitarItemPresupuesto(${idx})">✕</button></td>
     </tr>`).join('');
 }
@@ -20839,9 +20850,79 @@ document.getElementById('pres-items-tbody').addEventListener('input', (e)=>{
     it.categoria = ficha ? ficha.categoria : '';
     const th = e.target.closest('tr')?.querySelector('.pres-thumb');
     if(th) th.innerHTML = presThumbHtml(e.target.value);
+    presAutocompletarItem(idx, e.target.closest('tr'));
   }
   if(e.target.classList.contains('pres-item-cantidad')) it.cantidad = e.target.value;
-  if(e.target.classList.contains('pres-item-precio')) it[e.target.dataset.col] = e.target.value;
+  if(e.target.classList.contains('pres-item-precio')){
+    const col = e.target.dataset.col;
+    it[col] = e.target.value;
+    it.man[col] = true;                       // lo tocaron a mano: ya no se pisa solo
+    if(col === 'mes') presRecalcularDerivados(idx, e.target.closest('tr'), 'mes');
+    if(col === 'sem') presRecalcularDerivados(idx, e.target.closest('tr'), 'sem');
+  }
+});
+document.getElementById('pres-items-tbody').addEventListener('change', (e)=>{
+  if(!e.target.classList.contains('pres-item-oc')) return;
+  const it = presupuestoItemsState[Number(e.target.dataset.idx)];
+  if(it) it.oc[e.target.dataset.col] = e.target.checked;
+});
+
+// ---------- Lista de precios de alquiler (autocompletado) ----------
+// Mensual = precio de la lista según el Tier elegido; semanal = mensual ÷ 3; diario = semanal ÷ 3.
+// Lo que el comercial edite a mano no se vuelve a pisar.
+let listaPreciosCache = {};
+async function loadListaPrecios(){
+  try{
+    const { data, error } = await supabaseClient.from('lista_precios_alquiler').select('*');
+    if(error) throw error;
+    listaPreciosCache = {};
+    (data||[]).forEach(r => { listaPreciosCache[r.modelo_norm] = r; });
+  } catch(e){ console.warn('No se pudo cargar la lista de precios', e); }
+}
+function presTierActual(){ return document.getElementById('pres-tier').value || '3'; }
+function presPrecioLista(modelo){
+  const r = listaPreciosCache[normModelo(modelo)];
+  return r ? Number(r['mes_tier' + presTierActual()]) : null;
+}
+const presRound2 = n => Math.round(n * 100) / 100;
+function presSetPrecioDom(tr, col, val){
+  const inp = tr && tr.querySelector(`.pres-item-precio[data-col="${col}"]`);
+  if(inp) inp.value = (val === '' || val === null) ? '' : val;
+}
+// Recalcula lo que depende del campo editado, salvo lo que ya se tocó a mano
+function presRecalcularDerivados(idx, tr, desde){
+  const it = presupuestoItemsState[idx]; if(!it) return;
+  if(desde === 'mes'){
+    const m = Number(it.mes);
+    if(!it.man.sem){ it.sem = m > 0 ? presRound2(m / 3) : ''; presSetPrecioDom(tr, 'sem', it.sem); }
+    desde = 'sem';
+  }
+  if(desde === 'sem' && !it.man.dia){
+    const sm = Number(it.sem);
+    it.dia = sm > 0 ? presRound2(sm / 3) : ''; presSetPrecioDom(tr, 'dia', it.dia);
+  }
+}
+function presAutocompletarItem(idx, tr){
+  const it = presupuestoItemsState[idx]; if(!it) return;
+  const mes = presPrecioLista(it.modelo);
+  if(mes === null) return;
+  if(!it.man.mes){ it.mes = mes; presSetPrecioDom(tr, 'mes', mes); }
+  // en el autocompletado se recalcula sem/dia aunque el mes haya sido manual solo si ellos no lo fueron
+  const sem = presRound2(Number(it.mes) / 3);
+  if(!it.man.sem){ it.sem = sem; presSetPrecioDom(tr, 'sem', sem); }
+  if(!it.man.dia){ it.dia = presRound2(Number(it.sem) / 3); presSetPrecioDom(tr, 'dia', it.dia); }
+}
+function presActualizarInfoLista(){
+  const el = document.getElementById('pres-lista-info'); if(!el) return;
+  const rows = Object.values(listaPreciosCache);
+  el.textContent = rows.length ? `Lista vigente: ${rows[0].vigencia || '—'} (${rows.length} modelos)` : 'Lista de precios no disponible';
+}
+document.getElementById('pres-tier').addEventListener('change', ()=>{
+  const trs = document.querySelectorAll('#pres-items-tbody tr[data-idx]');
+  presupuestoItemsState.forEach((it, idx)=>{
+    if(it.man.mes) return;                  // el mensual ya fue editado a mano: no se toca
+    presAutocompletarItem(idx, trs[idx]);
+  });
 });
 document.getElementById('pres-moneda').addEventListener('change', ()=>{});
 document.getElementById('pres-flete-incluir').addEventListener('change', (e)=>{
@@ -20895,8 +20976,14 @@ function resetPresupuestoForm(){
   document.getElementById('pres-flete-monto').value = 0;
   document.getElementById('pres-flete-monto-wrap').style.display = 'none';
   document.getElementById('pres-ocultar-total').checked = false;
-  document.getElementById('pres-modelos-datalist').innerHTML =
-    catalogoTecnicoCache.filter(c => c.especificaciones && c.especificaciones.length).map(c=>`<option value="${escapeHtml(c.modelo)}">`).join('');
+  document.getElementById('pres-tier').value = '3';
+  presActualizarInfoLista();
+  {
+    const nombres = new Map();
+    catalogoTecnicoCache.filter(c => c.especificaciones && c.especificaciones.length).forEach(c => nombres.set(normModelo(c.modelo), c.modelo));
+    Object.values(listaPreciosCache).forEach(r => { if(!nombres.has(r.modelo_norm)) nombres.set(r.modelo_norm, r.modelo); });
+    document.getElementById('pres-modelos-datalist').innerHTML = [...nombres.values()].map(m=>`<option value="${escapeHtml(m)}">`).join('');
+  }
   presupuestoItemsState = [presItemVacio()];
   renderPresItemsTabla();
   document.getElementById('pres-vigencia-aviso').innerHTML = '';
@@ -20964,6 +21051,9 @@ document.getElementById('btn-presupuesto-save').addEventListener('click', async 
     if(!(Number(it.dia) > 0 && Number(it.sem) > 0 && Number(it.mes) > 0)){
       showToast(`${it.modelo}: completá los TRES precios (día, semana y mes)`, true); return;
     }
+    if(it.oc && it.oc.dia && it.oc.sem && it.oc.mes){
+      showToast(`${it.modelo}: tiene que quedar al menos un precio visible en el PDF`, true); return;
+    }
   }
   if(id){
     for(const c of (presUsoMap[Number(id)]||[]).filter(c => c.estado === 'activo')){
@@ -21028,6 +21118,7 @@ document.getElementById('btn-presupuesto-save').addEventListener('click', async 
         cantidad: Number(it.cantidad),
         periodo: per,
         precio_unitario: Number(it[k]),
+        oculto: !!(it.oc && it.oc[k]),
         orden: i * 3 + j,
       }));
     });
@@ -21237,7 +21328,7 @@ async function generarPresupuestoPDF(id){
       y += 2;
     }
 
-    grupo.filas.forEach((it) => {
+    grupo.filas.filter(it => !it.oculto).forEach((it) => {
       const subtotal = (Number(it.cantidad)||0) * (Number(it.precio_unitario)||0);
       total += subtotal;
       doc.setFont('helvetica','normal');
