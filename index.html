@@ -1229,6 +1229,84 @@ input.fecha-ar.fecha-ar-invalida{ border-color:var(--danger) !important; color:v
 
 .panel-solo-maestro{display:none !important;}
 body.es-maestro .panel-solo-maestro{display:block !important;}
+
+  /* ===== Selector de equipos (presupuestos) ===== */
+  .pres-item-pick{display:flex;align-items:center;gap:12px;min-width:270px;max-width:460px;width:100%;padding:4px 12px 4px 4px;border:1px solid var(--border);border-radius:10px;background:var(--panel-2);color:var(--text);cursor:pointer;text-align:left;font:inherit;}
+  .pres-item-pick:hover{border-color:var(--accent);}
+  .pres-item-pick .pip-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+  .pres-item-pick .pip-t b{font-size:13.5px;font-weight:700;}
+  .pres-item-pick .pip-t small{font-size:11.5px;color:var(--text-dim);}
+  .pres-item-pick .pip-c{font-size:12px;font-weight:700;color:var(--accent);white-space:nowrap;}
+  .pres-item-pick.vacio{height:56px;padding:0 16px;border:1.5px dashed var(--accent);background:transparent;color:var(--accent);font-weight:700;font-size:13.5px;gap:10px;}
+  .seleq-ov, .seleq-ov *{box-sizing:border-box;}
+  .seleq-ov{position:fixed;inset:0;z-index:6500;background:rgba(5,8,12,.68);display:flex;align-items:center;justify-content:center;padding:16px;}
+  .seleq{--on-acc:#04222f;width:min(1240px,100%);height:min(812px,100%);display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--border);border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,.45);overflow:hidden;color:var(--text);}
+  body.light-theme .seleq{--on-acc:#fff;}
+  .seleq-head{flex:none;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:14px 22px 14px 26px;border-bottom:1px solid var(--border);}
+  .seleq-title{font-size:18px;font-weight:700;}
+  .seleq-sub{font-size:12.5px;color:var(--text-dim);margin-top:3px;}
+  .seleq-head-r{display:flex;align-items:center;gap:12px;}
+  .seleq-lbl{font-size:12px;font-weight:600;color:var(--text-dim);}
+  .seleq-seg{display:flex;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:3px;gap:2px;}
+  .seleq-seg button{padding:7px 12px;border:0;border-radius:8px;background:none;font:inherit;font-size:13px;font-weight:600;color:var(--text-dim);cursor:pointer;white-space:nowrap;}
+  .seleq-seg button.on{background:var(--accent);color:var(--on-acc);}
+  .seleq-seg button:hover:not(.on){color:var(--text);}
+  .seleq-ico{width:38px;height:38px;border-radius:10px;border:1px solid var(--border);background:none;color:var(--text-dim);cursor:pointer;font-size:15px;}
+  .seleq-ico:hover{color:var(--text);border-color:var(--accent);}
+  .seleq-bar{flex:none;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 26px;border-bottom:1px solid var(--border);}
+  .seleq-search{position:relative;display:block;width:min(470px,100%);}
+  .seleq-search svg{position:absolute;left:13px;top:11px;color:var(--text-dim);}
+  .seleq-search input{width:100%;height:40px;padding:0 14px 0 40px;border-radius:10px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);font-size:14px;outline:none;}
+  .seleq-search input:focus{border-color:var(--accent);}
+  .seleq-pill{padding:8px 13px;border-radius:999px;border:1px solid var(--border);background:var(--panel-2);font:inherit;font-size:13px;font-weight:600;color:var(--text-dim);cursor:pointer;}
+  .seleq-pill.on{border-color:var(--accent);color:var(--accent);}
+  .seleq-count{margin-left:auto;font-size:13px;font-weight:600;color:var(--text-dim);}
+  .seleq-body{flex:1;min-height:0;display:flex;}
+  .seleq-nav{width:264px;flex:none;padding:16px 14px;border-right:1px solid var(--border);background:var(--panel-2);display:flex;flex-direction:column;gap:2px;overflow:auto;}
+  .seleq-nav button{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;padding:9px 12px;border:0;border-radius:9px;background:none;font:inherit;font-size:13.5px;font-weight:500;color:var(--text);cursor:pointer;text-align:left;}
+  .seleq-nav button:hover{background:var(--panel);}
+  .seleq-nav button.sub{padding-left:28px;font-size:13px;color:var(--text-dim);}
+  .seleq-nav button.on{background:var(--accent);color:var(--on-acc);font-weight:700;}
+  .seleq-nav button .n{font-size:12px;font-weight:600;opacity:.8;}
+  .seleq-main{flex:1;min-width:0;padding:22px 26px 28px;overflow:auto;display:flex;flex-direction:column;gap:30px;}
+  .seleq-sec-h{display:flex;align-items:baseline;gap:12px;margin-bottom:12px;}
+  .seleq-sec-h b{font-size:16px;font-weight:700;}
+  .seleq-sec-h span{font-size:12.5px;font-weight:600;color:var(--text-dim);}
+  .seleq-grp{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);margin:2px 0 10px;}
+  .seleq-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;margin-bottom:18px;}
+  .seleq-card{position:relative;display:flex;flex-direction:column;width:100%;padding:0;background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;cursor:pointer;text-align:left;font:inherit;color:var(--text);}
+  .seleq-card:hover:not(:disabled){border-color:var(--accent);}
+  .seleq-card.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent);}
+  .seleq-card:disabled{cursor:not-allowed;opacity:.55;}
+  .seleq-img{position:relative;width:100%;aspect-ratio:4/3;background:#fff;display:flex;align-items:center;justify-content:center;border-bottom:1px solid var(--border);}
+  .seleq-img img{width:100%;height:100%;object-fit:contain;display:block;}
+  .seleq-nofoto{flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#8b95a7;font-size:11.5px;font-weight:600;display:flex;}
+  .seleq-check{display:none;position:absolute;top:8px;right:8px;width:24px;height:24px;border-radius:50%;background:var(--accent);color:var(--on-acc);align-items:center;justify-content:center;}
+  .seleq-card.sel .seleq-check{display:flex;}
+  .seleq-badge{position:absolute;top:8px;left:8px;padding:2px 8px;border-radius:999px;background:rgba(15,20,28,.82);color:#fff;font-size:10.5px;font-weight:700;}
+  .seleq-info{padding:10px 12px 12px;display:flex;flex-direction:column;gap:4px;min-height:84px;}
+  .seleq-name{font-size:14px;font-weight:700;line-height:1.25;word-break:break-word;}
+  .seleq-spec{font-size:12px;color:var(--text-dim);line-height:1.35;}
+  .seleq-price{margin-top:auto;padding-top:4px;font-size:13px;font-weight:700;color:var(--accent);}
+  .seleq-price small{font-size:11.5px;font-weight:500;color:var(--text-dim);}
+  .seleq-price.no{font-size:11.5px;font-weight:500;color:var(--text-dim);}
+  .seleq-vacio{margin:50px auto;text-align:center;color:var(--text-dim);font-size:14px;line-height:1.6;}
+  .seleq-vacio b{display:block;font-size:16px;color:var(--text);margin-bottom:6px;}
+  .seleq-libre{align-self:flex-start;padding:9px 14px;border-radius:10px;border:1px dashed var(--accent);background:none;color:var(--accent);font:inherit;font-size:13px;font-weight:700;cursor:pointer;}
+  .seleq-foot{flex:none;display:flex;align-items:center;gap:16px;padding:14px 26px;border-top:1px solid var(--border);background:var(--panel-2);}
+  .seleq-chips{flex:1;min-width:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--text-dim);}
+  .seleq-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 5px 4px 11px;border-radius:999px;background:var(--panel);border:1px solid var(--border);font-size:12.5px;font-weight:600;color:var(--text);}
+  .seleq-chip button{width:20px;height:20px;border-radius:50%;border:0;background:none;color:var(--text-dim);cursor:pointer;font-size:11px;}
+  .seleq-btn{height:42px;padding:0 20px;border-radius:10px;font:inherit;font-size:14px;font-weight:700;cursor:pointer;}
+  .seleq-btn.ghost{background:none;border:1px solid var(--border);color:var(--text);}
+  .seleq-btn.main{border:0;background:var(--accent);color:var(--on-acc);}
+  .seleq-btn.main:disabled{opacity:.4;cursor:not-allowed;}
+  @media (max-width:820px){
+    .seleq-body{flex-direction:column;}
+    .seleq-nav{width:auto;flex-direction:row;border-right:0;border-bottom:1px solid var(--border);padding:10px;overflow-x:auto;}
+    .seleq-nav button{width:auto;white-space:nowrap;} .seleq-nav button.sub{padding-left:12px;}
+    .seleq-foot{flex-wrap:wrap;}
+  }
 </style>
 </head>
 <body>
@@ -5211,7 +5289,7 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
       <table>
         <thead>
           <tr>
-            <th>Modelo (buscar en catálogo)</th>
+            <th>Modelo</th>
             <th style="width:90px;">Cantidad</th>
             <th style="width:120px;">Precio por día</th>
             <th style="width:120px;">Precio por semana</th>
@@ -5222,7 +5300,6 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
         <tbody id="pres-items-tbody"></tbody>
       </table>
     </div>
-    <datalist id="pres-modelos-datalist"></datalist>
     <button class="btn secondary small" id="btn-pres-agregar-item" type="button" style="margin-top:10px;">+ Agregar equipo</button>
 
     <div style="margin-top:14px;padding:12px 14px;border:1px solid var(--border);border-radius:8px;">
@@ -20868,10 +20945,7 @@ function renderPresItemsTabla(){
   }
   tbody.innerHTML = presupuestoItemsState.map((it, idx) => `
     <tr data-idx="${idx}">
-      <td><div style="display:flex;align-items:center;gap:8px;">
-        <span class="pres-thumb" data-idx="${idx}" title="${fotoUrlDeModelo(it.modelo) ? '' : 'Este modelo todavía no tiene foto'}">${presThumbHtml(it.modelo)}</span>
-        <input type="text" class="pres-item-modelo" data-idx="${idx}" list="pres-modelos-datalist" value="${escapeHtml(it.modelo||'')}" placeholder="Ej: HA20RTJPRO" style="min-width:180px;">
-      </div></td>
+      <td>${presModeloBtnHtml(it, idx)}</td>
       <td><input type="number" class="pres-item-cantidad" data-idx="${idx}" value="${it.cantidad}" min="1" style="width:70px;"></td>
       ${PRES_PERIODOS.map(([k]) => `<td><input type="number" class="pres-item-precio" data-idx="${idx}" data-col="${k}" value="${it[k] ?? ''}" step="0.01" min="0" placeholder="0,00" style="width:105px;"><label style="display:flex;align-items:center;gap:4px;margin-top:4px;font-size:11px;color:var(--muted);cursor:pointer;white-space:nowrap;"><input type="checkbox" class="pres-item-oc" data-idx="${idx}" data-col="${k}" ${it.oc && it.oc[k] ? 'checked' : ''} style="width:auto;"> Ocultar en PDF</label></td>`).join('')}
       <td style="white-space:nowrap;"><button type="button" class="btn secondary small" onclick="quitarItemPresupuesto(${idx})">✕</button></td>
@@ -20882,14 +20956,6 @@ document.getElementById('pres-items-tbody').addEventListener('input', (e)=>{
   const idx = Number(e.target.dataset.idx);
   if(Number.isNaN(idx) || !presupuestoItemsState[idx]) return;
   const it = presupuestoItemsState[idx];
-  if(e.target.classList.contains('pres-item-modelo')){
-    it.modelo = e.target.value;
-    const ficha = buscarFichaTecnica(e.target.value);
-    it.categoria = ficha ? ficha.categoria : '';
-    const th = e.target.closest('tr')?.querySelector('.pres-thumb');
-    if(th) th.innerHTML = presThumbHtml(e.target.value);
-    presAutocompletarItem(idx, e.target.closest('tr'));
-  }
   if(e.target.classList.contains('pres-item-cantidad')) it.cantidad = e.target.value;
   if(e.target.classList.contains('pres-item-precio')){
     const col = e.target.dataset.col;
@@ -20978,10 +21044,279 @@ function presContratosDeModelo(presId, modelo){
   const k = (modelo||'').trim().toLowerCase();
   return (presUsoMap[Number(presId)]||[]).filter(c => c.estado === 'activo' && (c.presupuesto_modelo||'').trim().toLowerCase() === k);
 }
-document.getElementById('btn-pres-agregar-item').addEventListener('click', ()=>{
-  presupuestoItemsState.push(presItemVacio());
-  renderPresItemsTabla();
+document.getElementById('btn-pres-agregar-item').addEventListener('click', ()=> abrirSelectorEquipos(null));
+document.getElementById('pres-items-tbody').addEventListener('click', (e)=>{
+  const b = e.target.closest('.pres-item-pick'); if(!b) return;
+  abrirSelectorEquipos(Number(b.dataset.idx));
 });
+
+// ---------- Selector de equipos (modal con tipos, modelos y fotos) ----------
+// Accesorios: no están en catalogo_modelos (son equipos sueltos), así que se catalogan acá.
+// Los nombres van sin tilde para que calcen con las fotos cargadas por prefijo (PLUMIN, PALA, CANASTA).
+const SEL_EQ_ACC = [
+  { m:'Plumin HTL 1 m³', g:'pl' }, { m:'Plumin HTL 2 toneladas', g:'pl' },
+  { m:'Pala con uñas', g:'pa' }, { m:'Pala cerealera', g:'pa' },
+  { m:'Canasta ANSI HTL', g:'ca' },
+  { m:'Guinche con malacate hidráulico HTL', g:'gu' }, { m:'Guinche con motor hidráulico HTL', g:'gu' }
+];
+const SEL_EQ_CATS = [
+  ['atr','Articuladas todo terreno'], ['ael','Articuladas eléctricas'], ['tel','Telescópicas'], ['mtl','Manipuladores telescópicos'],
+  ['tee','Tijeras eléctricas'], ['ttr','Tijeras todo terreno'], ['mas','Mástiles'], ['rem','Plataformas remolcables'],
+  ['cam','Plataformas sobre camión'], ['acc','Accesorios'], ['otr','Sin clasificar']
+];
+const SEL_EQ_CAT_POR_NOMBRE = {
+  'articuladas todo terreno':'atr', 'articuladas eléctricas':'ael', 'telescópicas':'tel', 'manipuladores telescópicos':'mtl',
+  'plataformas de tijeras eléctricas':'tee', 'tijeras todo terreno':'ttr', 'mástiles':'mas', 'plataformas remolcables':'rem', 'plataformas sobre camión':'cam'
+};
+// Para los modelos del catálogo que no tienen "categoria" cargada, se deduce de la familia
+const SEL_EQ_CAT_POR_FAMILIA = {
+  'articulated rt 20-26m':'atr', 'articulated rt rt 20-26m':'atr', 'telescopic < 30 m':'tel', 'telehandlers':'mtl', 'mast':'mas', 'scissors midsize':'ttr'
+};
+const SEL_EQ_GRUPOS = {
+  atr:[['b','Hasta 18 m'],['c','20 a 26 m'],['d','Más de 32 m'],['a','Otras articuladas']],
+  tel:[['g','Hasta 30 m'],['h','Gran altura'],['f','Otras telescópicas']],
+  ttr:[['l','Medianas y grandes'],['k','Todo terreno']],
+  acc:[['pl','Plumines'],['pa','Palas'],['ca','Canastas'],['gu','Guinches']]
+};
+const SEL_EQ_GRUPO_POR_FAMILIA = {
+  'articulated rt <18m':'b', 'articulated rt 20-26m':'c', 'articulated rt rt 20-26m':'c', 'articulated rt > 32m':'d', 'articulated rt >32m':'d', 'articulated rt':'a',
+  'telescopic < 30 m':'g', 'straight rt booms <30m':'g', 'telescopic high height':'h', 'telescopic':'f',
+  'scissors large':'l', 'scissors midsize':'l', 'scissors rt':'k'
+};
+function selEqClasificar(modelo, categoria, familia){
+  const fam = String(familia||'').trim().toLowerCase();
+  let cat = SEL_EQ_CAT_POR_NOMBRE[String(categoria||'').trim().toLowerCase()] || SEL_EQ_CAT_POR_FAMILIA[fam];
+  if(!cat) cat = /^HTA\d/i.test(modelo) ? 'rem' : 'otr';
+  let g = '';
+  const gs = SEL_EQ_GRUPOS[cat];
+  if(gs){ g = SEL_EQ_GRUPO_POR_FAMILIA[fam]; if(!gs.some(x => x[0] === g)) g = gs[gs.length-1][0]; }
+  return { cat, g };
+}
+function selEqNombreCat(k){ return (SEL_EQ_CATS.find(c => c[0] === k)||[])[1] || ''; }
+function selEqNombreGrupo(cat, g){ return ((SEL_EQ_GRUPOS[cat]||[]).find(x => x[0] === g)||[])[1] || ''; }
+// "Articuladas todo terreno · 20 a 26 m" para el subtítulo de la fila
+function selEqInfo(modelo){
+  const acc = SEL_EQ_ACC.find(a => normModelo(a.m) === normModelo(modelo));
+  if(acc) return 'Accesorios · ' + selEqNombreGrupo('acc', acc.g);
+  const f = buscarFichaTecnica(modelo);
+  const lp = listaPreciosCache[normModelo(modelo)];
+  if(!f && !lp) return 'Fuera del catálogo';
+  const c = selEqClasificar(modelo, f && f.categoria, (f && f.familia) || (lp && lp.familia));
+  const g = selEqNombreGrupo(c.cat, c.g);
+  return selEqNombreCat(c.cat) + (g && SEL_EQ_GRUPOS[c.cat] && c.cat !== 'acc' ? ' · ' + g : '');
+}
+function presModeloBtnHtml(it, idx){
+  const m = (it.modelo||'').trim();
+  if(!m) return `<button type="button" class="pres-item-pick vacio" data-idx="${idx}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>Elegir equipo…</button>`;
+  return `<button type="button" class="pres-item-pick" data-idx="${idx}" aria-label="Cambiar equipo: ${escapeHtml(m)}">
+    <span class="pres-thumb" data-idx="${idx}" title="${fotoUrlDeModelo(m) ? '' : 'Este modelo todavía no tiene foto'}">${presThumbHtml(m)}</span>
+    <span class="pip-t"><b>${escapeHtml(m)}</b><small>${escapeHtml(selEqInfo(m))}</small></span>
+    <span class="pip-c">Cambiar</span></button>`;
+}
+
+const SELEQ = { idx:null, cat:'all', q:'', view:'tipo', solo:false, sel:[], rows:[], vis:[], ya:new Set(), actual:'' };
+function selEqRows(){
+  const mapa = new Map();
+  const add = (m, cat, g) => { const k = normModelo(m); if(!k || mapa.has(k)) return; mapa.set(k, { m, cat, g, lp: listaPreciosCache[k] || null, foto: fotoUrlDeModelo(m) }); };
+  catalogoTecnicoCache.forEach(c => { if(!c.modelo) return; const k = selEqClasificar(c.modelo, c.categoria, c.familia); add(c.modelo, k.cat, k.g); });
+  Object.values(listaPreciosCache).forEach(r => { const k = selEqClasificar(r.modelo, '', r.familia); add(r.modelo, k.cat, k.g); });
+  SEL_EQ_ACC.forEach(a => add(a.m, 'acc', a.g));
+  return [...mapa.values()];
+}
+const selEqNat = (a, b) => a.m.localeCompare(b.m, 'es', { numeric:true });
+const selEqFmt = n => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+function selEqSpecs(r){
+  const bits = [];
+  if(r.lp && r.lp.altura_plataforma) bits.push('Alt. ' + String(r.lp.altura_plataforma).replace('.', ',') + ' m');
+  if(r.lp && r.lp.capacidad_kg) bits.push(String(r.lp.capacidad_kg).replace(/^(\d),(\d{3})$/, '$1.$2') + ' kg');
+  return bits.join(' · ');
+}
+function selEqDom(){
+  let ov = document.getElementById('seleq-ov'); if(ov) return ov;
+  ov = document.createElement('div'); ov.id = 'seleq-ov'; ov.className = 'seleq-ov'; ov.style.display = 'none';
+  ov.innerHTML = `<div class="seleq" role="dialog" aria-modal="true" aria-label="Elegir equipo">
+    <div class="seleq-head">
+      <div><div class="seleq-title">Elegir equipo</div><div class="seleq-sub" id="seleq-sub"></div></div>
+      <div class="seleq-head-r"><span class="seleq-lbl">Precio de lista</span><div class="seleq-seg" id="seleq-tiers"></div>
+        <button type="button" class="seleq-ico" data-act="cerrar" aria-label="Cerrar">✕</button></div>
+    </div>
+    <div class="seleq-bar">
+      <label class="seleq-search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input type="text" id="seleq-q" placeholder="Buscar modelo, tipo o accesorio  (ej: HA20, tijera, plumin)" aria-label="Buscar equipo" autocomplete="off"></label>
+      <div class="seleq-seg" id="seleq-view"></div>
+      <button type="button" class="seleq-pill" id="seleq-solo" data-act="solo" aria-pressed="false">Solo con precio de lista</button>
+      <div class="seleq-count" id="seleq-count"></div>
+    </div>
+    <div class="seleq-body"><nav class="seleq-nav" id="seleq-nav" aria-label="Tipos de equipo"></nav><div class="seleq-main" id="seleq-main"></div></div>
+    <div class="seleq-foot"><div class="seleq-chips" id="seleq-chips"></div>
+      <button type="button" class="seleq-btn ghost" data-act="cerrar">Cancelar</button>
+      <button type="button" class="seleq-btn main" id="seleq-ok" data-act="ok"></button></div>
+  </div>`;
+  document.body.appendChild(ov);
+  ov.addEventListener('click', (e)=>{
+    if(e.target === ov){ selEqCerrar(); return; }
+    const b = e.target.closest('[data-act]'); if(!b) return;
+    const a = b.dataset.act;
+    if(a === 'cerrar') selEqCerrar();
+    else if(a === 'tier'){ const sel = document.getElementById('pres-tier'); sel.value = b.dataset.t; sel.dispatchEvent(new Event('change')); selEqRender(false); }
+    else if(a === 'view'){ SELEQ.view = b.dataset.v; selEqRender(true); }
+    else if(a === 'cat'){ SELEQ.cat = b.dataset.k; selEqRender(true); }
+    else if(a === 'solo'){ SELEQ.solo = !SELEQ.solo; selEqRender(true); }
+    else if(a === 'card') selEqToggle(Number(b.dataset.i));
+    else if(a === 'quitar'){ SELEQ.sel.splice(Number(b.dataset.i), 1); selEqMarcar(); }
+    else if(a === 'libre'){ const m = SELEQ.q.trim(); if(m && !SELEQ.sel.includes(m)) SELEQ.sel.push(m); SELEQ.q = ''; document.getElementById('seleq-q').value = ''; selEqRender(true); }
+    else if(a === 'ok') selEqConfirmar();
+  });
+  document.getElementById('seleq-q').addEventListener('input', (e)=>{ SELEQ.q = e.target.value; selEqRender(true); });
+  document.addEventListener('keydown', (e)=>{
+    if(e.key === 'Escape' && ov.style.display !== 'none'){ e.stopPropagation(); e.preventDefault(); selEqCerrar(); }
+  }, true);
+  return ov;
+}
+function selEqCerrar(){ const ov = document.getElementById('seleq-ov'); if(ov) ov.style.display = 'none'; }
+function abrirSelectorEquipos(idx){
+  const ov = selEqDom();
+  const st = presupuestoItemsState;
+  SELEQ.idx = (idx !== null && st[idx]) ? idx : null;
+  SELEQ.cat = 'all'; SELEQ.q = ''; SELEQ.sel = []; SELEQ.solo = false;
+  SELEQ.rows = selEqRows();
+  SELEQ.actual = SELEQ.idx !== null ? normModelo(st[SELEQ.idx].modelo) : '';
+  SELEQ.ya = new Set(st.map((it, i) => i === SELEQ.idx ? '' : normModelo(it.modelo)).filter(Boolean));
+  document.getElementById('seleq-q').value = '';
+  ov.style.display = 'flex';
+  selEqRender(true);
+  setTimeout(()=> document.getElementById('seleq-q').focus(), 30);
+}
+function selEqRender(resetScroll){
+  const tier = presTierActual();
+  const lista = Object.values(listaPreciosCache);
+  document.getElementById('seleq-sub').textContent = lista.length ? `Lista vigente: ${lista[0].vigencia || '—'} · precios por mes en USD` : 'Lista de precios no disponible';
+  document.getElementById('seleq-tiers').innerHTML = [['1','Tier 1'],['2','Tier 2'],['3','Tier 3']].map(t => `<button type="button" data-act="tier" data-t="${t[0]}" class="${tier === t[0] ? 'on' : ''}">${t[1]}</button>`).join('');
+  document.getElementById('seleq-view').innerHTML = [['tipo','Por tipo'],['az','A – Z']].map(v => `<button type="button" data-act="view" data-v="${v[0]}" class="${SELEQ.view === v[0] ? 'on' : ''}">${v[1]}</button>`).join('');
+  const solo = document.getElementById('seleq-solo'); solo.classList.toggle('on', SELEQ.solo); solo.setAttribute('aria-pressed', SELEQ.solo ? 'true' : 'false');
+
+  // navegación (los conteos son del total, no del filtro)
+  const rows = SELEQ.rows;
+  const nav = [['all','Todos los equipos', rows.length, false]];
+  SEL_EQ_CATS.forEach(c => {
+    nav.push([c[0], c[1], rows.filter(r => r.cat === c[0]).length, false]);
+    if(c[0] === 'acc') SEL_EQ_GRUPOS.acc.forEach(g => nav.push(['acc:' + g[0], g[1], rows.filter(r => r.cat === 'acc' && r.g === g[0]).length, true]));
+  });
+  document.getElementById('seleq-nav').innerHTML = nav.filter(n => n[2] > 0 || n[0] === 'all').map(n => `<button type="button" data-act="cat" data-k="${n[0]}" class="${(n[3] ? 'sub ' : '') + (SELEQ.cat === n[0] ? 'on' : '')}"><span>${escapeHtml(n[1])}</span><span class="n">${n[2]}</span></button>`).join('');
+
+  // filtro
+  const q = SELEQ.q.trim().toLowerCase();
+  const lista2 = rows.filter(r => {
+    if(SELEQ.cat !== 'all'){
+      if(SELEQ.cat.indexOf('acc:') === 0){ if(r.cat !== 'acc' || r.g !== SELEQ.cat.slice(4)) return false; }
+      else if(r.cat !== SELEQ.cat) return false;
+    }
+    if(SELEQ.solo && !r.lp) return false;
+    if(q){
+      const hay = (r.m + ' ' + selEqNombreCat(r.cat) + ' ' + selEqNombreGrupo(r.cat, r.g)).toLowerCase();
+      if(!q.split(/\s+/).every(w => hay.indexOf(w) >= 0)) return false;
+    }
+    return true;
+  });
+  SELEQ.vis = [];
+  const card = (r) => {
+    const i = SELEQ.vis.push(r) - 1;
+    const k = normModelo(r.m);
+    const ya = SELEQ.ya.has(k), actual = k === SELEQ.actual;
+    const dis = ya || actual;
+    const p = r.lp ? Number(r.lp['mes_tier' + tier]) : null;
+    const specs = selEqSpecs(r) || (selEqNombreGrupo(r.cat, r.g) || selEqNombreCat(r.cat));
+    return `<button type="button" class="seleq-card" data-act="card" data-i="${i}" ${dis ? 'disabled' : ''} aria-pressed="false">
+      <div class="seleq-img">${r.foto ? `<img src="${escapeHtml(r.foto)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}<div class="seleq-nofoto"${r.foto ? ' style="display:none"' : ''}><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Sin foto</div>
+        ${dis ? `<span class="seleq-badge">${actual ? 'Actual' : 'Ya agregado'}</span>` : ''}
+        <span class="seleq-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span></div>
+      <div class="seleq-info"><div class="seleq-name">${escapeHtml(r.m)}</div><div class="seleq-spec">${escapeHtml(specs)}</div>
+        ${p ? `<div class="seleq-price">USD ${selEqFmt(p)} <small>/mes</small></div>` : '<div class="seleq-price no">Sin precio en lista</div>'}</div></button>`;
+  };
+  let html = '';
+  if(SELEQ.view === 'az'){
+    if(lista2.length) html += `<section><div class="seleq-sec-h"><b>Todos los modelos</b><span>${lista2.length} modelos</span></div><div class="seleq-grid">${lista2.slice().sort(selEqNat).map(card).join('')}</div></section>`;
+  } else {
+    SEL_EQ_CATS.forEach(c => {
+      const rs = lista2.filter(r => r.cat === c[0]); if(!rs.length) return;
+      const gs = SEL_EQ_GRUPOS[c[0]];
+      html += `<section><div class="seleq-sec-h"><b>${escapeHtml(c[1])}</b><span>${rs.length} ${rs.length === 1 ? 'modelo' : 'modelos'}</span></div>`;
+      if(gs) gs.forEach(g => {
+        const gr = rs.filter(r => r.g === g[0]).sort(selEqNat); if(!gr.length) return;
+        html += `<div class="seleq-grp">${escapeHtml(g[1])}</div><div class="seleq-grid">${gr.map(card).join('')}</div>`;
+      });
+      else html += `<div class="seleq-grid">${rs.sort(selEqNat).map(card).join('')}</div>`;
+      html += '</section>';
+    });
+  }
+  if(!lista2.length) html = `<div class="seleq-vacio"><b>No encontramos equipos con ese criterio</b>Probá con otro nombre${SELEQ.solo ? ' o sacá el filtro «Solo con precio de lista»' : ''}.</div>`;
+  if(q && !rows.some(r => normModelo(r.m) === normModelo(SELEQ.q))) html += `<button type="button" class="seleq-libre" data-act="libre">¿No está? Usar «${escapeHtml(SELEQ.q.trim())}» como modelo libre</button>`;
+  const main = document.getElementById('seleq-main');
+  main.innerHTML = html;
+  if(resetScroll) main.scrollTop = 0;
+  document.getElementById('seleq-count').textContent = `${lista2.length} ${lista2.length === 1 ? 'modelo' : 'modelos'}`;
+  selEqMarcar();
+}
+// Marca/desmarca tarjetas y actualiza el pie sin reconstruir la grilla (así no se pierde el scroll ni se recargan las fotos)
+function selEqMarcar(){
+  document.querySelectorAll('#seleq-main .seleq-card').forEach(c => {
+    const r = SELEQ.vis[Number(c.dataset.i)];
+    const on = !!r && SELEQ.sel.includes(r.m);
+    c.classList.toggle('sel', on); c.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  const n = SELEQ.sel.length;
+  document.getElementById('seleq-chips').innerHTML = n
+    ? `<span>Seleccionados (${n}):</span>` + SELEQ.sel.map((m, i) => `<span class="seleq-chip">${escapeHtml(m)}<button type="button" data-act="quitar" data-i="${i}" aria-label="Quitar ${escapeHtml(m)}">✕</button></span>`).join('')
+    : '<span>Tocá uno o varios equipos para sumarlos al presupuesto.</span>';
+  const ok = document.getElementById('seleq-ok');
+  const reemplaza = SELEQ.idx !== null && (presupuestoItemsState[SELEQ.idx]?.modelo || '').trim();
+  ok.disabled = n === 0;
+  ok.textContent = n === 0 ? 'Agregar al presupuesto'
+    : reemplaza ? (n === 1 ? 'Reemplazar equipo' : `Reemplazar y agregar ${n - 1} más`)
+    : `Agregar ${n} ${n === 1 ? 'equipo' : 'equipos'}`;
+}
+function selEqToggle(i){
+  const r = SELEQ.vis[i]; if(!r) return;
+  const p = SELEQ.sel.indexOf(r.m);
+  if(p >= 0) SELEQ.sel.splice(p, 1); else SELEQ.sel.push(r.m);
+  selEqMarcar();
+}
+function selEqConfirmar(){
+  if(!SELEQ.sel.length) return;
+  const modelos = SELEQ.sel.slice();
+  if(SELEQ.idx !== null){
+    const it = presupuestoItemsState[SELEQ.idx];
+    const usados = it && (it.modelo||'').trim() ? presContratosDeModelo(document.getElementById('pres-id').value, it.modelo) : [];
+    if(usados.length){ showToast(`No se puede cambiar ${it.modelo}: ${usados.length} contrato(s) activo(s) lo usan como respaldo.`, true); return; }
+  }
+  selEqCerrar();
+  presAplicarSeleccion(SELEQ.idx, modelos);
+}
+// Asigna los modelos elegidos: el primero va a la fila indicada (o a la última fila vacía) y el resto en filas nuevas
+function presAplicarSeleccion(idx, modelos){
+  const st = presupuestoItemsState, tocados = [];
+  const asignar = (i, m) => {
+    const it = st[i], prev = (it.modelo||'').trim();
+    if(prev && prev.toLowerCase() !== m.toLowerCase()){      // cambia de equipo: los precios del anterior ya no valen
+      it.dia = ''; it.sem = ''; it.mes = '';
+      it.man = { dia:false, sem:false, mes:false }; it.oc = { dia:false, sem:false, mes:false };
+    }
+    it.modelo = m;
+    const f = buscarFichaTecnica(m);
+    it.categoria = f && f.categoria ? f.categoria : '';
+    tocados.push(i);
+  };
+  const rest = modelos.slice();
+  if(idx !== null && st[idx]) asignar(idx, rest.shift());
+  else {
+    const ult = st.length - 1;
+    if(ult >= 0 && !(st[ult].modelo||'').trim() && !st[ult].dia && !st[ult].sem && !st[ult].mes) asignar(ult, rest.shift());
+  }
+  rest.forEach(m => { st.push(presItemVacio()); asignar(st.length - 1, m); });
+  renderPresItemsTabla();
+  const trs = document.querySelectorAll('#pres-items-tbody tr[data-idx]');
+  tocados.forEach(i => presAutocompletarItem(i, trs[i]));
+}
 
 function resetPresupuestoForm(){
   document.getElementById('pres-id').value = '';
@@ -21016,12 +21351,6 @@ function resetPresupuestoForm(){
   document.getElementById('pres-ocultar-total').checked = false;
   document.getElementById('pres-tier').value = '3';
   presActualizarInfoLista();
-  {
-    const nombres = new Map();
-    catalogoTecnicoCache.filter(c => c.especificaciones && c.especificaciones.length).forEach(c => nombres.set(normModelo(c.modelo), c.modelo));
-    Object.values(listaPreciosCache).forEach(r => { if(!nombres.has(r.modelo_norm)) nombres.set(r.modelo_norm, r.modelo); });
-    document.getElementById('pres-modelos-datalist').innerHTML = [...nombres.values()].map(m=>`<option value="${escapeHtml(m)}">`).join('');
-  }
   presupuestoItemsState = [presItemVacio()];
   renderPresItemsTabla();
   document.getElementById('pres-vigencia-aviso').innerHTML = '';
