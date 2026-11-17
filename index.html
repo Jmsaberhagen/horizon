@@ -20979,14 +20979,42 @@ async function loadListaPrecios(){
   try{
     const { data, error } = await supabaseClient.from('lista_precios_alquiler').select('*');
     if(error) throw error;
-    listaPreciosCache = {};
+    listaPreciosCache = {}; _listaIdx = null;
     (data||[]).forEach(r => { listaPreciosCache[r.modelo_norm] = r; });
   } catch(e){ console.warn('No se pudo cargar la lista de precios', e); }
 }
 function presTierActual(){ return document.getElementById('pres-tier').value || '3'; }
+// Criterio de precio: los modelos de una misma serie valen lo mismo, sin importar lo que venga después del número del brazo
+// (HA16PX, HA16RTJ y HA16RTJO usan el precio de HA16RTJPRO). Orden: 1) modelo exacto de la lista,
+// 2) el modelo de la lista más largo que sea el comienzo del nombre (variantes AE, AC, DUAL, New…),
+// 3) la serie = letras + número (HA16, HT23…), solo si todos los modelos de la lista de esa serie tienen el mismo precio.
+let _listaIdx = null;
+function listaIdx(){
+  if(_listaIdx) return _listaIdx;
+  const rows = Object.values(listaPreciosCache), porSerie = {};
+  rows.forEach(r => { const m = String(r.modelo_norm||'').match(/^[A-Z]+\d+/); if(m) (porSerie[m[0]] = porSerie[m[0]] || []).push(r); });
+  return (_listaIdx = { rows, porSerie, memo:{} });
+}
+function listaPrecioDe(modelo){
+  const n = normModelo(modelo); if(!n) return null;
+  const ex = listaPreciosCache[n]; if(ex) return { row:ex, exacto:true, serie:'' };
+  const ix = listaIdx();
+  if(n in ix.memo) return ix.memo[n];
+  let res = null, best = null;
+  ix.rows.forEach(r => { if(r.modelo_norm && n.startsWith(r.modelo_norm) && (!best || r.modelo_norm.length > best.modelo_norm.length)) best = r; });
+  // Excepción: en las tijeras Compact, DX / RTE (diésel, todo terreno) tienen precio propio (ej. Compact 12Dx ≠ Compact 12)
+  const compactDx = /^COMPACT\d+(DX|RTE)/.test(n);
+  if(compactDx && best && !/(DX|RTE)/.test(best.modelo_norm)) best = null;
+  if(best) res = { row:best, exacto:false, serie:'' };
+  else if(!compactDx){
+    const m = n.match(/^[A-Z]+\d+/), grp = m && ix.porSerie[m[0]];
+    if(grp && grp.every(r => r.mes_tier1 === grp[0].mes_tier1 && r.mes_tier2 === grp[0].mes_tier2 && r.mes_tier3 === grp[0].mes_tier3)) res = { row:grp[0], exacto:false, serie:m[0] };
+  }
+  return (ix.memo[n] = res);
+}
 function presPrecioLista(modelo){
-  const r = listaPreciosCache[normModelo(modelo)];
-  return r ? Number(r['mes_tier' + presTierActual()]) : null;
+  const x = listaPrecioDe(modelo);
+  return x ? Number(x.row['mes_tier' + presTierActual()]) : null;
 }
 const presRound2 = n => Math.round(n * 100) / 100;
 function presSetPrecioDom(tr, col, val){
@@ -21117,7 +21145,7 @@ function presModeloBtnHtml(it, idx){
 const SELEQ = { idx:null, cat:'all', q:'', view:'tipo', solo:false, sel:[], rows:[], vis:[], ya:new Set(), actual:'' };
 function selEqRows(){
   const mapa = new Map();
-  const add = (m, cat, g) => { const k = normModelo(m); if(!k || mapa.has(k)) return; mapa.set(k, { m, cat, g, lp: listaPreciosCache[k] || null, foto: fotoUrlDeModelo(m) }); };
+  const add = (m, cat, g) => { const k = normModelo(m); if(!k || mapa.has(k)) return; mapa.set(k, { m, cat, g, pl: listaPrecioDe(m), foto: fotoUrlDeModelo(m) }); };
   catalogoTecnicoCache.forEach(c => { if(!c.modelo) return; const k = selEqClasificar(c.modelo, c.categoria, c.familia); add(c.modelo, k.cat, k.g); });
   Object.values(listaPreciosCache).forEach(r => { const k = selEqClasificar(r.modelo, '', r.familia); add(r.modelo, k.cat, k.g); });
   SEL_EQ_ACC.forEach(a => add(a.m, 'acc', a.g));
@@ -21127,8 +21155,9 @@ const selEqNat = (a, b) => a.m.localeCompare(b.m, 'es', { numeric:true });
 const selEqFmt = n => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 function selEqSpecs(r){
   const bits = [];
-  if(r.lp && r.lp.altura_plataforma) bits.push('Alt. ' + String(r.lp.altura_plataforma).replace('.', ',') + ' m');
-  if(r.lp && r.lp.capacidad_kg) bits.push(String(r.lp.capacidad_kg).replace(/^(\d),(\d{3})$/, '$1.$2') + ' kg');
+  const lp = r.pl && r.pl.exacto ? r.pl.row : null;     // altura y capacidad solo si el modelo está tal cual en la lista
+  if(lp && lp.altura_plataforma) bits.push('Alt. ' + String(lp.altura_plataforma).replace('.', ',') + ' m');
+  if(lp && lp.capacidad_kg) bits.push(String(lp.capacidad_kg).replace(/^(\d),(\d{3})$/, '$1.$2') + ' kg');
   return bits.join(' · ');
 }
 function selEqDom(){
@@ -21211,7 +21240,7 @@ function selEqRender(resetScroll){
       if(SELEQ.cat.indexOf('acc:') === 0){ if(r.cat !== 'acc' || r.g !== SELEQ.cat.slice(4)) return false; }
       else if(r.cat !== SELEQ.cat) return false;
     }
-    if(SELEQ.solo && !r.lp) return false;
+    if(SELEQ.solo && !r.pl) return false;
     if(q){
       const hay = (r.m + ' ' + selEqNombreCat(r.cat) + ' ' + selEqNombreGrupo(r.cat, r.g)).toLowerCase();
       if(!q.split(/\s+/).every(w => hay.indexOf(w) >= 0)) return false;
@@ -21224,14 +21253,14 @@ function selEqRender(resetScroll){
     const k = normModelo(r.m);
     const ya = SELEQ.ya.has(k), actual = k === SELEQ.actual;
     const dis = ya || actual;
-    const p = r.lp ? Number(r.lp['mes_tier' + tier]) : null;
+    const p = r.pl ? Number(r.pl.row['mes_tier' + tier]) : null;
     const specs = selEqSpecs(r) || (selEqNombreGrupo(r.cat, r.g) || selEqNombreCat(r.cat));
     return `<button type="button" class="seleq-card" data-act="card" data-i="${i}" ${dis ? 'disabled' : ''} aria-pressed="false">
       <div class="seleq-img">${r.foto ? `<img src="${escapeHtml(r.foto)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}<div class="seleq-nofoto"${r.foto ? ' style="display:none"' : ''}><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Sin foto</div>
         ${dis ? `<span class="seleq-badge">${actual ? 'Actual' : 'Ya agregado'}</span>` : ''}
         <span class="seleq-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span></div>
       <div class="seleq-info"><div class="seleq-name">${escapeHtml(r.m)}</div><div class="seleq-spec">${escapeHtml(specs)}</div>
-        ${p ? `<div class="seleq-price">USD ${selEqFmt(p)} <small>/mes</small></div>` : '<div class="seleq-price no">Sin precio en lista</div>'}</div></button>`;
+        ${p ? `<div class="seleq-price" title="${r.pl.exacto ? '' : 'Precio tomado de ' + escapeHtml(r.pl.row.modelo)}">USD ${selEqFmt(p)} <small>/mes${r.pl.exacto ? '' : ' · ' + (r.pl.serie ? 'serie ' + r.pl.serie : 'variante')}</small></div>` : '<div class="seleq-price no">Sin precio en lista</div>'}</div></button>`;
   };
   let html = '';
   if(SELEQ.view === 'az'){
@@ -21316,6 +21345,8 @@ function presAplicarSeleccion(idx, modelos){
   renderPresItemsTabla();
   const trs = document.querySelectorAll('#pres-items-tbody tr[data-idx]');
   tocados.forEach(i => presAutocompletarItem(i, trs[i]));
+  const deriv = tocados.map(i => st[i].modelo).map(m => ({ m, x:listaPrecioDe(m) })).filter(o => o.x && !o.x.exacto);
+  if(deriv.length) showToast(deriv.map(o => `${o.m}: precio de ${o.x.row.modelo}${o.x.serie ? ' (serie ' + o.x.serie + ')' : ''}`).join(' · '));
 }
 
 function resetPresupuestoForm(){
