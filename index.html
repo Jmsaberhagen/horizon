@@ -1554,6 +1554,7 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
       <button class="btn secondary" id="btn-export-aut-xls">Exportar XLSX</button>
       <button class="btn secondary" id="btn-export-aut-pdf">Exportar PDF</button>
     </div>
+    <div id="aut-cm-lista"></div>
     <div id="aut-lista"></div>
     <div class="panel panel-solo-maestro" style="padding:14px 16px;margin-top:16px;">
       <div id="email-dest-autorizacion_contratos-header" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
@@ -4834,12 +4835,17 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
           <label>Series anteriores de este contrato</label>
           <div id="c-cambios-serie" class="muted" style="font-size:12px;line-height:1.6;"></div>
         </div>
+        <div class="field full" id="c-cambios-mod-box" style="display:none;">
+          <label>Cambios de modalidad / precio</label>
+          <div id="c-cambios-mod" class="muted" style="font-size:12px;line-height:1.6;"></div>
+        </div>
       </div>
     </div>
 
     <div class="modal-actions">
       <button class="btn secondary" id="btn-contrato-cancel">Cancelar</button>
       <button class="btn secondary" id="btn-contrato-cambiar-serie" style="display:none;" title="Reemplaza la máquina de este contrato por otra serie, sin dar de baja el contrato ni tocar la facturación">🔄 Cambiar serie</button>
+      <button class="btn secondary" id="btn-contrato-cambiar-mod" style="display:none;" title="Cambia la periodicidad y/o el precio a mitad de contrato y recalcula los períodos a facturar">🔁 Cambiar modalidad / precio</button>
       <button class="btn secondary" id="btn-contrato-enviar-aut" style="display:none;" title="Lo saca de Pendientes de Facturación hasta que un maestro lo autorice">🛡️ Mandar a autorización</button>
       <button class="btn danger" id="btn-contrato-delete" style="display:none;">Eliminar contrato</button>
       <button class="btn" id="btn-contrato-save">Guardar</button>
@@ -4873,6 +4879,51 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
     <div class="modal-actions">
       <button class="btn secondary" id="btn-cs-cancel">Cancelar</button>
       <button class="btn" id="btn-cs-confirm">Confirmar cambio de serie</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="modal-cm-overlay">
+  <div class="modal wide">
+    <h2>🔁 Cambiar modalidad / precio</h2>
+    <input type="hidden" id="cm-contrato-id">
+    <div class="muted" style="font-size:12px;margin-bottom:14px;">
+      Cambia la periodicidad y/o el precio de un contrato en curso y recalcula los períodos. Si aplica desde una fecha anterior, las facturas ya emitidas de ese tramo se acreditan con nota de crédito y el período se rearma. Queda todo anotado en Observaciones.
+    </div>
+    <div class="field-grid">
+      <div class="field full"><label>Cliente / contrato</label><input type="text" id="cm-cliente" disabled></div>
+      <div class="field"><label>Hoy</label><input type="text" id="cm-actual" disabled></div>
+      <div class="field"><label>Nueva periodicidad *</label>
+        <select id="cm-modalidad"><option value="diario">Diario</option><option value="semanal">Semanal</option><option value="mensual">Mensual</option></select></div>
+      <div class="field"><label id="cm-precio-lbl">Nuevo precio *</label><input type="number" step="0.01" min="0" id="cm-precio" placeholder="0,00"></div>
+      <div class="field full">
+        <label>Desde cuándo aplica *</label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400;text-transform:none;letter-spacing:0;margin-top:4px;"><input type="radio" name="cm-vig" id="cm-vig-prox" checked style="margin-top:3px;"><span><b>Desde el próximo período</b> — no toca nada de lo ya facturado.</span></label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400;text-transform:none;letter-spacing:0;margin-top:6px;"><input type="radio" name="cm-vig" id="cm-vig-retro" style="margin-top:3px;"><span><b>Desde un período ya facturado</b> — acredita con NC las facturas afectadas y rearma el período.</span></label>
+      </div>
+      <div class="field full" id="cm-retro-box" style="display:none;">
+        <div class="field-grid">
+          <div class="field full"><label>Primer período afectado *</label><select id="cm-desde"></select></div>
+          <div class="field"><label>Fin del período rearmado *</label><input type="date" id="cm-hasta">
+            <div class="muted" style="font-size:11.5px;margin-top:4px;">Se calcula según la periodicidad; ajustalo si la factura nueva cubre otro tramo.</div></div>
+          <div class="field"><label>N° de Nota de Crédito *</label><input type="text" id="cm-nc-numero" placeholder="0018-00000000"></div>
+          <div class="field"><label>Fecha de la NC *</label><input type="date" id="cm-nc-fecha"></div>
+          <div class="field full">
+            <label>Factura nueva del período rearmado</label>
+            <label style="display:flex;gap:8px;align-items:center;font-weight:400;text-transform:none;letter-spacing:0;margin-top:4px;"><input type="radio" name="cm-fc" id="cm-fc-ahora"> Cargarla ahora</label>
+            <label style="display:flex;gap:8px;align-items:center;font-weight:400;text-transform:none;letter-spacing:0;margin-top:4px;"><input type="radio" name="cm-fc" id="cm-fc-despues" checked> Dejarla pendiente (la cargo después desde Pendientes de facturación)</label>
+          </div>
+          <div class="field"><label>N° de factura nueva</label><input type="text" id="cm-fc-numero" placeholder="0018-00000000" disabled></div>
+          <div class="field"><label>Fecha de la factura nueva</label><input type="date" id="cm-fc-fecha" disabled></div>
+        </div>
+      </div>
+      <div class="field full"><label>Motivo del cambio *</label><textarea id="cm-motivo" rows="2" placeholder="Ej: el cliente pasa de alquiler semanal a mensual; se acreditan las 2 FC semanales y se emite una única FC mensual"></textarea></div>
+      <div class="field full"><label>Vista previa del recálculo</label><div id="cm-preview" style="font-size:12.5px;line-height:1.6;border:1px solid var(--border);border-radius:10px;padding:10px 12px;"></div></div>
+    </div>
+    <div class="muted" id="cm-aviso-aut" style="font-size:12px;margin-top:10px;color:var(--warn);display:none;">Queda como solicitud pendiente de autorización de un maestro (se le avisa por mail). Hasta que la apruebe no se modifica ningún período ni factura.</div>
+    <div class="modal-actions">
+      <button class="btn secondary" id="btn-cm-cancel">Cancelar</button>
+      <button class="btn" id="btn-cm-confirm">Confirmar cambio</button>
     </div>
   </div>
 </div>
@@ -7195,6 +7246,7 @@ async function remitoArchivoSubir(){
 function resetContratoForm(){
   remitoArchivo = { file:null, url:null, nombre:null, quitar:false }; remitoArchivoRender();
   equipoSearchInput.disabled = false; equipoSearchInput.title = '';
+  { const bm = document.getElementById('btn-contrato-cambiar-mod'); if(bm) bm.style.display = 'none'; const bxm = document.getElementById('c-cambios-mod-box'); if(bxm) bxm.style.display = 'none'; cmDesbloquearCampos(); }
   { const b = document.getElementById('btn-contrato-cambiar-serie'); if(b) b.style.display = 'none'; const bx = document.getElementById('c-cambios-serie-box'); if(bx) bx.style.display = 'none'; }
   ['id','cliente_id','equipo_id','remito','fecha_salida','fecha_vencimiento',
    'porcentaje_descuento','precio_sin_descuento','precio_con_descuento',
@@ -7273,6 +7325,8 @@ function openEditContrato(id){
 
   { const b = document.getElementById('btn-contrato-cambiar-serie'); if(b) b.style.display = (puede('contratos','cambiar_serie') && c.estado === 'activo' && !c.fecha_baja) ? 'inline-block' : 'none'; }
   cargarCambiosSerieContrato(c.id);
+  { const b = document.getElementById('btn-contrato-cambiar-mod'); if(b) b.style.display = (puede('contratos','cambiar_modalidad') && c.estado === 'activo' && !c.fecha_baja && !c.es_demo) ? 'inline-block' : 'none'; }
+  cargarCambiosModalidadContrato(c.id);
   document.getElementById('c-id').value = c.id;
   document.getElementById('c-cliente_id').value = c.cliente_id;
   clienteSearchInput.value = c.clientes ? c.clientes.razon_social : '';
@@ -7329,6 +7383,7 @@ function openEditContrato(id){
     el.title = bloquearPrecio ? 'No tenés permiso para modificar el precio de un contrato ya guardado' : '';
   });
   respConfigurarEdicion(c);
+  cmAplicarBloqueo24h(c);
   openContratoOverlay();
   if(c.presupuesto_id && !presupuestosCache.length) loadPresupuestos().then(()=> respConfigurarEdicion(c));
 }
@@ -7593,6 +7648,209 @@ document.getElementById('btn-cs-confirm').addEventListener('click', async ()=>{
     showToast('No se pudo cambiar la serie: ' + err.message, true);
   } finally { btn.disabled = false; }
 });
+
+// ---------- Cambiar modalidad / precio de un contrato en curso ----------
+const CM_LBL = { diario:'Diario', semanal:'Semanal', mensual:'Mensual' };
+const CM_UNIDAD = { diario:'por día', semanal:'por semana', mensual:'por mes' };
+let cmFilas = [];
+function cmActual(c){
+  return { mod: c.modalidad || c.periodicidad || 'mensual',
+           precio: c.presupuesto_id ? c.precio_presupuesto : (c.precio_mensual_sin_descuento ?? c.precio_mensual_con_descuento) };
+}
+const CM_CAMPOS_LOCK = ['c-periodicidad','c-precio_sin_descuento','c-precio_con_descuento','c-moneda','c-porcentaje_descuento'];
+function cmDesbloquearCampos(){
+  ['c-periodicidad','c-porcentaje_descuento'].forEach(id => { const el = document.getElementById(id); if(el){ el.disabled = false; el.title = ''; } });
+  const n = document.getElementById('c-mod-lock-note'); if(n) n.remove();
+}
+function cmAplicarBloqueo24h(c){
+  cmDesbloquearCampos();
+  if(!(c.created_at && (Date.now() - new Date(c.created_at).getTime()) > 24*3600*1000)) return;
+  CM_CAMPOS_LOCK.forEach(id => { const el = document.getElementById(id); if(el){ el.disabled = true; el.title = 'Contrato con más de 24 hs de creado: usá el botón "Cambiar modalidad / precio"'; } });
+  const hayBoton = puede('contratos','cambiar_modalidad') && c.estado === 'activo' && !c.fecha_baja && !c.es_demo;
+  const wrap = document.getElementById('c-periodicidad').closest('.field');
+  const nota = document.createElement('div');
+  nota.id = 'c-mod-lock-note'; nota.className = 'muted'; nota.style.cssText = 'font-size:12px;margin-top:4px;color:var(--warn);';
+  nota.textContent = hayBoton
+    ? '🔒 Pasaron más de 24 hs desde que se creó el contrato: para cambiar la periodicidad o el precio usá el botón "🔁 Cambiar modalidad / precio".'
+    : '🔒 Pasaron más de 24 hs desde que se creó el contrato: la periodicidad y el precio ya no se pueden modificar desde acá.' + (c.estado === 'activo' && !c.fecha_baja ? ' Pedile el cambio a quien tenga permiso de "Cambiar modalidad / precio".' : '');
+  wrap.appendChild(nota);
+}
+async function cargarCambiosModalidadContrato(contratoId){
+  const box = document.getElementById('c-cambios-mod-box'), list = document.getElementById('c-cambios-mod');
+  if(!box || !list) return;
+  box.style.display = 'none';
+  try{
+    const { data, error } = await supabaseClient.from('contratos_cambios_modalidad').select('*').eq('contrato_id', contratoId).order('solicitado_at', { ascending:true });
+    if(error || !data || !data.length) return;
+    list.innerHTML = data.map(x => {
+      const est = x.estado === 'pendiente' ? ' <span style="color:var(--warn);">(pendiente de autorización)</span>' : x.estado === 'rechazado' ? ' <span style="color:var(--danger);">(rechazado)</span>' : '';
+      return `<div>${x.estado === 'rechazado' ? '<s>' : ''}🔁 ${fmtDate(x.desde)} · <b>${CM_LBL[x.modalidad_anterior]||'—'} ${x.precio_anterior ?? ''}</b> → <b>${CM_LBL[x.modalidad_nueva]} ${x.precio_nuevo}</b> · ${escapeHtml(x.solicitado_nombre||'—')} · ${escapeHtml(x.motivo||'')}${x.estado === 'rechazado' ? '</s>' : ''}${est}</div>`;
+    }).join('');
+    box.style.display = '';
+  } catch(e){ console.warn('No se pudieron cargar los cambios de modalidad', e); }
+}
+
+function cmEstado(){
+  const c = contratosCache.find(x => String(x.id) === document.getElementById('cm-contrato-id').value);
+  if(!c) return null;
+  const mod = document.getElementById('cm-modalidad').value;
+  const precio = Number(document.getElementById('cm-precio').value) || 0;
+  const retro = document.getElementById('cm-vig-retro').checked;
+  const fwd = c.ultimo_periodo_facturado_hasta ? addDays(c.ultimo_periodo_facturado_hasta, 1) : (c.fecha_salida || hoyIso());
+  const D = retro ? document.getElementById('cm-desde').value : fwd;
+  const F = retro && D ? cmFilas.filter(r => r.estado === 'facturado' && r.periodo_desde >= D) : [];
+  const hasta = D ? ((retro && document.getElementById('cm-hasta').value) || calcularPeriodoHasta(D, mod)) : '';
+  return { c, mod, precio, retro, fwd, D, F, hasta };
+}
+function cmValorFila(r){ return Number(r.valor_alquiler_usd ?? r.potencial_facturacion ?? 0); }
+function cmActualizar(){
+  { const hd = document.getElementById('cm-hasta'), d0 = document.getElementById('cm-desde').value;
+    if(document.getElementById('cm-vig-retro').checked && hd.dataset.touched !== '1' && d0) hd.value = calcularPeriodoHasta(d0, document.getElementById('cm-modalidad').value); }
+  const e = cmEstado(); if(!e) return;
+  const { c, mod, precio, retro, D, F, hasta } = e;
+  document.getElementById('cm-precio-lbl').textContent = `Nuevo precio (${c.moneda || 'USD'} ${CM_UNIDAD[mod]}) *`;
+  document.getElementById('cm-retro-box').style.display = retro ? '' : 'none';
+  const fcAhora = document.getElementById('cm-fc-ahora').checked;
+  document.getElementById('cm-fc-numero').disabled = !fcAhora; document.getElementById('cm-fc-fecha').disabled = !fcAhora;
+  const a = cmActual(c);
+  const box = document.getElementById('cm-preview');
+  const m = v => fmtMoney(v, c.moneda);
+  let h = '';
+  if(retro && D){
+    const acred = F.reduce((t, r) => t + cmValorFila(r), 0);
+    h += '<div><b>Se acreditan:</b></div>' + (F.length ? F.map(r => `<div style="padding-left:10px;">• FC ${escapeHtml(r.numero_factura||'—')} · ${fmtDate(r.periodo_desde)} → ${fmtDate(r.periodo_hasta)} · ${m(cmValorFila(r))}</div>`).join('') : '<div class="muted" style="padding-left:10px;">Ninguna factura emitida en ese tramo.</div>');
+    h += `<div style="margin-top:6px;"><b>Período rearmado:</b> ${fmtDate(D)} → ${fmtDate(hasta)} (${CM_LBL[mod]}) · ${precio ? m(precio) : '—'}</div>`;
+    if(precio){
+      const dif = precio - acred;
+      h += `<div style="margin-top:6px;">A acreditar <b>${m(acred)}</b> · nueva factura <b>${m(precio)}</b> · diferencia a facturar <b style="color:${dif >= 0 ? 'var(--accent)' : 'var(--warn)'};">${dif >= 0 ? '+' : '−'} ${m(Math.abs(dif))}</b></div>`;
+    }
+    h += `<div class="muted" style="margin-top:6px;">Los períodos siguientes se generan solos, de a ${CM_LBL[mod].toLowerCase()}.</div>`;
+  } else {
+    h += `<div>Lo ya facturado no se toca. Desde el <b>${fmtDate(e.fwd)}</b> los períodos pasan a <b>${CM_LBL[mod]}</b> a <b>${precio ? m(precio) : '—'}</b>.</div>`;
+    h += `<div class="muted" style="margin-top:4px;">Hoy: ${CM_LBL[a.mod]} · ${m(a.precio)}. Los pendientes sin facturar desde esa fecha se regeneran con la modalidad y el precio nuevos.</div>`;
+  }
+  box.innerHTML = h;
+}
+async function cmAbrir(){
+  const id = document.getElementById('c-id').value;
+  const c = contratosCache.find(x => String(x.id) === String(id));
+  if(!c) return;
+  document.getElementById('cm-contrato-id').value = c.id;
+  document.getElementById('cm-cliente').value = `${c.clientes ? c.clientes.razon_social : '—'} · ${c.equipos ? c.equipos.numero_serie : ''} · Salida ${fmtDate(c.fecha_salida)}`;
+  const a = cmActual(c);
+  document.getElementById('cm-actual').value = `${CM_LBL[a.mod]} · ${fmtMoney(a.precio, c.moneda)}`;
+  document.getElementById('cm-modalidad').value = a.mod;
+  document.getElementById('cm-precio').value = '';
+  document.getElementById('cm-vig-prox').checked = true;
+  document.getElementById('cm-hasta').value = ''; document.getElementById('cm-hasta').dataset.touched = '';
+  document.getElementById('cm-motivo').value = '';
+  ['cm-nc-numero','cm-fc-numero'].forEach(i => document.getElementById(i).value = '');
+  document.getElementById('cm-nc-fecha').value = ''; document.getElementById('cm-nc-fecha').max = hoyIso();
+  document.getElementById('cm-fc-fecha').value = hoyIso();
+  document.getElementById('cm-fc-despues').checked = true;
+  document.getElementById('cm-aviso-aut').style.display = puede('contratos','autorizar') ? 'none' : 'block';
+  cmFilas = [];
+  try{
+    const { data } = await supabaseClient.from('pendientes_facturacion')
+      .select('id,periodo_desde,periodo_hasta,estado,numero_factura,fecha_facturacion,valor_alquiler_usd,potencial_facturacion,nc_numero')
+      .eq('contrato_id', c.id).order('periodo_desde');
+    cmFilas = data || [];
+  } catch(e){ console.warn('cmAbrir: no se pudieron leer los períodos', e); }
+  const fact = cmFilas.filter(r => r.estado === 'facturado');
+  document.getElementById('cm-desde').innerHTML = fact.map(r => `<option value="${r.periodo_desde}">${fmtDate(r.periodo_desde)} → ${fmtDate(r.periodo_hasta)} · FC ${escapeHtml(r.numero_factura||'—')}</option>`).join('');
+  document.getElementById('cm-vig-retro').disabled = !fact.length;
+  cmActualizar();
+  document.getElementById('modal-cm-overlay').classList.add('open');
+}
+document.getElementById('btn-contrato-cambiar-mod').addEventListener('click', cmAbrir);
+document.getElementById('cm-hasta').addEventListener('input', ev => { ev.target.dataset.touched = '1'; });
+document.getElementById('btn-cm-cancel').addEventListener('click', ()=> document.getElementById('modal-cm-overlay').classList.remove('open'));
+document.getElementById('modal-cm-overlay').addEventListener('click', e => { if(e.target.id === 'modal-cm-overlay') e.target.classList.remove('open'); });
+['cm-modalidad','cm-precio','cm-vig-prox','cm-vig-retro','cm-desde','cm-hasta','cm-fc-ahora','cm-fc-despues'].forEach(i => {
+  const el = document.getElementById(i); el.addEventListener('input', cmActualizar); el.addEventListener('change', cmActualizar);
+});
+document.getElementById('btn-cm-confirm').addEventListener('click', async ()=>{
+  const e = cmEstado(); if(!e) return;
+  const btn = document.getElementById('btn-cm-confirm');
+  const motivo = document.getElementById('cm-motivo').value.trim();
+  const ncNum = document.getElementById('cm-nc-numero').value.trim(), ncFecha = document.getElementById('cm-nc-fecha').value;
+  const fcAhora = e.retro && document.getElementById('cm-fc-ahora').checked;
+  const fcNum = document.getElementById('cm-fc-numero').value.trim(), fcFecha = document.getElementById('cm-fc-fecha').value;
+  if(!(e.precio > 0)){ showToast('Indicá el nuevo precio', true); return; }
+  if(!motivo){ showToast('Indicá el motivo del cambio', true); return; }
+  if(e.retro){
+    if(!e.D){ showToast('Elegí el primer período afectado', true); return; }
+    if(!ncNum || !ncFecha){ showToast('Cargá el N° y la fecha de la nota de crédito', true); return; }
+    if(!e.hasta || e.hasta < e.D){ showToast('El fin del período rearmado no puede ser anterior al inicio', true); return; }
+    if(fcAhora && (!fcNum || !fcFecha)){ showToast('Completá el número y la fecha de la factura nueva, o dejala pendiente', true); return; }
+  }
+  const a = cmActual(e.c);
+  const resumen = `${CM_LBL[a.mod]} ${fmtMoney(a.precio, e.c.moneda)}  →  ${CM_LBL[e.mod]} ${fmtMoney(e.precio, e.c.moneda)}\nDesde: ${fmtDate(e.D)}` +
+    (e.retro ? `\nPeríodo rearmado: ${fmtDate(e.D)} → ${fmtDate(e.hasta)}\nSe acreditan ${e.F.length} factura(s) con la NC ${ncNum}.` : '\nLo ya facturado no se toca.');
+  if(!confirm(`¿Confirmás el cambio de modalidad / precio?\n\n${resumen}` + (puede('contratos','autorizar') ? '' : '\n\nQuedará pendiente de autorización de un maestro.'))) return;
+  btn.disabled = true;
+  try{
+    const { data, error } = await supabaseClient.rpc('contrato_solicitar_cambio_modalidad', {
+      p_contrato: e.c.id, p_modalidad: e.mod, p_precio: e.precio, p_desde: e.retro ? e.D : null, p_motivo: motivo,
+      p_nc_numero: e.retro ? ncNum : null, p_nc_fecha: e.retro ? ncFecha : null,
+      p_fc_numero: fcAhora ? fcNum : null, p_fc_fecha: fcAhora ? fcFecha : null, p_hasta: e.retro ? e.hasta : null });
+    if(error) throw error;
+    showToast(data && data.aplicado ? 'Cambio aplicado: los períodos se recalcularon' : 'Solicitud enviada: queda pendiente de autorización de un maestro (se le avisó por mail).');
+    document.getElementById('modal-cm-overlay').classList.remove('open');
+    closeContratoOverlay();
+    await loadContratos();
+    renderEquipos(getFilteredEquipos());
+    try{ await autoGenerarPendientesDelMes(); }catch(err){ console.warn('Cambio de modalidad: regeneración de pendientes', err); }
+    await refrescarPendientesSiCorresponde();
+    if(typeof renderDashboard === 'function') renderDashboard();
+  } catch(err){
+    console.error(err);
+    showToast('No se pudo cambiar la modalidad: ' + err.message, true);
+  } finally { btn.disabled = false; }
+});
+
+// Solicitudes de cambio pendientes (solo las ve quien puede autorizar)
+async function cmRenderPend(){
+  const cont = document.getElementById('aut-cm-lista'); if(!cont) return;
+  if(!puede('contratos','autorizar')){ cont.innerHTML = ''; return; }
+  const { data, error } = await supabaseClient.from('contratos_cambios_modalidad').select('*').eq('estado','pendiente').order('solicitado_at');
+  if(error || !data || !data.length){ cont.innerHTML = ''; return; }
+  cont.innerHTML = '<div style="font-weight:700;font-size:14px;margin:4px 0 10px;">🔁 Cambios de modalidad / precio pendientes</div>' + data.map(x => {
+    const c = contratosCache.find(k => k.id === x.contrato_id) || {};
+    const m = v => fmtMoney(v, c.moneda || 'USD');
+    return `<div class="panel" style="padding:14px 18px;margin-bottom:12px;border-left:4px solid #2563eb;">
+      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start;">
+        <div>
+          <span class="badge" style="color:#2563eb;border-color:#2563eb;">🔁 CAMBIO DE MODALIDAD / PRECIO</span>
+          <span style="font-weight:700;font-size:14.5px;margin-left:8px;">${escapeHtml(c.clientes?.razon_social || '—')}</span>
+          <div class="muted" style="font-size:12.5px;margin-top:4px;">${escapeHtml(c.equipos ? `${c.equipos.modelo || ''} · ${c.equipos.numero_serie || ''}` : '—')} · ${escapeHtml(c.sucursales?.nombre || '—')} · Remito ${escapeHtml(c.remito || '—')}</div>
+          <div style="margin-top:8px;font-size:13px;"><span style="color:#ef4444;">${CM_LBL[x.modalidad_anterior]||'—'} ${x.precio_anterior != null ? m(x.precio_anterior) : ''}</span> → <b style="color:#22c55e;">${CM_LBL[x.modalidad_nueva]} ${m(x.precio_nuevo)}</b> · desde ${fmtDate(x.desde)}</div>
+          ${x.retroactivo ? `<div class="muted" style="font-size:12.5px;margin-top:4px;">Acredita facturas del tramo con la NC ${escapeHtml(x.nc_numero||'—')} (${fmtDate(x.nc_fecha)})${x.fc_numero ? ' · factura nueva ' + escapeHtml(x.fc_numero) : ' · factura nueva pendiente de cargar'}</div>` : '<div class="muted" style="font-size:12.5px;margin-top:4px;">No toca lo ya facturado.</div>'}
+          <div class="muted" style="font-size:12.5px;margin-top:4px;">Motivo: ${escapeHtml(x.motivo)}</div>
+          <div class="muted" style="font-size:12px;margin-top:3px;">Pedido por <b>${escapeHtml(x.solicitado_nombre||'—')}</b> · ${autFechaHora(x.solicitado_at)}</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn small" onclick="cmAprobar(${x.id})">✔ Autorizar y aplicar</button>
+          <button class="btn danger small" onclick="cmRechazar(${x.id})">✖ Rechazar</button>
+        </div>
+      </div></div>`;
+  }).join('');
+}
+async function cmAprobar(id){
+  if(!confirm('¿Autorizar el cambio?\n\nSe aplica ahora: se acreditan las facturas indicadas (si corresponde) y se rearman los períodos.')) return;
+  const { error } = await supabaseClient.rpc('contrato_aprobar_cambio_modalidad', { p_id: id });
+  if(error){ showToast('No se pudo aplicar: ' + error.message, true); return; }
+  showToast('Cambio autorizado y aplicado');
+  await autPostAccion(); cmRenderPend();
+}
+async function cmRechazar(id){
+  const motivo = window.prompt('Rechazar el cambio de modalidad / precio.\n\nEl contrato queda como está.\n\nMotivo (opcional):', '');
+  if(motivo === null) return;
+  const { error } = await supabaseClient.rpc('contrato_rechazar_cambio_modalidad', { p_id: id, p_motivo: motivo });
+  if(error){ showToast('No se pudo rechazar: ' + error.message, true); return; }
+  showToast('Cambio rechazado');
+  cmRenderPend();
+}
 
 document.getElementById('btn-contrato-delete').addEventListener('click', async ()=>{
   const id = document.getElementById('c-id').value;
@@ -10288,7 +10546,7 @@ function puede(seccion, accion){
 
 const SECCIONES_PERMISOS = [
   { key:'clientes',      label:'Clientes',      acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
-  { key:'contratos',     label:'Contratos',     acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar'],['editar_precio','Editar precio ya guardado'],['cambiar_serie','Cambiar la serie de la máquina en un contrato activo'],['requiere_autorizacion','⚠ Sus contratos nuevos requieren autorización de un maestro'],['autorizar','Autorizar contratos (y ver Contratos pendientes de autorización)']] },
+  { key:'contratos',     label:'Contratos',     acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar'],['editar_precio','Editar precio ya guardado'],['cambiar_serie','Cambiar la serie de la máquina en un contrato activo'],['cambiar_modalidad','Cambiar la modalidad y el precio de un contrato en curso (recalcula períodos)'],['requiere_autorizacion','⚠ Sus contratos nuevos requieren autorización de un maestro'],['autorizar','Autorizar contratos (y ver Contratos pendientes de autorización)']] },
   { key:'equipos',       label:'Equipos',       acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
   { key:'pizarra',       label:'Pizarra de Flota', acciones:[['ver','Ver'],['mover_disponible','Arrastrar a Disponible'],['mover_pdi','Arrastrar a PDI'],['mover_vor','Arrastrar a VOR'],['editar_fecha','Corregir fecha de inicio (📅)'],['reservar','Reservar / liberar máquinas (🔖)']] },
   { key:'servicio',      label:'Monitor de Servicio (PDI / VOR)', acciones:[['ver','Ver el monitor (solo las máquinas de su sucursal asignada)'],['ver_todas','Ver y operar las 3 sucursales (jefe de Servicio)'],['diagnosticar','Cargar diagnóstico (¿necesita repuestos? / notas)'],['editar_fechas','Cargar y modificar fechas (cada cambio de fecha se avisa por mail)'],['repuestos','Elegir repuestos del catálogo'],['recepcion','Confirmar la recepción de los repuestos (pedido en tránsito → recibido)'],['avisar_repuestos','Reenviar el aviso al sector Repuestos (mail)'],['cambiar_tipo','Pasar la máquina de PDI a VOR (y de VOR a PDI)'],['dar_ok','Dar OK: la máquina pasa a Disponible']] },
@@ -11090,6 +11348,7 @@ const PM_DESC = {
   'contratos.requiere_autorizacion':'Cada contrato que cargue queda en “Pendientes de autorización” hasta que un maestro lo apruebe',
   'contratos.autorizar':'Ver la card y autorizar / rechazar contratos pendientes (solo maestros de confianza)',
   'accesos_web.ver_claves':'Mostrar y copiar las contraseñas (cada uso queda registrado). Sin esto ve los portales pero no las claves',
+  'contratos.cambiar_modalidad':'Cambia la periodicidad y el precio de un contrato en curso, acredita las facturas afectadas con NC y recalcula los períodos a facturar',
   'contratos.cambiar_serie':'Reemplaza la máquina de un contrato activo por otra serie sin dar de baja el contrato ni tocar la facturación',
   'pizarra.editar_fecha':'Cambiar la fecha de inicio de una máquina ya movida',
   'casos.ver':'Entrar a Casos y ver todos los casos, sus novedades y adjuntos', 'casos.crear':'Abrir casos, agregar novedades, cambiar estado / prioridad / responsable y adjuntar archivos', 'casos.cerrar':'Cerrar y reabrir casos (con motivo obligatorio). Los maestros siempre pueden',
@@ -23851,6 +24110,7 @@ function autFechaHora(iso){
 function renderAutorizaciones(){
   const cont = document.getElementById('aut-lista');
   if(!cont) return;
+  try{ cmRenderPend(); }catch(e){ console.warn('cmRenderPend', e); }
   if(!puede('contratos','autorizar')){ cont.innerHTML = '<div class="panel muted" style="padding:18px;">No tenés permiso para ver esta sección.</div>'; return; }
   const lista = contratosCache.filter(c => c.autorizacion === 'pendiente')
     .sort((a,b) => String(a.autorizacion_solicitada_at || '').localeCompare(String(b.autorizacion_solicitada_at || '')));
