@@ -1455,6 +1455,7 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
   <button data-tab="analisisfinanciero">Análisis Financiero</button>
   <button data-tab="recibos">Recibos de Cobranza (GP)</button>
   <button data-tab="backlogfacturacion">Backlog de Facturación</button>
+  <button data-tab="utilizacion">Utilización de Flota</button>
   <button data-tab="stockvalorizado">Stock Valorizado</button>
   <button data-tab="haulotte_articulos">Artículos Haulotte</button>
   <button data-tab="haulotte_ventas">Cotizador de Máquinas</button>
@@ -1881,6 +1882,62 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
       </div>
     </div>
     <div class="muted" id="mf-count" style="margin-top:10px;font-size:12px;"></div>
+  </section>
+
+  <section id="tab-utilizacion" style="display:none;">
+    <div class="dash-hero" style="margin-bottom:14px;">
+      <h1 style="font-size:16px;">Utilización de flota por sucursal</h1>
+      <div class="sub">Días en alquiler (DEMO incluidas) ÷ días disponibles de cada máquina dentro del rango. Solo máquinas propias: sin accesorios, re-rental ni terceros. Cada máquina cuenta en la sucursal donde está radicada y una sola vez por día.</div>
+    </div>
+
+    <div class="panel" style="padding:14px 16px;margin-bottom:16px;">
+      <div style="display:flex;flex-wrap:wrap;gap:12px 18px;align-items:flex-end;">
+        <div class="field" style="min-width:150px;"><label>Desde</label><input type="date" id="util-desde"></div>
+        <div class="field" style="min-width:150px;"><label>Hasta</label><input type="date" id="util-hasta"></div>
+        <div id="util-presets" style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button type="button" class="btn secondary" data-p="act">Mes actual</button>
+          <button type="button" class="btn secondary" data-p="ant">Mes anterior</button>
+          <button type="button" class="btn secondary" data-p="tri">Últimos 3 meses</button>
+          <button type="button" class="btn secondary" data-p="anio">Año en curso</button>
+        </div>
+        <div>
+          <div class="muted" style="font-size:11px;text-transform:uppercase;margin-bottom:4px;">Sucursal</div>
+          <div id="util-seg" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;"><input type="checkbox" id="util-demo" checked> Contar DEMO como alquiladas</label>
+        <div style="flex:1"></div>
+        <div style="display:flex;gap:8px;position:relative;">
+          <button type="button" class="btn secondary" id="btn-util-xls">📊 Excel</button>
+          <button type="button" class="btn secondary" id="btn-util-pdf">📄 PDF de la vista</button>
+          <button type="button" class="btn" id="btn-util-pdf-suc">📄 PDF por sucursal ▾</button>
+          <div id="util-menu-pdf" style="display:none;position:absolute;right:0;top:44px;z-index:30;min-width:220px;background:var(--panel, #1b2029);border:1px solid var(--border);border-radius:10px;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,.35);"></div>
+        </div>
+      </div>
+      <div id="util-aviso" class="muted" style="font-size:12px;margin-top:10px;"></div>
+    </div>
+
+    <div id="util-cards" class="dash-grid" style="grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));margin-bottom:16px;"></div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;margin-bottom:16px;align-items:start;">
+      <div class="panel" style="padding:16px;">
+        <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline;">
+          <div style="font-weight:700;font-size:14px;">Evolución mensual de la utilización</div>
+          <div class="muted" style="font-size:11.5px;">Últimos 6 meses · % de días en alquiler</div>
+        </div>
+        <div id="util-chart" style="margin-top:8px;"></div>
+      </div>
+      <div class="panel" style="padding:16px;" id="util-comp"></div>
+    </div>
+
+    <div class="panel" style="padding:16px;">
+      <div id="util-subtabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;border-bottom:1px solid var(--border);">
+        <button type="button" class="btn secondary util-subtab active" data-v="modelo" style="border-radius:8px 8px 0 0;border-bottom:none;">Por modelo</button>
+        <button type="button" class="btn secondary util-subtab" data-v="tipo" style="border-radius:8px 8px 0 0;border-bottom:none;">Por tipo</button>
+        <button type="button" class="btn secondary util-subtab" data-v="maquina" style="border-radius:8px 8px 0 0;border-bottom:none;">Máquina por máquina</button>
+        <button type="button" class="btn secondary util-subtab" data-v="sinmov" style="border-radius:8px 8px 0 0;border-bottom:none;">Sin movimiento</button>
+      </div>
+      <div id="util-tabla"></div>
+    </div>
   </section>
 
   <section id="tab-backlogfacturacion" style="display:none;">
@@ -5530,6 +5587,7 @@ const TAB_TITLES = {
   analisisfinanciero: 'Análisis Financiero',
   recibos: 'Recibos de Cobranza (GP)',
   backlogfacturacion: 'Backlog de Facturación',
+  utilizacion: 'Utilización de Flota por sucursal',
   stockvalorizado: 'Stock Valorizado (Haulotte)',
   haulotte_articulos: 'Artículos Haulotte',
   haulotte_ventas: 'Cotizador de Máquinas (Haulotte)',
@@ -10251,6 +10309,7 @@ const SECCIONES_PERMISOS = [
   { key:'analisisfinanciero', label:'Análisis Financiero',        acciones:[['ver','Ver / usar']] },
   { key:'recibos', label:'Recibos de Cobranza (GP)', acciones:[['ver','Ver cobranzas, impuestos y cheques'],['importar','Subir / actualizar el listado de recibos de GP']] },
   { key:'backlogfacturacion', label:'Backlog de Facturación',     acciones:[['ver','Ver / usar']] },
+  { key:'utilizacion',        label:'Utilización de Flota por sucursal', acciones:[['ver','Ver y exportar (PDF / Excel)']] },
   { key:'modalidadfact',      label:'Modalidad de Facturación (encuesta a comerciales)', acciones:[['ver','Ver'],['editar','Completar / editar']] },
   { key:'stockvalorizado',    label:'Stock Valorizado (Haulotte)', acciones:[['ver','Ver / usar']] },
   { key:'haulotte_repuestos', label:'Artículos Haulotte', acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
@@ -11013,7 +11072,7 @@ const PM_CATEGORIAS = [
     {sk:'conciliacioncompras', t:'Conciliación de Compras', i:'🧾'}, {sk:'gastos_obra', t:'Gastos de Reforma', i:'🏗️'}, {sk:'portal_proveedores', t:'Portal de Proveedores', i:'🔗'} ]},
   { k:'herramientas', t:'Herramientas', i:'🛠️', e:'horizon', mods:[
     {sk:'editorobs', t:'Editor de Observaciones', i:'✏️'}, {sk:'resumenerp', t:'Resumen de Alquileres (ERP)', i:'📥'},
-    {sk:'analisisfinanciero', t:'Análisis Financiero', i:'📈'}, {sk:'recibos', t:'Recibos de Cobranza (GP)', i:'💳'}, {sk:'backlogfacturacion', t:'Backlog de Facturación', i:'🧾'},
+    {sk:'analisisfinanciero', t:'Análisis Financiero', i:'📈'}, {sk:'recibos', t:'Recibos de Cobranza (GP)', i:'💳'}, {sk:'backlogfacturacion', t:'Backlog de Facturación', i:'🧾'}, {sk:'utilizacion', t:'Utilización de Flota', i:'📈'},
     {sk:'modalidadfact', t:'Modalidad de Facturación', i:'🗓️'}, {sk:'reportes', t:'Reportes', i:'📊'}, {sk:'enviofacturas', t:'Envío de Facturas', i:'📧'} ]},
   { k:'finanzas', t:'Finanzas', i:'🏦', e:'horizon', mods:[ {sk:'chequescustodia', t:'Cheques en Custodia vs GP', i:'🧾'} ]},
   { k:'rrhh', t:'RRHH / Cumplimiento', i:'🪪', e:'horizon', mods:[ {sk:'vencimientos', t:'Control de Vencimientos', i:'⏰'}, {sk:'personal', t:'Personal', i:'🧑‍🔧'} ]},
@@ -11422,6 +11481,7 @@ function renderDashboard(){
       { tab:'analisisfinanciero', icon:'📈', title:'Análisis Financiero', count:'Importar Mayor de GP', visible:puede('analisisfinanciero','ver'), urgencia:null },
       { tab:'recibos', icon:'💳', title:'Recibos de Cobranza (GP)', count:'Cobranzas, retenciones y cheques', visible:puede('recibos','ver'), urgencia:null },
       { tab:'backlogfacturacion', icon:'🧾', title:'Backlog de Facturación', count:'Mes en curso + proyección', visible:puede('backlogfacturacion','ver'), urgencia:null },
+      { tab:'utilizacion', icon:'📈', title:'Utilización de Flota', count:'% por sucursal y rango de fechas', visible:puede('utilizacion','ver'), urgencia:null },
       { tab:'modalidadfact', icon:'🗓️', title:'Modalidad de Facturación', count:'Adelantado / devengado por cliente', visible:puede('modalidadfact','ver'), urgencia:null },
       { tab:'reportes',   icon:'📊', title:'Reportes',   count:'Mora y facturación', visible:puede('reportes','ver'), urgencia:null },
       { tab:'enviofacturas', icon:'📧', title:'Envío de Facturas', count: puede('enviofacturas','ver') ? `${nFacturasSinEnviar} sin enviar` : '', visible:puede('enviofacturas','ver'), urgencia: nFacturasSinEnviar>0 ? 'warn' : 'ok' },
@@ -13948,6 +14008,456 @@ function rerpOcupExportarPDF(){
   doc.save(`ocupacion_flota_${r.mesKey}.pdf`);
   showToast('PDF generado');
 }
+
+// =========================================================
+// UTILIZACIÓN DE FLOTA POR SUCURSAL (card en Herramientas)
+// Días en alquiler (DEMO incluidas) ÷ días disponibles de cada máquina propia, por sucursal y rango de fechas.
+// Base: contratos cargados en APEX. Sin accesorios, re-rental ni terceros. Cada máquina cuenta en la sucursal
+// donde está radicada y una sola vez por día, aunque tenga contratos superpuestos. Vencimiento/baja inclusive.
+// Un contrato activo corre hasta hoy (o hasta el fin del rango, lo que ocurra primero).
+// =========================================================
+const UTIL_DIA = 86400000;
+const UTIL_COLORES = ['#38bdf8', '#fb923c', '#c4b5fd', '#34d399'];
+const UTIL_SUC_NOMBRES = { 'BUENOS AIRES':'Buenos Aires', 'CORDOBA':'Córdoba', 'NEUQUEN':'Neuquén' };
+let utilEst = { suc:'', vista:'modelo', demo:true, inicio:false };
+let utilRes = null;
+let utilHist = { key:'', map:new Map() };
+
+const utilMs = iso => Date.parse(iso + 'T00:00:00Z');
+const utilIso = ms => new Date(ms).toISOString().slice(0,10);
+const utilPct = x => (x * 100).toFixed(1).replace('.', ',') + ' %';
+const utilN = n => Number(n || 0).toLocaleString('es-AR');
+function utilNomSuc(id){
+  const s = sucursales.find(x => String(x.id) === String(id));
+  if(!s) return '—';
+  return UTIL_SUC_NOMBRES[rerpOcupTxt(s.nombre).trim()] || s.nombre;
+}
+function utilSucIds(){ return sucursales.map(s => s.id).sort((a,b) => a - b); }
+function utilColorSuc(id){ const i = utilSucIds().indexOf(id); return UTIL_COLORES[(i < 0 ? 0 : i) % UTIL_COLORES.length]; }
+
+function utilEsMaquina(e){
+  if(!e || e.estado === 'baja') return false;
+  if(e.proveedor_tercero || e.tipo === 'tercero') return false;
+  return !rerpOcupEsAccesorio(e.modelo);
+}
+function utilTipoLabel(e){
+  const c = PIZARRA_CATEGORIAS[e.categoria_color];
+  return c && e.categoria_color !== 'accesorio' ? c.label : 'Sin tipo asignado';
+}
+
+// Calcula, para cada máquina propia, los días del rango en que estuvo alquilada (incl. DEMO) según los contratos de APEX.
+function utilCalc(desde, hasta){
+  const hoy = hoyIso();
+  const fin = hasta > hoy ? hoy : hasta;
+  const N = fin >= desde ? Math.round((utilMs(fin) - utilMs(desde)) / UTIL_DIA) + 1 : 0;
+  const porEq = new Map();
+  contratosCache.forEach(c => {
+    if(!c.equipo_id || !c.fecha_salida) return;
+    if(!porEq.has(c.equipo_id)) porEq.set(c.equipo_id, []);
+    porEq.get(c.equipo_id).push(c);
+  });
+  const filas = [];
+  equiposCache.filter(utilEsMaquina).forEach(e => {
+    const cnt = new Uint8Array(N), dem = new Uint8Array(N);
+    (porEq.get(e.id) || []).forEach(c => {
+      const f = c.fecha_baja || (c.estado === 'activo' ? hoy : c.fecha_vencimiento);
+      if(!f) return;
+      const ini = c.fecha_salida > desde ? c.fecha_salida : desde;
+      const fi = f < fin ? f : fin;
+      if(ini > fi) return;
+      const i0 = Math.round((utilMs(ini) - utilMs(desde)) / UTIL_DIA);
+      const i1 = Math.round((utilMs(fi) - utilMs(desde)) / UTIL_DIA);
+      for(let i = i0; i <= i1; i++){
+        if(c.es_demo) dem[i] = 1; else if(cnt[i] < 255) cnt[i]++;
+      }
+    });
+    let alq = 0, demo = 0, sup = 0;
+    for(let i = 0; i < N; i++){
+      if(cnt[i] > 0){ alq++; if(cnt[i] > 1) sup++; }
+      else if(dem[i]) demo++;
+    }
+    filas.push({ eq:e, id:e.id, serie:e.numero_serie, modelo:e.modelo || '—', tipo:utilTipoLabel(e), suc:e.sucursal_id, alq, demo, sup, pdi:0, vor:0 });
+  });
+  return { desde, hasta, fin, N, filas };
+}
+
+// Suma por clave (sucursal, modelo, tipo). "dias" = días ocupados según el interruptor DEMO.
+function utilAgr(filas, N, demo, keyFn, nameFn){
+  const m = new Map();
+  filas.forEach(f => {
+    const k = keyFn(f);
+    let a = m.get(k);
+    if(!a){ a = { k, nombre:nameFn(f), maq:0, dias:0, alq:0, demo:0, sin:0, sup:0, pdi:0, vor:0 }; m.set(k, a); }
+    const oc = f.alq + (demo ? f.demo : 0);
+    a.maq++; a.dias += oc; a.alq += f.alq; a.demo += f.demo; a.sup += f.sup; a.pdi += f.pdi; a.vor += f.vor;
+    if(oc === 0) a.sin++;
+  });
+  return [...m.values()].map(a => ({ ...a, disp:a.maq * N, pct:(a.maq * N) ? a.dias / (a.maq * N) : 0 }));
+}
+function utilTotal(filas, N, demo){
+  const a = utilAgr(filas, N, demo, () => 't', () => 'Total')[0];
+  return a || { maq:0, dias:0, alq:0, demo:0, sin:0, sup:0, pdi:0, vor:0, disp:0, pct:0 };
+}
+
+// Días en PDI y VOR dentro del rango, desde el historial de estados de la Pizarra (tramos [desde, hasta)).
+async function utilCargarHist(desde, fin){
+  const key = desde + '|' + fin;
+  if(utilHist.key === key) return utilHist.map;
+  const map = new Map();
+  if(fin >= desde){
+    let from = 0;
+    while(true){
+      const { data, error } = await supabaseClient.from('equipos_historial_estado')
+        .select('equipo_id, estado, fecha_desde, fecha_hasta').in('estado', ['pdi','vor'])
+        .lte('fecha_desde', fin).or(`fecha_hasta.gte.${desde},fecha_hasta.is.null`).range(from, from + 999);
+      if(error){ console.warn('Utilización: historial PDI/VOR', error); break; }
+      (data || []).forEach(t => {
+        const ini = Math.max(utilMs(t.fecha_desde), utilMs(desde));
+        const fi = Math.min(t.fecha_hasta ? utilMs(t.fecha_hasta) : Infinity, utilMs(fin) + UTIL_DIA);
+        const d = Math.max(0, Math.round((fi - ini) / UTIL_DIA));
+        if(!d) return;
+        const o = map.get(t.equipo_id) || { pdi:0, vor:0 };
+        o[t.estado] += d; map.set(t.equipo_id, o);
+      });
+      if(!data || data.length < 1000) break;
+      from += 1000;
+    }
+  }
+  utilHist = { key, map };
+  return map;
+}
+function utilAplicarHist(res, map){
+  res.filas.forEach(f => { const h = map.get(f.id); f.pdi = h ? h.pdi : 0; f.vor = h ? h.vor : 0; });
+}
+
+function utilPreset(p){
+  const hoy = hoyIso(), [y, m] = hoy.split('-').map(Number);
+  const p2 = n => String(n).padStart(2, '0');
+  const ultDia = (yy, mm) => new Date(Date.UTC(yy, mm, 0)).getUTCDate();
+  let d, h;
+  if(p === 'act'){ d = `${y}-${p2(m)}-01`; h = hoy; }
+  else if(p === 'ant'){ const yy = m === 1 ? y - 1 : y, mm = m === 1 ? 12 : m - 1; d = `${yy}-${p2(mm)}-01`; h = `${yy}-${p2(mm)}-${p2(ultDia(yy, mm))}`; }
+  else if(p === 'tri'){ let yy = y, mm = m - 2; if(mm < 1){ mm += 12; yy--; } d = `${yy}-${p2(mm)}-01`; h = hoy; }
+  else { d = `${y}-01-01`; h = hoy; }
+  document.getElementById('util-desde').value = d;
+  document.getElementById('util-hasta').value = h;
+  utilRecalcular();
+}
+
+async function utilAlAbrir(){
+  if(!utilEst.inicio){
+    utilEst.inicio = true;
+    const hoy = hoyIso();
+    document.getElementById('util-desde').value = hoy.slice(0,8) + '01';
+    document.getElementById('util-hasta').value = hoy;
+    utilPreset('ant');
+    return;
+  }
+  await utilRecalcular();
+}
+
+async function utilRecalcular(){
+  const desde = document.getElementById('util-desde').value, hasta = document.getElementById('util-hasta').value;
+  if(!desde || !hasta){ return; }
+  if(desde > hasta){ showToast('"Desde" no puede ser posterior a "Hasta"', true); return; }
+  const res = utilCalc(desde, hasta);
+  if(res.N === 0){ utilRes = null; document.getElementById('util-aviso').textContent = 'El rango elegido es posterior a hoy: todavía no hay días para medir.'; document.getElementById('util-cards').innerHTML = ''; document.getElementById('util-tabla').innerHTML = ''; return; }
+  const map = await utilCargarHist(desde, res.fin);
+  utilAplicarHist(res, map);
+  // período anterior de igual duración (para la variación)
+  const ant = utilCalc(utilIso(utilMs(desde) - res.N * UTIL_DIA), utilIso(utilMs(desde) - UTIL_DIA));
+  res.ant = ant;
+  // últimos 6 meses terminando en el mes del "hasta"
+  const [fy, fm] = res.fin.split('-').map(Number);
+  res.tend = [];
+  for(let k = 5; k >= 0; k--){
+    let yy = fy, mm = fm - k; while(mm < 1){ mm += 12; yy--; }
+    const d1 = `${yy}-${String(mm).padStart(2,'0')}-01`;
+    const d2 = `${yy}-${String(mm).padStart(2,'0')}-${String(new Date(Date.UTC(yy, mm, 0)).getUTCDate()).padStart(2,'0')}`;
+    const c = utilCalc(d1, d2);
+    res.tend.push({ mes:`${yy}-${String(mm).padStart(2,'0')}`, N:c.N, filas:c.filas });
+  }
+  utilRes = res;
+  utilRender();
+}
+
+function utilFilasVista(){
+  if(!utilRes) return [];
+  return utilEst.suc ? utilRes.filas.filter(f => String(f.suc) === utilEst.suc) : utilRes.filas;
+}
+function utilDelta(pct, pctAnt){
+  const d = (pct - pctAnt) * 100;
+  if(Math.abs(d) < 0.05) return '<span class="muted">= vs período anterior</span>';
+  const up = d > 0;
+  return `<span style="color:${up ? 'var(--ok)' : '#f87171'};">${up ? '▲' : '▼'} ${Math.abs(d).toFixed(1).replace('.', ',')} pp vs período anterior</span>`;
+}
+
+function utilRender(){
+  const r = utilRes; if(!r) return;
+  const demo = document.getElementById('util-demo').checked; utilEst.demo = demo;
+  const ids = utilSucIds();
+
+  // selector de sucursal
+  const seg = document.getElementById('util-seg');
+  seg.innerHTML = [['', 'Todas'], ...ids.map(i => [String(i), utilNomSuc(i)])].map(([v, t]) =>
+    `<button type="button" class="btn ${utilEst.suc === v ? '' : 'secondary'}" data-suc="${v}">${escapeHtml(t)}</button>`).join('');
+  const hoy = hoyIso();
+  document.getElementById('util-aviso').innerHTML =
+    `Período: <b>${fmtDate(r.desde)}</b> al <b>${fmtDate(r.fin)}</b> · ${r.N} día${r.N === 1 ? '' : 's'}` +
+    (r.hasta > hoy ? ' (se mide hasta hoy)' : '') +
+    ` · La flota es la actual (la base no guarda la fecha de alta de cada máquina).`;
+
+  // tarjetas por sucursal
+  const agr = utilAgr(r.filas, r.N, demo, f => f.suc, f => utilNomSuc(f.suc));
+  const agrAnt = utilAgr(r.ant.filas, r.ant.N, demo, f => f.suc, f => utilNomSuc(f.suc));
+  const cards = ids.map(id => {
+    const a = agr.find(x => x.k === id) || { maq:0, dias:0, disp:0, pct:0 };
+    const p = agrAnt.find(x => x.k === id);
+    const sel = utilEst.suc === String(id), col = utilColorSuc(id);
+    return `<div class="panel" data-suc-card="${id}" style="padding:16px;cursor:pointer;${sel ? 'border:1.5px solid var(--accent);' : ''}">
+      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;" class="muted"><span style="text-transform:uppercase;">${escapeHtml(utilNomSuc(id))}</span><span>${a.maq} máquinas</span></div>
+      <div style="font-size:34px;font-weight:700;line-height:1.1;margin:6px 0 8px 0;">${utilPct(a.pct)}</div>
+      <div style="height:8px;border-radius:4px;background:var(--border);"><div style="width:${Math.min(100, a.pct * 100)}%;height:8px;border-radius:4px;background:${col};"></div></div>
+      <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:12px;margin-top:8px;"><span class="muted">${utilN(a.dias)} de ${utilN(a.disp)} días</span>${p ? utilDelta(a.pct, p.pct) : ''}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('util-cards').innerHTML = cards;
+
+  utilRenderChart(ids, demo);
+  utilRenderComp(demo);
+  utilRenderTabla(demo);
+  document.querySelectorAll('.util-subtab').forEach(b => { const on = b.dataset.v === utilEst.vista; b.classList.toggle('active', on); b.style.background = on ? 'var(--accent)' : ''; b.style.color = on ? '#06101c' : ''; });
+}
+
+function utilRenderChart(ids, demo){
+  const r = utilRes;
+  const mostrar = utilEst.suc ? ids.filter(i => String(i) === utilEst.suc) : ids;
+  const serie = id => r.tend.map(t => {
+    const fs = t.filas.filter(f => f.suc === id);
+    const tot = utilTotal(fs, t.N, demo); return tot.pct * 100;
+  });
+  const series = mostrar.map(id => ({ id, nombre:utilNomSuc(id), v:serie(id) }));
+  const max = Math.max(20, Math.ceil(Math.max(...series.flatMap(s => s.v)) / 10) * 10 + 5);
+  const W = 700, H = 250, x0 = 50, x1 = 520, y0 = 190, yt = 10;
+  const X = i => x0 + i * ((x1 - x0) / 5), Y = v => y0 - (v / max) * (y0 - yt);
+  const grid = [0, 1, 2, 3].map(k => { const v = max * k / 3; return `<line x1="${x0}" y1="${Y(v)}" x2="660" y2="${Y(v)}" stroke="var(--border)"/><text x="${x0 - 10}" y="${Y(v) + 4}" text-anchor="end" font-size="11" fill="var(--text-dim, #9aa4b5)">${Math.round(v)}%</text>`; }).join('');
+  const meses = r.tend.map((t, i) => `<text x="${X(i)}" y="212" text-anchor="middle" font-size="11" fill="var(--text-dim, #9aa4b5)">${escapeHtml(mesLabel(t.mes).split(' ')[0].slice(0, 3).toLowerCase())}</text>`).join('');
+  const lineas = series.map(s => {
+    const col = utilColorSuc(s.id), pts = s.v.map((v, i) => `${X(i)},${Y(v).toFixed(1)}`).join(' ');
+    const last = s.v[5];
+    return `<polyline fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round" points="${pts}"/>` +
+      s.v.map((v, i) => `<circle cx="${X(i)}" cy="${Y(v).toFixed(1)}" r="${i === 5 ? 5 : 3}" fill="${col}"><title>${escapeHtml(s.nombre)} · ${escapeHtml(mesLabel(r.tend[i].mes))}: ${v.toFixed(1).replace('.', ',')} %</title></circle>`).join('') +
+      `<text x="${X(5) + 12}" y="${Y(last) + 4}" font-size="12" font-weight="600" fill="var(--text, #e8ecf2)">${escapeHtml(s.nombre)} ${last.toFixed(1).replace('.', ',')}%</text>`;
+  }).join('');
+  document.getElementById('util-chart').innerHTML =
+    `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Evolución mensual de la utilización por sucursal">${grid}${meses}${lineas}</svg>` +
+    `<div style="display:flex;gap:18px;flex-wrap:wrap;font-size:12px;">${series.map(s => `<span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${utilColorSuc(s.id)};margin-right:6px;"></span>${escapeHtml(s.nombre)}</span>`).join('')}</div>`;
+}
+
+function utilRenderComp(demo){
+  const r = utilRes, fs = utilFilasVista();
+  const t = utilTotal(fs, r.N, demo);
+  const titulo = utilEst.suc ? utilNomSuc(Number(utilEst.suc)) : 'Todas las sucursales';
+  const sup = fs.filter(f => f.sup > 0).sort((a, b) => b.sup - a.sup);
+  const caja = (v, l) => `<div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;"><div style="font-size:22px;font-weight:700;">${v}</div><div class="muted" style="font-size:11.5px;margin-top:2px;">${l}</div></div>`;
+  const sinHist = r.desde < '2026-06-09';
+  document.getElementById('util-comp').innerHTML = `
+    <div style="font-weight:700;font-size:14px;margin-bottom:10px;">${escapeHtml(titulo)} · cómo se compone</div>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">
+      ${caja(`${t.maq - t.sin} <span class="muted" style="font-size:13px;font-weight:500;">de ${t.maq}</span>`, 'máquinas con algún alquiler')}
+      ${caja(t.sin, 'sin movimiento en el rango')}
+      ${caja(`${utilN(t.pdi)} · ${utilN(t.vor)}`, 'días en PDI · días en VOR')}
+      ${caja(utilN(t.demo), demo ? 'días DEMO (incluidos)' : 'días DEMO (no incluidos)')}
+    </div>
+    ${sinHist ? '<div class="muted" style="font-size:11.5px;margin-top:10px;">PDI y VOR se registran desde que se usa la Pizarra (junio 2026): antes de esa fecha figuran en 0.</div>' : ''}
+    ${sup.length ? `<div style="border:1px solid #e3a008;background:rgba(227,160,8,0.08);border-radius:8px;padding:9px 12px;font-size:12px;margin-top:12px;">⚠️ <b>${sup.length} máquina(s) con contratos superpuestos</b> (dos alquileres el mismo día; se cuenta una sola vez): ${sup.slice(0, 8).map(f => `${escapeHtml(f.serie)} (${f.sup} d.)`).join(', ')}${sup.length > 8 ? '…' : ''}. Conviene revisar esos contratos.</div>` : ''}`;
+}
+
+function utilRenderTabla(demo){
+  const r = utilRes, fs = utilFilasVista(), v = utilEst.vista, N = r.N;
+  const todas = !utilEst.suc;
+  const th = (t, right) => `<th style="padding:6px 8px;${right ? 'text-align:right;' : ''}">${t}</th>`;
+  const td = (t, right, extra) => `<td style="padding:6px 8px;${right ? 'text-align:right;' : ''}${extra || ''}">${t}</td>`;
+  const barra = p => `<div style="display:flex;align-items:center;gap:8px;min-width:140px;"><div style="flex:1;height:7px;border-radius:4px;background:var(--border);"><div style="width:${Math.min(100, p * 100)}%;height:7px;border-radius:4px;background:var(--accent);"></div></div><span style="width:58px;text-align:right;font-weight:600;">${utilPct(p)}</span></div>`;
+  let html = '';
+  if(v === 'modelo' || v === 'tipo'){
+    const key = v === 'modelo' ? (f => f.modelo) : (f => f.tipo);
+    const lista = utilAgr(fs, N, demo, key, key).sort((a, b) => b.pct - a.pct || b.maq - a.maq);
+    const tot = utilTotal(fs, N, demo);
+    html = `<div style="max-height:520px;overflow:auto;"><table style="width:100%;font-size:12.5px;border-collapse:collapse;">
+      <thead><tr style="text-align:left;color:var(--muted);">${th(v === 'modelo' ? 'Modelo' : 'Tipo')}${th('Máquinas', 1)}${th('Días alquilados', 1)}${th('Días disponibles', 1)}${th('Utilización')}</tr></thead>
+      <tbody>${lista.map(a => `<tr style="border-top:1px solid var(--border);">${td(`<b>${escapeHtml(a.nombre)}</b>`)}${td(a.maq, 1)}${td(utilN(a.dias), 1)}${td(utilN(a.disp), 1)}${td(barra(a.pct))}</tr>`).join('')}
+      <tr style="border-top:2px solid var(--border);font-weight:700;">${td('Total')}${td(tot.maq, 1)}${td(utilN(tot.dias), 1)}${td(utilN(tot.disp), 1)}${td(utilPct(tot.pct), 1)}</tr></tbody></table></div>`;
+  } else if(v === 'maquina'){
+    const lista = fs.map(f => ({ f, oc:f.alq + (demo ? f.demo : 0) })).sort((a, b) => b.oc - a.oc || String(a.f.serie).localeCompare(String(b.f.serie)));
+    html = `<div style="max-height:520px;overflow:auto;"><table style="width:100%;font-size:12.5px;border-collapse:collapse;">
+      <thead><tr style="text-align:left;color:var(--muted);">${th('Serie')}${th('Modelo')}${todas ? th('Sucursal') : ''}${th('Tipo')}${th('Días alquilados', 1)}${th('DEMO', 1)}${th('PDI', 1)}${th('VOR', 1)}${th('Utilización')}</tr></thead>
+      <tbody>${lista.map(({ f, oc }) => `<tr style="border-top:1px solid var(--border);">${td(`<b>${escapeHtml(f.serie)}</b>`)}${td(escapeHtml(f.modelo))}${todas ? td(escapeHtml(utilNomSuc(f.suc))) : ''}${td(escapeHtml(f.tipo))}${td(oc, 1)}${td(f.demo, 1)}${td(f.pdi, 1)}${td(f.vor, 1)}${td(barra(oc / N))}</tr>`).join('')}</tbody></table></div>`;
+  } else {
+    const lista = fs.filter(f => f.alq + (demo ? f.demo : 0) === 0).sort((a, b) => String(a.modelo).localeCompare(String(b.modelo)) || String(a.serie).localeCompare(String(b.serie)));
+    html = lista.length === 0 ? '<div class="muted" style="padding:10px;">Todas las máquinas tuvieron algún día de alquiler en el rango.</div>' :
+      `<div class="muted" style="font-size:12px;margin-bottom:8px;">${lista.length} máquina(s) sin ningún día alquilado entre el ${fmtDate(r.desde)} y el ${fmtDate(r.fin)}.</div>
+      <div style="max-height:520px;overflow:auto;"><table style="width:100%;font-size:12.5px;border-collapse:collapse;">
+      <thead><tr style="text-align:left;color:var(--muted);">${th('Serie')}${th('Modelo')}${todas ? th('Sucursal') : ''}${th('Estado actual')}${th('Días PDI', 1)}${th('Días VOR', 1)}</tr></thead>
+      <tbody>${lista.map(f => `<tr style="border-top:1px solid var(--border);">${td(`<b>${escapeHtml(f.serie)}</b>`)}${td(escapeHtml(f.modelo))}${todas ? td(escapeHtml(utilNomSuc(f.suc))) : ''}${td(escapeHtml(estadoActualEquipo(f.eq)))}${td(f.pdi, 1)}${td(f.vor, 1)}</tr>`).join('')}</tbody></table></div>`;
+  }
+  document.getElementById('util-tabla').innerHTML = html;
+}
+
+// ---------- Exportar ----------
+function utilExportarExcel(){
+  const r = utilRes; if(!r){ showToast('Primero elegí un rango', true); return; }
+  const demo = utilEst.demo, fs = utilFilasVista(), N = r.N;
+  const wb = XLSX.utils.book_new();
+  const add = (nombre, filas, anchos) => {
+    const ws = XLSX.utils.aoa_to_sheet(filas); ws['!cols'] = anchos.map(w => ({ wch:w })); XLSX.utils.book_append_sheet(wb, ws, nombre);
+  };
+  const p2 = x => Number((x * 100).toFixed(2));
+  const ids = utilEst.suc ? [Number(utilEst.suc)] : utilSucIds();
+  const ant = utilAgr(r.ant.filas, r.ant.N, demo, f => f.suc, f => utilNomSuc(f.suc));
+  add('Resumen', [
+    ['Período', `${fmtDate(r.desde)} al ${fmtDate(r.fin)}`], ['Días del período', N], ['DEMO contadas como alquiladas', demo ? 'Sí' : 'No'], [],
+    ['Sucursal', 'Máquinas', 'Días alquilados', 'Días disponibles', 'Utilización %', 'Período anterior %', 'Sin movimiento', 'Días DEMO', 'Días PDI', 'Días VOR', 'Máquinas con superposición'],
+    ...ids.map(id => { const a = utilTotal(r.filas.filter(f => f.suc === id), N, demo), p = ant.find(x => x.k === id);
+      return [utilNomSuc(id), a.maq, a.dias, a.disp, p2(a.pct), p ? p2(p.pct) : '', a.sin, a.demo, a.pdi, a.vor, r.filas.filter(f => f.suc === id && f.sup > 0).length]; }),
+  ], [26, 11, 15, 16, 14, 18, 14, 11, 10, 10, 24]);
+  const porSuc = (keyFn, nameFn) => ids.flatMap(id => utilAgr(r.filas.filter(f => f.suc === id), N, demo, keyFn, nameFn)
+    .sort((a, b) => b.pct - a.pct).map(a => [utilNomSuc(id), a.nombre, a.maq, a.dias, a.disp, p2(a.pct), a.sin, a.pdi, a.vor]));
+  const headAgr = n => [['Sucursal', n, 'Máquinas', 'Días alquilados', 'Días disponibles', 'Utilización %', 'Sin movimiento', 'Días PDI', 'Días VOR']];
+  add('Por modelo', [...headAgr('Modelo'), ...porSuc(f => f.modelo, f => f.modelo)], [16, 26, 11, 15, 16, 14, 14, 10, 10]);
+  add('Por tipo', [...headAgr('Tipo'), ...porSuc(f => f.tipo, f => f.tipo)], [16, 28, 11, 15, 16, 14, 14, 10, 10]);
+  add('Por máquina', [['Serie', 'Modelo', 'Sucursal', 'Tipo', 'Días alquilados (sin DEMO)', 'Días DEMO', 'Días ocupados', 'Utilización %', 'Días PDI', 'Días VOR', 'Días superpuestos'],
+    ...fs.map(f => { const oc = f.alq + (demo ? f.demo : 0); return [f.serie, f.modelo, utilNomSuc(f.suc), f.tipo, f.alq, f.demo, oc, p2(oc / N), f.pdi, f.vor, f.sup]; })
+      .sort((a, b) => b[6] - a[6])], [16, 18, 16, 24, 14, 11, 13, 13, 10, 10, 16]);
+  add('Sin movimiento', [['Serie', 'Modelo', 'Sucursal', 'Estado actual', 'Días PDI', 'Días VOR'],
+    ...fs.filter(f => f.alq + (demo ? f.demo : 0) === 0).map(f => [f.serie, f.modelo, utilNomSuc(f.suc), estadoActualEquipo(f.eq), f.pdi, f.vor])], [16, 18, 16, 16, 10, 10]);
+  add('Evolución mensual', [['Mes', ...ids.map(i => utilNomSuc(i) + ' %')],
+    ...r.tend.map(t => [mesLabel(t.mes), ...ids.map(id => p2(utilTotal(t.filas.filter(f => f.suc === id), t.N, demo).pct))])], [18, 16, 16, 16]);
+  XLSX.writeFile(wb, `utilizacion_flota_${utilEst.suc ? utilNomSuc(Number(utilEst.suc)).replace(/\s+/g, '_') + '_' : ''}${r.desde}_${r.fin}.xlsx`);
+  showToast('Excel generado');
+}
+
+// PDF: una sección (página nueva) por sucursal; si son varias, abre con un comparativo.
+function utilExportarPDF(idsSuc){
+  const r = utilRes; if(!r){ showToast('Primero elegí un rango', true); return; }
+  const demo = utilEst.demo, N = r.N;
+  const ids = idsSuc && idsSuc.length ? idsSuc : (utilEst.suc ? [Number(utilEst.suc)] : utilSucIds());
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'mm', format:'a4' });
+  const pw = doc.internal.pageSize.getWidth(), ph = doc.internal.pageSize.getHeight();
+  const mx = 16, bannerH = pw * (406 / 2475);
+  const margin = { left:mx, right:mx, top:15, bottom:bannerH + 10 };
+  const ant = utilAgr(r.ant.filas, r.ant.N, demo, f => f.suc, f => utilNomSuc(f.suc));
+  let primera = true, y = 15;
+  const cabecera = (sub) => {
+    y = 15;
+    try{ doc.addImage(LOGO_PDF_BASE64, 'PNG', mx, y, 55, 11.3); }catch(e){ console.error(e); }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(0);
+    doc.text('UTILIZACIÓN DE FLOTA', pw - mx, y + 8, { align:'right' });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(90);
+    doc.text(`Generado: ${fmtDate(hoyIso())}`, pw - mx, y + 14, { align:'right' });
+    doc.setTextColor(0); y += 24;
+    doc.setDrawColor(56, 189, 248); doc.setLineWidth(0.8); doc.line(mx, y, pw - mx, y); y += 9;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(15); doc.text(sub, mx, y); y += 6;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(90);
+    doc.text(`Período: ${fmtDate(r.desde)} al ${fmtDate(r.fin)} · ${N} día${N === 1 ? '' : 's'} · máquinas propias, ${demo ? 'DEMO incluidas' : 'sin DEMO'}, sin accesorios ni re-rental`, mx, y);
+    doc.setTextColor(0); y += 8;
+  };
+  const nuevaPagina = (sub) => { if(!primera) doc.addPage(); primera = false; cabecera(sub); };
+  const tabla = (titulo, head, body, opts) => {
+    if(y > ph - bannerH - 45){ doc.addPage(); y = 15; }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11.5); doc.text(titulo, mx, y); y += 4;
+    doc.autoTable({ startY:y, head:[head], body, theme:'grid', styles:{ fontSize:8.5, cellPadding:2 },
+      headStyles:{ fillColor:[10, 26, 58], textColor:255, fontStyle:'bold' }, margin, ...(opts || {}) });
+    y = doc.lastAutoTable.finalY + 8;
+  };
+  const grafico = (id, titulo) => {
+    const vals = r.tend.map(t => utilTotal(t.filas.filter(f => f.suc === id), t.N, demo).pct * 100);
+    const max = Math.max(20, Math.ceil(Math.max(...vals) / 10) * 10 + 5);
+    if(y > ph - bannerH - 70){ doc.addPage(); y = 15; }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11.5); doc.text(titulo, mx, y); y += 5;
+    const gx = mx + 10, gw = pw - 2 * mx - 14, gy = y, gh = 38;
+    doc.setDrawColor(210); doc.setLineWidth(0.2); doc.setFontSize(7.5); doc.setTextColor(110); doc.setFont('helvetica', 'normal');
+    for(let k = 0; k <= 3; k++){ const yy = gy + gh - (gh * k / 3); doc.line(gx, yy, gx + gw, yy); doc.text(`${Math.round(max * k / 3)}%`, gx - 2, yy + 1, { align:'right' }); }
+    const px = i => gx + 8 + i * ((gw - 16) / 5), py = v => gy + gh - (v / max) * gh;
+    doc.setDrawColor(14, 116, 144); doc.setLineWidth(0.8);
+    for(let i = 1; i < vals.length; i++) doc.line(px(i - 1), py(vals[i - 1]), px(i), py(vals[i]));
+    doc.setFillColor(14, 116, 144);
+    vals.forEach((v, i) => { doc.circle(px(i), py(v), 1.1, 'F'); doc.setTextColor(40); doc.setFontSize(7.5); doc.text(`${v.toFixed(1).replace('.', ',')}%`, px(i), py(v) - 2.4, { align:'center' }); doc.setTextColor(110); doc.text(mesLabel(r.tend[i].mes).split(' ')[0].slice(0, 3), px(i), gy + gh + 4.5, { align:'center' }); });
+    doc.setTextColor(0); doc.setLineWidth(0.2); y = gy + gh + 11;
+  };
+
+  if(ids.length > 1){
+    nuevaPagina('Comparativo entre sucursales');
+    tabla('Utilización por sucursal', ['Sucursal', 'Máquinas', 'Días alquilados', 'Días disponibles', 'Utilización', 'Per. anterior', 'Sin mov.'],
+      ids.map(id => { const a = utilTotal(r.filas.filter(f => f.suc === id), N, demo), p = ant.find(x => x.k === id);
+        return [utilNomSuc(id), a.maq, utilN(a.dias), utilN(a.disp), utilPct(a.pct), p ? utilPct(p.pct) : '-', a.sin]; }));
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(110);
+    doc.text('Utilización = días en alquiler ÷ (máquinas × días del período). Una máquina con dos contratos el mismo día cuenta una sola vez. Flota actual.', mx, y); doc.setTextColor(0);
+  }
+  ids.forEach(id => {
+    const fs = r.filas.filter(f => f.suc === id), t = utilTotal(fs, N, demo), p = ant.find(x => x.k === id);
+    nuevaPagina(`Sucursal ${utilNomSuc(id)}`);
+    doc.autoTable({ startY:y, theme:'grid', styles:{ fontSize:9.5, cellPadding:3 }, columnStyles:{ 0:{ fontStyle:'bold' }, 2:{ fontStyle:'bold' } }, margin,
+      body:[
+        ['Utilización', utilPct(t.pct), 'Período anterior', p ? utilPct(p.pct) : '-'],
+        ['Máquinas en flota', String(t.maq), 'Con algún alquiler', String(t.maq - t.sin)],
+        ['Días alquilados', utilN(t.dias), 'Días disponibles', utilN(t.disp)],
+        ['Días DEMO', utilN(t.demo), 'Sin movimiento', String(t.sin)],
+        ['Días en PDI', utilN(t.pdi), 'Días en VOR', utilN(t.vor)],
+      ] });
+    y = doc.lastAutoTable.finalY + 8;
+    grafico(id, 'Evolución de los últimos 6 meses');
+    const porM = utilAgr(fs, N, demo, f => f.modelo, f => f.modelo).sort((a, b) => b.pct - a.pct || b.maq - a.maq);
+    tabla('Utilización por modelo', ['Modelo', 'Máquinas', 'Días alquilados', 'Días disponibles', 'Utilización'],
+      [...porM.map(a => [a.nombre, a.maq, utilN(a.dias), utilN(a.disp), utilPct(a.pct)]), [{ content:'Total sucursal', styles:{ fontStyle:'bold' } }, t.maq, utilN(t.dias), utilN(t.disp), utilPct(t.pct)]]);
+    const porT = utilAgr(fs, N, demo, f => f.tipo, f => f.tipo).sort((a, b) => b.pct - a.pct);
+    tabla('Utilización por tipo', ['Tipo', 'Máquinas', 'Días alquilados', 'Días disponibles', 'Utilización'], porT.map(a => [a.nombre, a.maq, utilN(a.dias), utilN(a.disp), utilPct(a.pct)]));
+    const sin = fs.filter(f => f.alq + (demo ? f.demo : 0) === 0).sort((a, b) => String(a.modelo).localeCompare(String(b.modelo)));
+    if(sin.length) tabla(`Máquinas sin movimiento (${sin.length})`, ['Serie', 'Modelo', 'Estado actual', 'Días PDI', 'Días VOR'], sin.map(f => [f.serie, f.modelo, estadoActualEquipo(f.eq), f.pdi, f.vor]));
+    const sup = fs.filter(f => f.sup > 0);
+    if(sup.length){ doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(110); doc.text(`Contratos superpuestos (revisar): ${sup.map(f => `${f.serie} (${f.sup} d.)`).join(', ')}`.slice(0, 220), mx, y, { maxWidth:pw - 2 * mx }); doc.setTextColor(0); }
+  });
+
+  const total = doc.internal.getNumberOfPages();
+  for(let i = 1; i <= total; i++){
+    doc.setPage(i);
+    try{ doc.addImage(FOOTER_BANNER_BASE64, 'JPEG', 0, ph - bannerH, pw, bannerH); }catch(e){ console.error(e); }
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(120);
+    doc.text(`Página ${i} de ${total}`, pw - mx, ph - bannerH - 4, { align:'right' });
+    doc.setTextColor(0);
+  }
+  const nom = ids.length === 1 ? utilNomSuc(ids[0]).replace(/\s+/g, '_') : 'sucursales';
+  doc.save(`utilizacion_flota_${nom}_${r.desde}_${r.fin}.pdf`);
+  showToast('PDF generado');
+}
+
+(function utilEventos(){
+  const $ = id => document.getElementById(id);
+  $('util-presets').addEventListener('click', ev => { const b = ev.target.closest('button[data-p]'); if(b) utilPreset(b.dataset.p); });
+  $('util-desde').addEventListener('change', utilRecalcular);
+  $('util-hasta').addEventListener('change', utilRecalcular);
+  $('util-demo').addEventListener('change', () => { if(utilRes) utilRender(); });
+  $('util-seg').addEventListener('click', ev => { const b = ev.target.closest('button[data-suc]'); if(!b) return; utilEst.suc = b.dataset.suc; utilRender(); });
+  $('util-cards').addEventListener('click', ev => { const c = ev.target.closest('[data-suc-card]'); if(!c) return; utilEst.suc = utilEst.suc === c.dataset.sucCard ? '' : c.dataset.sucCard; utilRender(); });
+  $('util-subtabs').addEventListener('click', ev => { const b = ev.target.closest('button[data-v]'); if(!b) return; utilEst.vista = b.dataset.v; utilRender(); });
+  $('btn-util-xls').addEventListener('click', utilExportarExcel);
+  $('btn-util-pdf').addEventListener('click', () => utilExportarPDF());
+  $('btn-util-pdf-suc').addEventListener('click', ev => {
+    ev.stopPropagation();
+    const m = $('util-menu-pdf');
+    if(m.style.display === 'block'){ m.style.display = 'none'; return; }
+    m.innerHTML = utilSucIds().map(i => `<button type="button" class="btn secondary" style="display:block;width:100%;margin:2px 0;text-align:left;" data-pdf-suc="${i}">Sólo ${escapeHtml(utilNomSuc(i))}</button>`).join('') +
+      `<button type="button" class="btn secondary" style="display:block;width:100%;margin:2px 0;text-align:left;" data-pdf-suc="todas">Las ${utilSucIds().length} sucursales juntas</button>`;
+    m.style.display = 'block';
+  });
+  $('util-menu-pdf').addEventListener('click', ev => {
+    const b = ev.target.closest('button[data-pdf-suc]'); if(!b) return;
+    $('util-menu-pdf').style.display = 'none';
+    utilExportarPDF(b.dataset.pdfSuc === 'todas' ? utilSucIds() : [Number(b.dataset.pdfSuc)]);
+  });
+  document.addEventListener('click', ev => { if(!ev.target.closest('#util-menu-pdf')) $('util-menu-pdf').style.display = 'none'; });
+})();
 
 document.querySelectorAll('.rerp-subtab').forEach(b=> b.addEventListener('click', ()=> rerpMostrarVista(b.dataset.vista)));
 
@@ -23570,6 +24080,7 @@ const SYNC_TABS = {
   vencimientos:  async () => { await syncNucleo(); renderControlVencimientos(); },
   backlogfacturacion: async () => { await loadContratos(); await loadPendientes(); syncRefiltrar(); await renderBacklog(); },
   modalidadfact: async () => { await loadEncuestaModalidad(); },
+  utilizacion:   async () => { await syncNucleo(); await utilAlAbrir(); },
 };   // La Pizarra tiene su propio refresco en vivo; las herramientas embebidas y de archivos no consultan datos.
 
 function syncTabActual(){
