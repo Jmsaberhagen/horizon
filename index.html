@@ -977,6 +977,41 @@
     box-shadow:none;
   }
 
+  /* ===== Avatares / menú de usuario / perfil ===== */
+  .av{position:relative;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;font-weight:700;flex:none;user-select:none;line-height:1;}
+  .av img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
+  .av-dot{position:absolute;right:-2px;bottom:-2px;width:11px;height:11px;border-radius:50%;background:var(--text-dim);border:2px solid var(--panel);box-sizing:border-box;}
+  .av-dot.on{background:var(--ok);}
+  .um-wrap{position:relative;}
+  .um-bubble{padding:0;border:2px solid var(--border);border-radius:50%;background:transparent;cursor:pointer;display:flex;}
+  .um-bubble:hover,.um-bubble.open{border-color:var(--accent);}
+  .um-menu{display:none;position:absolute;right:0;top:calc(100% + 8px);min-width:240px;background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:0 14px 40px rgba(0,0,0,.45);z-index:5000;padding:6px;}
+  .um-menu.open{display:block;}
+  .um-head{display:flex;gap:10px;align-items:center;padding:8px 10px 10px;border-bottom:1px solid var(--border);margin-bottom:4px;}
+  .um-head b{display:block;font-size:13px;color:var(--text);}
+  .um-head small{display:block;color:var(--text-dim);font-size:11px;}
+  .um-menu button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:transparent;border:none;color:var(--text);padding:8px 10px;border-radius:6px;cursor:pointer;font-size:13px;margin:0;}
+  .um-menu button:hover{background:var(--panel-2);}
+  .um-menu .um-sep{height:1px;background:var(--border);margin:4px 0;}
+  .pf-dlg{width:min(520px,100%);max-height:92vh;overflow-y:auto;}
+  .pf-dlg h3{margin:0 0 14px;font-size:16px;}
+  .pf-foto{display:flex;align-items:center;gap:16px;margin-bottom:16px;}
+  .pf-foto .pf-btns{display:flex;flex-direction:column;gap:6px;align-items:flex-start;}
+  .pf-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;}
+  .pf-grid .pf-full{grid-column:1 / -1;}
+  .pf-grid label,.pf-lbl{display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px;}
+  .pf-grid input,.pf-grid select,.pf-dlg input[type=password],.pf-dlg input[type=text]{width:100%;}
+  .pf-acciones{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
+  .pf-msg{font-size:12px;margin-top:10px;min-height:16px;}
+  .pf-msg.err{color:var(--danger);} .pf-msg.ok{color:var(--ok);}
+  .pf-sec{border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;}
+  .pf-sec h4{margin:0 0 10px;font-size:13px;}
+  .pf-code{font-size:26px;letter-spacing:10px;text-align:center;font-weight:700;}
+  .login-link{display:block;text-align:center;margin-top:12px;font-size:12px;color:var(--accent);cursor:pointer;text-decoration:none;}
+  .login-link:hover{text-decoration:underline;}
+  .login-info{color:var(--ok);font-size:12px;margin-top:10px;display:none;}
+  @media (max-width:560px){ .pf-grid{grid-template-columns:1fr;} }
+
   /* Scrollbars oscuras en todo el sistema (por defecto el navegador las pinta blancas) */
   ::-webkit-scrollbar{ width:10px; height:10px; }
   ::-webkit-scrollbar-track{ background:transparent; }
