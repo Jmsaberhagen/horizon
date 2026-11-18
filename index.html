@@ -5124,6 +5124,7 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
       <div style="display:flex;gap:8px;align-items:center;">
         <input type="text" id="hp-art-search" placeholder="🔎 Agregar repuesto: escribí código o descripción (mín. 2 letras)" autocomplete="off" style="flex:1;">
         <button class="btn secondary" type="button" id="btn-hp-modelo" title="Si no sabés el código ni el nombre: elegí la máquina y mirá los repuestos compatibles" style="white-space:nowrap;">🚜 Por modelo de máquina</button>
+        <button class="btn secondary" type="button" id="btn-hp-mo" title="Agrega un renglón de servicio: el título y el precio los cargás vos" style="white-space:nowrap;">🛠 Mano de obra</button>
       </div>
       <div class="autocomplete-list" id="hp-art-results"></div>
     </div>
@@ -24568,8 +24569,9 @@ function calcularRepuestos(o){
   const descPct = Math.min(Math.max(rpNum(o.descuento_pct), 0), 99.99);
   const items = (o.items || []).filter(i => rpNum(i.cantidad) > 0).map(i => {
     const mg = (i.margen != null && i.margen !== '') ? Math.max(rpNum(i.margen), 0) : margen;   // A-: margen propio del renglón (siempre editable)
-    const lista = rpR2(rpNum(i.costo) * (1 + mg / 100));
-    const unit = rpR2(lista * (1 - descPct / 100));
+    // Servicio (MANO DE OBRA): el precio cargado es el final — sin margen y sin el descuento de repuestos
+    const lista = i.servicio ? rpR2(rpNum(i.costo)) : rpR2(rpNum(i.costo) * (1 + mg / 100));
+    const unit = i.servicio ? lista : rpR2(lista * (1 - descPct / 100));
     return { ...i, lista, unit, sub: rpR2(unit * rpNum(i.cantidad)) };
   });
   const subtotal = rpR2(items.reduce((a, i) => a + i.sub, 0));
@@ -24672,7 +24674,12 @@ function generarRepuestosPDF(cot){
     if(y + h > LIM){ doc.addPage(); y = encabezado(); y = cabTabla(y); z = 0; }
     if(z++ % 2 === 1){ doc.setFillColor(246, 247, 249); doc.rect(marginX, y - 4, pageWidth - marginX * 2, h, 'F'); }
     // Miniatura (si no hay foto, recuadro gris liviano para que la tabla no quede desalineada)
-    if(it.foto && it.foto.data){
+    if(it.servicio){
+      doc.setFillColor(238, 239, 241); doc.setDrawColor(222); doc.setLineWidth(0.15);
+      doc.rect(X.foto, y - 3, FOTO_W, FOTO_H, 'FD');
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(5.5); doc.setTextColor(120);
+      doc.text('servicio', X.foto + FOTO_W / 2, y - 3 + FOTO_H / 2 + 1, { align: 'center' }); doc.setTextColor(0); doc.setFontSize(8.5);
+    } else if(it.foto && it.foto.data){
       const esc = Math.min(FOTO_W / it.foto.w, FOTO_H / it.foto.h), fw = it.foto.w * esc, fh = it.foto.h * esc;
       try{ doc.addImage(it.foto.data, 'JPEG', X.foto + (FOTO_W - fw) / 2, y - 3 + (FOTO_H - fh) / 2, fw, fh); } catch(e){ console.error(e); }
     } else {
@@ -24773,7 +24780,7 @@ function hpCargarMiniatura(url){
 }
 async function hpPrecargarFotos(items){
   try{
-    const faltan = [...new Set(items.map(i => i.codigo).filter(c => c && !(c in hpFotoCache)))];
+    const faltan = [...new Set(items.filter(i => !i.servicio).map(i => i.codigo).filter(c => c && !(c in hpFotoCache)))];
     for(let i = 0; i < faltan.length; i += 100){
       const lote = faltan.slice(i, i + 100);
       const { data } = await supabaseClient.from('haulotte_repuestos_gp').select('codigo,imagen_url,modelos_uso').in('codigo', lote);
@@ -24964,6 +24971,7 @@ hpArtInput.addEventListener('input', ()=>{
     hpArtBox.classList.add('open');
   }, 300);
 });
+document.getElementById('btn-hp-mo').addEventListener('click', hpAgregarManoDeObra);
 hpArtBox.addEventListener('click', (e)=>{
   const item = e.target.closest('.autocomplete-item');
   if(!item || item.dataset.i === undefined) return;
@@ -24971,9 +24979,15 @@ hpArtBox.addEventListener('click', (e)=>{
   hpAgregarItem(r, 1);
   hpArtInput.value = ''; hpArtBox.classList.remove('open');
 });
+function hpAgregarManoDeObra(){
+  hpItemsState.push({ codigo: 'MO', descripcion: 'Mano de obra', cantidad: 1, costo: 0, servicio: true, costoEditado: false });
+  renderHpItemsTabla();
+  const tb = document.getElementById('hp-items-tbody');
+  const d = tb.querySelector(`[data-hp-desc="${hpItemsState.length - 1}"]`); if(d){ d.focus(); d.select(); }
+}
 function hpAgregarItem(r, cant){
   cant = Math.max(1, parseInt(cant, 10) || 1);
-  const ya = hpItemsState.find(x => x.codigo === r.codigo);
+  const ya = hpItemsState.find(x => x.codigo === r.codigo && !x.servicio);
   if(ya) ya.cantidad = Number(ya.cantidad) + cant;
   else hpItemsState.push({ codigo: r.codigo, descripcion: r.descripcion, cantidad: cant, costo: hpEsNacional(r) ? 0 : Number(r.costo_arg_usd) });   // A-: el costo de la lista no es real, entra en 0 y se carga a mano
   renderHpItemsTabla();
@@ -25075,7 +25089,17 @@ function hpLeerForm(){
 function renderHpItemsTabla(){
   const tbody = document.getElementById('hp-items-tbody');
   if(!hpItemsState.length){ tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Buscá un repuesto arriba para agregarlo.</td></tr>'; hpRecalcular(); return; }
-  tbody.innerHTML = hpItemsState.map((it, i) => `
+  tbody.innerHTML = hpItemsState.map((it, i) => it.servicio ? `
+    <tr>
+      <td><span class="badge" style="color:var(--accent);border-color:var(--accent-dim);">🛠 MO</span></td>
+      <td><input type="text" value="${escapeHtml(it.descripcion || '')}" data-hp-desc="${i}" placeholder="Título del servicio (ej: Mano de obra — cambio de bomba hidráulica)" maxlength="200" style="width:100%;"></td>
+      <td><input type="number" min="1" step="1" value="${it.cantidad}" data-hp-qty="${i}" style="width:70px;" title="Horas o unidades de servicio"></td>
+      <td class="muted" style="text-align:right;font-size:11px;">precio directo</td>
+      <td style="text-align:right;"><input type="number" step="0.01" min="0" value="${it.costo || ''}" data-hp-precio-mo="${i}" placeholder="0,00" style="width:95px;text-align:right;${it.costo > 0 ? '' : 'border-color:#ff9f43;'}" title="Precio unitario final en U$D (sin margen ni descuento de repuestos)"></td>
+      <td style="text-align:right;" id="hp-sub-${i}"></td>
+      <td class="muted" style="font-size:12px;">—</td>
+      <td><button class="btn danger small" type="button" onclick="quitarItemHp(${i})" title="Quitar">✕</button></td>
+    </tr>` : `
     <tr>
       <td style="font-weight:600;">${escapeHtml(it.codigo)}</td>
       <td>${escapeHtml(it.descripcion || '')}</td>
@@ -25091,9 +25115,14 @@ function renderHpItemsTabla(){
   tbody.querySelectorAll('[data-hp-qty]').forEach(inp => inp.addEventListener('input', ()=>{
     const k = Number(inp.dataset.hpQty), it = hpItemsState[k];
     it.cantidad = Math.max(0, parseInt(inp.value, 10) || 0);
-    it.disponibilidad = disponibilidadValida(it.disponibilidad, it.cantidad);
+    if(!it.servicio) it.disponibilidad = disponibilidadValida(it.disponibilidad, it.cantidad);
     const sel = tbody.querySelector(`[data-hp-disp="${k}"]`); if(sel) sel.innerHTML = hpOpcionesDisp(it);     // las opciones dependen de la cantidad
     hpRecalcular();
+  }));
+  tbody.querySelectorAll('[data-hp-desc]').forEach(inp => inp.addEventListener('input', ()=>{ hpItemsState[Number(inp.dataset.hpDesc)].descripcion = inp.value; }));
+  tbody.querySelectorAll('[data-hp-precio-mo]').forEach(inp => inp.addEventListener('input', ()=>{
+    const it = hpItemsState[Number(inp.dataset.hpPrecioMo)];
+    it.costo = Math.max(0, Number(inp.value) || 0); inp.style.borderColor = it.costo > 0 ? '' : '#ff9f43'; hpRecalcular();
   }));
   tbody.querySelectorAll('[data-hp-costo]').forEach(inp => inp.addEventListener('input', ()=>{
     const it = hpItemsState[Number(inp.dataset.hpCosto)];
@@ -25114,9 +25143,9 @@ function hpRecalcular(){
   const c = calcularRepuestos(hpLeerForm());
   hpItemsState.forEach((it, i) => {
     const pu = document.getElementById('hp-pu-' + i), sb = document.getElementById('hp-sub-' + i);
-    const lista = rpR2(rpNum(it.costo) * (1 + hpMargenItem(it, c.margen) / 100));
-    const unit = rpR2(lista * (1 - c.descPct / 100));            // precio final que ve el cliente (con el descuento aplicado)
-    if(pu) pu.textContent = rpN2(unit);
+    const lista = it.servicio ? rpR2(rpNum(it.costo)) : rpR2(rpNum(it.costo) * (1 + hpMargenItem(it, c.margen) / 100));
+    const unit = it.servicio ? lista : rpR2(lista * (1 - c.descPct / 100));            // precio final que ve el cliente (con el descuento aplicado; la mano de obra va directa)
+    if(pu && !it.servicio) pu.textContent = rpN2(unit);
     if(sb) sb.textContent = rpN2(rpR2(unit * rpNum(it.cantidad)));
   });
   document.getElementById('hp-resumen').innerHTML = `
@@ -25220,7 +25249,7 @@ async function abrirEditarHp(id){
   document.getElementById('hp-incluir_iva').checked = !!v.incluir_iva; document.getElementById('hp-incluir_iibb').checked = !!v.incluir_iibb;
   document.getElementById('hp-notas').value = v.notas || '';
   hpDescManual = true;
-  hpItemsState = v.haulotte_presupuesto_items.map(i => ({ codigo: i.codigo, descripcion: i.descripcion, cantidad: i.cantidad, costo: Number(i.costo_unitario) || 0, disponibilidad: i.disponibilidad || null, costoEditado: true,
+  hpItemsState = v.haulotte_presupuesto_items.map(i => i.es_servicio ? { codigo: i.codigo || 'MO', descripcion: i.descripcion, cantidad: i.cantidad, costo: Number(i.precio_unitario) || 0, servicio: true, costoEditado: true } : ({ codigo: i.codigo, descripcion: i.descripcion, cantidad: i.cantidad, costo: Number(i.costo_unitario) || 0, disponibilidad: i.disponibilidad || null, costoEditado: true,
     margen: (/^a-/i.test(String(i.codigo||'').trim()) && Number(i.costo_unitario) > 0 && Number(i.precio_unitario) > 0) ? Math.round((Number(i.precio_unitario) / Number(i.costo_unitario) - 1) * 10000) / 100 : null }));
   renderHpItemsTabla();
   hpSoloLectura(ro);
@@ -25245,12 +25274,14 @@ function hpArmarPayload(){
       notas: document.getElementById('hp-notas').value.trim() || null,
       total_usd: c.total, items_count: c.items.length,
     },
-    items: c.items.map((it, i) => ({ codigo: it.codigo, descripcion: it.descripcion, cantidad: Number(it.cantidad), costo_unitario: it.costo, precio_unitario: it.lista, disponibilidad: it.disponibilidad || null, orden: i })),
+    items: c.items.map((it, i) => ({ codigo: it.codigo, descripcion: (it.descripcion || '').trim(), cantidad: Number(it.cantidad), costo_unitario: it.servicio ? null : it.costo, precio_unitario: it.lista, disponibilidad: it.servicio ? null : (it.disponibilidad || null), es_servicio: !!it.servicio, orden: i })),
     calc: c,
   };
 }
 function hpValidar(){
-  const sinCosto = hpItemsState.filter(i => Number(i.cantidad) > 0 && !(Number(i.costo) > 0));
+  const moMal = hpItemsState.filter(i => i.servicio && Number(i.cantidad) > 0 && (!(String(i.descripcion || '').trim()) || !(Number(i.costo) > 0)));
+  if(moMal.length){ alert('No se puede guardar: cada renglón de MANO DE OBRA necesita un título y un precio mayor a cero.'); return false; }
+  const sinCosto = hpItemsState.filter(i => !i.servicio && Number(i.cantidad) > 0 && !(Number(i.costo) > 0));
   if(sinCosto.length){ alert(`No se puede guardar: estos artículos no tienen costo ARG cargado:\n\n${sinCosto.map(i => '• ' + i.codigo).join('\n')}\n\nCargá el costo (en los A- se carga a mano) o quitá el artículo.`); return false; }
   if(!hpItemsState.some(i => Number(i.cantidad) > 0)){ showToast('Agregá al menos un repuesto con cantidad', true); return false; }
   if(!document.getElementById('hp-cliente_id').value && !document.getElementById('hp-empresa_nombre').value.trim()){
@@ -25311,7 +25342,7 @@ function hpCotDesdeRegistro(v){
   return {
     numero: v.numero, fecha_emision: v.fecha_emision, validez_dias: v.validez_dias, cliente: v.clientes, empresa_nombre: v.empresa_nombre,
     contacto_nombre: v.contacto_nombre, contacto_email: v.contacto_email, contacto_telefono: v.contacto_telefono, condicion_pago: v.condicion_pago, notas: v.notas,
-    items: v.haulotte_presupuesto_items.map(i => ({ codigo: i.codigo, descripcion: i.descripcion, cantidad: i.cantidad, precio_unitario: i.precio_unitario, disponibilidad: i.disponibilidad })),
+    items: v.haulotte_presupuesto_items.map(i => ({ codigo: i.codigo, descripcion: i.descripcion, cantidad: i.cantidad, precio_unitario: i.precio_unitario, disponibilidad: i.disponibilidad, servicio: !!i.es_servicio })),
     descuento_pct: v.descuento_pct, envio_usd: v.envio_usd, tc: v.tipo_cambio, tc_fecha: v.tipo_cambio_fecha,
   };
 }
@@ -25377,7 +25408,7 @@ document.getElementById('btn-hp-pdf-previo').addEventListener('click', async ()=
   const cli = cabecera.cliente_id ? clientesCache.find(c => c.id === cabecera.cliente_id) : null;
   const idv = document.getElementById('hp-id').value;
   const reg = idv ? hpCache.find(x => x.id === Number(idv)) : null;
-  const itemsPdf = items.map(i => ({ codigo: i.codigo, descripcion: i.descripcion, cantidad: i.cantidad, precio_unitario: i.precio_unitario, disponibilidad: i.disponibilidad }));
+  const itemsPdf = items.map(i => ({ codigo: i.codigo, descripcion: i.descripcion, cantidad: i.cantidad, precio_unitario: i.precio_unitario, disponibilidad: i.disponibilidad, servicio: !!i.es_servicio }));
   await hpPrecargarFotos(itemsPdf);
   const res = generarRepuestosPDF({
     numero: reg ? reg.numero : null, fecha_emision: cabecera.fecha_emision, validez_dias: cabecera.validez_dias, cliente: cli, empresa_nombre: cabecera.empresa_nombre,
