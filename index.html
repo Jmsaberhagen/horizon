@@ -5505,6 +5505,15 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
   </div>
 </div>
 
+<!-- MODAL FIRMA ELECTRÓNICA (enviar PDF para firmar desde el celular) -->
+<div class="overlay" id="modal-firma-overlay">
+  <div class="modal" style="max-width:520px;">
+    <h2 id="firma-titulo">Enviar para firma</h2>
+    <div id="firma-cuerpo"></div>
+    <div class="modal-actions"><button class="btn secondary" id="btn-firma-cerrar">Cerrar</button></div>
+  </div>
+</div>
+
 <!-- MODAL ANULAR PRESUPUESTO -->
 <div class="overlay" id="modal-anular-presupuesto-overlay">
   <div class="modal">
@@ -6777,6 +6786,7 @@ function renderContratos(list){
           <div class="row-actions">
             <button class="btn secondary small" onclick="openEditContrato(${c.id})">Editar</button>
             <button class="btn secondary small" onclick="descargarContratoPDF(${c.id})">PDF</button>
+            ${firmaBtn('contrato', c.id)}
           </div>
         </td>
       </tr>`;
@@ -18142,7 +18152,7 @@ function agregarPaginaCondicionesGenerales(doc, pageWidth, marginX){
   return paginaConBanner;
 }
 
-function descargarContratoPDF(contratoId){
+function descargarContratoPDF(contratoId, capturar){
   const c = contratosCache.find(x => x.id === contratoId);
   if(!c){ showToast('No se encontró el contrato', true); return; }
 
@@ -18287,6 +18297,7 @@ function descargarContratoPDF(contratoId){
   }
 
   const nombreArchivo = `Contrato_${c.id}_${(cliente?.razon_social||'cliente').replace(/[^a-zA-Z0-9]/g,'_')}.pdf`;
+  if(capturar) return { doc, fileName: nombreArchivo };
   doc.save(nombreArchivo);
 }
 
@@ -21587,6 +21598,7 @@ function renderPresupuestos(){
             ${p.estado === 'vigente' && esMaestro() ? `<button class="btn secondary small" title="Extender la vigencia (solo maestros)" onclick="abrirExtenderVigencia(${p.id})">⏱ Extender</button>` : ''}
             <button class="btn secondary small" onclick="abrirEditarPresupuesto(${p.id})">${p.estado === 'anulado' ? 'Ver' : 'Editar'}</button>
             <button class="btn secondary small" onclick="generarPresupuestoPDF(${p.id})">PDF</button>
+            ${firmaBtn('presupuesto_alquiler', p.id)}
             ${p.estado !== 'anulado' && puede('presupuestos','anular') ? `<button class="btn danger small" onclick="abrirAnularPresupuesto(${p.id})">Anular</button>` : ''}
           </div>
         </td>
@@ -22384,7 +22396,7 @@ document.getElementById('btn-ext-confirmar').addEventListener('click', async ()=
 });
 
 // ---------- Generar el PDF del presupuesto (con fichas técnicas de anexo + links internos) ----------
-async function generarPresupuestoPDF(id){
+async function generarPresupuestoPDF(id, capturar){
   const p = presupuestosCache.find(x => x.id === id);
   if(!p) return;
   const items = (p.presupuesto_items || []).slice().sort((a,b)=>(a.orden||0)-(b.orden||0));
@@ -22682,7 +22694,9 @@ async function generarPresupuestoPDF(id){
     doc.setTextColor(0);
   }
 
-  doc.save(`Presupuesto_${String(p.numero).padStart(5,'0')}_${empresa.replace(/[^a-zA-Z0-9]/g,'_')}.pdf`);
+  const fileNamePres = `Presupuesto_${String(p.numero).padStart(5,'0')}_${empresa.replace(/[^a-zA-Z0-9]/g,'_')}.pdf`;
+  if(capturar) return { doc, fileName: fileNamePres };
+  doc.save(fileNamePres);
 }
 
 // =========================================================
@@ -23425,6 +23439,7 @@ async function initApp(){
     }
     document.getElementById('btn-hp-nuevo').style.display = puede('haulotte_presupuestos','crear') ? '' : 'none';
 
+    try{ loadFirmas(); }catch(e){}
     console.log('[Horizon] listo.');
     await initChatInterno();
     landingActiva = empresasDisponibles().length > 1;   // al entrar siempre se elige empresa (con una sola, va directo)
@@ -24885,6 +24900,7 @@ function renderHaulottePresup(){
         <td><div class="row-actions">
           <button class="btn secondary small" onclick="abrirEditarHp(${v.id})">${v.estado !== 'vigente' || !puedeEd ? 'Ver' : 'Editar'}</button>
           <button class="btn secondary small" onclick="verHpPDF(${v.id})">Ver PDF</button>
+          ${firmaBtn('presupuesto_repuestos', v.id)}
           ${v.estado === 'vigente' && puedeEd ? `<button class="btn small" onclick="confirmarHp(${v.id})">Confirmar</button>` : ''}
           ${v.estado === 'confirmado' && puedeEd ? `<button class="btn small" style="background:#a29bfe;" onclick="facturarHp(${v.id})">Facturado</button>` : ''}
           ${v.estado !== 'anulado' && v.estado !== 'facturado' && puede('haulotte_presupuestos','anular') ? `<button class="btn danger small" onclick="abrirAnularHp(${v.id})">Anular</button>` : ''}
@@ -25793,6 +25809,7 @@ function renderHaulotteVentas(){
         <td><div class="row-actions">
           <button class="btn secondary small" onclick="abrirEditarHventa(${v.id})">${v.estado === 'anulado' || !puede('haulotte_ventas','crear') ? 'Ver' : 'Editar'}</button>
           <button class="btn secondary small" onclick="descargarHventaPDF(${v.id})">PDF</button>
+          ${firmaBtn('presupuesto_venta', v.id)}
           ${v.estado !== 'anulado' && puede('haulotte_ventas','anular') ? `<button class="btn danger small" onclick="abrirAnularHventa(${v.id})">Anular</button>` : ''}
         </div></td>
       </tr>`;
@@ -26106,24 +26123,25 @@ async function hvGenerarPDF(cot, accion){
   const fotos = await hvFotosDeItems(cot.items);
   cot.items = cot.items.map(it => ({ ...it, foto: fotos[it.modelo] || null }));
   const { doc, fileName } = generarCotizacionVentaPDF(cot);
+  if(accion === 'capturar') return { doc, fileName };
   if(accion === 'preview'){
     window.open(doc.output('bloburl'), '_blank');
   } else {
     doc.save(fileName);
   }
 }
-async function descargarHventaPDF(id){
+async function descargarHventaPDF(id, accion){
   const v = hventasCache.find(x => x.id === id);
   if(!v) return;
   const items = (v.haulotte_venta_items || []).slice().sort((a,b)=>(a.orden||0)-(b.orden||0));
-  await hvGenerarPDF({
+  return await hvGenerarPDF({
     numero: v.numero, fecha_emision: v.fecha_emision, validez_dias: v.validez_dias,
     cliente: v.clientes, empresa_nombre: v.empresa_nombre,
     contacto_nombre: v.contacto_nombre, contacto_email: v.contacto_email, contacto_telefono: v.contacto_telefono,
     items: items.map(i => ({ modelo: i.modelo, descripcion: i.descripcion, cantidad: i.cantidad, precio_neto: i.precio_neto })),
     iva_pct: v.iva_pct, tc: v.tipo_cambio, tc_fecha: v.tipo_cambio_fecha,
     anticipo_tipo: v.anticipo_tipo, anticipo_valor: v.anticipo_valor, plan: v.plan, tasa_anual: v.tasa_anual, notas: v.notas,
-  }, 'save');
+  }, accion || 'save');
 }
 document.getElementById('btn-hv-pdf-previo').addEventListener('click', async ()=>{
   const items = hvValidar();
@@ -26140,6 +26158,178 @@ document.getElementById('btn-hv-pdf-previo').addEventListener('click', async ()=
   }, 'preview');
 });
 
+
+
+// =========================================================
+// FIRMA ELECTRÓNICA SIMPLE de PDFs (presupuestos y contratos)
+// El cliente abre un link (firmar.html?t=TOKEN) desde el celular, ve el PDF, firma con el dedo y se guarda el PDF firmado.
+// Tablas: firmas_documentos / firmas_archivos. RPC: firma_crear, firma_anular, firma_descargar_firmado.
+// =========================================================
+const FIRMA_TIPOS = { presupuesto_alquiler: 'Presupuesto de alquiler', presupuesto_venta: 'Presupuesto de venta', presupuesto_repuestos: 'Presupuesto de repuestos', contrato: 'Contrato' };
+let firmasCache = [];
+async function loadFirmas(){
+  const { data, error } = await supabaseClient.from('firmas_documentos')
+    .select('id,token,tipo,doc_id,titulo,cliente,contacto_nombre,contacto_tel,estado,vence_at,creado_por_nombre,creado_at,visto_at,firmado_at,firmante_nombre,firmante_dni,codigo_control')
+    .order('creado_at', { ascending: false }).limit(2000);
+  if(error){ console.warn('No se pudieron cargar las firmas:', error.message); return; }
+  firmasCache = data || [];
+  firmaRefrescarBotones();
+}
+function firmaActual(tipo, id){ return firmasCache.find(f => f.tipo === tipo && Number(f.doc_id) === Number(id) && f.estado !== 'anulado') || null; }
+function firmaVencida(f){ return f && f.estado !== 'firmado' && new Date(f.vence_at) < new Date(); }
+function firmaEstado(f){
+  if(!f) return { txt: '✍ Enviar a firma', color: '' };
+  if(f.estado === 'firmado') return { txt: '✔ Firmado', color: 'var(--ok)' };
+  if(firmaVencida(f)) return { txt: 'Link vencido', color: 'var(--danger)' };
+  if(f.estado === 'visto') return { txt: '👁 Visto, sin firmar', color: '#38bdf8' };
+  return { txt: '⏳ Pendiente de firma', color: '#ff9f43' };
+}
+function firmaBtn(tipo, id){
+  const e = firmaEstado(firmaActual(tipo, id));
+  return `<button class="btn secondary small" data-firma="${tipo}:${id}" onclick="firmaAbrir('${tipo}',${id})" title="Enviar el PDF al cliente para que lo firme desde el celular"${e.color ? ` style="color:${e.color};border-color:${e.color};"` : ''}>${e.txt}</button>`;
+}
+function firmaRefrescarBotones(){
+  document.querySelectorAll('[data-firma]').forEach(b => {
+    const [t, i] = b.dataset.firma.split(':'); const e = firmaEstado(firmaActual(t, i));
+    b.textContent = e.txt; b.style.color = e.color; b.style.borderColor = e.color;
+  });
+}
+function firmaLink(f){ return new URL('firmar.html?t=' + encodeURIComponent(f.token), location.href).href; }
+function firmaBytesB64(u){ let s = ''; const C = 0x8000; for(let i = 0; i < u.length; i += C) s += String.fromCharCode.apply(null, u.subarray(i, i + C)); return btoa(s); }
+function firmaTelWa(tel){
+  let d = String(tel || '').replace(/\D/g, '').replace(/^0+/, '');
+  if(!d) return '';
+  if(!d.startsWith('54')) d = '54' + (d.startsWith('9') ? '' : '9') + d.replace(/^(\d{2,4})15(\d{6,8})$/, '$1$2');
+  return d;
+}
+// Arma el PDF tal cual sale hoy y devuelve { doc, fileName, titulo, cliente, contacto, tel }
+async function firmaPreparar(tipo, id){
+  if(tipo === 'presupuesto_alquiler'){
+    const p = presupuestosCache.find(x => x.id === id); if(!p) throw new Error('No se encontró el presupuesto');
+    const r = await generarPresupuestoPDF(id, true);
+    return { ...r, titulo: `Presupuesto N° ${String(p.numero).padStart(5,'0')}`, cliente: p.clientes?.razon_social || p.empresa_nombre, contacto: p.contacto_nombre, tel: p.contacto_telefono };
+  }
+  if(tipo === 'contrato'){
+    const c = contratosCache.find(x => x.id === id); if(!c) throw new Error('No se encontró el contrato');
+    const cli = clientesCache.find(x => x.id === c.cliente_id);
+    const r = descargarContratoPDF(id, true);
+    return { ...r, titulo: `Contrato N° ${c.id}`, cliente: cli?.razon_social || c.clientes?.razon_social, contacto: '', tel: cli?.telefono };
+  }
+  if(tipo === 'presupuesto_venta'){
+    const v = hventasCache.find(x => x.id === id); if(!v) throw new Error('No se encontró el presupuesto');
+    const r = await descargarHventaPDF(id, 'capturar');
+    return { ...r, titulo: `Presupuesto de venta N° ${String(v.numero).padStart(5,'0')}`, cliente: v.clientes?.razon_social || v.empresa_nombre, contacto: v.contacto_nombre, tel: v.contacto_telefono };
+  }
+  if(tipo === 'presupuesto_repuestos'){
+    const v = await hpTraerCompleto(id); if(!v) throw new Error('No se encontró el presupuesto');
+    const cot = hpCotDesdeRegistro(v); await hpPrecargarFotos(cot.items);
+    const r = generarRepuestosPDF(cot);
+    return { ...r, titulo: `Presupuesto de repuestos N° ${String(v.numero).padStart(5,'0')}`, cliente: v.clientes?.razon_social || v.empresa_nombre, contacto: v.contacto_nombre, tel: v.contacto_telefono };
+  }
+  throw new Error('Tipo de documento desconocido');
+}
+let firmaCtx = null;   // { tipo, id }
+async function firmaAbrir(tipo, id){
+  firmaCtx = { tipo, id: Number(id) };
+  document.getElementById('modal-firma-overlay').classList.add('open');
+  document.getElementById('firma-cuerpo').innerHTML = '<div class="muted" style="padding:10px 0;">Cargando…</div>';
+  await loadFirmas();
+  firmaRender();
+}
+function firmaRender(){
+  const { tipo, id } = firmaCtx;
+  const f = firmaActual(tipo, id);
+  const cuerpo = document.getElementById('firma-cuerpo');
+  document.getElementById('firma-titulo').textContent = f ? f.titulo : (FIRMA_TIPOS[tipo] || 'Documento') + ' — enviar para firma';
+  const cmp = `<div class="muted" style="font-size:13px;margin-bottom:12px;line-height:1.5;">`;
+  if(f && f.estado === 'firmado'){
+    cuerpo.innerHTML = `${cmp}<span class="badge" style="color:var(--ok);border-color:var(--ok);">✔ Firmado</span></div>
+      <div style="font-size:13px;line-height:1.7;margin-bottom:14px;">
+        <div><span class="muted">Firmante:</span> <b>${escapeHtml(f.firmante_nombre || '')}</b>${f.firmante_dni ? ' · DNI ' + escapeHtml(f.firmante_dni) : ''}</div>
+        <div><span class="muted">Fecha y hora:</span> ${new Date(f.firmado_at).toLocaleString('es-AR')}</div>
+        <div><span class="muted">Código de control:</span> <code>${escapeHtml(f.codigo_control || '')}</code></div>
+      </div>
+      <div class="modal-actions" style="justify-content:flex-start;margin-top:0;">
+        <button class="btn" onclick="firmaDescargar('${f.id}')">⬇ Descargar PDF firmado</button>
+        <button class="btn secondary" onclick="firmaNuevo()">Pedir una nueva firma</button>
+      </div>`;
+    return;
+  }
+  if(f && !firmaVencida(f)){
+    const link = firmaLink(f), e = firmaEstado(f);
+    const nombre = (f.contacto_nombre || '').split(' ')[0];
+    cuerpo.innerHTML = `${cmp}<span class="badge" style="color:${e.color};border-color:${e.color};">${e.txt}</span>
+        &nbsp;Vence el ${new Date(f.vence_at).toLocaleDateString('es-AR')}${f.visto_at ? ' · lo abrió el ' + new Date(f.visto_at).toLocaleString('es-AR') : ''}</div>
+      <div class="field full"><label>Link para el cliente</label><input type="text" id="firma-link" readonly value="${escapeHtml(link)}" onclick="this.select()"></div>
+      <div class="modal-actions" style="justify-content:flex-start;margin-top:12px;flex-wrap:wrap;">
+        <button class="btn" onclick="firmaWhatsapp()">Abrir WhatsApp</button>
+        <button class="btn secondary" onclick="firmaCopiar()">Copiar link</button>
+        <button class="btn secondary" onclick="firmaNuevo()" title="Genera otro link y deja sin efecto el anterior">Link nuevo</button>
+        <button class="btn danger" onclick="firmaAnular('${f.id}')">Anular pedido</button>
+      </div>`;
+    return;
+  }
+  cuerpo.innerHTML = `${f ? cmp + '<span class="badge" style="color:var(--danger);border-color:var(--danger);">Link vencido</span> Generá uno nuevo.</div>' : cmp + 'Se genera el PDF tal como sale hoy y un link para que el cliente lo firme desde el celular, sin instalar nada. El link vence a los 7 días.</div>'}
+    <div class="grid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="field"><label>Contacto</label><input type="text" id="firma-contacto" placeholder="Nombre de quien firma"></div>
+      <div class="field"><label>WhatsApp del cliente</label><input type="text" id="firma-tel" placeholder="Ej: 11 5555 0142"></div>
+    </div>
+    <div class="modal-actions" style="justify-content:flex-start;margin-top:12px;"><button class="btn" id="btn-firma-generar" onclick="firmaGenerar()">Generar link para firma</button></div>
+    <div class="muted" id="firma-estado" style="font-size:12px;margin-top:8px;"></div>`;
+  // precarga de contacto/teléfono con los datos del documento
+  try{
+    const n = (tipo === 'presupuesto_alquiler') ? presupuestosCache.find(x => x.id === id) : (tipo === 'presupuesto_venta') ? hventasCache.find(x => x.id === id) : (tipo === 'presupuesto_repuestos') ? hpCache.find(x => x.id === id) : null;
+    if(n){ document.getElementById('firma-contacto').value = n.contacto_nombre || ''; document.getElementById('firma-tel').value = n.contacto_telefono || ''; }
+    if(tipo === 'contrato'){ const c = contratosCache.find(x => x.id === id); const cli = c && clientesCache.find(x => x.id === c.cliente_id); document.getElementById('firma-tel').value = cli?.telefono || ''; }
+  }catch(e){}
+}
+function firmaNuevo(){ // fuerza el formulario de alta aunque haya uno vigente
+  const { tipo, id } = firmaCtx;
+  const f = firmaActual(tipo, id); const idx = firmasCache.indexOf(f);
+  if(idx >= 0) firmasCache.splice(idx, 1, { ...f, estado: 'anulado', _local: true });
+  firmaRender();
+}
+async function firmaGenerar(){
+  const { tipo, id } = firmaCtx;
+  const btn = document.getElementById('btn-firma-generar'), st = document.getElementById('firma-estado');
+  const contacto = document.getElementById('firma-contacto').value.trim(), tel = document.getElementById('firma-tel').value.trim();
+  btn.disabled = true; st.textContent = 'Generando el PDF…';
+  try{
+    const r = await firmaPreparar(tipo, id);
+    const b64 = firmaBytesB64(new Uint8Array(r.doc.output('arraybuffer')));
+    st.textContent = 'Subiendo…';
+    const { data, error } = await supabaseClient.rpc('firma_crear', { p_tipo: tipo, p_doc_id: id, p_titulo: r.titulo, p_cliente: r.cliente || null, p_contacto: contacto || r.contacto || null, p_tel: tel || null, p_nombre_archivo: r.fileName, p_pdf_b64: b64 });
+    if(error) throw new Error(error.message);
+    await loadFirmas();
+    firmaRender();
+    showToast('Link de firma generado');
+  }catch(e){ showToast('No se pudo generar el link: ' + (e.message || e), true); btn.disabled = false; st.textContent = ''; }
+}
+function firmaWhatsapp(){
+  const f = firmaActual(firmaCtx.tipo, firmaCtx.id); if(!f) return;
+  const n = (f.contacto_nombre || '').split(' ')[0];
+  const msg = `Hola${n ? ' ' + n : ''}, te paso ${f.titulo} de Haulotte para que lo revises y firmes desde el celular: ${firmaLink(f)}`;
+  window.open(`https://wa.me/${firmaTelWa(f.contacto_tel)}?text=${encodeURIComponent(msg)}`, '_blank');
+}
+async function firmaCopiar(){
+  const f = firmaActual(firmaCtx.tipo, firmaCtx.id); if(!f) return;
+  try{ await navigator.clipboard.writeText(firmaLink(f)); showToast('Link copiado'); }
+  catch(e){ const i = document.getElementById('firma-link'); if(i){ i.select(); document.execCommand('copy'); showToast('Link copiado'); } }
+}
+async function firmaAnular(fid){
+  if(!confirm('¿Anular este pedido de firma? El link deja de funcionar.')) return;
+  const { error } = await supabaseClient.rpc('firma_anular', { p_id: fid });
+  if(error){ showToast('No se pudo anular: ' + error.message, true); return; }
+  await loadFirmas(); firmaRender(); showToast('Pedido de firma anulado');
+}
+async function firmaDescargar(fid){
+  const { data, error } = await supabaseClient.rpc('firma_descargar_firmado', { p_id: fid });
+  if(error){ showToast('No se pudo descargar: ' + error.message, true); return; }
+  const bytes = Uint8Array.from(atob(data.pdf_b64), c => c.charCodeAt(0));
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+  a.download = String(data.nombre_archivo || 'documento.pdf').replace(/\.pdf$/i, '') + '_firmado.pdf'; document.body.appendChild(a); a.click(); a.remove();
+}
+document.getElementById('btn-firma-cerrar').addEventListener('click', ()=>{ document.getElementById('modal-firma-overlay').classList.remove('open'); loadFirmas(); });
 
 (async function init(){
   console.log('[Horizon] iniciando...');

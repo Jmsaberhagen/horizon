@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Firmar documento — Haulotte</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:#f4f5f7;color:#16191f;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.top{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid #e3e6ea;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.brand{font-weight:800;letter-spacing:.06em;font-size:15px}
+.top small{color:#5b6472;font-size:12px;text-align:right}
+main{max-width:640px;margin:0 auto;padding:0 0 110px}
+.pad{padding:18px 18px 8px}
+h1{font-size:20px;margin:0 0 4px}
+.sub{font-size:13.5px;color:#5b6472;line-height:1.45}
+#pages{padding:8px 14px;display:flex;flex-direction:column;gap:10px}
+#pages canvas{width:100%;height:auto;background:#fff;border:1px solid #dfe3e8;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.link{display:block;text-align:center;margin:8px 0;color:#0b6aa8;font-weight:600;font-size:14px;padding:10px}
+.bar{position:fixed;left:0;right:0;bottom:0;background:#f4f5f7;border-top:1px solid #e3e6ea;padding:12px 18px calc(14px + env(safe-area-inset-bottom))}
+.bar .in{max-width:640px;margin:0 auto}
+button.main{width:100%;height:52px;border-radius:12px;border:none;background:#0b6aa8;color:#fff;font-size:16px;font-weight:700;font-family:inherit}
+button.main:disabled{background:#9fb8ca}
+label{font-size:13px;font-weight:600;display:block;margin-bottom:6px}
+label small{font-weight:400;color:#5b6472}
+input[type=text]{width:100%;height:48px;padding:0 14px;border-radius:10px;border:1px solid #c9ced6;background:#fff;font-size:16px;color:#16191f;font-family:inherit}
+.f{margin-bottom:16px}
+.sigwrap{position:relative;height:190px;background:#fff;border:1.5px dashed #9aa3b0;border-radius:12px;touch-action:none}
+.sigwrap canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;border-radius:12px}
+.sigwrap .hint{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;color:#9aa3b0;font-size:14px;pointer-events:none}
+.sigwrap .line{position:absolute;left:18px;right:18px;bottom:38px;border-bottom:1px solid #d3d8df;pointer-events:none}
+.row{display:flex;justify-content:space-between;align-items:baseline}
+.clr{border:none;background:none;color:#0b6aa8;font-size:13.5px;font-weight:600;padding:8px 0;font-family:inherit}
+.chk{display:flex;gap:12px;align-items:flex-start;font-size:13.5px;line-height:1.45;font-weight:400;margin:0}
+.chk input{width:22px;height:22px;margin:0;flex:none;accent-color:#0b6aa8}
+.ok{width:68px;height:68px;border-radius:50%;background:#dff3e6;display:flex;align-items:center;justify-content:center;margin:34px auto 14px}
+.card{margin:8px 18px;background:#fff;border:1px solid #dfe3e8;border-radius:12px;padding:14px 16px;font-size:13px}
+.card div{display:flex;justify-content:space-between;gap:12px;padding:3px 0}
+.card span{color:#5b6472}
+.center{text-align:center}
+.err{margin:16px 18px;padding:12px 14px;border-radius:10px;background:#fdecea;color:#8a1f17;font-size:14px;line-height:1.4}
+.msgbox{padding:60px 24px;text-align:center}
+.hide{display:none!important}
+</style>
+</head>
+<body>
+<div class="top"><div class="brand">HAULOTTE</div><small id="top-doc">Documento para firmar</small></div>
+<main>
+  <div id="s-load" class="msgbox"><div class="sub">Cargando documento…</div></div>
+  <div id="s-msg" class="msgbox hide"><h1 id="msg-t"></h1><p class="sub" id="msg-d"></p></div>
+
+  <section id="s-ver" class="hide">
+    <div class="pad"><h1 id="v-titulo"></h1><div class="sub" id="v-sub"></div></div>
+    <div id="pages"></div>
+    <a class="link" href="#" id="v-abrir">Abrir PDF completo</a>
+    <div class="bar"><div class="in"><button class="main" id="v-seguir" type="button">Continuar para firmar</button></div></div>
+  </section>
+
+  <section id="s-firma" class="hide">
+    <div class="pad"><h1>Tu firma</h1><div class="sub" id="f-sub"></div></div>
+    <div class="pad">
+      <div class="f"><label for="f-nombre">Nombre y apellido</label><input id="f-nombre" type="text" autocomplete="name" maxlength="120"></div>
+      <div class="f"><label for="f-dni">DNI <small>(opcional)</small></label><input id="f-dni" type="text" inputmode="numeric" autocomplete="off" maxlength="20"></div>
+      <div class="f">
+        <div class="row"><label style="margin:0">Firmá con el dedo</label><button type="button" class="clr" id="f-borrar">Borrar</button></div>
+        <div class="sigwrap" id="sigwrap"><canvas id="sig"></canvas><div class="line"></div><div class="hint" id="sig-hint">Dibujá tu firma acá</div></div>
+      </div>
+      <div class="f"><label class="chk"><input type="checkbox" id="f-acepto"><span>Leí el documento y acepto su contenido. Mi firma tiene valor de conformidad.</span></label></div>
+      <div class="err hide" id="f-err" style="margin:0 0 16px"></div>
+    </div>
+    <div class="bar"><div class="in"><button class="main" id="f-enviar" type="button">Firmar y enviar</button></div></div>
+  </section>
+
+  <section id="s-listo" class="hide">
+    <div class="ok"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#1d7a43" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+    <div class="center pad"><h1>Documento firmado</h1><div class="sub" id="l-sub"></div></div>
+    <div class="card" id="l-card"></div>
+    <div class="bar"><div class="in"><button class="main" id="l-desc" type="button">Descargar PDF firmado</button></div></div>
+  </section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+const SB = "https://beeeccdcgborcorqvtps.supabase.co";
+const KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJlZWVjY2RjZ2JvcmNvcnF2dHBzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMDcyNDMsImV4cCI6MjA5ODU4MzI0M30.7ZLEr2d0punnAgEGkeIcX0i1qKF_hRM2nx_0VFxGc4w";
+const $ = id => document.getElementById(id);
+const token = new URLSearchParams(location.search).get('t') || '';
+let doc = null, origBytes = null, codigo = '', finalB64 = null, finalName = 'documento_firmado.pdf';
+
+async function rpc(fn, body){
+  const r = await fetch(SB + '/rest/v1/rpc/' + fn, { method: 'POST', headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const t = await r.json().catch(() => null);
+  if(!r.ok) throw new Error((t && t.message) || 'No se pudo completar la operación');
+  return t;
+}
+function b64ToBytes(b64){ const s = atob(b64), u = new Uint8Array(s.length); for(let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; }
+function bytesToB64(u){ let s = ''; const C = 0x8000; for(let i = 0; i < u.length; i += C) s += String.fromCharCode.apply(null, u.subarray(i, i + C)); return btoa(s); }
+async function sha256hex(u){ const h = new Uint8Array(await crypto.subtle.digest('SHA-256', u)); return [...h].map(x => x.toString(16).padStart(2, '0')).join(''); }
+function show(id){ ['s-load','s-msg','s-ver','s-firma','s-listo'].forEach(x => $(x).classList.toggle('hide', x !== id)); window.scrollTo(0, 0); }
+function mensaje(t, d){ $('msg-t').textContent = t; $('msg-d').textContent = d; show('s-msg'); }
+function fechaAR(iso){ return new Date(iso).toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }); }
+function bajar(b64, nombre){
+  const url = URL.createObjectURL(new Blob([b64ToBytes(b64)], { type: 'application/pdf' }));
+  const a = document.createElement('a'); a.href = url; a.download = nombre; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+async function renderPaginas(bytes){
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const pdf = await pdfjsLib.getDocument({ data: bytes.slice() }).promise;
+  const cont = $('pages'); cont.innerHTML = '';
+  const ancho = Math.min(window.innerWidth, 640) - 28, dpr = Math.min(window.devicePixelRatio || 1, 2);
+  for(let n = 1; n <= pdf.numPages; n++){
+    const page = await pdf.getPage(n);
+    const base = page.getViewport({ scale: 1 });
+    const vp = page.getViewport({ scale: (ancho * dpr) / base.width });
+    const c = document.createElement('canvas'); c.width = vp.width; c.height = vp.height;
+    cont.appendChild(c);
+    await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+  }
+}
+
+// ---------- Firma con el dedo ----------
+const cv = $('sig'), ctx = cv.getContext('2d');
+let dibujando = false, trazos = 0, largo = 0, ult = null;
+function ajustarCanvas(){
+  const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  if(!r.width) return;
+  const tmp = trazos ? cv.toDataURL() : null;
+  cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.lineWidth = 2.6; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#14213d';
+  if(tmp){ const im = new Image(); im.onload = () => ctx.drawImage(im, 0, 0, r.width, r.height); im.src = tmp; }
+}
+function pos(e){ const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+cv.addEventListener('pointerdown', e => { e.preventDefault(); cv.setPointerCapture(e.pointerId); dibujando = true; ult = pos(e); ctx.beginPath(); ctx.arc(ult.x, ult.y, 1.2, 0, 7); ctx.fillStyle = '#14213d'; ctx.fill(); $('sig-hint').classList.add('hide'); });
+cv.addEventListener('pointermove', e => { if(!dibujando) return; e.preventDefault(); const p = pos(e); ctx.beginPath(); ctx.moveTo(ult.x, ult.y); ctx.lineTo(p.x, p.y); ctx.stroke(); largo += Math.hypot(p.x - ult.x, p.y - ult.y); ult = p; });
+['pointerup', 'pointercancel'].forEach(ev => cv.addEventListener(ev, () => { if(dibujando){ dibujando = false; trazos++; } }));
+$('f-borrar').addEventListener('click', () => { ctx.clearRect(0, 0, cv.width, cv.height); trazos = 0; largo = 0; $('sig-hint').classList.remove('hide'); });
+window.addEventListener('resize', () => { if(!$('s-firma').classList.contains('hide')) ajustarCanvas(); });
+
+// ---------- Armar el PDF firmado (constancia en una hoja final) ----------
+async function armarFirmado(nombre, dni, firmaPng, ahoraIso){
+  const { PDFDocument, StandardFonts, rgb } = PDFLib;
+  const pdf = await PDFDocument.load(origBytes);
+  const pg = pdf.addPage([595.28, 841.89]);
+  const f = await pdf.embedFont(StandardFonts.Helvetica), fb = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const W = 595.28, M = 50, gris = rgb(.36, .4, .45), negro = rgb(.09, .1, .12);
+  let y = 780;
+  pg.drawText('CONSTANCIA DE FIRMA ELECTRÓNICA', { x: M, y, size: 16, font: fb, color: negro }); y -= 14;
+  pg.drawLine({ start: { x: M, y }, end: { x: W - M, y }, thickness: 1.2, color: rgb(.89, .14, .16) }); y -= 28;
+  const linea = (k, v) => { pg.drawText(k, { x: M, y, size: 9.5, font: f, color: gris }); pg.drawText(String(v), { x: M + 120, y, size: 10.5, font: fb, color: negro }); y -= 19; };
+  linea('Documento', doc.titulo);
+  if(doc.cliente) linea('Cliente', doc.cliente);
+  linea('Archivo original', doc.nombre_archivo);
+  y -= 6;
+  linea('Firmante', nombre);
+  if(dni) linea('DNI', dni);
+  linea('Fecha y hora', fechaAR(ahoraIso) + ' (hora de Argentina)');
+  linea('Código de control', codigo);
+  y -= 14;
+  pg.drawText('Firma', { x: M, y, size: 9.5, font: f, color: gris }); y -= 6;
+  const img = await pdf.embedPng(firmaPng);
+  const maxW = 260, maxH = 110, esc = Math.min(maxW / img.width, maxH / img.height);
+  const w = img.width * esc, h = img.height * esc;
+  pg.drawRectangle({ x: M, y: y - 120, width: 300, height: 120, borderColor: rgb(.82, .84, .87), borderWidth: 1 });
+  pg.drawImage(img, { x: M + (300 - w) / 2, y: y - 120 + (120 - h) / 2, width: w, height: h });
+  y -= 150;
+  const txt = ['El firmante declara haber leído el documento anterior y expresa su conformidad mediante firma electrónica.',
+    'El código de control identifica de forma única el contenido del documento original que fue firmado.'];
+  txt.forEach(t => { pg.drawText(t, { x: M, y, size: 8.5, font: f, color: gris }); y -= 13; });
+  pdf.setTitle(doc.titulo + ' (firmado)');
+  return await pdf.save();
+}
+
+// ---------- Pantallas ----------
+$('v-seguir').addEventListener('click', () => { show('s-firma'); ajustarCanvas(); });
+$('v-abrir').addEventListener('click', e => { e.preventDefault(); window.open(URL.createObjectURL(new Blob([origBytes], { type: 'application/pdf' })), '_blank'); });
+$('f-enviar').addEventListener('click', async () => {
+  const err = $('f-err'); err.classList.add('hide');
+  const nombre = $('f-nombre').value.trim(), dni = $('f-dni').value.trim();
+  const fallo = m => { err.textContent = m; err.classList.remove('hide'); err.scrollIntoView({ block: 'center' }); };
+  if(nombre.length < 3) return fallo('Escribí tu nombre y apellido.');
+  if(trazos === 0 || largo < 40) return fallo('Falta tu firma: dibujala con el dedo en el recuadro.');
+  if(!$('f-acepto').checked) return fallo('Tildá la casilla para confirmar que aceptás el documento.');
+  const btn = $('f-enviar'); btn.disabled = true; btn.textContent = 'Firmando…';
+  try{
+    const png = cv.toDataURL('image/png');
+    const bytes = await armarFirmado(nombre, dni, png, new Date().toISOString());
+    const r = await rpc('firma_publica_firmar', { p_token: token, p_nombre: nombre, p_dni: dni || null, p_firma_png: png, p_pdf_firmado_b64: bytesToB64(bytes), p_codigo: codigo });
+    finalB64 = bytesToB64(bytes);
+    listo({ nombre, firmadoAt: r.firmado_at, codigo: r.codigo_control });
+  }catch(e){ fallo(e.message || 'No se pudo enviar la firma. Probá de nuevo.'); btn.disabled = false; btn.textContent = 'Firmar y enviar'; }
+});
+function listo(x){
+  $('l-sub').textContent = 'Gracias, ' + x.nombre.split(' ')[0] + '. Ya recibimos tu firma el ' + fechaAR(x.firmadoAt) + '. Haulotte se va a comunicar con vos.';
+  $('l-card').innerHTML = '<div><span>Firmante</span><b></b></div><div><span>Fecha y hora</span><b></b></div><div><span>Código de control</span><b style="font-family:ui-monospace,monospace"></b></div>';
+  const b = $('l-card').querySelectorAll('b'); b[0].textContent = x.nombre; b[1].textContent = fechaAR(x.firmadoAt); b[2].textContent = x.codigo;
+  $('top-doc').textContent = doc.titulo;
+  show('s-listo');
+}
+$('l-desc').addEventListener('click', () => bajar(finalB64, finalName));
+
+(async function init(){
+  if(!token) return mensaje('Link incompleto', 'Pedile a Haulotte que te reenvíe el link para firmar.');
+  try{
+    const r = await rpc('firma_publica_obtener', { p_token: token });
+    if(r.estado === 'inexistente') return mensaje('Link no válido', 'Revisá que el link esté completo o pedile a Haulotte que te lo reenvíe.');
+    if(r.estado === 'vencido') return mensaje('El link venció', 'Pedile a Haulotte que te envíe uno nuevo para poder firmar.');
+    if(r.estado === 'anulado') return mensaje('Este pedido ya no está vigente', 'Haulotte te envió un link más nuevo o canceló el pedido. Usá el último link que recibiste.');
+    doc = r; finalName = (r.nombre_archivo || 'documento.pdf').replace(/\.pdf$/i, '') + '_firmado.pdf';
+    $('top-doc').textContent = r.titulo;
+    if(r.estado === 'firmado'){ finalB64 = r.pdf_b64; return listo({ nombre: r.firmante_nombre || '', firmadoAt: r.firmado_at, codigo: r.codigo_control }); }
+    origBytes = b64ToBytes(r.pdf_b64);
+    codigo = (await sha256hex(origBytes)).toUpperCase().replace(/^(.{4})(.{4}).*$/, '$1-$2');
+    $('v-titulo').textContent = r.titulo;
+    $('v-sub').textContent = (r.cliente ? 'Para: ' + r.cliente + ' · ' : '') + 'Revisá el documento y después firmá.';
+    $('f-sub').textContent = r.titulo;
+    if(r.contacto_nombre) $('f-nombre').value = r.contacto_nombre;
+    show('s-ver');
+    await renderPaginas(origBytes);
+  }catch(e){ mensaje('No pudimos abrir el documento', (e && e.message) || 'Probá de nuevo en unos minutos.'); }
+})();
+</script>
+</body>
+</html>
