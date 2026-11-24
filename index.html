@@ -4747,7 +4747,7 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
     <input type="hidden" id="cs-contrato-id">
     <input type="hidden" id="cs-equipo-id">
     <div class="muted" style="font-size:12px;margin-bottom:14px;">
-      El contrato sigue activo con el mismo precio y la misma facturación. La máquina actual deja de figurar alquilada en la fecha del cambio y la nueva toma su lugar. Queda todo anotado en Observaciones.
+      El contrato sigue activo con el mismo precio y la misma facturación. La máquina actual deja de figurar alquilada en la fecha del cambio y la nueva toma su lugar. Si la nueva es de otro modelo, asociá el presupuesto que la cubre: el anterior queda en el historial del contrato. Queda todo anotado en Observaciones.
     </div>
     <div class="field-grid">
       <div class="field full"><label>Cliente / contrato</label><input type="text" id="cs-cliente" disabled></div>
@@ -4761,6 +4761,11 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
         <select id="cs-destino"><option value="pdi">PDI (inspección / cobro de daños)</option><option value="vor">VOR (fuera de servicio)</option></select></div>
       <div class="field full"><label>Motivo del cambio *</label><textarea id="cs-motivo" rows="2" placeholder="Ej: la máquina se averió en obra, se reemplaza sin costo para el cliente"></textarea></div>
       <div class="field full"><label>Remito de entrega de la serie nueva (opcional)</label><input type="text" id="cs-remito"></div>
+      <div class="field full" id="cs-ppto-box" style="display:none;">
+        <label id="cs-ppto-label">Presupuesto de respaldo</label>
+        <select id="cs-ppto"></select>
+        <div class="muted" id="cs-ppto-info" style="font-size:12px;margin-top:4px;"></div>
+      </div>
     </div>
     <div class="muted" id="cs-aviso-aut" style="font-size:12px;margin-top:10px;color:var(--warn);display:none;">Como cualquier edición de un contrato, el cambio queda pendiente de autorización de un maestro (se le avisa por mail).</div>
     <div class="modal-actions">
@@ -7459,7 +7464,7 @@ async function cargarCambiosSerieContrato(contratoId){
   try{
     const { data, error } = await supabaseClient.from('contratos_cambios_serie').select('*').eq('contrato_id', contratoId).order('created_at', { ascending:true });
     if(error || !data || !data.length) return;
-    list.innerHTML = data.map(x => `<div>${x.revertido ? '<s>' : ''}🔄 ${fmtDate(x.fecha_cambio)} · <b>${escapeHtml(x.serie_anterior||'—')}</b> → <b>${escapeHtml(x.serie_nueva||'—')}</b> · ${escapeHtml(x.usuario_nombre||'—')} · ${escapeHtml(x.motivo||'')}${x.revertido ? '</s> <span style="color:var(--warn);">(revertido)</span>' : ''}</div>`).join('');
+    list.innerHTML = data.map(x => `<div>${x.revertido ? '<s>' : ''}🔄 ${fmtDate(x.fecha_cambio)} · <b>${escapeHtml(x.serie_anterior||'—')}</b> → <b>${escapeHtml(x.serie_nueva||'—')}</b> · ${escapeHtml(x.usuario_nombre||'—')} · ${escapeHtml(x.motivo||'')}${x.presupuesto_nuevo_id ? `<br><span style="margin-left:18px;">📄 Presupuesto N° ${String(x.presupuesto_anterior_numero||'').padStart(5,'0')} (${escapeHtml(x.presupuesto_modelo_anterior||'—')}, ${fmtMoney(x.precio_anterior, x.moneda)}) → N° ${String(x.presupuesto_nuevo_numero||'').padStart(5,'0')} (${escapeHtml(x.presupuesto_modelo_nuevo||'—')}, ${fmtMoney(x.precio_nuevo, x.moneda)})</span>` : ''}${x.revertido ? '</s> <span style="color:var(--warn);">(revertido)</span>' : ''}</div>`).join('');
     box.style.display = '';
   } catch(e){ console.warn('No se pudieron cargar los cambios de serie', e); }
 }
@@ -7480,16 +7485,75 @@ function csAbrir(){
   document.getElementById('cs-motivo').value = '';
   document.getElementById('cs-remito').value = '';
   document.getElementById('cs-aviso-aut').style.display = puede('contratos','autorizar') ? 'none' : 'block';
+  csPptoReset();
   document.getElementById('modal-cs-overlay').classList.add('open');
 }
 document.getElementById('btn-contrato-cambiar-serie').addEventListener('click', csAbrir);
 document.getElementById('btn-cs-cancel').addEventListener('click', ()=> document.getElementById('modal-cs-overlay').classList.remove('open'));
 document.getElementById('modal-cs-overlay').addEventListener('click', e => { if(e.target.id === 'modal-cs-overlay') e.target.classList.remove('open'); });
 
+// --- Presupuesto de respaldo al cambiar a otro modelo ---
+let csPptoList = [], csPptoRequerido = false, csPptoOk = true;
+function csPptoReset(){
+  csPptoList = []; csPptoRequerido = false; csPptoOk = true;
+  const b = document.getElementById('cs-ppto-box'); if(b) b.style.display = 'none';
+  const sel = document.getElementById('cs-ppto'); if(sel) sel.innerHTML = '';
+  const inf = document.getElementById('cs-ppto-info'); if(inf){ inf.textContent = ''; inf.style.color = ''; }
+}
+function csPptoActualizarInfo(){
+  const c = contratosCache.find(x => String(x.id) === document.getElementById('cs-contrato-id').value);
+  const sel = document.getElementById('cs-ppto'), inf = document.getElementById('cs-ppto-info');
+  inf.style.color = ''; csPptoOk = true;
+  const o = csPptoList[Number(sel.value)];
+  if(sel.value === '' || !o){
+    if(csPptoRequerido){ inf.textContent = 'Elegí el presupuesto que cubre la serie nueva.'; inf.style.color = 'var(--warn)'; csPptoOk = false; }
+    else inf.textContent = 'Se mantiene el presupuesto actual.';
+    return;
+  }
+  const igual = Number(o.precio) === Number(c && c.precio_presupuesto);
+  if(igual){ inf.textContent = `✓ Mismo precio (${fmtMoney(o.precio, o.moneda)}). El presupuesto anterior queda en el historial del contrato.`; }
+  else if(!puede('contratos','editar_precio')){
+    inf.textContent = `⚠ El precio cambia de ${fmtMoney(c && c.precio_presupuesto, o.moneda)} a ${fmtMoney(o.precio, o.moneda)} y no tenés permiso para cambiar precios. Elegí un presupuesto con el mismo precio o pedile a un usuario con permiso.`;
+    inf.style.color = 'var(--danger, #c0392b)'; csPptoOk = false;
+  } else {
+    inf.textContent = `⚠ El precio cambia de ${fmtMoney(c && c.precio_presupuesto, o.moneda)} a ${fmtMoney(o.precio, o.moneda)} desde la fecha del cambio (lo ya facturado no se toca; los pendientes toman el precio nuevo).`;
+    inf.style.color = 'var(--warn)';
+  }
+}
+async function csPptoCargar(c, e){
+  csPptoReset();
+  if(!c || !c.presupuesto_id) return;
+  const difiere = modeloGrupo(e.modelo) !== modeloGrupo(c.presupuesto_modelo);
+  let data = [];
+  try{
+    const r = await supabaseClient.rpc('contrato_cs_presupuestos', { p_contrato: c.id, p_equipo: e.id });
+    if(r.error) throw r.error;
+    data = r.data || [];
+  } catch(err){ console.warn('No se pudieron cargar los presupuestos candidatos', err); if(!difiere) return; }
+  if(document.getElementById('cs-equipo-id').value !== String(e.id)) return;
+  data = data.filter(p => Number(p.usados) < Number(p.cantidad));
+  const box = document.getElementById('cs-ppto-box'), sel = document.getElementById('cs-ppto'), inf = document.getElementById('cs-ppto-info');
+  csPptoList = data; csPptoRequerido = difiere;
+  if(!difiere && !data.length) return;
+  box.style.display = '';
+  document.getElementById('cs-ppto-label').textContent = difiere ? 'Presupuesto que cubre la serie nueva *' : 'Presupuesto de respaldo (opcional)';
+  if(difiere && !data.length){
+    sel.innerHTML = '<option value="">— No hay presupuestos —</option>';
+    inf.textContent = `⚠ La serie nueva es ${e.modelo || '—'} y el contrato está respaldado por ${c.presupuesto_modelo || '—'}. Este cliente no tiene un presupuesto vigente que cotice ${e.modelo || 'ese modelo'} en modalidad ${c.modalidad || '—'} con unidades libres: crealo primero en Presupuestos.`;
+    inf.style.color = 'var(--warn)'; csPptoOk = false; return;
+  }
+  sel.innerHTML = (difiere ? '<option value="">— Elegí el presupuesto —</option>' : `<option value="">Mantener el presupuesto actual (${escapeHtml(c.presupuesto_modelo || '')})</option>`) +
+    data.map((p,i) => `<option value="${i}">N° ${String(p.numero).padStart(5,'0')} · ${escapeHtml(p.modelo)} · ${fmtMoney(p.precio, p.moneda)} · unidades ${Number(p.usados)}/${Number(p.cantidad)} · vence ${fmtDate(p.vence)}</option>`).join('');
+  if(difiere && data.length === 1) sel.value = '0';
+  csPptoActualizarInfo();
+}
+document.getElementById('cs-ppto').addEventListener('change', csPptoActualizarInfo);
+
 const csSearch = document.getElementById('cs-nueva-search'), csResults = document.getElementById('cs-nueva-results');
 function csRenderResultados(){
   const q = csSearch.value.trim().toLowerCase();
   document.getElementById('cs-equipo-id').value = '';
+  csPptoReset();
   document.getElementById('cs-nueva-info').textContent = '';
   const actualId = Number((contratosCache.find(x => String(x.id) === document.getElementById('cs-contrato-id').value) || {}).equipo_id);
   const disp = equiposCache.filter(e => e.id !== actualId && estadoActualEquipo(e) === 'disponible' &&
@@ -7509,10 +7573,11 @@ csResults.addEventListener('click', ev => {
   csResults.classList.remove('open');
   const info = document.getElementById('cs-nueva-info');
   const avisos = [];
-  if(c && c.equipos && (c.equipos.modelo || '') !== (e.modelo || '')) avisos.push(`⚠ Modelo distinto (${c.equipos.modelo || '—'} → ${e.modelo || '—'}); el precio del contrato no cambia`);
+  if(c && c.equipos && (c.equipos.modelo || '') !== (e.modelo || '')) avisos.push(`⚠ Modelo distinto (${c.equipos.modelo || '—'} → ${e.modelo || '—'})`);
   if(c && c.sucursal_id && e.sucursal_id && String(c.sucursal_id) !== String(e.sucursal_id)) avisos.push('⚠ La máquina es de otra sucursal');
   info.textContent = `✓ ${e.modelo || ''}` + (avisos.length ? ' — ' + avisos.join(' · ') : '');
   info.style.color = avisos.length ? 'var(--warn)' : '';
+  csPptoCargar(c, e);
 });
 document.addEventListener('click', ev => { if(!ev.target.closest('#cs-nueva-search') && !ev.target.closest('#cs-nueva-results')) csResults.classList.remove('open'); });
 
@@ -7527,11 +7592,14 @@ document.getElementById('btn-cs-confirm').addEventListener('click', async ()=>{
   if(!equipoNuevo){ showToast('Elegí la serie nueva de la lista', true); return; }
   if(!fecha){ showToast('Indicá la fecha del cambio', true); return; }
   if(!motivo){ showToast('Indicá el motivo del cambio', true); return; }
+  const pSel = document.getElementById('cs-ppto-box').style.display !== 'none' ? csPptoList[Number(document.getElementById('cs-ppto').value)] : null;
+  if(csPptoRequerido && !pSel){ showToast('Elegí el presupuesto que cubre la serie nueva', true); return; }
+  if(!csPptoOk){ showToast('Revisá el presupuesto elegido (ver aviso en el modal)', true); return; }
   const nueva = equiposCache.find(x => String(x.id) === equipoNuevo);
-  if(!confirm(`¿Confirmás el cambio de serie?\n\n${document.getElementById('cs-actual').value}  →  ${nueva ? nueva.numero_serie : ''}\nFecha: ${fmtDate(fecha)}\nLa serie actual pasa a ${destino.toUpperCase()}.`)) return;
+  if(!confirm(`¿Confirmás el cambio de serie?\n\n${document.getElementById('cs-actual').value}  →  ${nueva ? nueva.numero_serie : ''}\nFecha: ${fmtDate(fecha)}\nLa serie actual pasa a ${destino.toUpperCase()}.` + (pSel ? `\n\nPresupuesto de respaldo: N° ${String(pSel.numero).padStart(5,'0')} (${pSel.modelo}). El anterior queda en el historial del contrato.` : ''))) return;
   btn.disabled = true;
   try{
-    const { data, error } = await supabaseClient.rpc('contrato_cambiar_serie', { p_contrato: contratoId, p_equipo_nuevo: Number(equipoNuevo), p_fecha: fecha, p_destino: destino, p_motivo: motivo, p_remito: remito || null });
+    const { data, error } = await supabaseClient.rpc('contrato_cambiar_serie', { p_contrato: contratoId, p_equipo_nuevo: Number(equipoNuevo), p_fecha: fecha, p_destino: destino, p_motivo: motivo, p_remito: remito || null, p_presupuesto: pSel ? pSel.presupuesto_id : null, p_presupuesto_modelo: pSel ? pSel.modelo : null });
     if(error) throw error;
     showToast(data && data.pendiente_autorizacion ? 'Serie cambiada. Quedó pendiente de autorización de un maestro (se le avisó por mail).' : 'Serie cambiada correctamente');
     document.getElementById('modal-cs-overlay').classList.remove('open');
