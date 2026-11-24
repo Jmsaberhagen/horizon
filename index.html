@@ -10526,7 +10526,7 @@ const SECCIONES_PERMISOS = [
   { key:'retiros',       label:'Pendientes de Retiro', acciones:[['ver','Ver'],['marcar_retirada','Marcar retirada']] },
   { key:'enviofacturas', label:'Envío de Facturas', acciones:[['ver','Ver'],['marcar_enviada','Marcar enviada']] },
   { key:'remitos',       label:'Remitos',           acciones:[['ver','Ver'],['crear','Crear / cargar entrega'],['registrar_retiro','Registrar retiro'],['eliminar','Eliminar']] },
-  { key:'presupuestos',  label:'Presupuestos',      acciones:[['ver','Ver'],['crear','Crear / editar'],['anular','Anular'],['fotos','Cargar fotos de modelos (📷)']] },
+  { key:'presupuestos',  label:'Presupuestos',      acciones:[['ver','Ver'],['crear','Crear / editar'],['anular','Anular'],['extender_vigencia','Extender la vigencia'],['fotos','Cargar fotos de modelos (📷)']] },
   { key:'solicitudoc',   label:'Solicitud de OC',   acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['anular','Anular']] },
   { key:'editorobs',          label:'Editor de Observaciones', acciones:[['ver','Ver / usar']] },
   { key:'resumenerp',         label:'Resumen de Alquileres (ERP)', acciones:[['ver','Ver / usar']] },
@@ -11316,6 +11316,7 @@ const PM_DESC = {
   'contratos.cambiar_modalidad':'Cambia la periodicidad y el precio de un contrato en curso, acredita las facturas afectadas con NC y recalcula los períodos a facturar',
   'contratos.cambiar_serie':'Reemplaza la máquina de un contrato activo por otra serie sin dar de baja el contrato ni tocar la facturación',
   'pizarra.editar_fecha':'Cambiar la fecha de inicio de una máquina ya movida',
+  'presupuestos.extender_vigencia':'Extender la vigencia de un presupuesto vigente o vencido (botón ⏱ Extender)',
   'casos.ver':'Entrar a Casos y ver todos los casos, sus novedades y adjuntos', 'casos.crear':'Abrir casos, agregar novedades, cambiar estado / prioridad / responsable y adjuntar archivos', 'casos.cerrar':'Cerrar y reabrir casos (con motivo obligatorio). Los maestros siempre pueden',
 };
 // Resuelve cada módulo del menú contra SECCIONES_PERMISOS
@@ -21549,7 +21550,7 @@ function renderPresupuestos(){
         <td class="muted" style="font-size:12px;">${presUsoTxt(p)}</td>
         <td>
           <div class="row-actions">
-            ${p.estado === 'vigente' && esMaestro() ? `<button class="btn secondary small" title="Extender la vigencia (solo maestros)" onclick="abrirExtenderVigencia(${p.id})">⏱ Extender</button>` : ''}
+            ${p.estado === 'vigente' && puede('presupuestos','extender_vigencia') ? `<button class="btn secondary small" title="Extender la vigencia" onclick="abrirExtenderVigencia(${p.id})">⏱ Extender</button>` : ''}
             <button class="btn secondary small" onclick="abrirEditarPresupuesto(${p.id})">${p.estado === 'anulado' ? 'Ver' : 'Editar'}</button>
             <button class="btn secondary small" onclick="generarPresupuestoPDF(${p.id})">PDF</button>
             ${firmaBtn('presupuesto_alquiler', p.id)}
@@ -22322,10 +22323,10 @@ document.getElementById('btn-anular-presupuesto-confirmar').addEventListener('cl
   }
 });
 
-// ---------- Extender la vigencia (solo maestros) ----------
+// ---------- Extender la vigencia (maestros o permiso presupuestos.extender_vigencia) ----------
 function abrirExtenderVigencia(id){
   const p = presupuestosCache.find(x => x.id === id);
-  if(!p || !esMaestro()) return;
+  if(!p || !puede('presupuestos','extender_vigencia')) return;
   document.getElementById('ext-id').value = p.id;
   document.getElementById('ext-resumen').innerHTML = `<strong>N° ${String(p.numero).padStart(5,'0')}</strong> — ${escapeHtml(p.clientes?.razon_social || p.empresa_nombre || '—')}<br>Emitido el ${fmtDate(p.fecha_emision)} · vigente hasta <strong>${fmtDate(presVenceFecha(p))}</strong>${presVencido(p) ? ' (vencido)' : ''}`;
   const base = presVencido(p) ? hoyIso() : presVenceFecha(p);
