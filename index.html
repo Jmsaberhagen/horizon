@@ -4474,6 +4474,14 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
       <div id="p-cert-lista" style="margin-top:6px;"></div>
     </div>
 
+    <div id="p-fce-wrap" style="margin-top:14px;">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <button type="button" class="btn secondary small" id="btn-fce-verificar" title="Consulta a ARCA si el cliente está obligado a recibir Factura de Crédito Electrónica MiPyME y si el monto llega al mínimo">🔎 Verificar Factura de Crédito MiPyME</button>
+        <span class="muted" style="font-size:11px;">Consultalo antes de contabilizar en GP.</span>
+      </div>
+      <div id="p-fce-box" style="display:none;margin-top:10px;"></div>
+    </div>
+
     <div id="p-requisitos-box" style="display:none;">
       <h2 style="margin-top:22px;font-size:14px;">Checklist del cliente antes de facturar</h2>
       <div class="req-list" id="p-requisitos-list"></div>
@@ -8396,6 +8404,92 @@ function renderRequisitosChecklist(clienteId){
     </div>`).join('');
 }
 
+// ---------- Verificación Factura de Crédito Electrónica MiPyME (ARCA) ----------
+let fceUltimo = null; // {estado:'requiere'|'ok'|'revisar'|'error', ...} del pendiente abierto
+function fceReset(){
+  fceUltimo = null;
+  const b = document.getElementById('p-fce-box');
+  if(b){ b.style.display = 'none'; b.innerHTML = ''; }
+}
+function fceMontoArs(){
+  const v = Number(document.getElementById('p-valor_alquiler_usd').value) || 0;
+  const f = Number(document.getElementById('p-flete_usd').value) || 0;
+  const tc = Number(document.getElementById('p-tc_aplicado').value) || 0;
+  const pot = Number(document.getElementById('p-potencial_facturacion').value) || 0;
+  let neto = 0, origen = '';
+  if(tc > 0 && (v + f) > 0){ neto = (v + f) * tc; origen = `(USD ${(v+f).toLocaleString('es-AR',{minimumFractionDigits:2})} × TC ${tc.toLocaleString('es-AR')})`; }
+  else if(pot > 0){ neto = pot; origen = '(potencial de facturación)'; }
+  return { neto, bruto: neto * 1.21, origen };
+}
+function fceRender(r, m){
+  const box = document.getElementById('p-fce-box');
+  const ars = n => '$ ' + Number(n).toLocaleString('es-AR',{minimumFractionDigits:2, maximumFractionDigits:2});
+  let col, bg, titulo, detalle = '';
+  if(r.estado === 'requiere'){
+    col = '#fff'; bg = '#dc2626';
+    titulo = '⛔ REQUIERE FACTURA DE CRÉDITO ELECTRÓNICA MiPyME';
+    detalle = 'NO la contabilices por el punto de venta común. Emitila por el punto de venta MiPyME.';
+  } else if(r.estado === 'revisar'){
+    col = '#1f1300'; bg = '#f59e0b';
+    titulo = '⚠ REVISAR: el neto no llega al mínimo, pero con IVA sí';
+    detalle = 'Confirmá con ARCA / la consultora qué importe se compara antes de contabilizar.';
+  } else if(r.estado === 'ok'){
+    col = '#fff'; bg = '#16a34a';
+    titulo = '✅ Factura común: no requiere Factura de Crédito MiPyME';
+    detalle = r.obligado === 'N' ? 'El cliente no está obligado a recibir Factura de Crédito Electrónica.' : 'El cliente está en el padrón, pero el monto no alcanza el mínimo.';
+  } else {
+    col = '#fff'; bg = '#6b7280';
+    titulo = '❔ No se pudo verificar con ARCA';
+    detalle = r.error || 'Error desconocido.';
+  }
+  const lineas = [];
+  if(r.cuit) lineas.push(`CUIT consultado: <b>${escapeHtml(r.cuit)}</b>`);
+  if(r.obligado) lineas.push(`Obligado a recibir FCE: <b>${r.obligado === 'S' ? 'SÍ' : 'NO'}</b>`);
+  if(r.monto_desde != null) lineas.push(`Monto mínimo: <b>${ars(r.monto_desde)}</b>`);
+  if(m && m.neto > 0) lineas.push(`Importe de esta factura: <b>${ars(m.neto)}</b> neto · <b>${ars(m.bruto)}</b> con IVA 21% <span style="opacity:.8;">${escapeHtml(m.origen)}</span>`);
+  else if(r.estado !== 'error') lineas.push('No hay importe cargado para comparar contra el mínimo.');
+  box.innerHTML = `<div style="background:${bg};color:${col};border-radius:8px;padding:14px 16px;box-shadow:0 2px 10px rgba(0,0,0,.25);">
+    <div style="font-size:15px;font-weight:800;letter-spacing:.2px;">${titulo}</div>
+    <div style="font-size:13px;margin-top:4px;">${escapeHtml(detalle)}</div>
+    ${lineas.length ? `<div style="font-size:12px;margin-top:8px;opacity:.95;line-height:1.6;">${lineas.join('<br>')}</div>` : ''}
+  </div>`;
+  box.style.display = 'block';
+}
+async function fceVerificar(){
+  const cuit = (document.getElementById('pdf-cuit').textContent || '').replace(/\D/g,'');
+  const box = document.getElementById('p-fce-box');
+  if(cuit.length !== 11){
+    fceUltimo = { estado:'error', error:'El cliente no tiene un CUIT válido cargado (11 dígitos).' };
+    fceRender(fceUltimo, null); return fceUltimo;
+  }
+  const btn = document.getElementById('btn-fce-verificar');
+  btn.disabled = true;
+  box.style.display = 'block';
+  box.innerHTML = '<div class="muted" style="font-size:13px;">Consultando a ARCA…</div>';
+  const m = fceMontoArs();
+  const fechaFac = hoyIso();
+  try{
+    const { data, error } = await supabaseClient.functions.invoke('fce-consultar', { body: { cuit_cliente: cuit, fecha: fechaFac, empresa: 'horizon' } });
+    if(error) throw error;
+    if(!data || !data.ok) throw new Error((data && data.error) || 'Respuesta inválida del servicio');
+    let estado = 'ok';
+    if(data.obligado === 'S' && data.monto_desde != null && m.neto > 0){
+      if(m.bruto >= data.monto_desde) estado = (m.neto >= data.monto_desde) ? 'requiere' : 'revisar';
+    } else if(data.obligado === 'S' && (m.neto <= 0 || data.monto_desde == null)){
+      estado = 'revisar';
+    }
+    fceUltimo = { estado, obligado: data.obligado, monto_desde: data.monto_desde, cuit: data.cuit || cuit };
+    if(estado === 'revisar' && m.neto <= 0) fceUltimo.error = null;
+    fceRender(fceUltimo, m);
+  } catch(e){
+    console.error(e);
+    fceUltimo = { estado:'error', error: (e && e.message) || String(e), cuit };
+    fceRender(fceUltimo, m);
+  } finally { btn.disabled = false; }
+  return fceUltimo;
+}
+document.getElementById('btn-fce-verificar').addEventListener('click', fceVerificar);
+
 // ---------- Modal pendiente: abrir / cerrar ----------
 function resetPendienteForm(){
   document.getElementById('p-id').value = '';
@@ -8405,6 +8499,7 @@ function resetPendienteForm(){
   ['periodo_desde','periodo_hasta','valor_alquiler_usd','flete_usd','tc_aplicado','potencial_facturacion','numero_factura']
     .forEach(f => document.getElementById('p-'+f).value = '');
   document.getElementById('p-estado').value = 'pendiente';
+  fceReset();
   document.getElementById('p-requisitos-box').style.display = 'none';
   document.getElementById('p-requisitos-list').innerHTML = '';
   document.getElementById('p-flete-entrega-warning').style.display = 'none';
@@ -8478,6 +8573,7 @@ function openEditPendiente(id){
   mostrarAvisoFlete(p.contratos);
   mostrarAvisoCertificados(p.contratos?.clientes?.id);
   mostrarDatosFactura(p.contratos);
+  if(p.estado !== 'facturado') fceVerificar();
 
   pendienteActualClienteId = p.contratos?.clientes?.id || null;
   document.getElementById('p-pdf-box').style.display = 'block';
@@ -8557,6 +8653,18 @@ document.getElementById('btn-pendiente-save').addEventListener('click', async ()
   if(estado === 'facturado' && !numeroFactura){
     showToast('El N° de Factura es obligatorio para marcar como facturado', true);
     return;
+  }
+
+  // verificación Factura de Crédito MiPyME antes de marcar como facturado
+  if(estado === 'facturado' && !(document.getElementById('p-id').value && pendientesCache.find(x=>x.id===Number(document.getElementById('p-id').value))?.estado === 'facturado')){
+    const r = fceUltimo || await fceVerificar();
+    if(r.estado === 'requiere'){
+      if(!confirm('⛔ Este cliente REQUIERE Factura de Crédito Electrónica MiPyME.\n\nLa factura debe emitirse por el punto de venta MiPyME.\n\n¿Marcar como facturado igualmente?')) return;
+    } else if(r.estado === 'revisar'){
+      if(!confirm('⚠ El neto no llega al mínimo MiPyME pero con IVA sí (o falta el importe).\n\n¿Marcar como facturado igualmente?')) return;
+    } else if(r.estado === 'error'){
+      if(!confirm('No se pudo verificar el padrón MiPyME con ARCA:\n' + (r.error||'') + '\n\n¿Marcar como facturado igualmente?')) return;
+    }
   }
 
   // validar checklist de requisitos obligatorios si se está facturando
