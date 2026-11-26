@@ -7235,7 +7235,7 @@ function openEditContrato(id){
   if(!c) return;
   resetContratoForm();
   populateSucursalSelectContrato();
-  document.getElementById('modal-contrato-title').textContent = 'Editar contrato';
+  document.getElementById('modal-contrato-title').textContent = 'Editar contrato' + (c.creado_por_nombre ? ' · creado por ' + c.creado_por_nombre : '');
   // al editar, siempre mostramos el paso 2 para que se vea todo lo ya cargado
   document.getElementById('contrato-paso2').style.display = 'block';
   document.getElementById('btn-toggle-paso2').textContent = '▴ Ocultar detalles para confirmar';
@@ -8415,6 +8415,13 @@ function renderRequisitosChecklist(clienteId){
       </label>
     </div>`).join('');
 }
+
+// ---------- Trazabilidad: quién confeccionó cada documento ----------
+function trzCreador(r){
+  const n = r && (r.creado_por || r.creado_por_nombre || r.creado_nombre);
+  return `<div class="muted" style="font-size:10.5px;font-weight:400;margin-top:2px;" title="Confeccionó este documento">👤 ${n ? escapeHtml(n) : 'sin registro'}</div>`;
+}
+function trzTxt(r){ return String((r && (r.creado_por || r.creado_por_nombre || r.creado_nombre)) || '').toLowerCase(); }
 
 // ---------- Verificación Factura de Crédito Electrónica MiPyME (ARCA) ----------
 let fceUltimo = null; // {estado:'requiere'|'ok'|'revisar'|'error', ...} del pendiente abierto
@@ -21180,7 +21187,7 @@ function getSolicitudesOCFiltradas(){
   if(estado) list = list.filter(s => s.estado === estado);
   if(q){
     list = list.filter(s =>
-      String(s.numero).includes(q) ||
+      String(s.numero).includes(q) || trzTxt(s).includes(q) ||
       (s.clientes?.razon_social || '').toLowerCase().includes(q)
     );
   }
@@ -21201,7 +21208,7 @@ function renderSolicitudesOCLista(){
     const cantItems = (s.solicitudes_oc_items || []).length;
     return `
       <tr>
-        <td style="font-weight:600;">N° ${String(s.numero).padStart(5,'0')}</td>
+        <td style="font-weight:600;">N° ${String(s.numero).padStart(5,'0')}${trzCreador(s)}</td>
         <td class="muted">${fmtDate(s.fecha_emision)}</td>
         <td>${escapeHtml(s.clientes?.razon_social || '—')}</td>
         <td class="muted">${cantItems} máquina(s)</td>
@@ -21430,7 +21437,7 @@ document.getElementById('btn-soc-generar-pdf').addEventListener('click', ()=>{
   const cliente = clientesCache.find(c => String(c.id) === String(clienteId));
   const idActual = document.getElementById('soc-id').value;
   const numero = idActual ? solicitudesOCCache.find(s => s.id === Number(idActual))?.numero : null;
-  descargarSolicitudOCPDF(cliente, solicitudOCItems, numero);
+  descargarSolicitudOCPDF(cliente, solicitudOCItems, numero, (idActual ? solicitudesOCCache.find(s => s.id === Number(idActual))?.creado_por : null) || miPerfil?.nombre || null);
 });
 
 function generarPDFSolicitudOCGuardada(id){
@@ -21441,10 +21448,10 @@ function generarPDFSolicitudOCGuardada(id){
     numeroSerie: it.numero_serie || '—', modelo: it.modelo || '—',
     periodoTexto: it.periodo_texto || '—', observacion: it.observacion || '',
   }));
-  descargarSolicitudOCPDF(cliente, items, s.numero);
+  descargarSolicitudOCPDF(cliente, items, s.numero, s.creado_por);
 }
 
-function descargarSolicitudOCPDF(cliente, items, numero){
+function descargarSolicitudOCPDF(cliente, items, numero, creadoPorOC){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -21467,6 +21474,7 @@ function descargarSolicitudOCPDF(cliente, items, numero){
   doc.setTextColor(90);
   if(numero) doc.text(`N° ${String(numero).padStart(5,'0')}`, pageWidth - marginX, y + 16, { align: 'right' });
   doc.text(`Fecha de emisión: ${fmtDate(hoyIso())}`, pageWidth - marginX, y + (numero?22:17), { align: 'right' });
+  if(typeof creadoPorOC !== 'undefined' && creadoPorOC) doc.text(`Confeccionó: ${creadoPorOC}`, pageWidth - marginX, y + (numero?27:22), { align: 'right' });
   doc.setTextColor(0);
 
   y += 40;
@@ -21639,7 +21647,7 @@ function getPresupuestosFiltrados(){
   if(estado) list = list.filter(p => p.estado === estado);
   if(q){
     list = list.filter(p =>
-      String(p.numero).includes(q) ||
+      String(p.numero).includes(q) || trzTxt(p).includes(q) ||
       (p.clientes?.razon_social || '').toLowerCase().includes(q) ||
       (p.empresa_nombre || '').toLowerCase().includes(q) ||
       (p.contacto_nombre || '').toLowerCase().includes(q)
@@ -21663,7 +21671,7 @@ function renderPresupuestos(){
     const cantItems = (p.presupuesto_items || []).length;
     return `
       <tr>
-        <td style="font-weight:600;">N° ${String(p.numero).padStart(5,'0')}</td>
+        <td style="font-weight:600;">N° ${String(p.numero).padStart(5,'0')}${trzCreador(p)}</td>
         <td class="muted">${fmtDate(p.fecha_emision)}</td>
         <td>${escapeHtml(empresa)}${p.contacto_nombre ? ` <span class="muted" style="font-size:11px;">— ${escapeHtml(p.contacto_nombre)}</span>` : ''}</td>
         <td class="muted">${cantItems} equipo(s)</td>
@@ -22507,6 +22515,7 @@ async function generarPresupuestoPDF(id, capturar){
   doc.setFontSize(9);
   doc.text(`Fecha de emisión: ${fmtDate(p.fecha_emision)}`, pageWidth - marginX, y + 11, { align:'right' });
   doc.text(`Válido por ${p.validez_dias || 7} días`, pageWidth - marginX, y + 16, { align:'right' });
+  if(p.creado_por) doc.text(`Confeccionó: ${p.creado_por}`, pageWidth - marginX, y + 21, { align:'right' });
 
   y += 26;
   doc.setDrawColor(30, 100, 200);
@@ -24447,6 +24456,7 @@ function generarRepuestosPDF(cot){
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
     doc.text(`Fecha de emisión: ${fmtDate(cot.fecha_emision)}`, R, y + 11, { align: 'right' });
     doc.text(`Válido por ${cot.validez_dias || 7} días`, R, y + 16, { align: 'right' });
+    if(cot.creado_por) doc.text(`Confeccionó: ${cot.creado_por}`, R, y + 21, { align: 'right' });
     y += 24;
     doc.setDrawColor(...ROJO); doc.setLineWidth(0.9);
     doc.line(marginX, y, R, y);
@@ -24666,7 +24676,7 @@ function getHpFiltrados(){
     });
   }
   if(q) list = list.filter(v =>
-    String(v.numero).includes(q) || (v.clientes?.razon_social || '').toLowerCase().includes(q) ||
+    String(v.numero).includes(q) || trzTxt(v).includes(q) || (v.clientes?.razon_social || '').toLowerCase().includes(q) ||
     (v.empresa_nombre || '').toLowerCase().includes(q) || (v.contacto_nombre || '').toLowerCase().includes(q));
   return list;
 }
@@ -24686,7 +24696,7 @@ function renderHaulottePresup(){
     const est = hpEstadoMostrado(v), color = estadoColor[est] || 'var(--text-dim)';
     return `
       <tr>
-        <td style="font-weight:600;">N° ${String(v.numero).padStart(5,'0')}</td>
+        <td style="font-weight:600;">N° ${String(v.numero).padStart(5,'0')}${trzCreador(v)}</td>
         <td class="muted">${fmtDate(v.fecha_emision)}</td>
         <td>${escapeHtml(empresa)}${v.contacto_nombre ? ` <span class="muted" style="font-size:11px;">— ${escapeHtml(v.contacto_nombre)}</span>` : ''}</td>
         <td class="muted">${v.items_count || 0}</td>
@@ -25151,7 +25161,7 @@ document.getElementById('btn-hpa-confirmar').addEventListener('click', async ()=
 // ---------- PDF ----------
 function hpCotDesdeRegistro(v){
   return {
-    numero: v.numero, fecha_emision: v.fecha_emision, validez_dias: v.validez_dias, cliente: v.clientes, empresa_nombre: v.empresa_nombre,
+    numero: v.numero, creado_por: v.creado_por, fecha_emision: v.fecha_emision, validez_dias: v.validez_dias, cliente: v.clientes, empresa_nombre: v.empresa_nombre,
     contacto_nombre: v.contacto_nombre, contacto_email: v.contacto_email, contacto_telefono: v.contacto_telefono, condicion_pago: v.condicion_pago, notas: v.notas,
     items: v.haulotte_presupuesto_items.map(i => ({ codigo: i.codigo, descripcion: i.descripcion, cantidad: i.cantidad, precio_unitario: i.precio_unitario, disponibilidad: i.disponibilidad, servicio: !!i.es_servicio })),
     descuento_pct: v.descuento_pct, envio_usd: v.envio_usd, tc: v.tipo_cambio, tc_fecha: v.tipo_cambio_fecha,
@@ -25222,7 +25232,7 @@ document.getElementById('btn-hp-pdf-previo').addEventListener('click', async ()=
   const itemsPdf = items.map(i => ({ codigo: i.codigo, descripcion: i.descripcion, cantidad: i.cantidad, precio_unitario: i.precio_unitario, disponibilidad: i.disponibilidad, servicio: !!i.es_servicio }));
   await hpPrecargarFotos(itemsPdf);
   const res = generarRepuestosPDF({
-    numero: reg ? reg.numero : null, fecha_emision: cabecera.fecha_emision, validez_dias: cabecera.validez_dias, cliente: cli, empresa_nombre: cabecera.empresa_nombre,
+    numero: reg ? reg.numero : null, creado_por: reg ? reg.creado_por : (miPerfil?.nombre || null), fecha_emision: cabecera.fecha_emision, validez_dias: cabecera.validez_dias, cliente: cli, empresa_nombre: cabecera.empresa_nombre,
     contacto_nombre: cabecera.contacto_nombre, contacto_email: cabecera.contacto_email, contacto_telefono: cabecera.contacto_telefono,
     condicion_pago: cabecera.condicion_pago, notas: cabecera.notas,
     items: itemsPdf,
@@ -25367,6 +25377,7 @@ function generarCotizacionVentaPDF(cot){
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
     doc.text(`Fecha de emisión: ${fmtDate(cot.fecha_emision)}`, R, y + 11, { align: 'right' });
     doc.text(`Válido por ${cot.validez_dias || 7} días`, R, y + 16, { align: 'right' });
+    if(cot.creado_por) doc.text(`Confeccionó: ${cot.creado_por}`, R, y + 21, { align: 'right' });
     y += 24;
     doc.setDrawColor(...ROJO); doc.setLineWidth(0.9);
     doc.line(marginX, y, R, y);
@@ -25571,7 +25582,7 @@ function getHventasFiltradas(){
   let list = hventasCache;
   if(estado) list = list.filter(v => hvEstadoMostrado(v) === estado);
   if(q) list = list.filter(v =>
-    String(v.numero).includes(q) ||
+    String(v.numero).includes(q) || trzTxt(v).includes(q) ||
     (v.clientes?.razon_social || '').toLowerCase().includes(q) ||
     (v.empresa_nombre || '').toLowerCase().includes(q) ||
     (v.contacto_nombre || '').toLowerCase().includes(q));
@@ -25594,7 +25605,7 @@ function renderHaulotteVentas(){
     const nEq = (v.haulotte_venta_items || []).length;
     return `
       <tr>
-        <td style="font-weight:600;">N° ${String(v.numero).padStart(5,'0')}</td>
+        <td style="font-weight:600;">N° ${String(v.numero).padStart(5,'0')}${trzCreador(v)}</td>
         <td class="muted">${fmtDate(v.fecha_emision)}</td>
         <td>${escapeHtml(empresa)}${v.contacto_nombre ? ` <span class="muted" style="font-size:11px;">— ${escapeHtml(v.contacto_nombre)}</span>` : ''}</td>
         <td class="muted">${nEq} equipo(s)</td>
@@ -25930,7 +25941,7 @@ async function descargarHventaPDF(id, accion){
   if(!v) return;
   const items = (v.haulotte_venta_items || []).slice().sort((a,b)=>(a.orden||0)-(b.orden||0));
   return await hvGenerarPDF({
-    numero: v.numero, fecha_emision: v.fecha_emision, validez_dias: v.validez_dias,
+    numero: v.numero, creado_por: v.creado_por, fecha_emision: v.fecha_emision, validez_dias: v.validez_dias,
     cliente: v.clientes, empresa_nombre: v.empresa_nombre,
     contacto_nombre: v.contacto_nombre, contacto_email: v.contacto_email, contacto_telefono: v.contacto_telefono,
     items: items.map(i => ({ modelo: i.modelo, descripcion: i.descripcion, cantidad: i.cantidad, precio_neto: i.precio_neto })),
@@ -25945,6 +25956,7 @@ document.getElementById('btn-hv-pdf-previo').addEventListener('click', async ()=
   const cli = p.cliente_id ? clientesCache.find(c => c.id === p.cliente_id) : null;
   await hvGenerarPDF({
     numero: document.getElementById('hv-id').value ? (hventasCache.find(x => x.id === Number(document.getElementById('hv-id').value))?.numero) : null,
+    creado_por: (document.getElementById('hv-id').value ? hventasCache.find(x => x.id === Number(document.getElementById('hv-id').value))?.creado_por : null) || miPerfil?.nombre || null,
     fecha_emision: p.fecha_emision, validez_dias: p.validez_dias, cliente: cli, empresa_nombre: p.empresa_nombre,
     contacto_nombre: p.contacto_nombre, contacto_email: p.contacto_email, contacto_telefono: p.contacto_telefono,
     items: items.map(i => ({ modelo: i.modelo.trim(), descripcion: (i.descripcion||'').trim(), cantidad: i.cantidad, precio_neto: i.precio_neto })),
