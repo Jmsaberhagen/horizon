@@ -4803,6 +4803,9 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
       <div class="field"><label>Hoy</label><input type="text" id="cm-actual" disabled></div>
       <div class="field"><label>Nueva periodicidad *</label>
         <select id="cm-modalidad"><option value="diario">Diario</option><option value="semanal">Semanal</option><option value="mensual">Mensual</option></select></div>
+      <div class="field"><label>Moneda *</label>
+        <select id="cm-moneda"><option value="USD">USD — dólares</option><option value="ARS">ARS — pesos</option></select>
+        <div class="muted" id="cm-moneda-nota" style="font-size:11px;margin-top:4px;"></div></div>
       <div class="field"><label id="cm-precio-lbl">Nuevo precio *</label><input type="number" step="0.01" min="0" id="cm-precio" placeholder="0,00"></div>
       <div class="field full">
         <label>Desde cuándo aplica *</label>
@@ -7670,7 +7673,7 @@ async function cargarCambiosModalidadContrato(contratoId){
     if(error || !data || !data.length) return;
     list.innerHTML = data.map(x => {
       const est = x.estado === 'pendiente' ? ' <span style="color:var(--warn);">(pendiente de autorización)</span>' : x.estado === 'rechazado' ? ' <span style="color:var(--danger);">(rechazado)</span>' : '';
-      return `<div>${x.estado === 'rechazado' ? '<s>' : ''}🔁 ${fmtDate(x.desde)} · <b>${CM_LBL[x.modalidad_anterior]||'—'} ${x.precio_anterior ?? ''}</b> → <b>${CM_LBL[x.modalidad_nueva]} ${x.precio_nuevo}</b> · ${escapeHtml(x.solicitado_nombre||'—')} · ${escapeHtml(x.motivo||'')}${x.estado === 'rechazado' ? '</s>' : ''}${est}</div>`;
+      return `<div>${x.estado === 'rechazado' ? '<s>' : ''}🔁 ${fmtDate(x.desde)} · <b>${CM_LBL[x.modalidad_anterior]||'—'} ${x.precio_anterior ?? ''}</b> → <b>${CM_LBL[x.modalidad_nueva]} ${x.precio_nuevo}${x.moneda_nueva && x.moneda_anterior && x.moneda_nueva !== x.moneda_anterior ? ' ' + x.moneda_nueva : ''}</b> · ${escapeHtml(x.solicitado_nombre||'—')} · ${escapeHtml(x.motivo||'')}${x.estado === 'rechazado' ? '</s>' : ''}${est}</div>`;
     }).join('');
     box.style.display = '';
   } catch(e){ console.warn('No se pudieron cargar los cambios de modalidad', e); }
@@ -7686,7 +7689,8 @@ function cmEstado(){
   const D = retro ? document.getElementById('cm-desde').value : fwd;
   const F = retro && D ? cmFilas.filter(r => r.estado === 'facturado' && r.periodo_desde >= D) : [];
   const hasta = D ? ((retro && document.getElementById('cm-hasta').value) || calcularPeriodoHasta(D, mod)) : '';
-  return { c, mod, precio, retro, fwd, D, F, hasta };
+  const moneda = (document.getElementById('cm-moneda').value || c.moneda || 'USD');
+  return { c, mod, precio, retro, fwd, D, F, hasta, moneda };
 }
 function cmValorFila(r){ return Number(r.valor_alquiler_usd ?? r.potencial_facturacion ?? 0); }
 function cmActualizar(){
@@ -7694,26 +7698,27 @@ function cmActualizar(){
     if(document.getElementById('cm-vig-retro').checked && hd.dataset.touched !== '1' && d0) hd.value = calcularPeriodoHasta(d0, document.getElementById('cm-modalidad').value); }
   const e = cmEstado(); if(!e) return;
   const { c, mod, precio, retro, D, F, hasta } = e;
-  document.getElementById('cm-precio-lbl').textContent = `Nuevo precio (${c.moneda || 'USD'} ${CM_UNIDAD[mod]}) *`;
+  document.getElementById('cm-precio-lbl').textContent = `Nuevo precio (${e.moneda} ${CM_UNIDAD[mod]}) *`;
+  { const n = document.getElementById('cm-moneda-nota'); if(n) n.textContent = c.presupuesto_id ? 'El contrato está respaldado por un presupuesto: la moneda es la del presupuesto.' : (e.moneda !== (c.moneda || 'USD') ? 'Cambia la moneda del contrato: los pendientes sin facturar pasan a ' + e.moneda + '.' : ''); }
   document.getElementById('cm-retro-box').style.display = retro ? '' : 'none';
   const fcAhora = document.getElementById('cm-fc-ahora').checked;
   document.getElementById('cm-fc-numero').disabled = !fcAhora; document.getElementById('cm-fc-fecha').disabled = !fcAhora;
   const a = cmActual(c);
   const box = document.getElementById('cm-preview');
-  const m = v => fmtMoney(v, c.moneda);
+  const mo = v => fmtMoney(v, c.moneda), m = v => fmtMoney(v, e.moneda);
   let h = '';
   if(retro && D){
     const acred = F.reduce((t, r) => t + cmValorFila(r), 0);
-    h += '<div><b>Se acreditan:</b></div>' + (F.length ? F.map(r => `<div style="padding-left:10px;">• FC ${escapeHtml(r.numero_factura||'—')} · ${fmtDate(r.periodo_desde)} → ${fmtDate(r.periodo_hasta)} · ${m(cmValorFila(r))}</div>`).join('') : '<div class="muted" style="padding-left:10px;">Ninguna factura emitida en ese tramo.</div>');
+    h += '<div><b>Se acreditan:</b></div>' + (F.length ? F.map(r => `<div style="padding-left:10px;">• FC ${escapeHtml(r.numero_factura||'—')} · ${fmtDate(r.periodo_desde)} → ${fmtDate(r.periodo_hasta)} · ${mo(cmValorFila(r))}</div>`).join('') : '<div class="muted" style="padding-left:10px;">Ninguna factura emitida en ese tramo.</div>');
     h += `<div style="margin-top:6px;"><b>Período rearmado:</b> ${fmtDate(D)} → ${fmtDate(hasta)} (${CM_LBL[mod]}) · ${precio ? m(precio) : '—'}</div>`;
     if(precio){
       const dif = precio - acred;
-      h += `<div style="margin-top:6px;">A acreditar <b>${m(acred)}</b> · nueva factura <b>${m(precio)}</b> · diferencia a facturar <b style="color:${dif >= 0 ? 'var(--accent)' : 'var(--warn)'};">${dif >= 0 ? '+' : '−'} ${m(Math.abs(dif))}</b></div>`;
+      h += `<div style="margin-top:6px;">A acreditar <b>${mo(acred)}</b> · nueva factura <b>${m(precio)}</b>${e.moneda === c.moneda ? ` · diferencia a facturar <b style="color:${dif >= 0 ? 'var(--accent)' : 'var(--warn)'};">${dif >= 0 ? '+' : '−'} ${m(Math.abs(dif))}</b>` : ' <span class="muted">(cambia la moneda: no hay diferencia comparable)</span>'}</div>`;
     }
     h += `<div class="muted" style="margin-top:6px;">Los períodos siguientes se generan solos, de a ${CM_LBL[mod].toLowerCase()}.</div>`;
   } else {
     h += `<div>Lo ya facturado no se toca. Desde el <b>${fmtDate(e.fwd)}</b> los períodos pasan a <b>${CM_LBL[mod]}</b> a <b>${precio ? m(precio) : '—'}</b>.</div>`;
-    h += `<div class="muted" style="margin-top:4px;">Hoy: ${CM_LBL[a.mod]} · ${m(a.precio)}. Los pendientes sin facturar desde esa fecha se regeneran con la modalidad y el precio nuevos.</div>`;
+    h += `<div class="muted" style="margin-top:4px;">Hoy: ${CM_LBL[a.mod]} · ${mo(a.precio)}. Los pendientes sin facturar desde esa fecha se regeneran con la modalidad y el precio nuevos.</div>`;
   }
   box.innerHTML = h;
 }
@@ -7727,6 +7732,7 @@ async function cmAbrir(){
   document.getElementById('cm-actual').value = `${CM_LBL[a.mod]} · ${fmtMoney(a.precio, c.moneda)}`;
   document.getElementById('cm-modalidad').value = a.mod;
   document.getElementById('cm-precio').value = '';
+  { const ms = document.getElementById('cm-moneda'); ms.value = c.moneda || 'USD'; ms.disabled = !!c.presupuesto_id; }
   document.getElementById('cm-vig-prox').checked = true;
   document.getElementById('cm-hasta').value = ''; document.getElementById('cm-hasta').dataset.touched = '';
   document.getElementById('cm-motivo').value = '';
@@ -7752,7 +7758,7 @@ document.getElementById('btn-contrato-cambiar-mod').addEventListener('click', cm
 document.getElementById('cm-hasta').addEventListener('input', ev => { ev.target.dataset.touched = '1'; });
 document.getElementById('btn-cm-cancel').addEventListener('click', ()=> document.getElementById('modal-cm-overlay').classList.remove('open'));
 document.getElementById('modal-cm-overlay').addEventListener('click', e => { if(e.target.id === 'modal-cm-overlay') e.target.classList.remove('open'); });
-['cm-modalidad','cm-precio','cm-vig-prox','cm-vig-retro','cm-desde','cm-hasta','cm-fc-ahora','cm-fc-despues'].forEach(i => {
+['cm-modalidad','cm-moneda','cm-precio','cm-vig-prox','cm-vig-retro','cm-desde','cm-hasta','cm-fc-ahora','cm-fc-despues'].forEach(i => {
   const el = document.getElementById(i); el.addEventListener('input', cmActualizar); el.addEventListener('change', cmActualizar);
 });
 document.getElementById('btn-cm-confirm').addEventListener('click', async ()=>{
@@ -7771,7 +7777,7 @@ document.getElementById('btn-cm-confirm').addEventListener('click', async ()=>{
     if(fcAhora && (!fcNum || !fcFecha)){ showToast('Completá el número y la fecha de la factura nueva, o dejala pendiente', true); return; }
   }
   const a = cmActual(e.c);
-  const resumen = `${CM_LBL[a.mod]} ${fmtMoney(a.precio, e.c.moneda)}  →  ${CM_LBL[e.mod]} ${fmtMoney(e.precio, e.c.moneda)}\nDesde: ${fmtDate(e.D)}` +
+  const resumen = `${CM_LBL[a.mod]} ${fmtMoney(a.precio, e.c.moneda)}  →  ${CM_LBL[e.mod]} ${fmtMoney(e.precio, e.moneda)}${e.moneda !== e.c.moneda ? `\n⚠ Cambia la moneda del contrato: ${e.c.moneda} → ${e.moneda}` : ''}\nDesde: ${fmtDate(e.D)}` +
     (e.retro ? `\nPeríodo rearmado: ${fmtDate(e.D)} → ${fmtDate(e.hasta)}\nSe acreditan ${e.F.length} factura(s) con la NC ${ncNum}.` : '\nLo ya facturado no se toca.');
   if(!confirm(`¿Confirmás el cambio de modalidad / precio?\n\n${resumen}` + (puede('contratos','autorizar') ? '' : '\n\nQuedará pendiente de autorización de un maestro.'))) return;
   btn.disabled = true;
@@ -7779,7 +7785,7 @@ document.getElementById('btn-cm-confirm').addEventListener('click', async ()=>{
     const { data, error } = await supabaseClient.rpc('contrato_solicitar_cambio_modalidad', {
       p_contrato: e.c.id, p_modalidad: e.mod, p_precio: e.precio, p_desde: e.retro ? e.D : null, p_motivo: motivo,
       p_nc_numero: e.retro ? ncNum : null, p_nc_fecha: e.retro ? ncFecha : null,
-      p_fc_numero: fcAhora ? fcNum : null, p_fc_fecha: fcAhora ? fcFecha : null, p_hasta: e.retro ? e.hasta : null });
+      p_fc_numero: fcAhora ? fcNum : null, p_fc_fecha: fcAhora ? fcFecha : null, p_hasta: e.retro ? e.hasta : null, p_moneda: e.moneda });
     if(error) throw error;
     showToast(data && data.aplicado ? 'Cambio aplicado: los períodos se recalcularon' : 'Solicitud enviada: queda pendiente de autorización de un maestro (se le avisó por mail).');
     document.getElementById('modal-cm-overlay').classList.remove('open');
