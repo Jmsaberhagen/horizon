@@ -4741,6 +4741,7 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
       <button class="btn secondary" id="btn-contrato-cancel">Cancelar</button>
       <button class="btn secondary" id="btn-contrato-cambiar-serie" style="display:none;" title="Reemplaza la máquina de este contrato por otra serie, sin dar de baja el contrato ni tocar la facturación">🔄 Cambiar serie</button>
       <button class="btn secondary" id="btn-contrato-cambiar-mod" style="display:none;" title="Cambia la periodicidad y/o el precio a mitad de contrato y recalcula los períodos a facturar">🔁 Cambiar modalidad / precio</button>
+      <button class="btn secondary" id="btn-contrato-demo-alq" style="display:none;" title="Pasa un contrato DEMO a alquiler y define desde qué fecha se factura">🎁→💼 Pasar a alquiler</button>
       <button class="btn secondary" id="btn-contrato-enviar-aut" style="display:none;" title="Lo saca de Pendientes de Facturación hasta que un maestro lo autorice">🛡️ Mandar a autorización</button>
       <button class="btn danger" id="btn-contrato-delete" style="display:none;">Eliminar contrato</button>
       <button class="btn" id="btn-contrato-save">Guardar</button>
@@ -4835,6 +4836,35 @@ body.es-maestro .panel-solo-maestro{display:block !important;}
     <div class="modal-actions">
       <button class="btn secondary" id="btn-cm-cancel">Cancelar</button>
       <button class="btn" id="btn-cm-confirm">Confirmar cambio</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="modal-da-overlay">
+  <div class="modal wide">
+    <h2>🎁→💼 Pasar contrato DEMO a alquiler</h2>
+    <input type="hidden" id="da-contrato-id">
+    <div class="muted" style="font-size:12px;margin-bottom:14px;">El contrato deja de ser DEMO y empieza a facturarse desde la fecha que indiques (puede ser anterior a hoy). El período facturable arranca ese día; la fecha de salida original queda como está. Si había períodos sin facturar cargados, se rearman desde la nueva fecha.</div>
+    <div class="field-grid">
+      <div class="field full"><label>Cliente / contrato</label><input type="text" id="da-cliente" disabled></div>
+      <div class="field"><label>Empieza a facturar desde *</label><input type="date" id="da-desde"></div>
+      <div class="field" id="da-manual-wrap" style="display:none;"><label style="display:flex;gap:8px;align-items:center;font-weight:400;text-transform:none;letter-spacing:0;margin-top:22px;"><input type="checkbox" id="da-manual"> Sin presupuesto (precio manual — solo maestro)</label></div>
+      <div id="da-pres-box" class="field full"><div class="field-grid">
+        <div class="field full"><label>Presupuesto de respaldo *</label><select id="da-pres"></select></div>
+        <div class="field"><label>Modelo cotizado *</label><select id="da-modelo"></select></div>
+        <div class="field"><label>Modalidad *</label><select id="da-modalidad"></select></div>
+      </div></div>
+      <div id="da-man-box" class="field full" style="display:none;"><div class="field-grid">
+        <div class="field"><label>Modalidad *</label><select id="da-man-mod"><option value="diario">Diario</option><option value="semanal">Semanal</option><option value="mensual" selected>Mensual</option></select></div>
+        <div class="field"><label>Moneda *</label><select id="da-man-mon"><option value="USD">USD</option><option value="ARS">ARS</option></select></div>
+        <div class="field"><label>Precio por período *</label><input type="number" step="0.01" min="0" id="da-man-precio"></div>
+      </div></div>
+      <div class="field full"><label>Motivo / nota</label><textarea id="da-motivo" rows="2" placeholder="Ej: el cliente confirmó el alquiler; factura desde el 23/11 (mail de operaciones)"></textarea></div>
+    </div>
+    <div class="muted" id="da-info" style="font-size:12.5px;margin-top:10px;"></div>
+    <div class="modal-actions">
+      <button class="btn secondary" id="btn-da-cancel">Cancelar</button>
+      <button class="btn" id="btn-da-confirm">Pasar a alquiler</button>
     </div>
   </div>
 </div>
@@ -7168,6 +7198,7 @@ async function remitoArchivoSubir(){
 function resetContratoForm(){
   remitoArchivo = { file:null, url:null, nombre:null, quitar:false }; remitoArchivoRender();
   equipoSearchInput.disabled = false; equipoSearchInput.title = '';
+  { const bda = document.getElementById('btn-contrato-demo-alq'); if(bda) bda.style.display = 'none'; }
   { const bm = document.getElementById('btn-contrato-cambiar-mod'); if(bm) bm.style.display = 'none'; const bxm = document.getElementById('c-cambios-mod-box'); if(bxm) bxm.style.display = 'none'; cmDesbloquearCampos(); }
   { const b = document.getElementById('btn-contrato-cambiar-serie'); if(b) b.style.display = 'none'; const bx = document.getElementById('c-cambios-serie-box'); if(bx) bx.style.display = 'none'; }
   ['id','cliente_id','equipo_id','remito','fecha_salida','fecha_vencimiento',
@@ -7247,6 +7278,7 @@ function openEditContrato(id){
 
   { const b = document.getElementById('btn-contrato-cambiar-serie'); if(b) b.style.display = (puede('contratos','cambiar_serie') && c.estado === 'activo' && !c.fecha_baja) ? 'inline-block' : 'none'; }
   cargarCambiosSerieContrato(c.id);
+  { const b = document.getElementById('btn-contrato-demo-alq'); if(b) b.style.display = (puede('contratos','demo_a_alquiler') && c.estado === 'activo' && !c.fecha_baja && c.es_demo) ? 'inline-block' : 'none'; }
   { const b = document.getElementById('btn-contrato-cambiar-mod'); if(b) b.style.display = (puede('contratos','cambiar_modalidad') && c.estado === 'activo' && !c.fecha_baja && !c.es_demo) ? 'inline-block' : 'none'; }
   cargarCambiosModalidadContrato(c.id);
   document.getElementById('c-id').value = c.id;
@@ -7798,6 +7830,106 @@ document.getElementById('btn-cm-confirm').addEventListener('click', async ()=>{
   } catch(err){
     console.error(err);
     showToast('No se pudo cambiar la modalidad: ' + err.message, true);
+  } finally { btn.disabled = false; }
+});
+
+
+// ── DEMO → alquiler ──
+function daPresupuestos(c){ return presupuestosCache.filter(p => String(p.cliente_id) === String(c.cliente_id) && p.estado === 'vigente' && !presVencido(p)); }
+function daPresActual(){ const id = document.getElementById('da-pres').value; return id ? presupuestosCache.find(p => String(p.id) === id) : null; }
+function daModelos(){
+  const sel = document.getElementById('da-modelo'), p = daPresActual();
+  if(!p){ sel.innerHTML = '<option value="">—</option>'; daModalidades(); return; }
+  sel.innerHTML = '<option value="">— Elegí el modelo —</option>' + respItemsDe(p).map(it => {
+    const quedan = it.cantidad - respUsadas(p.id, it.modelo);
+    return `<option value="${escapeHtml(it.modelo)}" ${quedan <= 0 ? 'disabled' : ''}>${escapeHtml(it.modelo)} — quedan ${Math.max(quedan,0)} de ${it.cantidad}</option>`;
+  }).join('');
+  const c = contratosCache.find(k => String(k.id) === document.getElementById('da-contrato-id').value);
+  const mEq = c && c.equipos ? c.equipos.modelo : '';
+  const cand = respItemsDe(p).find(it => mEq && modeloGrupo(it.modelo) === modeloGrupo(mEq));
+  if(cand) sel.value = cand.modelo;
+  daModalidades();
+}
+function daModalidades(){
+  const sel = document.getElementById('da-modalidad'), p = daPresActual(), modelo = document.getElementById('da-modelo').value;
+  const it = p && modelo ? respItemsDe(p).find(x => x.modelo === modelo) : null;
+  if(!it){ sel.innerHTML = '<option value="">—</option>'; }
+  else {
+    sel.innerHTML = '<option value="">— Elegí la modalidad —</option>' + Object.entries(RESP_PER).map(([k,[per,txt]]) => it.precios[per] ? `<option value="${k}">${k[0].toUpperCase()+k.slice(1)} — ${fmtMoney(it.precios[per], p.moneda)} ${txt}</option>` : '').join('');
+  }
+  daInfo();
+}
+function daInfo(){
+  const d = document.getElementById('da-desde').value;
+  document.getElementById('da-info').innerHTML = d ? `El primer período a facturar empieza el <b>${fmtDate(d)}</b>.` : '';
+}
+function daManual(){ return document.getElementById('da-manual').checked; }
+function daToggle(){
+  const m = daManual();
+  document.getElementById('da-pres-box').style.display = m ? 'none' : '';
+  document.getElementById('da-man-box').style.display = m ? '' : 'none';
+}
+async function daAbrir(){
+  const c = contratosCache.find(k => String(k.id) === document.getElementById('c-id').value);
+  if(!c || !c.es_demo) return;
+  document.getElementById('da-contrato-id').value = c.id;
+  document.getElementById('da-cliente').value = `${c.clientes ? c.clientes.razon_social : '—'} · ${c.equipos ? c.equipos.numero_serie : ''} · Salida ${fmtDate(c.fecha_salida)}`;
+  document.getElementById('da-desde').value = hoyIso();
+  document.getElementById('da-desde').min = c.fecha_salida || '';
+  document.getElementById('da-motivo').value = '';
+  document.getElementById('da-manual').checked = false;
+  document.getElementById('da-manual-wrap').style.display = esMaestro() ? '' : 'none';
+  document.getElementById('da-man-precio').value = '';
+  daToggle();
+  document.getElementById('da-pres').innerHTML = '<option value="">Cargando...</option>';
+  try{ await loadPresupuestos(); }catch(e){}
+  const l = daPresupuestos(c);
+  document.getElementById('da-pres').innerHTML = l.length
+    ? '<option value="">— Elegí el presupuesto —</option>' + l.map(p => `<option value="${p.id}">N° ${String(p.numero).padStart(5,'0')} · ${p.moneda} · vence ${fmtDate(presVenceFecha(p))}</option>`).join('')
+    : '<option value="">Este cliente no tiene presupuestos vigentes (hay que crearlo en Presupuestos)</option>';
+  daModelos();
+  document.getElementById('modal-da-overlay').classList.add('open');
+}
+document.getElementById('btn-contrato-demo-alq').addEventListener('click', daAbrir);
+document.getElementById('da-pres').addEventListener('change', daModelos);
+document.getElementById('da-modelo').addEventListener('change', daModalidades);
+document.getElementById('da-desde').addEventListener('input', daInfo);
+document.getElementById('da-manual').addEventListener('change', daToggle);
+document.getElementById('btn-da-cancel').addEventListener('click', ()=> document.getElementById('modal-da-overlay').classList.remove('open'));
+document.getElementById('modal-da-overlay').addEventListener('click', e => { if(e.target.id === 'modal-da-overlay') e.target.classList.remove('open'); });
+document.getElementById('btn-da-confirm').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-da-confirm');
+  const id = Number(document.getElementById('da-contrato-id').value);
+  const desde = document.getElementById('da-desde').value;
+  const manual = daManual();
+  if(!desde){ showToast('Indicá desde qué fecha empieza a facturar', true); return; }
+  const args = { p_contrato:id, p_desde:desde, p_motivo: document.getElementById('da-motivo').value.trim() || null };
+  if(manual){
+    const pr = Number(document.getElementById('da-man-precio').value);
+    if(!(pr > 0)){ showToast('Indicá el precio', true); return; }
+    Object.assign(args, { p_modalidad: document.getElementById('da-man-mod').value, p_precio: pr, p_moneda: document.getElementById('da-man-mon').value });
+  } else {
+    const p = daPresActual(), mo = document.getElementById('da-modelo').value, md = document.getElementById('da-modalidad').value;
+    if(!p || !mo || !md){ showToast('Elegí presupuesto, modelo y modalidad', true); return; }
+    Object.assign(args, { p_modalidad: md, p_presupuesto: p.id, p_modelo: mo });
+  }
+  const c = contratosCache.find(k => k.id === id);
+  if(!confirm(`Pasar a alquiler el contrato de ${c && c.clientes ? c.clientes.razon_social : ''} (serie ${c && c.equipos ? c.equipos.numero_serie : ''}).\n\nEmpieza a facturar el ${fmtDate(desde)}.\n¿Confirmás?`)) return;
+  btn.disabled = true;
+  try{
+    const { data, error } = await supabaseClient.rpc('contrato_demo_a_alquiler', args);
+    if(error) throw error;
+    showToast('Contrato pasado a alquiler: factura desde el ' + fmtDate(desde));
+    document.getElementById('modal-da-overlay').classList.remove('open');
+    closeContratoOverlay();
+    await loadContratos();
+    renderEquipos(getFilteredEquipos());
+    try{ await autoGenerarPendientesDelMes(); }catch(err){ console.warn('DEMO→alquiler: generación de pendientes', err); }
+    await refrescarPendientesSiCorresponde();
+    if(typeof renderDashboard === 'function') renderDashboard();
+  } catch(err){
+    console.error(err);
+    showToast('No se pudo pasar a alquiler: ' + err.message, true);
   } finally { btn.disabled = false; }
 });
 
@@ -10648,7 +10780,7 @@ function puede(seccion, accion){
 
 const SECCIONES_PERMISOS = [
   { key:'clientes',      label:'Clientes',      acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
-  { key:'contratos',     label:'Contratos',     acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar'],['editar_precio','Editar precio ya guardado'],['cambiar_serie','Cambiar la serie de la máquina en un contrato activo'],['cambiar_modalidad','Cambiar la modalidad y el precio de un contrato en curso (recalcula períodos)'],['requiere_autorizacion','⚠ Sus contratos nuevos requieren autorización de un maestro'],['autorizar','Autorizar contratos (y ver Contratos pendientes de autorización)']] },
+  { key:'contratos',     label:'Contratos',     acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar'],['editar_precio','Editar precio ya guardado'],['cambiar_serie','Cambiar la serie de la máquina en un contrato activo'],['cambiar_modalidad','Cambiar la modalidad y el precio de un contrato en curso (recalcula períodos)'],['demo_a_alquiler','Pasar un contrato DEMO a alquiler (define desde qué fecha se factura)'],['requiere_autorizacion','⚠ Sus contratos nuevos requieren autorización de un maestro'],['autorizar','Autorizar contratos (y ver Contratos pendientes de autorización)']] },
   { key:'equipos',       label:'Equipos',       acciones:[['ver','Ver'],['crear','Crear'],['editar','Editar'],['eliminar','Eliminar']] },
   { key:'pizarra',       label:'Pizarra de Flota', acciones:[['ver','Ver'],['mover_disponible','Arrastrar a Disponible'],['mover_pdi','Arrastrar a PDI'],['mover_vor','Arrastrar a VOR'],['editar_fecha','Corregir fecha de inicio (📅)'],['reservar','Reservar / liberar máquinas (🔖)']] },
   { key:'servicio',      label:'Monitor de Servicio (PDI / VOR)', acciones:[['ver','Ver el monitor (solo las máquinas de su sucursal asignada)'],['ver_todas','Ver y operar las 3 sucursales (jefe de Servicio)'],['diagnosticar','Cargar diagnóstico (¿necesita repuestos? / notas)'],['editar_fechas','Cargar y modificar fechas (cada cambio de fecha se avisa por mail)'],['repuestos','Elegir repuestos del catálogo'],['recepcion','Confirmar la recepción de los repuestos (pedido en tránsito → recibido)'],['avisar_repuestos','Reenviar el aviso al sector Repuestos (mail)'],['cambiar_tipo','Pasar la máquina de PDI a VOR (y de VOR a PDI)'],['dar_ok','Dar OK: la máquina pasa a Disponible']] },
@@ -11449,6 +11581,7 @@ const PM_DESC = {
   'contratos.requiere_autorizacion':'Cada contrato que cargue queda en “Pendientes de autorización” hasta que un maestro lo apruebe',
   'contratos.autorizar':'Ver la card y autorizar / rechazar contratos pendientes (solo maestros de confianza)',
   'accesos_web.ver_claves':'Mostrar y copiar las contraseñas (cada uso queda registrado). Sin esto ve los portales pero no las claves',
+  'contratos.demo_a_alquiler':'Convierte un contrato DEMO en alquiler: elige el presupuesto de respaldo y la fecha desde la que empieza a facturarse',
   'contratos.cambiar_modalidad':'Cambia la periodicidad y el precio de un contrato en curso, acredita las facturas afectadas con NC y recalcula los períodos a facturar',
   'contratos.cambiar_serie':'Reemplaza la máquina de un contrato activo por otra serie sin dar de baja el contrato ni tocar la facturación',
   'pizarra.editar_fecha':'Cambiar la fecha de inicio de una máquina ya movida',
